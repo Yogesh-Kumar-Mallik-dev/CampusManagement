@@ -1,0 +1,24 @@
+# Go
+backend/server
+backend/bin/
+backend/*.exe
+
+# Flutter / Dart
+client/.dart_tool/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+client/.packages
+client/build/
+client/.pub-cache/
+client/.pub/
+client/**/*.lock
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
