@@ -89,30 +89,43 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-type CreateFacultyRequest struct {
-	FirstName     string `json:"first_name"`
-	LastName      string `json:"last_name"`
-	Email         string `json:"email"`
-	JoiningYear   int    `json:"joining_year"`
-	Designation   string `json:"designation"`
-	CabinLocation string `json:"cabin_location"`
+type CreateEmployeeRequest struct {
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	Email          string `json:"email"`
+	PersonalEmail  string `json:"personal_email"`
+	Phone          string `json:"phone"`
+	JoiningYear    int    `json:"joining_year"`
+	EmploymentType string `json:"employment_type"` // 'permanent', 'contract', 'visiting'
+
+	// Academic info (if applicable)
+	IsAcademic    bool     `json:"is_academic"`
+	AcademicRank  string   `json:"academic_rank,omitempty"`
+	CabinLocation string   `json:"cabin_location,omitempty"`
+	Departments   []string `json:"department_affiliations,omitempty"`
+
+	// Administrative info (if applicable)
+	IsAdministrative bool   `json:"is_administrative"`
+	PrimaryUnit      string `json:"primary_unit,omitempty"`
+	Designation      string `json:"designation,omitempty"`
+	OfficeLocation   string `json:"office_location,omitempty"`
 }
 
-func (h *UserHandler) CreateFaculty(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req CreateFacultyRequest
+	var req CreateEmployeeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid payload", http.StatusBadRequest)
 		return
 	}
 
-	handle, err := h.idGen.NextFacultyID(r.Context(), req.FirstName, req.JoiningYear)
+	handle, err := h.idGen.NextEmployeeID(r.Context(), req.FirstName, req.JoiningYear)
 	if err != nil {
-		http.Error(w, "Failed to generate handle: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to generate employee handle: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -123,24 +136,45 @@ func (h *UserHandler) CreateFaculty(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		CampusHandle: handle,
-		FirstName:    req.FirstName,
-		LastName:     req.LastName,
-		Email:        req.Email,
-		Archetype:    model.ArchetypeFaculty,
-		IsActive:     true,
+		CampusHandle:  handle,
+		FirstName:     req.FirstName,
+		LastName:      req.LastName,
+		Email:         req.Email,
+		PersonalEmail: req.PersonalEmail,
+		Phone:         req.Phone,
+		Archetype:     model.ArchetypeEmployee,
+		IsActive:      true,
 	}
 
-	profile := model.FacultyProfile{
-		UserID:        user.ID,
-		JoiningYear:   req.JoiningYear,
-		Designation:   req.Designation,
-		CabinLocation: req.CabinLocation,
+	empRecord := model.EmployeeRecord{
+		UserID:           user.ID,
+		JoiningDate:      now,
+		EmploymentType:   req.EmploymentType,
+		IsAcademic:       req.IsAcademic,
+		IsAdministrative: req.IsAdministrative,
 	}
 
 	resp := map[string]interface{}{
-		"user":    user,
-		"profile": profile,
+		"user":            user,
+		"employee_record": empRecord,
+	}
+
+	if req.IsAcademic {
+		resp["academic_profile"] = model.AcademicProfile{
+			UserID:        user.ID,
+			AcademicRank:  req.AcademicRank,
+			CabinLocation: req.CabinLocation,
+			Departments:   req.Departments,
+		}
+	}
+
+	if req.IsAdministrative {
+		resp["administrative_profile"] = model.AdministrativeProfile{
+			UserID:         user.ID,
+			PrimaryUnit:    req.PrimaryUnit,
+			Designation:    req.Designation,
+			OfficeLocation: req.OfficeLocation,
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

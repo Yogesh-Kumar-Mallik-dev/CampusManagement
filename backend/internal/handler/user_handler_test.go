@@ -12,7 +12,7 @@ import (
 	"campus/backend/internal/service"
 )
 
-func TestUserAndPermissionFlow(t *testing.T) {
+func TestUserAndDualRoleEmployeeFlow(t *testing.T) {
 	idSvc := idgen.NewIDService(nil)
 	permSvc := service.NewPermissionService(nil, nil)
 
@@ -23,98 +23,122 @@ func TestUserAndPermissionFlow(t *testing.T) {
 			{Code: "attendance:mark"},
 		},
 	})
-	permSvc.AddMemoryScope(model.Scope{
-		Code: "sec:cse-3a",
+	permSvc.AddMemoryRole(model.Role{
+		Code: "professor",
+		Permissions: []model.Permission{
+			{Code: "syllabus:update"},
+			{Code: "attendance:approve"},
+		},
 	})
+	permSvc.AddMemoryRole(model.Role{
+		Code: "dean_student_affairs",
+		Permissions: []model.Permission{
+			{Code: "budget:approve"},
+			{Code: "disciplinary:action"},
+		},
+	})
+
+	permSvc.AddMemoryScope(model.Scope{Code: "sec:cse-3a"})
+	permSvc.AddMemoryScope(model.Scope{Code: "dept:cse"})
+	permSvc.AddMemoryScope(model.Scope{Code: "unit:student_affairs"})
 
 	h := NewUserHandler(idSvc, permSvc)
 
-	// 1. Create 1st Harish
-	req1Body := `{"first_name":"Harish","last_name":"Kumar","email":"harish1@campus.edu","admission_year":2025,"entry_type":"lateral","program":"btech"}`
-	rec1 := httptest.NewRecorder()
-	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/users/student", bytes.NewBufferString(req1Body))
-	h.CreateStudent(rec1, req1)
+	// 1. Create Student Harish
+	reqStudentBody := `{"first_name":"Harish","last_name":"Kumar","email":"harish@campus.edu","admission_year":2025,"entry_type":"lateral","program":"btech"}`
+	recStudent := httptest.NewRecorder()
+	reqStudent := httptest.NewRequest(http.MethodPost, "/api/v1/users/student", bytes.NewBufferString(reqStudentBody))
+	h.CreateStudent(recStudent, reqStudent)
 
-	if rec1.Code != http.StatusCreated {
-		t.Fatalf("expected 201 Created, got %d: %s", rec1.Code, rec1.Body.String())
+	if recStudent.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d", recStudent.Code)
 	}
 
-	var res1 map[string]interface{}
-	_ = json.Unmarshal(rec1.Body.Bytes(), &res1)
-	user1 := res1["user"].(map[string]interface{})
-	if user1["campus_handle"] != "harish_2025_l_btech_1" {
-		t.Fatalf("expected harish_2025_l_btech_1, got %v", user1["campus_handle"])
+	var resStudent map[string]interface{}
+	_ = json.Unmarshal(recStudent.Body.Bytes(), &resStudent)
+	stuUser := resStudent["user"].(map[string]interface{})
+	if stuUser["campus_handle"] != "harish_2025_l_btech_1" {
+		t.Fatalf("expected harish_2025_l_btech_1, got %v", stuUser["campus_handle"])
 	}
 
-	// 2. Create 2nd Harish
-	req2Body := `{"first_name":"Harish","last_name":"Sharma","email":"harish2@campus.edu","admission_year":2025,"entry_type":"lateral","program":"btech"}`
-	rec2 := httptest.NewRecorder()
-	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/users/student", bytes.NewBufferString(req2Body))
-	h.CreateStudent(rec2, req2)
+	// 2. Create Employee Dr. Priya who is BOTH Academic (Professor) AND Administrative (Dean)
+	reqPriyaBody := `{
+		"first_name": "Priya",
+		"last_name": "Nair",
+		"email": "priya@campus.edu",
+		"joining_year": 2024,
+		"employment_type": "permanent",
+		"is_academic": true,
+		"academic_rank": "Professor",
+		"cabin_location": "CS-302",
+		"department_affiliations": ["dept:cse"],
+		"is_administrative": true,
+		"primary_unit": "unit:student_affairs",
+		"designation": "Dean of Student Affairs",
+		"office_location": "Admin-101"
+	}`
+	recPriya := httptest.NewRecorder()
+	reqPriya := httptest.NewRequest(http.MethodPost, "/api/v1/users/employee", bytes.NewBufferString(reqPriyaBody))
+	h.CreateEmployee(recPriya, reqPriya)
 
-	var res2 map[string]interface{}
-	_ = json.Unmarshal(rec2.Body.Bytes(), &res2)
-	user2 := res2["user"].(map[string]interface{})
-	if user2["campus_handle"] != "harish_2025_l_btech_2" {
-		t.Fatalf("expected harish_2025_l_btech_2, got %v", user2["campus_handle"])
+	if recPriya.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d: %s", recPriya.Code, recPriya.Body.String())
 	}
 
-	// 3. Create 3rd Harish
-	req3Body := `{"first_name":"Harish","last_name":"Verma","email":"harish3@campus.edu","admission_year":2025,"entry_type":"lateral","program":"btech"}`
-	rec3 := httptest.NewRecorder()
-	req3 := httptest.NewRequest(http.MethodPost, "/api/v1/users/student", bytes.NewBufferString(req3Body))
-	h.CreateStudent(rec3, req3)
+	var resPriya map[string]interface{}
+	_ = json.Unmarshal(recPriya.Body.Bytes(), &resPriya)
+	priyaUser := resPriya["user"].(map[string]interface{})
+	priyaHandle := priyaUser["campus_handle"].(string)
 
-	var res3 map[string]interface{}
-	_ = json.Unmarshal(rec3.Body.Bytes(), &res3)
-	user3 := res3["user"].(map[string]interface{})
-	if user3["campus_handle"] != "harish_2025_l_btech_3" {
-		t.Fatalf("expected harish_2025_l_btech_3, got %v", user3["campus_handle"])
+	if priyaHandle != "priya_2024_emp_1" {
+		t.Fatalf("expected priya_2024_emp_1, got %s", priyaHandle)
 	}
 
-	// 4. Create Faculty Dr. Priya (2024)
-	facBody := `{"first_name":"Priya","last_name":"Nair","email":"priya@campus.edu","joining_year":2024,"designation":"Assistant Professor"}`
-	facRec := httptest.NewRecorder()
-	facReq := httptest.NewRequest(http.MethodPost, "/api/v1/users/faculty", bytes.NewBufferString(facBody))
-	h.CreateFaculty(facRec, facReq)
-
-	var facRes map[string]interface{}
-	_ = json.Unmarshal(facRec.Body.Bytes(), &facRes)
-	facUser := facRes["user"].(map[string]interface{})
-	if facUser["campus_handle"] != "priya_2024_fac_1" {
-		t.Fatalf("expected priya_2024_fac_1, got %v", facUser["campus_handle"])
+	// Verify both profiles are populated
+	if resPriya["academic_profile"] == nil {
+		t.Fatalf("expected academic_profile to be present")
+	}
+	if resPriya["administrative_profile"] == nil {
+		t.Fatalf("expected administrative_profile to be present")
 	}
 
-	// 5. Assign Harish 3 the Class Rep role for Section 3A
-	harish3UserID := user3["id"].(string)
-	assignBody := `{"user_id":"` + harish3UserID + `","role_code":"class_rep","scope_code":"sec:cse-3a"}`
-	assignRec := httptest.NewRecorder()
-	assignReq := httptest.NewRequest(http.MethodPost, "/api/v1/permissions/assign", bytes.NewBufferString(assignBody))
-	h.AssignRole(assignRec, assignReq)
+	// 3. Assign Dr. Priya her dual roles:
+	// Hat A: Professor for dept:cse
+	// Hat B: Dean for unit:student_affairs
+	priyaID := priyaUser["id"].(string)
+	_ = permSvc.AssignRole(reqPriya.Context(), priyaID, "professor", "dept:cse", nil)
+	_ = permSvc.AssignRole(reqPriya.Context(), priyaID, "dean_student_affairs", "unit:student_affairs", nil)
 
-	if assignRec.Code != http.StatusOK {
-		t.Fatalf("expected 200 OK on assign, got %d: %s", assignRec.Code, assignRec.Body.String())
+	// 4. Test Hat A: Academic Action (attendance:approve in dept:cse)
+	chkA := httptest.NewRecorder()
+	reqA := httptest.NewRequest(http.MethodGet, "/api/v1/permissions/check?user_id="+priyaID+"&action=attendance:approve&scope=dept:cse", nil)
+	h.CheckPermission(chkA, reqA)
+
+	var resA model.PermissionCheckResponse
+	_ = json.Unmarshal(chkA.Body.Bytes(), &resA)
+	if !resA.Allowed {
+		t.Fatalf("expected Dr. Priya to be allowed to approve attendance in dept:cse")
 	}
 
-	// 6. Check Permission for sec:cse-3a -> ALLOWED
-	chk1Rec := httptest.NewRecorder()
-	chk1Req := httptest.NewRequest(http.MethodGet, "/api/v1/permissions/check?user_id="+harish3UserID+"&action=attendance:mark&scope=sec:cse-3a", nil)
-	h.CheckPermission(chk1Rec, chk1Req)
+	// 5. Test Hat B: Administrative Action (budget:approve in unit:student_affairs)
+	chkB := httptest.NewRecorder()
+	reqB := httptest.NewRequest(http.MethodGet, "/api/v1/permissions/check?user_id="+priyaID+"&action=budget:approve&scope=unit:student_affairs", nil)
+	h.CheckPermission(chkB, reqB)
 
-	var chk1Res model.PermissionCheckResponse
-	_ = json.Unmarshal(chk1Rec.Body.Bytes(), &chk1Res)
-	if !chk1Res.Allowed {
-		t.Fatalf("expected attendance:mark to be allowed for Harish 3 in sec:cse-3a")
+	var resB model.PermissionCheckResponse
+	_ = json.Unmarshal(chkB.Body.Bytes(), &resB)
+	if !resB.Allowed {
+		t.Fatalf("expected Dr. Priya to be allowed to approve budget in unit:student_affairs")
 	}
 
-	// 7. Check Permission for sec:cse-3b -> DENIED
-	chk2Rec := httptest.NewRecorder()
-	chk2Req := httptest.NewRequest(http.MethodGet, "/api/v1/permissions/check?user_id="+harish3UserID+"&action=attendance:mark&scope=sec:cse-3b", nil)
-	h.CheckPermission(chk2Rec, chk2Req)
+	// 6. Test Hat Conflict: Can Dr. Priya approve budget in dept:cse? NO! (Dean budget approval is for student affairs only)
+	chkC := httptest.NewRecorder()
+	reqC := httptest.NewRequest(http.MethodGet, "/api/v1/permissions/check?user_id="+priyaID+"&action=budget:approve&scope=dept:cse", nil)
+	h.CheckPermission(chkC, reqC)
 
-	var chk2Res model.PermissionCheckResponse
-	_ = json.Unmarshal(chk2Rec.Body.Bytes(), &chk2Res)
-	if chk2Res.Allowed {
-		t.Fatalf("expected attendance:mark to be DENIED for Harish 3 in sec:cse-3b")
+	var resC model.PermissionCheckResponse
+	_ = json.Unmarshal(chkC.Body.Bytes(), &resC)
+	if resC.Allowed {
+		t.Fatalf("expected budget approval in dept:cse to be denied")
 	}
 }

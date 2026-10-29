@@ -26,13 +26,13 @@ $$ LANGUAGE plpgsql;
 -- 2. Core User Identity Table
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    campus_handle VARCHAR(128) UNIQUE NOT NULL,
+    campus_handle VARCHAR(128) UNIQUE NOT NULL, -- e.g. harish_2025_l_btech_1, priya_2024_emp_1
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     personal_email VARCHAR(255),
     phone VARCHAR(32),
-    archetype VARCHAR(32) NOT NULL, -- 'student', 'faculty', 'staff', 'contractor'
+    archetype VARCHAR(32) NOT NULL, -- 'student', 'employee', 'external'
     
     -- Late-binding official IDs (nullable on day 1)
     admission_application_no VARCHAR(64),
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS user_role_assignments (
     role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
     scope_id UUID REFERENCES scopes(id) ON DELETE CASCADE, -- NULL means Global / Campus-wide
     valid_from TIMESTAMPTZ DEFAULT NOW(),
-    valid_until TIMESTAMPTZ, -- Optional expiration for temporary positions (e.g. CR for 1 sem)
+    valid_until TIMESTAMPTZ, -- Optional expiration for temporary positions
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS user_role_assignments (
 CREATE INDEX IF NOT EXISTS idx_user_assignments ON user_role_assignments(user_id, is_active, is_deleted);
 
 -- 8. Archetype Specific Profiles
+
+-- Student Profile (Academic admission facts)
 CREATE TABLE IF NOT EXISTS student_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     admission_year INT NOT NULL,
@@ -114,31 +116,46 @@ CREATE TABLE IF NOT EXISTS student_profiles (
     batch_year INT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS faculty_profiles (
+-- Unified Employee Record (HR & Payroll anchor for both Faculty and Staff)
+CREATE TABLE IF NOT EXISTS employee_records (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    joining_year INT NOT NULL,
-    designation VARCHAR(64) NOT NULL, -- 'Assistant Professor', 'Professor', 'Dean'
-    cabin_location VARCHAR(128)
+    joining_date DATE NOT NULL,
+    employee_code VARCHAR(64) UNIQUE,
+    employment_type VARCHAR(32) NOT NULL, -- 'permanent', 'contract', 'visiting'
+    is_academic BOOLEAN DEFAULT FALSE,    -- Participates in teaching/research
+    is_administrative BOOLEAN DEFAULT FALSE -- Participates in campus/unit administration
 );
 
-CREATE TABLE IF NOT EXISTS faculty_department_affiliations (
-    faculty_id UUID REFERENCES users(id) ON DELETE CASCADE,
+-- Academic Profile (Attached if employee has teaching/research duties)
+CREATE TABLE IF NOT EXISTS academic_profiles (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    academic_rank VARCHAR(64) NOT NULL,   -- 'Assistant Professor', 'Associate Professor', 'Professor'
+    cabin_location VARCHAR(128),
+    google_scholar_id VARCHAR(64),
+    research_areas TEXT[]
+);
+
+-- Department affiliations for academic staff
+CREATE TABLE IF NOT EXISTS employee_department_affiliations (
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     department_scope_id UUID REFERENCES scopes(id) ON DELETE CASCADE,
     is_primary BOOLEAN DEFAULT FALSE,
-    PRIMARY KEY (faculty_id, department_scope_id)
+    PRIMARY KEY (user_id, department_scope_id)
 );
 
-CREATE TABLE IF NOT EXISTS staff_profiles (
+-- Administrative Profile (Attached if employee has administrative/operational duties)
+CREATE TABLE IF NOT EXISTS administrative_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    joining_year INT NOT NULL,
-    unit VARCHAR(64) NOT NULL,       -- 'security', 'library', 'administration', 'examination'
-    designation VARCHAR(64) NOT NULL
+    primary_unit VARCHAR(64) NOT NULL,    -- 'registrar', 'library', 'security', 'it_center', 'examination'
+    designation VARCHAR(64) NOT NULL,     -- 'Registrar', 'Chief Security Officer', 'Lab Incharge'
+    office_location VARCHAR(128)
 );
 
+-- Contractor / External Profile
 CREATE TABLE IF NOT EXISTS contractor_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     onboarding_year INT NOT NULL,
     vendor_organization VARCHAR(128) NOT NULL,
-    service_type VARCHAR(64) NOT NULL, -- 'canteen', 'mess', 'cleaning', 'transport'
+    service_type VARCHAR(64) NOT NULL,    -- 'canteen', 'mess', 'cleaning', 'transport'
     contract_expires_at TIMESTAMPTZ
 );

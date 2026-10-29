@@ -55,34 +55,26 @@ func (s *IDService) NextStudentID(ctx context.Context, firstName string, admissi
 	return s.atomicIncrement(ctx, prefix)
 }
 
-// NextFacultyID: {name}_{joiningYear}_fac_{seq}
-// e.g. "Priya", 2024 -> "priya_2024_fac_1"
-// Fully immutable across promotions (Asst Prof -> Prof -> Dean) and across department transfers.
-func (s *IDService) NextFacultyID(ctx context.Context, firstName string, joiningYear int) (string, error) {
+// NextEmployeeID: {name}_{joiningYear}_emp_{seq}
+// e.g. "Priya", 2024 -> "priya_2024_emp_1"
+// Fully immutable across:
+// 1. Academic promotions (Asst Prof -> Associate Prof -> Professor -> Dean)
+// 2. Department transfers or joint appointments
+// 3. Transitions between Faculty and Administrative/Staff roles
+// 4. Employees holding both academic and operational positions simultaneously
+func (s *IDService) NextEmployeeID(ctx context.Context, firstName string, joiningYear int) (string, error) {
 	name := Sanitize(firstName)
 	if name == "" {
-		name = "faculty"
+		name = "employee"
 	}
-	prefix := fmt.Sprintf("%s_%d_fac", name, joiningYear)
+	prefix := fmt.Sprintf("%s_%d_emp", name, joiningYear)
 	return s.atomicIncrement(ctx, prefix)
 }
 
-// NextStaffID: {name}_{joiningYear}_stf_{seq}
-// e.g. "Ramesh", 2023 -> "ramesh_2023_stf_1"
-// Fully immutable across promotions and transfers (security -> library -> exam cell).
-func (s *IDService) NextStaffID(ctx context.Context, firstName string, joiningYear int) (string, error) {
-	name := Sanitize(firstName)
-	if name == "" {
-		name = "staff"
-	}
-	prefix := fmt.Sprintf("%s_%d_stf", name, joiningYear)
-	return s.atomicIncrement(ctx, prefix)
-}
-
-// NextContractorID: {name}_{onboardingYear}_ext_{seq}
+// NextExternalID: {name}_{onboardingYear}_ext_{seq}
 // e.g. "Mukesh", 2025 -> "mukesh_2025_ext_1"
-// Fully immutable across catering agency swaps or vendor renewals.
-func (s *IDService) NextContractorID(ctx context.Context, firstName string, onboardingYear int) (string, error) {
+// For contractors, outsourced staff, canteen vendors, mess operators.
+func (s *IDService) NextExternalID(ctx context.Context, firstName string, onboardingYear int) (string, error) {
 	name := Sanitize(firstName)
 	if name == "" {
 		name = "external"
@@ -91,8 +83,17 @@ func (s *IDService) NextContractorID(ctx context.Context, firstName string, onbo
 	return s.atomicIncrement(ctx, prefix)
 }
 
+// NextFacultyID is an alias for NextEmployeeID to guarantee identity stability
+func (s *IDService) NextFacultyID(ctx context.Context, firstName string, joiningYear int) (string, error) {
+	return s.NextEmployeeID(ctx, firstName, joiningYear)
+}
+
+// NextStaffID is an alias for NextEmployeeID to guarantee identity stability
+func (s *IDService) NextStaffID(ctx context.Context, firstName string, joiningYear int) (string, error) {
+	return s.NextEmployeeID(ctx, firstName, joiningYear)
+}
+
 func (s *IDService) atomicIncrement(ctx context.Context, prefix string) (string, error) {
-	// If PostgreSQL is available, use database sequence function
 	if s.db != nil {
 		var handle string
 		query := "SELECT generate_campus_handle($1)"
@@ -102,7 +103,6 @@ func (s *IDService) atomicIncrement(ctx context.Context, prefix string) (string,
 		}
 	}
 
-	// In-memory fallback (for unit tests / initial bootstrap)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.memCounts[prefix]++

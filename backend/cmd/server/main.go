@@ -72,7 +72,7 @@ func main() {
 
 	// User Onboarding & ID Generation Routes
 	mux.HandleFunc("/api/v1/users/student", userHandler.CreateStudent)
-	mux.HandleFunc("/api/v1/users/faculty", userHandler.CreateFaculty)
+	mux.HandleFunc("/api/v1/users/employee", userHandler.CreateEmployee)
 
 	// Scoped Permissions Endpoints
 	mux.HandleFunc("/api/v1/permissions/assign", userHandler.AssignRole)

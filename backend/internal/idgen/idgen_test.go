@@ -32,25 +32,25 @@ func TestIDServiceGeneration(t *testing.T) {
 		t.Fatalf("expected rahulsharma_2026_r_btech_1, got %s, err: %v", r1, err)
 	}
 
-	// 3. Faculty tests (Immune to designation / promotions / department changes)
-	f1, err := svc.NextFacultyID(ctx, "Priya", 2024)
-	if err != nil || f1 != "priya_2024_fac_1" {
-		t.Fatalf("expected priya_2024_fac_1, got %s, err: %v", f1, err)
+	// 3. Employee tests (Unified for faculty and staff)
+	e1, err := svc.NextEmployeeID(ctx, "Priya", 2024)
+	if err != nil || e1 != "priya_2024_emp_1" {
+		t.Fatalf("expected priya_2024_emp_1, got %s, err: %v", e1, err)
 	}
 
-	f2, err := svc.NextFacultyID(ctx, "Priya", 2024)
-	if err != nil || f2 != "priya_2024_fac_2" {
-		t.Fatalf("expected priya_2024_fac_2, got %s, err: %v", f2, err)
+	e2, err := svc.NextEmployeeID(ctx, "Priya", 2024)
+	if err != nil || e2 != "priya_2024_emp_2" {
+		t.Fatalf("expected priya_2024_emp_2, got %s, err: %v", e2, err)
 	}
 
-	// 4. Staff tests (Immune to promotions or department transfers)
-	s1, err := svc.NextStaffID(ctx, "Ramesh", 2023)
-	if err != nil || s1 != "ramesh_2023_stf_1" {
-		t.Fatalf("expected ramesh_2023_stf_1, got %s, err: %v", s1, err)
+	// Ramesh (Staff member) gets the same stable employee handle
+	s1, err := svc.NextEmployeeID(ctx, "Ramesh", 2023)
+	if err != nil || s1 != "ramesh_2023_emp_1" {
+		t.Fatalf("expected ramesh_2023_emp_1, got %s, err: %v", s1, err)
 	}
 
-	// 5. Contractor / External tests (Immune to vendor contract swaps)
-	c1, err := svc.NextContractorID(ctx, "Mukesh", 2025)
+	// 4. Contractor / External tests (Immune to vendor contract swaps)
+	c1, err := svc.NextExternalID(ctx, "Mukesh", 2025)
 	if err != nil || c1 != "mukesh_2025_ext_1" {
 		t.Fatalf("expected mukesh_2025_ext_1, got %s, err: %v", c1, err)
 	}
