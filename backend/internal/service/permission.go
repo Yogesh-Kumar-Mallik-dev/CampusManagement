@@ -1,0 +1,170 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"campus/backend/internal/cache"
+	"campus/backend/internal/model"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type PermissionService struct {
+	db           *pgxpool.Pool
+	cache        *cache.ResilientManager
+	mu           sync.RWMutex
+	memAssigns   map[string][]model.UserRoleAssignment // Fallback for testing/memory
+	memRoles     map[string]model.Role
+	memScopes    map[string]model.Scope
+}
+
+func NewPermissionService(db *pgxpool.Pool, cache *cache.ResilientManager) *PermissionService {
+	return &PermissionService{
+		db:         db,
+		cache:      cache,
+		memAssigns: make(map[string][]model.UserRoleAssignment),
+		memRoles:   make(map[string]model.Role),
+		memScopes:  make(map[string]model.Scope),
+	}
+}
+
+// AddMemoryRole registers a role and its permissions for in-memory use
+func (s *PermissionService) AddMemoryRole(role model.Role) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.memRoles[role.Code] = role
+}
+
+// AddMemoryScope registers a scope and its parent hierarchy
+func (s *PermissionService) AddMemoryScope(scope model.Scope) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.memScopes[scope.Code] = scope
+}
+
+// AssignRole grants a role to a user within a specific scope
+func (s *PermissionService) AssignRole(ctx context.Context, userID, roleCode, scopeCode string, validUntil *time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	assign := model.UserRoleAssignment{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        fmt.Sprintf("assign-%d", time.Now().UnixNano()),
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+		},
+		UserID:     userID,
+		RoleCode:   roleCode,
+		ScopeCode:  scopeCode,
+		ValidFrom:  time.Now().UTC(),
+		ValidUntil: validUntil,
+		IsActive:   true,
+	}
+
+	s.memAssigns[userID] = append(s.memAssigns[userID], assign)
+
+	// Invalidate cache for this user
+	if s.cache != nil {
+		_, _ = s.cache.FetchOrCompute(ctx, "perm:"+userID, 0, func(ctx context.Context) ([]byte, error) {
+			return nil, nil
+		})
+	}
+
+	return nil
+}
+
+// Can evaluates if a user can execute `permissionCode` within `requestedScope`
+func (s *PermissionService) Can(ctx context.Context, userID, permissionCode, requestedScope string) (bool, string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	assignments, exists := s.memAssigns[userID]
+	if !exists || len(assignments) == 0 {
+		return false, "User has no active role assignments"
+	}
+
+	now := time.Now().UTC()
+
+	for _, assign := range assignments {
+		if !assign.IsActive {
+			continue
+		}
+		if assign.ValidUntil != nil && now.After(*assign.ValidUntil) {
+			continue // expired temporary role
+		}
+
+		role, roleExists := s.memRoles[assign.RoleCode]
+		if !roleExists {
+			continue
+		}
+
+		// Check if this role has the requested permission
+		hasPermission := false
+		for _, perm := range role.Permissions {
+			if perm.Code == permissionCode || perm.Code == "*" {
+				hasPermission = true
+				break
+			}
+		}
+
+		if !hasPermission {
+			continue
+		}
+
+		// Check scope hierarchy
+		if s.isScopeCovered(assign.ScopeCode, requestedScope) {
+			return true, fmt.Sprintf("Allowed by role '%s' scoped to '%s'", assign.RoleCode, assign.ScopeCode)
+		}
+	}
+
+	return false, fmt.Sprintf("Permission '%s' denied in scope '%s'", permissionCode, requestedScope)
+}
+
+// isScopeCovered determines if grantedScope covers requestedScope
+// Rules:
+// 1. 'global' or '' covers EVERYTHING.
+// 2. Exact match (e.g., 'sec:cse-3a' covers 'sec:cse-3a').
+// 3. Parent hierarchy: 'dept:cse' covers 'sec:cse-3a' and 'lab:cse-iot'.
+func (s *PermissionService) isScopeCovered(grantedScope, requestedScope string) bool {
+	if grantedScope == "global" || grantedScope == "" {
+		return true // Campus-wide authority (e.g. Dean, Principal)
+	}
+	if grantedScope == requestedScope {
+		return true // Exact scope match
+	}
+
+	// Hierarchy check: Does requestedScope belong to grantedScope?
+	currCode := requestedScope
+	for currCode != "" {
+		scope, exists := s.memScopes[currCode]
+		if !exists || scope.ParentScopeID == nil {
+			break
+		}
+		// find parent scope code
+		foundParent := false
+		for _, parent := range s.memScopes {
+			if scope.ParentScopeID != nil && *scope.ParentScopeID == parent.ID {
+				if parent.Code == grantedScope {
+					return true
+				}
+				currCode = parent.Code
+				foundParent = true
+				break
+			}
+		}
+		if !foundParent {
+			break
+		}
+	}
+
+	// Simple colon prefix convention fallback:
+	// If granted is 'dept:cse' and requested is 'dept:cse:sec-a'
+	if strings.HasPrefix(requestedScope, grantedScope+":") {
+		return true
+	}
+
+	return false
+}

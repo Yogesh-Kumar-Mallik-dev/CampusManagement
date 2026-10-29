@@ -2,12 +2,16 @@ package database
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+//go:embed schema.sql
+var schemaSQL string
 
 type Config struct {
 	Host     string
@@ -30,7 +34,6 @@ func ConnectPostgres(cfg Config) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("unable to parse connection string: %w", err)
 	}
 
-	// Protect PostgreSQL from connection exhaustion
 	if cfg.MaxConns <= 0 {
 		cfg.MaxConns = 40
 	}
@@ -53,9 +56,20 @@ func ConnectPostgres(cfg Config) (*pgxpool.Pool, error) {
 
 	if err := pool.Ping(ctx); err != nil {
 		log.Printf("[DB Notice] Postgres not reachable yet at %s:%d: %v", cfg.Host, cfg.Port, err)
+		return pool, nil
+	}
+
+	log.Println("[DB] Connected to PostgreSQL. Initializing schema...")
+	if err := InitSchema(ctx, pool); err != nil {
+		log.Printf("[DB Warning] Schema init error: %v", err)
 	} else {
-		log.Println("[DB] Successfully connected to PostgreSQL with connection pooling")
+		log.Println("[DB] Schema initialized successfully")
 	}
 
 	return pool, nil
+}
+
+func InitSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, schemaSQL)
+	return err
 }
