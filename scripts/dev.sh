@@ -48,22 +48,39 @@ cd "$ROOT_DIR/backend"
 go run ./cmd/server &
 BACKEND_PID=$!
 
+# Wait briefly for server to bind port 8080
+sleep 1
+
 echo "=================================================================="
 echo "  🏛️  CampusManagement Platform is running in dev mode!"
 echo "  Backend API: http://localhost:8080"
 echo "  Health:      http://localhost:8080/api/health"
 echo "  Delta Sync:  http://localhost:8080/api/v1/sync"
-echo ""
-echo "  To launch the Flutter client:"
-echo "    ./script.sh app run       (Native Linux Desktop)"
-echo "    ./script.sh app web       (Google Chrome)"
+echo "  Web Portal:  http://localhost:8080/"
 echo "=================================================================="
 
-# If --client or --app flag is passed, also launch the flutter app in background
-if [[ "${1:-}" == "--client" || "${1:-}" == "--app" ]]; then
-  echo "==> [dev] Launching Flutter client..."
-  cd "$ROOT_DIR/client"
-  flutter run -d linux &
-fi
+# By default, launch the Flutter client unless --no-app or --backend-only is requested
+LAUNCH_APP=true
+CLIENT_DEVICE="linux"
 
-wait
+for arg in "$@"; do
+  case "$arg" in
+    --no-app|--backend-only)
+      LAUNCH_APP=false
+      ;;
+    --web)
+      CLIENT_DEVICE="chrome"
+      ;;
+    --desktop|--linux)
+      CLIENT_DEVICE="linux"
+      ;;
+  esac
+done
+
+if [ "$LAUNCH_APP" = true ]; then
+  echo "==> [dev] Launching Flutter client (target: $CLIENT_DEVICE)..."
+  cd "$ROOT_DIR/client"
+  flutter run -d "$CLIENT_DEVICE"
+else
+  wait
+fi

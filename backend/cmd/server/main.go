@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"campus/backend/internal/cache"
@@ -116,9 +118,90 @@ func main() {
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
 	mux.HandleFunc("/api/v1/sync", academicHandler.DeltaSync)
 
+	// Locate client/build/web if built
+	webDistDirs := []string{
+		"../client/build/web",
+		"client/build/web",
+		"../../client/build/web",
+	}
+	var webDist string
+	for _, dir := range webDistDirs {
+		if fi, err := os.Stat(dir); err == nil && fi.IsDir() {
+			webDist = dir
+			break
+		}
+	}
+
+	if webDist != "" {
+		log.Printf("📱 Serving Flutter Web App at http://localhost:%s/ from %s", port, webDist)
+		fs := http.FileServer(http.Dir(webDist))
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api") {
+				http.NotFound(w, r)
+				return
+			}
+			fullPath := filepath.Join(webDist, r.URL.Path)
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				http.ServeFile(w, r, filepath.Join(webDist, "index.html"))
+				return
+			}
+			fs.ServeHTTP(w, r)
+		})
+	} else {
+		// API Portal page
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/" {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CampusOS Backend</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+    h1 { color: #1e40af; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; background: #dbeafe; color: #1e40af; font-weight: bold; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 10px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }
+    a { color: #2563eb; font-weight: 600; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>🏛️ CampusOS API Backend</h1>
+  <p><span class="badge">Status: Online</span> Port: 8080</p>
+  <p>Available endpoints:</p>
+  <ul>
+    <li><a href="/api/health">/api/health</a> - System Health & Cache Readiness</li>
+    <li><a href="/api/v1/sync">/api/v1/sync</a> - Delta Sync Replication Endpoint</li>
+    <li><a href="/api/v1/academics/courses">/api/v1/academics/courses</a> - Academic Course Catalog</li>
+    <li><a href="/api/v1/academics/timetable?scope=sec:cse-3a">/api/v1/academics/timetable?scope=sec:cse-3a</a> - Timetable</li>
+    <li><a href="/api/v1/notices">/api/v1/notices</a> - Targeted Notice Board</li>
+  </ul>
+  <p>To run the native desktop or web Flutter client: <code>./script.sh app run</code></p>
+</body>
+</html>`))
+		})
+	}
+
+	// Wrap mux with CORS middleware
+	handlerWithCORS := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User-ID")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      mux,
+		Handler:      handlerWithCORS,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
