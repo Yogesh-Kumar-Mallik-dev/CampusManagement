@@ -159,3 +159,99 @@ CREATE TABLE IF NOT EXISTS contractor_profiles (
     service_type VARCHAR(64) NOT NULL,    -- 'canteen', 'mess', 'cleaning', 'transport'
     contract_expires_at TIMESTAMPTZ
 );
+
+-- ==========================================
+-- PHASE 1: ACADEMICS, TIMETABLE & ATTENDANCE
+-- ==========================================
+
+-- 9. Courses / Subjects Catalog
+CREATE TABLE IF NOT EXISTS courses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(32) UNIQUE NOT NULL,      -- e.g. 'CS301'
+    name VARCHAR(255) NOT NULL,            -- 'Operating Systems'
+    department_scope_id UUID REFERENCES scopes(id) ON DELETE SET NULL,
+    credits INT NOT NULL DEFAULT 3,
+    semester INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_courses_code ON courses(code);
+CREATE INDEX IF NOT EXISTS idx_courses_updated ON courses(updated_at);
+
+-- 10. Timetable Slots
+CREATE TABLE IF NOT EXISTS timetable_slots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    scope_id UUID REFERENCES scopes(id) ON DELETE CASCADE, -- Target cohort/section (e.g. sec:cse-3a)
+    instructor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    day_of_week INT NOT NULL,              -- 1 = Monday ... 7 = Sunday
+    start_time VARCHAR(8) NOT NULL,        -- '09:00'
+    end_time VARCHAR(8) NOT NULL,          -- '10:00'
+    room_number VARCHAR(64) NOT NULL,      -- 'LH-201'
+    slot_type VARCHAR(32) NOT NULL DEFAULT 'lecture', -- 'lecture', 'lab', 'tutorial'
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_timetable_scope ON timetable_slots(scope_id, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_timetable_instructor ON timetable_slots(instructor_id, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_timetable_updated ON timetable_slots(updated_at);
+
+-- 11. Attendance Sessions (A marked class instance)
+CREATE TABLE IF NOT EXISTS attendance_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    timetable_slot_id UUID REFERENCES timetable_slots(id) ON DELETE SET NULL,
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    scope_id UUID REFERENCES scopes(id) ON DELETE CASCADE,
+    marked_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    session_date DATE NOT NULL,
+    topic VARCHAR(255),
+    is_finalized BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_sessions_scope_date ON attendance_sessions(scope_id, session_date);
+CREATE INDEX IF NOT EXISTS idx_attendance_sessions_updated ON attendance_sessions(updated_at);
+
+-- 12. Attendance Student Records
+CREATE TABLE IF NOT EXISTS attendance_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES attendance_sessions(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(16) NOT NULL,           -- 'present', 'absent', 'late', 'excused'
+    remarks VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    CONSTRAINT uq_session_student UNIQUE(session_id, student_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_records_student ON attendance_records(student_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_session ON attendance_records(session_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_updated ON attendance_records(updated_at);
+
+-- 13. Scoped Targeted Notices
+CREATE TABLE IF NOT EXISTS notices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    category VARCHAR(64) NOT NULL,         -- 'academic', 'exam', 'urgent', 'event', 'hostel'
+    publisher_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    target_scope_id UUID REFERENCES scopes(id) ON DELETE CASCADE, -- NULL = Campus-wide (Global)
+    priority VARCHAR(16) NOT NULL DEFAULT 'normal', -- 'normal', 'high', 'urgent'
+    published_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_notices_scope ON notices(target_scope_id);
+CREATE INDEX IF NOT EXISTS idx_notices_published ON notices(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notices_updated ON notices(updated_at);
+

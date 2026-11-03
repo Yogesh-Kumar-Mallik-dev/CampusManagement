@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -50,11 +49,14 @@ func main() {
 	// 3. Initialize Services
 	idService := idgen.NewIDService(dbPool)
 	permService := service.NewPermissionService(dbPool, cacheManager)
+	academicService := service.NewAcademicService(dbPool, cacheManager, permService)
 
-	// Seed Standard Campus Roles into Permission Service
+	// Seed Standard Campus Roles into Permission Service & Sample Academic Data
 	seedDefaultRolesAndScopes(permService)
+	seedDefaultAcademics(academicService)
 
 	userHandler := handler.NewUserHandler(idService, permService)
+	academicHandler := handler.NewAcademicHandler(academicService)
 
 	// 4. Define HTTP Routes
 	mux := http.NewServeMux()
@@ -78,42 +80,15 @@ func main() {
 	mux.HandleFunc("/api/v1/permissions/assign", userHandler.AssignRole)
 	mux.HandleFunc("/api/v1/permissions/check", userHandler.CheckPermission)
 
+	// Phase 1 Academics, Timetable, Attendance & Notices
+	mux.HandleFunc("/api/v1/academics/courses", academicHandler.HandleCourses)
+	mux.HandleFunc("/api/v1/academics/timetable", academicHandler.HandleTimetable)
+	mux.HandleFunc("/api/v1/attendance/sync", academicHandler.SyncAttendance)
+	mux.HandleFunc("/api/v1/attendance/summary", academicHandler.GetAttendanceSummary)
+	mux.HandleFunc("/api/v1/notices", academicHandler.HandleNotices)
+
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
-	mux.HandleFunc("/api/v1/sync", func(w http.ResponseWriter, r *http.Request) {
-		sinceParam := r.URL.Query().Get("since")
-		cacheKey := fmt.Sprintf("sync:global:%s", sinceParam)
-
-		data, err := cacheManager.FetchOrCompute(r.Context(), cacheKey, 3*time.Minute, func(ctx context.Context) ([]byte, error) {
-			resp := model.DeltaSyncResponse{
-				ServerTime: time.Now().UTC(),
-				Notices: []model.Notice{
-					{
-						BaseSyncModel: model.BaseSyncModel{
-							ID:        "notice-1",
-							CreatedAt: time.Now().UTC().Add(-2 * time.Hour),
-							UpdatedAt: time.Now().UTC().Add(-2 * time.Hour),
-							IsDeleted: false,
-						},
-						Title:       "Fall Semester Registration Open",
-						Content:     "Portal is active for course enrollment until next Friday.",
-						Category:    "Academic",
-						Publisher:   "Registrar Office",
-						PublishedAt: time.Now().UTC().Add(-2 * time.Hour),
-					},
-				},
-				Timetables: []model.TimetableEntry{},
-			}
-			return json.Marshal(resp)
-		})
-
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error fetching data: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(data)
-	})
+	mux.HandleFunc("/api/v1/sync", academicHandler.DeltaSync)
 
 	server := &http.Server{
 		Addr:         ":" + port,
@@ -206,5 +181,83 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 		BaseSyncModel: model.BaseSyncModel{ID: "club-robotics-id"},
 		Code:          "club:robotics",
 		Name:          "Robotics Club",
+	})
+}
+
+func seedDefaultAcademics(svc *service.AcademicService) {
+	ctx := context.Background()
+
+	// 1. Seed Courses
+	c1, _ := svc.CreateCourse(ctx, model.Course{
+		Code:     "CS301",
+		Name:     "Operating Systems",
+		Credits:  4,
+		Semester: 3,
+	})
+	c2, _ := svc.CreateCourse(ctx, model.Course{
+		Code:     "CS302",
+		Name:     "Database Management Systems",
+		Credits:  4,
+		Semester: 3,
+	})
+	c3, _ := svc.CreateCourse(ctx, model.Course{
+		Code:     "CS303",
+		Name:     "Design & Analysis of Algorithms",
+		Credits:  4,
+		Semester: 3,
+	})
+
+	// 2. Seed Timetable Slots for CSE Section 3A
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseID:       c1.ID,
+		CourseCode:     c1.Code,
+		CourseName:     c1.Name,
+		ScopeCode:      "sec:cse-3a",
+		InstructorName: "Dr. Priya Nair",
+		DayOfWeek:      1, // Monday
+		StartTime:      "09:00",
+		EndTime:        "10:00",
+		RoomNumber:     "LH-101",
+		SlotType:       "lecture",
+	})
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseID:       c2.ID,
+		CourseCode:     c2.Code,
+		CourseName:     c2.Name,
+		ScopeCode:      "sec:cse-3a",
+		InstructorName: "Prof. Amit Verma",
+		DayOfWeek:      1, // Monday
+		StartTime:      "10:00",
+		EndTime:        "11:00",
+		RoomNumber:     "Lab-3",
+		SlotType:       "lab",
+	})
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseID:       c3.ID,
+		CourseCode:     c3.Code,
+		CourseName:     c3.Name,
+		ScopeCode:      "sec:cse-3a",
+		InstructorName: "Dr. Sandeep Rao",
+		DayOfWeek:      2, // Tuesday
+		StartTime:      "11:15",
+		EndTime:        "12:15",
+		RoomNumber:     "LH-101",
+		SlotType:       "lecture",
+	})
+
+	// 3. Seed Targeted Notices
+	_, _ = svc.PublishNotice(ctx, model.Notice{
+		Title:           "Mid-Semester Exam Schedule Published",
+		Content:         "The midterm examination timetable is now available on the portal. Exams begin from Nov 18.",
+		Category:        "exam",
+		Priority:        "high",
+		TargetScopeCode: "global",
+	})
+	_, _ = svc.PublishNotice(ctx, model.Notice{
+		Title:           "OS Lab Assignment 2 Deadline Extended",
+		Content:         "Submit your process scheduling simulation programs before Friday 5:00 PM.",
+		Category:        "academic",
+		Priority:        "normal",
+		TargetScopeCode: "sec:cse-3a",
 	})
 }
