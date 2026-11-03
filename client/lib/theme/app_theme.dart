@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 class AppTheme {
+  // Smooth 60fps/120fps Theme Transition Constants
+  static const Duration themeAnimationDuration = Duration(milliseconds: 300);
+  static const Curve themeAnimationCurve = Curves.easeInOutCubic;
+
   // Enterprise Modern Light Theme
   static ThemeData get lightTheme {
     return ThemeData(

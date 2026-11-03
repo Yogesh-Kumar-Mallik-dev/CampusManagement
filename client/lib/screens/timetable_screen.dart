@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/academic.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 
 class TimetableScreen extends StatefulWidget {
@@ -60,7 +61,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
       body: Column(
         children: [
           // Day selector chips
-          Container(
+          AnimatedContainer(
+            duration: AppTheme.themeAnimationDuration,
+            curve: AppTheme.themeAnimationCurve,
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -130,7 +133,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         itemBuilder: (context, i) {
                           final slot = daySlots[i];
                           final isLab = slot.slotType.toLowerCase() == 'lab';
-                          return Container(
+                          return AnimatedContainer(
+                            duration: AppTheme.themeAnimationDuration,
+                            curve: AppTheme.themeAnimationCurve,
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -145,7 +150,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Time Column
-                                Container(
+                                AnimatedContainer(
+                                  duration: AppTheme.themeAnimationDuration,
+                                  curve: AppTheme.themeAnimationCurve,
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   decoration: BoxDecoration(
                                     color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),

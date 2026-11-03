@@ -3,6 +3,7 @@ import '../main.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 import 'attendance_screen.dart';
 import 'notices_screen.dart';
@@ -116,7 +117,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           // Connection Status Badge
-          Container(
+          AnimatedContainer(
+            duration: AppTheme.themeAnimationDuration,
+            curve: AppTheme.themeAnimationCurve,
             margin: const EdgeInsets.symmetric(vertical: 12),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -304,7 +307,9 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Enterprise User Identity Strip
-          Container(
+          AnimatedContainer(
+            duration: AppTheme.themeAnimationDuration,
+            curve: AppTheme.themeAnimationCurve,
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -385,7 +390,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         spacing: 6,
                         runSpacing: 4,
                         children: _currentUser.activeScopes.map((scope) {
-                          return Container(
+                          return AnimatedContainer(
+                            duration: AppTheme.themeAnimationDuration,
+                            curve: AppTheme.themeAnimationCurve,
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
@@ -485,7 +492,9 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 24),
 
           // Institutional System Specs
-          Container(
+          AnimatedContainer(
+            duration: AppTheme.themeAnimationDuration,
+            curve: AppTheme.themeAnimationCurve,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -547,7 +556,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      child: Container(
+      child: AnimatedContainer(
+        duration: AppTheme.themeAnimationDuration,
+        curve: AppTheme.themeAnimationCurve,
         constraints: const BoxConstraints(minHeight: 90),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(

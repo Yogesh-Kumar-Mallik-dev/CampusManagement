@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/academic.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 
 class NoticesScreen extends StatefulWidget {
@@ -64,7 +65,9 @@ class _NoticesScreenState extends State<NoticesScreen> {
       body: Column(
         children: [
           // Filter Chips
-          Container(
+          AnimatedContainer(
+            duration: AppTheme.themeAnimationDuration,
+            curve: AppTheme.themeAnimationCurve,
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
@@ -153,7 +156,9 @@ class _NoticesScreenState extends State<NoticesScreen> {
                             badgeBorder = isDark ? AppColors.statusYellow : AppColors.statusYellowBorder;
                           }
 
-                          return Container(
+                          return AnimatedContainer(
+                            duration: AppTheme.themeAnimationDuration,
+                            curve: AppTheme.themeAnimationCurve,
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -171,7 +176,9 @@ class _NoticesScreenState extends State<NoticesScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    Container(
+                                    AnimatedContainer(
+                                      duration: AppTheme.themeAnimationDuration,
+                                      curve: AppTheme.themeAnimationCurve,
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: badgeBg,
@@ -188,7 +195,9 @@ class _NoticesScreenState extends State<NoticesScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Container(
+                                    AnimatedContainer(
+                                      duration: AppTheme.themeAnimationDuration,
+                                      curve: AppTheme.themeAnimationCurve,
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),

@@ -3,6 +3,7 @@ import '../models/academic.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -191,7 +192,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     return Column(
       children: [
-        Container(
+        AnimatedContainer(
+          duration: AppTheme.themeAnimationDuration,
+          curve: AppTheme.themeAnimationCurve,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF161B22) : AppColors.wineRedSubtle,
@@ -258,7 +261,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   itemBuilder: (context, i) {
                     final s = _summaries[i];
                     final isLow = s.percentage < 75.0;
-                    return Container(
+                    return AnimatedContainer(
+                      duration: AppTheme.themeAnimationDuration,
+                      curve: AppTheme.themeAnimationCurve,
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -279,7 +284,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 s.courseCode,
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                               ),
-                              Container(
+                              AnimatedContainer(
+                                duration: AppTheme.themeAnimationDuration,
+                                curve: AppTheme.themeAnimationCurve,
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: isLow
@@ -346,7 +353,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     return Column(
       children: [
-        Container(
+        AnimatedContainer(
+          duration: AppTheme.themeAnimationDuration,
+          curve: AppTheme.themeAnimationCurve,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -391,7 +400,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             itemBuilder: (context, i) {
               final student = _roster[i];
               final isPresent = student.status == 'present';
-              return Container(
+              return AnimatedContainer(
+                duration: AppTheme.themeAnimationDuration,
+                curve: AppTheme.themeAnimationCurve,
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -399,7 +410,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ),
                 child: Row(
                   children: [
-                    Container(
+                    AnimatedContainer(
+                      duration: AppTheme.themeAnimationDuration,
+                      curve: AppTheme.themeAnimationCurve,
                       width: 28,
                       height: 28,
                       alignment: Alignment.center,
@@ -451,7 +464,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             },
           ),
         ),
-        Container(
+        AnimatedContainer(
+          duration: AppTheme.themeAnimationDuration,
+          curve: AppTheme.themeAnimationCurve,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
