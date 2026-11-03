@@ -92,7 +92,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                   selectedColor: isDark ? AppColors.wineRedDark : AppColors.wineRedSubtle,
                   labelStyle: TextStyle(
                     fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontWeight: FontWeight.w600, // Fixed weight ensures zero layout shift on selection
                     color: isSelected
                         ? (isDark ? Colors.white : AppColors.wineRed)
                         : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
@@ -101,6 +101,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                     color: isSelected
                         ? AppColors.wineRed
                         : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    width: 1,
                   ),
                   onSelected: (selected) {
                     if (selected) setState(() => _selectedCategory = cat);
@@ -142,19 +143,12 @@ class _NoticesScreenState extends State<NoticesScreen> {
                           final isUrgent = notice.priority.toLowerCase() == 'urgent';
                           final isHigh = notice.priority.toLowerCase() == 'high';
 
-                          Color badgeBg = isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9);
-                          Color badgeText = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-                          Color badgeBorder = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-
-                          if (isUrgent) {
-                            badgeBg = isDark ? const Color(0xFF4C1D24) : AppColors.statusRedSubtle;
-                            badgeText = isDark ? const Color(0xFFFF8585) : AppColors.statusRed;
-                            badgeBorder = isDark ? AppColors.wineRed : AppColors.statusRedBorder;
-                          } else if (isHigh) {
-                            badgeBg = isDark ? const Color(0xFF3B2A10) : AppColors.statusYellowSubtle;
-                            badgeText = isDark ? const Color(0xFFFFD600) : AppColors.statusYellow;
-                            badgeBorder = isDark ? AppColors.statusYellow : AppColors.statusYellowBorder;
-                          }
+                          final priorityBadge = isUrgent
+                              ? AppColors.redBadge(isDark)
+                              : (isHigh
+                                  ? AppColors.yellowBadge(isDark)
+                                  : AppColors.neutralBadge(isDark));
+                          final scopeBadge = AppColors.neutralBadge(isDark);
 
                           return AnimatedContainer(
                             duration: AppTheme.themeAnimationDuration,
@@ -181,16 +175,19 @@ class _NoticesScreenState extends State<NoticesScreen> {
                                       curve: AppTheme.themeAnimationCurve,
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: badgeBg,
+                                        color: priorityBadge.background,
                                         borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: badgeBorder),
+                                        border: Border.all(
+                                          color: priorityBadge.border,
+                                          width: 1,
+                                        ),
                                       ),
                                       child: Text(
                                         notice.priority.toUpperCase(),
                                         style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
-                                          color: badgeText,
+                                          color: priorityBadge.text,
                                         ),
                                       ),
                                     ),
@@ -200,10 +197,11 @@ class _NoticesScreenState extends State<NoticesScreen> {
                                       curve: AppTheme.themeAnimationCurve,
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+                                        color: scopeBadge.background,
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(
-                                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                          color: scopeBadge.border,
+                                          width: 1,
                                         ),
                                       ),
                                       child: Text(
@@ -211,7 +209,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontFamily: 'monospace',
-                                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                          color: scopeBadge.text,
                                         ),
                                       ),
                                     ),

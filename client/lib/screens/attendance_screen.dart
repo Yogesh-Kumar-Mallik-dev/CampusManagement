@@ -261,6 +261,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   itemBuilder: (context, i) {
                     final s = _summaries[i];
                     final isLow = s.percentage < 75.0;
+                    final pctBadge = isLow
+                        ? AppColors.redBadge(isDark)
+                        : AppColors.greenBadge(isDark);
+
                     return AnimatedContainer(
                       duration: AppTheme.themeAnimationDuration,
                       curve: AppTheme.themeAnimationCurve,
@@ -289,14 +293,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 curve: AppTheme.themeAnimationCurve,
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: isLow
-                                      ? AppColors.statusRedSubtle
-                                      : AppColors.githubGreenSubtle,
+                                  color: pctBadge.background,
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(
-                                    color: isLow
-                                        ? AppColors.statusRedBorder
-                                        : AppColors.githubGreenBorder,
+                                    color: pctBadge.border,
+                                    width: 1,
                                   ),
                                 ),
                                 child: Text(
@@ -304,7 +305,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
-                                    color: isLow ? AppColors.statusRed : AppColors.githubGreenText,
+                                    color: pctBadge.text,
                                     fontFamily: 'monospace',
                                   ),
                                 ),
@@ -400,6 +401,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             itemBuilder: (context, i) {
               final student = _roster[i];
               final isPresent = student.status == 'present';
+              final statusBadge = isPresent
+                  ? AppColors.greenBadge(isDark)
+                  : AppColors.redBadge(isDark);
+
               return AnimatedContainer(
                 duration: AppTheme.themeAnimationDuration,
                 curve: AppTheme.themeAnimationCurve,
@@ -417,16 +422,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       height: 28,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: isPresent ? AppColors.githubGreenSubtle : AppColors.statusRedSubtle,
+                        color: statusBadge.background,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: isPresent ? AppColors.githubGreenBorder : AppColors.statusRedBorder,
+                          color: statusBadge.border,
+                          width: 1,
                         ),
                       ),
                       child: AppSvgIcon(
                         svgString: isPresent ? AppSvgIcon.check : AppSvgIcon.close,
                         size: 14,
-                        color: isPresent ? AppColors.githubGreenText : AppColors.statusRed,
+                        color: statusBadge.text,
                       ),
                     ),
                     const SizedBox(width: 12),

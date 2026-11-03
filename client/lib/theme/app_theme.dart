@@ -73,11 +73,44 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.lightSurface,
         selectedColor: AppColors.wineRedSubtle,
+        elevation: 0,
+        pressElevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
           side: const BorderSide(color: AppColors.lightBorder, width: 1),
         ),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: AppColors.lightSurface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppColors.lightBorder, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppColors.lightBorder, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppColors.wineRed, width: 1),
+        ),
+        labelStyle: const TextStyle(color: AppColors.lightTextSecondary, fontSize: 13),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: AppColors.lightBorder, width: 1),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
       ),
       navigationRailTheme: const NavigationRailThemeData(
         backgroundColor: AppColors.lightSurface,
@@ -85,12 +118,12 @@ class AppTheme {
         unselectedIconTheme: IconThemeData(color: AppColors.lightTextMuted),
         selectedLabelTextStyle: TextStyle(
           color: AppColors.wineRed,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
         unselectedLabelTextStyle: TextStyle(
           color: AppColors.lightTextMuted,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
         indicatorColor: AppColors.wineRedSubtle,
@@ -99,6 +132,8 @@ class AppTheme {
         backgroundColor: AppColors.lightSurface,
         selectedItemColor: AppColors.wineRed,
         unselectedItemColor: AppColors.lightTextMuted,
+        selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),
@@ -169,11 +204,44 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.darkSurface,
         selectedColor: AppColors.wineRedDark,
+        elevation: 0,
+        pressElevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
           side: const BorderSide(color: AppColors.darkBorder, width: 1),
         ),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: AppColors.darkSurface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppColors.darkBorder, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppColors.darkBorder, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppColors.wineRedDarkText, width: 1),
+        ),
+        labelStyle: const TextStyle(color: AppColors.darkTextSecondary, fontSize: 13),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: AppColors.darkBorder, width: 1),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
       ),
       navigationRailTheme: const NavigationRailThemeData(
         backgroundColor: AppColors.darkSurface,
@@ -181,12 +249,12 @@ class AppTheme {
         unselectedIconTheme: IconThemeData(color: AppColors.darkTextMuted),
         selectedLabelTextStyle: TextStyle(
           color: AppColors.wineRedLight,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
         unselectedLabelTextStyle: TextStyle(
           color: AppColors.darkTextMuted,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
         indicatorColor: AppColors.wineRedDark,
@@ -195,6 +263,8 @@ class AppTheme {
         backgroundColor: AppColors.darkSurface,
         selectedItemColor: AppColors.wineRedLight,
         unselectedItemColor: AppColors.darkTextMuted,
+        selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),

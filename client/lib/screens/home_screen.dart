@@ -117,42 +117,45 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           // Connection Status Badge
-          AnimatedContainer(
-            duration: AppTheme.themeAnimationDuration,
-            curve: AppTheme.themeAnimationCurve,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: widget.storage.isOnline
-                  ? (isDark ? const Color(0xFF1B4725) : AppColors.githubGreenSubtle)
-                  : (isDark ? const Color(0xFF3B2A10) : AppColors.statusYellowSubtle),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: widget.storage.isOnline
-                    ? (isDark ? AppColors.githubGreen : AppColors.githubGreenBorder)
-                    : (isDark ? AppColors.statusYellow : AppColors.statusYellowBorder),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppSvgIcon(
-                  svgString: widget.storage.isOnline ? AppSvgIcon.cloudCheck : AppSvgIcon.cloudOff,
-                  size: 13,
-                  color: widget.storage.isOnline ? AppColors.githubGreenText : AppColors.statusYellow,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  widget.storage.isOnline ? 'Online Sync' : 'Offline Cache',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: widget.storage.isOnline ? AppColors.githubGreenText : AppColors.statusYellow,
+          Builder(
+            builder: (context) {
+              final statusBadge = widget.storage.isOnline
+                  ? AppColors.greenBadge(isDark)
+                  : AppColors.yellowBadge(isDark);
+              return AnimatedContainer(
+                duration: AppTheme.themeAnimationDuration,
+                curve: AppTheme.themeAnimationCurve,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusBadge.background,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: statusBadge.border,
+                    width: 1,
                   ),
                 ),
-              ],
-            ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppSvgIcon(
+                      svgString: widget.storage.isOnline ? AppSvgIcon.cloudCheck : AppSvgIcon.cloudOff,
+                      size: 13,
+                      color: statusBadge.text,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      widget.storage.isOnline ? 'Online Sync' : 'Offline Cache',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: statusBadge.text,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
           const SizedBox(width: 8),
 
@@ -173,29 +176,32 @@ class _HomeScreenState extends State<HomeScreen> {
           DropdownButtonHideUnderline(
             child: DropdownButton<UserModel>(
               value: _currentUser,
+              dropdownColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              borderRadius: BorderRadius.circular(8),
               icon: const Padding(
                 padding: EdgeInsets.only(left: 4),
                 child: AppSvgIcon(svgString: AppSvgIcon.chevronDown, size: 14),
               ),
               items: _personas.map((u) {
+                final roleBadge = u.archetype == 'student'
+                    ? AppColors.primaryBadge(isDark)
+                    : AppColors.greenBadge(isDark);
                 return DropdownMenuItem<UserModel>(
                   value: u,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
+                      AnimatedContainer(
+                        duration: AppTheme.themeAnimationDuration,
+                        curve: AppTheme.themeAnimationCurve,
                         width: 24,
                         height: 24,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: u.archetype == 'student'
-                              ? AppColors.wineRed.withValues(alpha: 0.15)
-                              : AppColors.githubGreen.withValues(alpha: 0.15),
+                          color: roleBadge.background,
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
-                            color: u.archetype == 'student'
-                                ? AppColors.wineRed
-                                : AppColors.githubGreen,
+                            color: roleBadge.border,
                             width: 1,
                           ),
                         ),
@@ -204,9 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: u.archetype == 'student'
-                                ? AppColors.wineRed
-                                : AppColors.githubGreenText,
+                            color: roleBadge.text,
                           ),
                         ),
                       ),
@@ -350,29 +354,33 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _currentUser.archetype == 'student'
-                                  ? AppColors.wineRedSubtle
-                                  : AppColors.githubGreenSubtle,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: _currentUser.archetype == 'student'
-                                    ? AppColors.wineRedBorder
-                                    : AppColors.githubGreenBorder,
-                              ),
-                            ),
-                            child: Text(
-                              _currentUser.archetype.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: _currentUser.archetype == 'student'
-                                    ? AppColors.wineRed
-                                    : AppColors.githubGreenText,
-                              ),
-                            ),
+                          Builder(
+                            builder: (context) {
+                              final roleBadge = _currentUser.archetype == 'student'
+                                  ? AppColors.primaryBadge(isDark)
+                                  : AppColors.greenBadge(isDark);
+                              return AnimatedContainer(
+                                duration: AppTheme.themeAnimationDuration,
+                                curve: AppTheme.themeAnimationCurve,
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: roleBadge.background,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: roleBadge.border,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  _currentUser.archetype.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: roleBadge.text,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -390,22 +398,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         spacing: 6,
                         runSpacing: 4,
                         children: _currentUser.activeScopes.map((scope) {
+                          final scopeBadge = AppColors.neutralBadge(isDark);
                           return AnimatedContainer(
                             duration: AppTheme.themeAnimationDuration,
                             curve: AppTheme.themeAnimationCurve,
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+                              color: scopeBadge.background,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                color: scopeBadge.border,
+                                width: 1,
                               ),
                             ),
                             child: Text(
                               scope,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                color: scopeBadge.text,
                               ),
                             ),
                           );
@@ -551,66 +561,112 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    return _OperationCard(
+      title: title,
+      subtitle: subtitle,
+      iconSvg: iconSvg,
+      color: color,
+      onTap: onTap,
+    );
+  }
+}
+
+class _OperationCard extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final String iconSvg;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _OperationCard({
+    required this.title,
+    required this.subtitle,
+    required this.iconSvg,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  State<_OperationCard> createState() => _OperationCardState();
+}
+
+class _OperationCardState extends State<_OperationCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: AppTheme.themeAnimationDuration,
-        curve: AppTheme.themeAnimationCurve,
-        constraints: const BoxConstraints(minHeight: 90),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: AppSvgIcon(svgString: iconSvg, size: 16, color: color),
-                ),
-                Icon(
-                  Icons.arrow_forward,
-                  size: 14,
-                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                ),
-              ],
+    final bgColor = _isHovered
+        ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
+        : (isDark ? AppColors.darkSurface : AppColors.lightSurface);
+
+    final borderColor = _isHovered
+        ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+        : (isDark ? AppColors.darkBorder : AppColors.lightBorder);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppTheme.themeAnimationDuration,
+          curve: AppTheme.themeAnimationCurve,
+          constraints: const BoxConstraints(minHeight: 90),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: borderColor,
+              width: 1, // Constant 1px width to prevent layout jitter
             ),
-            const SizedBox(height: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: widget.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: AppSvgIcon(svgString: widget.iconSvg, size: 16, color: widget.color),
+                  ),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 14,
                     color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -84,7 +84,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   selected: isSelected,
                   selectedColor: isDark ? AppColors.wineRedDark : AppColors.wineRedSubtle,
                   labelStyle: TextStyle(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontWeight: FontWeight.w600, // Uniform weight prevents layout jitter on active
                     color: isSelected
                         ? (isDark ? Colors.white : AppColors.wineRed)
                         : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
@@ -93,6 +93,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     color: isSelected
                         ? AppColors.wineRed
                         : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    width: 1,
                   ),
                   onSelected: (selected) {
                     if (selected) setState(() => _selectedDay = dayNum);
@@ -133,6 +134,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         itemBuilder: (context, i) {
                           final slot = daySlots[i];
                           final isLab = slot.slotType.toLowerCase() == 'lab';
+                          final typeBadge = isLab
+                              ? AppColors.primaryBadge(isDark)
+                              : AppColors.greenBadge(isDark);
+                          final timeBadge = AppColors.neutralBadge(isDark);
+
                           return AnimatedContainer(
                             duration: AppTheme.themeAnimationDuration,
                             curve: AppTheme.themeAnimationCurve,
@@ -155,10 +161,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                   curve: AppTheme.themeAnimationCurve,
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+                                    color: timeBadge.background,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                      color: timeBadge.border,
+                                      width: 1,
                                     ),
                                   ),
                                   child: Column(
@@ -199,17 +206,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                             ),
                                           ),
                                           const SizedBox(width: 8),
-                                          Container(
+                                          AnimatedContainer(
+                                            duration: AppTheme.themeAnimationDuration,
+                                            curve: AppTheme.themeAnimationCurve,
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: isLab
-                                                  ? AppColors.wineRedSubtle
-                                                  : AppColors.githubGreenSubtle,
+                                              color: typeBadge.background,
                                               borderRadius: BorderRadius.circular(4),
                                               border: Border.all(
-                                                color: isLab
-                                                    ? AppColors.wineRedBorder
-                                                    : AppColors.githubGreenBorder,
+                                                color: typeBadge.border,
+                                                width: 1,
                                               ),
                                             ),
                                             child: Text(
@@ -217,9 +223,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                               style: TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.bold,
-                                                color: isLab
-                                                    ? AppColors.wineRed
-                                                    : AppColors.githubGreenText,
+                                                color: typeBadge.text,
                                               ),
                                             ),
                                           ),
