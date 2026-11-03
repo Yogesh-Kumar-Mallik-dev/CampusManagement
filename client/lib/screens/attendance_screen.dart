@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/academic.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/svg_icons.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -22,7 +24,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   List<AttendanceSummaryModel> _summaries = [];
   bool _isMarkingMode = false;
 
-  // Marking session state
   final String _selectedCourseId = 'course-CS301';
   final String _selectedCourseCode = 'CS301';
   final String _selectedCourseName = 'Operating Systems';
@@ -109,9 +110,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Attendance saved locally! (${widget.storage.pendingSyncCount} pending sync)',
+            'Attendance recorded in offline outbox (${widget.storage.pendingSyncCount} pending)',
           ),
-          backgroundColor: Colors.teal.shade700,
+          backgroundColor: AppColors.githubGreen,
           action: SnackBarAction(
             label: 'Sync Now',
             textColor: Colors.white,
@@ -132,9 +133,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            success ? 'Synced all pending attendance to Go backend!' : 'Backend offline. Kept safe locally.',
+            success ? 'All offline sessions replicated to Go backend' : 'Backend offline. Preserved in local storage',
           ),
-          backgroundColor: success ? Colors.green.shade700 : Colors.amber.shade900,
+          backgroundColor: success ? AppColors.githubGreen : AppColors.statusYellow,
         ),
       );
       _loadSummary();
@@ -145,28 +146,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isMarkingMode ? 'Take Attendance' : 'Attendance Overview'),
+        title: Text(_isMarkingMode ? 'Take Class Attendance' : 'Attendance Ledger'),
         actions: [
           if (widget.storage.pendingSyncCount > 0)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: ActionChip(
-                avatar: const Icon(Icons.cloud_upload, size: 18, color: Colors.white),
+                avatar: const AppSvgIcon(
+                  svgString: AppSvgIcon.refresh,
+                  size: 14,
+                  color: Colors.white,
+                ),
                 label: Text(
                   '${widget.storage.pendingSyncCount} Pending',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                 ),
-                backgroundColor: Colors.orange.shade800,
+                backgroundColor: AppColors.githubGreen,
                 onPressed: _syncOutbox,
               ),
             ),
           IconButton(
-            icon: Icon(_isMarkingMode ? Icons.close : Icons.playlist_add_check),
+            icon: AppSvgIcon(
+              svgString: _isMarkingMode ? AppSvgIcon.close : AppSvgIcon.attendance,
+              size: 18,
+            ),
             tooltip: _isMarkingMode ? 'Close' : 'Mark Attendance',
             onPressed: () {
               setState(() => _isMarkingMode = !_isMarkingMode);
             },
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _loading
@@ -178,19 +187,37 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildSummaryView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
-          color: Colors.blue.shade50,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161B22) : AppColors.wineRedSubtle,
+            border: Border(
+              bottom: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.wineRedBorder,
+                width: 1,
+              ),
+            ),
+          ),
           child: Row(
             children: [
-              const Icon(Icons.info_outline, color: Colors.blue),
-              const SizedBox(width: 12),
+              const AppSvgIcon(
+                svgString: AppSvgIcon.info,
+                size: 16,
+                color: AppColors.wineRed,
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Minimum 75% attendance is required to sit for end-semester examinations.',
-                  style: TextStyle(color: Colors.blue.shade900, fontSize: 13),
+                  'Statutory Requirement: Minimum 75% aggregate attendance is mandatory for semester exams.',
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkTextPrimary : AppColors.wineRedDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -202,16 +229,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.assignment_turned_in, size: 64, color: Colors.grey.shade400),
+                      AppSvgIcon(
+                        svgString: AppSvgIcon.attendance,
+                        size: 48,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
                       const SizedBox(height: 12),
                       Text(
-                        'No attendance records found yet.',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                        'No attendance records found for this user',
+                        style: TextStyle(
+                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
-                        icon: const Icon(Icons.add),
+                        icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 16, color: Colors.white),
                         label: const Text('Mark Class Attendance'),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.wineRed),
                         onPressed: () => setState(() => _isMarkingMode = true),
                       ),
                     ],
@@ -223,59 +258,80 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   itemBuilder: (context, i) {
                     final s = _summaries[i];
                     final isLow = s.percentage < 75.0;
-                    return Card(
-                      elevation: 1,
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  s.courseCode,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isLow ? Colors.red.shade100 : Colors.green.shade100,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    '${s.percentage.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: isLow ? Colors.red.shade900 : Colors.green.shade900,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(s.courseName, style: TextStyle(color: Colors.grey.shade700)),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: s.totalSessions > 0 ? (s.attended / s.totalSessions) : 0,
-                                minHeight: 8,
-                                backgroundColor: Colors.grey.shade200,
-                                color: isLow ? Colors.red : Colors.green,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Attended ${s.attended} of ${s.totalSessions} sessions',
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                            ),
-                          ],
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                          width: 1,
                         ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                s.courseCode,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isLow
+                                      ? AppColors.statusRedSubtle
+                                      : AppColors.githubGreenSubtle,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: isLow
+                                        ? AppColors.statusRedBorder
+                                        : AppColors.githubGreenBorder,
+                                  ),
+                                ),
+                                child: Text(
+                                  '${s.percentage.toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: isLow ? AppColors.statusRed : AppColors.githubGreenText,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            s.courseName,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value: s.totalSessions > 0 ? (s.attended / s.totalSessions) : 0,
+                              minHeight: 6,
+                              backgroundColor: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0),
+                              color: isLow ? AppColors.statusRed : AppColors.githubGreen,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Attended ${s.attended} of ${s.totalSessions} sessions',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -286,28 +342,38 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildMarkingView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(16),
-          color: Colors.grey.shade100,
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            border: Border(
+              bottom: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                width: 1,
+              ),
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.school, size: 20, color: Colors.blue),
+                  const AppSvgIcon(svgString: AppSvgIcon.academicCap, size: 18, color: AppColors.wineRed),
                   const SizedBox(width: 8),
                   Text(
                     '$_selectedCourseCode - $_selectedCourseName',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               TextField(
                 decoration: const InputDecoration(
-                  labelText: 'Lecture Topic / Lab Module',
+                  labelText: 'Session Topic / Lab Module',
                   isDense: true,
                   border: OutlineInputBorder(),
                 ),
@@ -325,27 +391,61 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             itemBuilder: (context, i) {
               final student = _roster[i];
               final isPresent = student.status == 'present';
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isPresent ? Colors.green.shade100 : Colors.red.shade100,
-                  child: Icon(
-                    isPresent ? Icons.check : Icons.close,
-                    color: isPresent ? Colors.green.shade800 : Colors.red.shade800,
-                  ),
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                title: Text(student.studentName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(student.campusHandle),
-                trailing: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'present', label: Text('Present')),
-                    ButtonSegment(value: 'absent', label: Text('Absent')),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isPresent ? AppColors.githubGreenSubtle : AppColors.statusRedSubtle,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isPresent ? AppColors.githubGreenBorder : AppColors.statusRedBorder,
+                        ),
+                      ),
+                      child: AppSvgIcon(
+                        svgString: isPresent ? AppSvgIcon.check : AppSvgIcon.close,
+                        size: 14,
+                        color: isPresent ? AppColors.githubGreenText : AppColors.statusRed,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(student.studentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text(
+                            student.campusHandle,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'present', label: Text('Present', style: TextStyle(fontSize: 12))),
+                        ButtonSegment(value: 'absent', label: Text('Absent', style: TextStyle(fontSize: 12))),
+                      ],
+                      selected: {student.status},
+                      onSelectionChanged: (Set<String> newSelection) {
+                        setState(() {
+                          student.status = newSelection.first;
+                        });
+                      },
+                    ),
                   ],
-                  selected: {student.status},
-                  onSelectionChanged: (Set<String> newSelection) {
-                    setState(() {
-                      student.status = newSelection.first;
-                    });
-                  },
                 ),
               );
             },
@@ -354,23 +454,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            border: Border(
+              top: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                width: 1,
               ),
-            ],
+            ),
           ),
           child: SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 44,
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.save),
+              icon: const AppSvgIcon(svgString: AppSvgIcon.save, size: 16, color: Colors.white),
               label: const Text('Save Locally (Offline-Safe)'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
+                backgroundColor: AppColors.wineRed,
                 foregroundColor: Colors.white,
               ),
               onPressed: _saveAttendanceLocally,

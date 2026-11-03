@@ -14,9 +14,9 @@ void main() {
 
     // Verify app title and dashboard cards render
     expect(find.text('CampusOS'), findsOneWidget);
-    expect(find.text('Phase 1 Core Modules'), findsOneWidget);
+    expect(find.text('Academic Operations'), findsOneWidget);
     expect(find.text('Timetable'), findsWidgets);
     expect(find.text('Attendance'), findsWidgets);
-    expect(find.text('Targeted Notices'), findsOneWidget);
+    expect(find.text('Targeted Notices'), findsWidgets);
   });
 }

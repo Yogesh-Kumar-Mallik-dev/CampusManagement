@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 import 'services/api_service.dart';
 import 'services/offline_storage_service.dart';
+import 'theme/app_theme.dart';
+
+// Global Theme Mode notifier for instant toggle
+final ValueNotifier<ThemeMode> appThemeModeNotifier = ValueNotifier(ThemeMode.light);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,27 +22,18 @@ class CampusManagementApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CampusOS',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1E40AF), // Institutional Navy
-          brightness: Brightness.light,
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: false,
-          elevation: 0,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      home: HomeScreen(storage: storage),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeModeNotifier,
+      builder: (context, themeMode, _) {
+        return MaterialApp(
+          title: 'CampusOS',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
+          home: HomeScreen(storage: storage),
+        );
+      },
     );
   }
 }

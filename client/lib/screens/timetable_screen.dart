@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/academic.dart';
 import '../services/offline_storage_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/svg_icons.dart';
 
 class TimetableScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -40,6 +42,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final daySlots = _slots.where((s) => s.dayOfWeek == _selectedDay).toList();
 
     return Scaffold(
@@ -47,18 +50,27 @@ class _TimetableScreenState extends State<TimetableScreen> {
         title: const Text('Academic Timetable'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 18),
             onPressed: _loadData,
             tooltip: 'Refresh Schedule',
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
         children: [
           // Day selector chips
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  width: 1,
+                ),
+              ),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(_days.length, (idx) {
@@ -67,6 +79,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 return ChoiceChip(
                   label: Text(_days[idx]),
                   selected: isSelected,
+                  selectedColor: isDark ? AppColors.wineRedDark : AppColors.wineRedSubtle,
+                  labelStyle: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected
+                        ? (isDark ? Colors.white : AppColors.wineRed)
+                        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                  ),
+                  side: BorderSide(
+                    color: isSelected
+                        ? AppColors.wineRed
+                        : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                  ),
                   onSelected: (selected) {
                     if (selected) setState(() => _selectedDay = dayNum);
                   },
@@ -83,11 +107,19 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.event_busy, size: 64, color: Colors.grey.shade400),
+                            AppSvgIcon(
+                              svgString: AppSvgIcon.calendar,
+                              size: 48,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               'No scheduled classes for this day',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                              style: TextStyle(
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
                         ),
@@ -98,111 +130,140 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         itemBuilder: (context, i) {
                           final slot = daySlots[i];
                           final isLab = slot.slotType.toLowerCase() == 'lab';
-                          return Card(
-                            elevation: 1,
+                          return Container(
                             margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(
-                                color: isLab ? Colors.purple.shade200 : Colors.blue.shade200,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                width: 1,
                               ),
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Time column
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: isLab ? Colors.purple.shade50 : Colors.blue.shade50,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          slot.startTime,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: isLab ? Colors.purple.shade900 : Colors.blue.shade900,
-                                          ),
-                                        ),
-                                        Text(
-                                          slot.endTime,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade700,
-                                          ),
-                                        ),
-                                      ],
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Time Column
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  // Subject & Details
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              slot.courseCode,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: isLab ? Colors.purple.shade100 : Colors.blue.shade100,
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                slot.slotType.toUpperCase(),
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: isLab ? Colors.purple.shade800 : Colors.blue.shade800,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        slot.startTime,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          fontFamily: 'monospace',
+                                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          slot.courseName,
-                                          style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
+                                      ),
+                                      Text(
+                                        slot.endTime,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontFamily: 'monospace',
+                                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                                         ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.person, size: 16, color: Colors.grey.shade600),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              slot.instructorName.isNotEmpty ? slot.instructorName : 'Faculty',
-                                              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                // Subject Details
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            slot.courseCode,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
                                             ),
-                                            const Spacer(),
-                                            Icon(Icons.room, size: 16, color: Colors.grey.shade600),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              slot.roomNumber,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: isLab
+                                                  ? AppColors.wineRedSubtle
+                                                  : AppColors.githubGreenSubtle,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: isLab
+                                                    ? AppColors.wineRedBorder
+                                                    : AppColors.githubGreenBorder,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              slot.slotType.toUpperCase(),
                                               style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.grey.shade800,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: isLab
+                                                    ? AppColors.wineRed
+                                                    : AppColors.githubGreenText,
                                               ),
                                             ),
-                                          ],
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        slot.courseName,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          AppSvgIcon(
+                                            svgString: AppSvgIcon.user,
+                                            size: 13,
+                                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            slot.instructorName.isNotEmpty ? slot.instructorName : 'Faculty',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          AppSvgIcon(
+                                            svgString: AppSvgIcon.mapPin,
+                                            size: 13,
+                                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            slot.roomNumber,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              fontFamily: 'monospace',
+                                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           );
                         },

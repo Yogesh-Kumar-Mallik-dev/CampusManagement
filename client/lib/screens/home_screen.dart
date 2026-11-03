@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/svg_icons.dart';
 import 'attendance_screen.dart';
 import 'notices_screen.dart';
 import 'timetable_screen.dart';
@@ -17,7 +20,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  // Mock persona switcher to test Multi-role & Scoped permissions live
   late List<UserModel> _personas;
   late UserModel _currentUser;
 
@@ -65,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktopOrWeb = MediaQuery.of(context).size.width >= 800;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final pages = [
       _buildDashboardView(),
@@ -84,65 +87,131 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        titleSpacing: 16,
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.school, color: Colors.blueAccent),
-            SizedBox(width: 8),
-            Text('CampusOS', style: TextStyle(fontWeight: FontWeight.bold)),
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: const BoxDecoration(
+                color: AppColors.wineRed,
+                borderRadius: BorderRadius.all(Radius.circular(6)),
+              ),
+              child: const AppSvgIcon(
+                svgString: AppSvgIcon.academicCap,
+                size: 16,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'CampusOS',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                letterSpacing: -0.3,
+              ),
+            ),
           ],
         ),
         actions: [
-          // Online/Offline pill
+          // Connection Status Badge
           Container(
             margin: const EdgeInsets.symmetric(vertical: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: widget.storage.isOnline ? Colors.green.shade100 : Colors.amber.shade100,
-              borderRadius: BorderRadius.circular(12),
+              color: widget.storage.isOnline
+                  ? (isDark ? const Color(0xFF1B4725) : AppColors.githubGreenSubtle)
+                  : (isDark ? const Color(0xFF3B2A10) : AppColors.statusYellowSubtle),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: widget.storage.isOnline
+                    ? (isDark ? AppColors.githubGreen : AppColors.githubGreenBorder)
+                    : (isDark ? AppColors.statusYellow : AppColors.statusYellowBorder),
+                width: 1,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  widget.storage.isOnline ? Icons.cloud_done : Icons.cloud_off,
-                  size: 14,
-                  color: widget.storage.isOnline ? Colors.green.shade800 : Colors.amber.shade900,
+                AppSvgIcon(
+                  svgString: widget.storage.isOnline ? AppSvgIcon.cloudCheck : AppSvgIcon.cloudOff,
+                  size: 13,
+                  color: widget.storage.isOnline ? AppColors.githubGreenText : AppColors.statusYellow,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 5),
                 Text(
-                  widget.storage.isOnline ? 'Online' : 'Offline',
+                  widget.storage.isOnline ? 'Online Sync' : 'Offline Cache',
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: widget.storage.isOnline ? Colors.green.shade800 : Colors.amber.shade900,
+                    fontWeight: FontWeight.w600,
+                    color: widget.storage.isOnline ? AppColors.githubGreenText : AppColors.statusYellow,
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          // Persona Switcher
+
+          // Theme Toggle
+          IconButton(
+            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            icon: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              size: 20,
+            ),
+            onPressed: () {
+              appThemeModeNotifier.value = isDark ? ThemeMode.light : ThemeMode.dark;
+            },
+          ),
+          const SizedBox(width: 4),
+
+          // User Persona Switcher
           DropdownButtonHideUnderline(
             child: DropdownButton<UserModel>(
               value: _currentUser,
-              icon: const Icon(Icons.arrow_drop_down),
+              icon: const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: AppSvgIcon(svgString: AppSvgIcon.chevronDown, size: 14),
+              ),
               items: _personas.map((u) {
                 return DropdownMenuItem<UserModel>(
                   value: u,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircleAvatar(
-                        radius: 12,
-                        backgroundColor: u.archetype == 'student' ? Colors.blue : Colors.purple,
+                      Container(
+                        width: 24,
+                        height: 24,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: u.archetype == 'student'
+                              ? AppColors.wineRed.withValues(alpha: 0.15)
+                              : AppColors.githubGreen.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: u.archetype == 'student'
+                                ? AppColors.wineRed
+                                : AppColors.githubGreen,
+                            width: 1,
+                          ),
+                        ),
                         child: Text(
                           u.firstName[0],
-                          style: const TextStyle(fontSize: 11, color: Colors.white),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: u.archetype == 'student'
+                                ? AppColors.wineRed
+                                : AppColors.githubGreenText,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Text(u.firstName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 8),
+                      Text(
+                        u.fullName,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
                     ],
                   ),
                 );
@@ -155,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
         ],
       ),
       body: isDesktopOrWeb
@@ -165,14 +234,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   selectedIndex: _currentIndex,
                   onDestinationSelected: (i) => setState(() => _currentIndex = i),
                   labelType: NavigationRailLabelType.all,
+                  minWidth: 76,
                   destinations: const [
-                    NavigationRailDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: Text('Dashboard')),
-                    NavigationRailDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: Text('Timetable')),
-                    NavigationRailDestination(icon: Icon(Icons.fact_check_outlined), selectedIcon: Icon(Icons.fact_check), label: Text('Attendance')),
-                    NavigationRailDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: Text('Notices')),
+                    NavigationRailDestination(
+                      icon: AppSvgIcon(svgString: AppSvgIcon.dashboard),
+                      selectedIcon: AppSvgIcon(svgString: AppSvgIcon.dashboard, color: AppColors.wineRed),
+                      label: Text('Dashboard'),
+                    ),
+                    NavigationRailDestination(
+                      icon: AppSvgIcon(svgString: AppSvgIcon.calendar),
+                      selectedIcon: AppSvgIcon(svgString: AppSvgIcon.calendar, color: AppColors.wineRed),
+                      label: Text('Timetable'),
+                    ),
+                    NavigationRailDestination(
+                      icon: AppSvgIcon(svgString: AppSvgIcon.attendance),
+                      selectedIcon: AppSvgIcon(svgString: AppSvgIcon.attendance, color: AppColors.wineRed),
+                      label: Text('Attendance'),
+                    ),
+                    NavigationRailDestination(
+                      icon: AppSvgIcon(svgString: AppSvgIcon.bell),
+                      selectedIcon: AppSvgIcon(svgString: AppSvgIcon.bell, color: AppColors.wineRed),
+                      label: Text('Notices'),
+                    ),
                   ],
                 ),
-                const VerticalDivider(thickness: 1, width: 1),
+                const VerticalDivider(width: 1),
                 Expanded(child: pages[_currentIndex]),
               ],
             )
@@ -184,138 +270,259 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: (i) => setState(() => _currentIndex = i),
               type: BottomNavigationBarType.fixed,
               items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-                BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), label: 'Timetable'),
-                BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Attendance'),
-                BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), label: 'Notices'),
+                BottomNavigationBarItem(
+                  icon: AppSvgIcon(svgString: AppSvgIcon.dashboard),
+                  activeIcon: AppSvgIcon(svgString: AppSvgIcon.dashboard, color: AppColors.wineRed),
+                  label: 'Dashboard',
+                ),
+                BottomNavigationBarItem(
+                  icon: AppSvgIcon(svgString: AppSvgIcon.calendar),
+                  activeIcon: AppSvgIcon(svgString: AppSvgIcon.calendar, color: AppColors.wineRed),
+                  label: 'Timetable',
+                ),
+                BottomNavigationBarItem(
+                  icon: AppSvgIcon(svgString: AppSvgIcon.attendance),
+                  activeIcon: AppSvgIcon(svgString: AppSvgIcon.attendance, color: AppColors.wineRed),
+                  label: 'Attendance',
+                ),
+                BottomNavigationBarItem(
+                  icon: AppSvgIcon(svgString: AppSvgIcon.bell),
+                  activeIcon: AppSvgIcon(svgString: AppSvgIcon.bell, color: AppColors.wineRed),
+                  label: 'Notices',
+                ),
               ],
             ),
     );
   }
 
   Widget _buildDashboardView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User Card
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    child: Text(
-                      _currentUser.firstName[0],
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _currentUser.fullName,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Handle: ${_currentUser.campusHandle}',
-                          style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          children: _currentUser.activeScopes.map((scope) {
-                            return Chip(
-                              label: Text(scope, style: const TextStyle(fontSize: 11)),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Quick Action Cards
-          const Text(
-            'Phase 1 Core Modules',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-
-          GridView.count(
-            crossAxisCount: MediaQuery.of(context).size.width >= 800 ? 3 : 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            children: [
-              _buildModuleCard(
-                title: 'Timetable',
-                subtitle: 'Lectures & Labs',
-                icon: Icons.calendar_month,
-                color: Colors.blue,
-                onTap: () => setState(() => _currentIndex = 1),
-              ),
-              _buildModuleCard(
-                title: 'Attendance',
-                subtitle: 'Offline Sync & Outbox',
-                icon: Icons.fact_check,
-                color: Colors.teal,
-                onTap: () => setState(() => _currentIndex = 2),
-              ),
-              _buildModuleCard(
-                title: 'Targeted Notices',
-                subtitle: 'Department & Section',
-                icon: Icons.notifications_active,
-                color: Colors.amber.shade900,
-                onTap: () => setState(() => _currentIndex = 3),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-          // Offline Engine Information
+          // Enterprise User Identity Strip
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.blueGrey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blueGrey.shade200),
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                width: 1,
+              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.sync, color: Colors.blueGrey),
+                Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.wineRed,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _currentUser.firstName[0],
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            _currentUser.fullName,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _currentUser.archetype == 'student'
+                                  ? AppColors.wineRedSubtle
+                                  : AppColors.githubGreenSubtle,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: _currentUser.archetype == 'student'
+                                    ? AppColors.wineRedBorder
+                                    : AppColors.githubGreenBorder,
+                              ),
+                            ),
+                            child: Text(
+                              _currentUser.archetype.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: _currentUser.archetype == 'student'
+                                    ? AppColors.wineRed
+                                    : AppColors.githubGreenText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Canonical Handle: ${_currentUser.campusHandle}  |  ${_currentUser.email}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: _currentUser.activeScopes.map((scope) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                              ),
+                            ),
+                            child: Text(
+                              scope,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Operational Navigation Cards
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Academic Operations',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Phase 1 Baseline',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 600;
+              final cards = [
+                _buildOperationCard(
+                  title: 'Academic Timetable',
+                  subtitle: 'Daily schedule, lecture slots, and labs',
+                  iconSvg: AppSvgIcon.calendar,
+                  color: AppColors.wineRed,
+                  onTap: () => setState(() => _currentIndex = 1),
+                ),
+                _buildOperationCard(
+                  title: 'Attendance Ledger',
+                  subtitle: 'Offline outbox with idempotent sync',
+                  iconSvg: AppSvgIcon.attendance,
+                  color: AppColors.githubGreen,
+                  onTap: () => setState(() => _currentIndex = 2),
+                ),
+                _buildOperationCard(
+                  title: 'Targeted Notices',
+                  subtitle: 'Scoped department announcements',
+                  iconSvg: AppSvgIcon.bell,
+                  color: AppColors.statusYellow,
+                  onTap: () => setState(() => _currentIndex = 3),
+                ),
+              ];
+
+              if (isWide) {
+                return Row(
+                  children: [
+                    Expanded(child: cards[0]),
+                    const SizedBox(width: 12),
+                    Expanded(child: cards[1]),
+                    const SizedBox(width: 12),
+                    Expanded(child: cards[2]),
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  cards[0],
+                  const SizedBox(height: 10),
+                  cards[1],
+                  const SizedBox(height: 10),
+                  cards[2],
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // Institutional System Specs
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: AppSvgIcon(
+                    svgString: AppSvgIcon.shield,
+                    size: 20,
+                    color: AppColors.wineRed,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Offline-First Sync Engine Active',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        'Offline-First Replication & Scoped RBAC Engine Active',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'All classes, timetables, and notices are cached locally. You can take attendance anywhere on campus without internet connectivity; it queues in your local outbox and syncs safely to the Go backend.',
-                        style: TextStyle(fontSize: 13, color: Colors.blueGrey.shade800),
+                        'All attendance, course structures, and schedules cache locally on this device. When offline, all transactions append to the local outbox and sync with cryptographic safety to the Go backend when network reconnects.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          height: 1.4,
+                        ),
                       ),
                     ],
                   ),
@@ -328,39 +535,71 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildModuleCard({
+  Widget _buildOperationCard({
     required String title,
     required String subtitle,
-    required IconData icon,
+    required String iconSvg,
     required Color color,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 1,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.15),
-                child: Icon(icon, color: color),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                ],
-              ),
-            ],
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 90),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1,
           ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: AppSvgIcon(svgString: iconSvg, size: 16, color: color),
+                ),
+                Icon(
+                  Icons.arrow_forward,
+                  size: 14,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
