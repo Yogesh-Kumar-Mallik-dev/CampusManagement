@@ -38,22 +38,57 @@ A cross-platform Campus Management System powered by:
 ```
 CampusManagement/
 ├── backend/                   # Go backend service
-│   ├── cmd/server/            # Main server entrypoint
+│   ├── cmd/server/            # Main server entrypoint with seed data & HTTP mux
 │   ├── internal/
-│   │   ├── cache/             # Resilient cache manager + singleflight
-│   │   ├── database/          # PostgreSQL pgxpool connection manager
-│   │   └── model/             # Entities with delta-sync support
+│   │   ├── cache/             # Resilient cache manager + singleflight deduplication
+│   │   ├── database/          # PostgreSQL pgxpool & schema migrations
+│   │   ├── handler/           # Academic & User HTTP handlers
+│   │   ├── idgen/             # Canonical campus handle generator
+│   │   ├── model/             # Entities (Course, Timetable, Attendance, Notice, User)
+│   │   └── service/           # Academic and Scoped RBAC services
 │   └── go.mod
-├── client/                    # Flutter multiplatform client
-│   ├── android/
-│   ├── ios/
-│   ├── linux/
-│   ├── macos/
-│   ├── web/
-│   ├── windows/
+├── client/                    # Flutter multiplatform client (Web, Desktop, Mobile)
 │   ├── lib/
+│   │   ├── models/            # Dart academic and user models
+│   │   ├── screens/           # Dashboard, Timetable, Attendance, Notices screens
+│   │   ├── services/          # REST API & Offline Storage Outbox services
+│   │   └── main.dart          # Adaptive Material 3 entrypoint
 │   └── pubspec.yaml
 └── docker-compose.yml         # Local PostgreSQL & Redis infrastructure
+```
+
+---
+
+## Phase 1 API Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` / `POST` | `/api/v1/academics/courses` | List course catalog / create new subject |
+| `GET` / `POST` | `/api/v1/academics/timetable` | Query schedule by scope (e.g. `sec:cse-3a`) / add slot |
+| `POST` | `/api/v1/attendance/sync` | Batch upsert offline-recorded class sessions |
+| `GET` | `/api/v1/attendance/summary` | Get attendance percentage report per course for a student |
+| `GET` / `POST` | `/api/v1/notices` | Fetch targeted notices by user scopes / publish announcement |
+| `GET` | `/api/v1/sync` | Delta sync replication for offline SQLite clients |
+| `POST` | `/api/v1/users/student` | Onboard student & mint canonical handle (`{name}_{year}_{entry}_{prog}_{seq}`) |
+| `POST` | `/api/v1/users/employee` | Onboard employee & mint unified handle (`{name}_{year}_emp_{seq}`) |
+| `GET` | `/api/v1/permissions/check` | Real-time scoped permission evaluation |
+| `GET` | `/api/health` | Service health & cache readiness check |
+
+---
+
+## Running Automated Tests
+
+Run backend Go test suite:
+```bash
+cd backend
+go test -v ./...
+```
+
+Run Flutter client test suite & static analysis:
+```bash
+cd client
+flutter test
+flutter analyze
 ```
 
 ---
