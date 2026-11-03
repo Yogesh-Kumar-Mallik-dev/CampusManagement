@@ -1,6 +1,7 @@
 # CampusManagement
 
 A cross-platform Campus Management System powered by:
+
 - **Client:** Flutter (Web, Android, iOS, Windows, macOS, Linux) with local SQLite offline caching.
 - **Backend:** Go (REST / WebSocket) with connection pooling (`pgxpool`).
 - **Resilient Cache:** Cache-Aside with `singleflight` deduplication (Redis/In-Memory) to protect PostgreSQL from thundering herds / cache failures.
@@ -54,7 +55,55 @@ CampusManagement/
 │   │   ├── services/          # REST API & Offline Storage Outbox services
 │   │   └── main.dart          # Adaptive Material 3 entrypoint
 │   └── pubspec.yaml
+├── scripts/                   # Individual lifecycle task scripts
+│   ├── dev.sh                 # Start local infrastructure & launch Go backend
+│   ├── build.sh               # Compile Go backend & Flutter bundles
+│   ├── check.sh               # Run static analysis (go vet + flutter analyze)
+│   ├── test.sh                # Run backend and Flutter test suites
+│   ├── deps.sh                # Install Go and Flutter dependencies
+│   ├── envi.sh                # Setup environment (.env) & start Docker containers
+│   ├── uenvi.sh               # Teardown Docker containers
+│   ├── app.sh                 # Run or build Flutter native client
+│   └── flush_db.sh            # Flush PostgreSQL and Redis
+├── script.sh                  # POSIX Universal Lifecycle Orchestrator
+├── script.ps1                 # Windows PowerShell Lifecycle Orchestrator
 └── docker-compose.yml         # Local PostgreSQL & Redis infrastructure
+```
+
+---
+
+## Unified Project Lifecycle Commands
+
+Conforming to engineering standards (`./script.sh <command>` or `.\script.ps1 <command>`):
+
+```bash
+# 1. Install dependencies
+./script.sh deps
+
+# 2. Start PostgreSQL & Redis infrastructure
+./script.sh envi
+
+# 3. Start local development server (with deterministic port cleanup)
+./script.sh dev
+
+# 4. Run native Flutter client
+./script.sh app run          # Native Linux Desktop
+./script.sh app web          # Google Chrome
+
+# 5. Run static analysis & typecheckers
+./script.sh check
+
+# 6. Run all automated tests
+./script.sh test
+
+# 7. Compile production release bundles
+./script.sh build
+
+# 8. Flush databases and caches
+./script.sh flush
+
+# 9. Tear down docker containers
+./script.sh uenvi
 ```
 
 ---
@@ -79,12 +128,14 @@ CampusManagement/
 ## Running Automated Tests
 
 Run backend Go test suite:
+
 ```bash
 cd backend
 go test -v ./...
 ```
 
 Run Flutter client test suite & static analysis:
+
 ```bash
 cd client
 flutter test
@@ -96,20 +147,25 @@ flutter analyze
 ## Getting Started
 
 ### 1. Start Infrastructure (PostgreSQL & Redis)
+
 ```bash
 docker compose up -d
 ```
 
 ### 2. Run Go Backend
+
 ```bash
 cd backend
 go run ./cmd/server
 ```
+
 The server will start on `http://localhost:8080`.
+
 - Health check: `http://localhost:8080/api/health`
 - Delta Sync: `http://localhost:8080/api/v1/sync`
 
 ### 3. Run Flutter Client
+
 ```bash
 cd client
 

@@ -19,6 +19,10 @@ client/**/*.lock
 *.swp
 *.swo
 
+# Environment
+.env
+.env.local
+
 # OS
 .DS_Store
 Thumbs.db
