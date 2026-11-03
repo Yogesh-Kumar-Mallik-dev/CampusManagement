@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -32,12 +33,37 @@ func main() {
 	cacheManager := cache.NewResilientManager(redisStore)
 
 	// 2. Initialize PostgreSQL with strictly capped connection pool
+	dbHost := os.Getenv("POSTGRES_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+	dbPortStr := os.Getenv("POSTGRES_PORT")
+	dbPort := 5432
+	if dbPortStr != "" {
+		var p int
+		if _, err := fmt.Sscanf(dbPortStr, "%d", &p); err == nil && p > 0 {
+			dbPort = p
+		}
+	}
+	dbUser := os.Getenv("POSTGRES_USER")
+	if dbUser == "" {
+		dbUser = "campus_user"
+	}
+	dbPassword := os.Getenv("POSTGRES_PASSWORD")
+	if dbPassword == "" {
+		dbPassword = "campus_password"
+	}
+	dbName := os.Getenv("POSTGRES_DB")
+	if dbName == "" {
+		dbName = "campus_db"
+	}
+
 	dbConfig := database.Config{
-		Host:     "localhost",
-		Port:     5432,
-		User:     "campus_user",
-		Password: "campus_password",
-		DBName:   "campus_db",
+		Host:     dbHost,
+		Port:     dbPort,
+		User:     dbUser,
+		Password: dbPassword,
+		DBName:   dbName,
 		MaxConns: 30,
 		MinConns: 5,
 	}

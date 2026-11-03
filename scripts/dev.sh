@@ -27,6 +27,13 @@ if [ -f "$ROOT_DIR/scripts/envi.sh" ]; then
   "$ROOT_DIR/scripts/envi.sh"
 fi
 
+# Load environment variables
+if [ -f "$ROOT_DIR/.env" ]; then
+  set -a
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
 # 2. Deterministic Port Cleanup (Port 8080)
 for PORT in 8080; do
   PID=$(lsof -ti :$PORT 2>/dev/null || true)
