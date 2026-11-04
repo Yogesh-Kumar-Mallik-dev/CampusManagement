@@ -90,21 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppLogo(size: 26),
-            SizedBox(width: 10),
-            Text(
-              'CampusOS',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
-        ),
+        title: const AppLogo(height: 40),
         actions: [
           // Connection Status Badge
           Builder(
