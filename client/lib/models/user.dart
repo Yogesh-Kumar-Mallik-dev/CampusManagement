@@ -21,6 +21,7 @@ class UserModel {
   final Map<String, dynamic>? employeeRecord;
   final Map<String, dynamic>? academicProfile;
   final Map<String, dynamic>? administrativeProfile;
+  final Map<String, dynamic>? contractorProfile;
 
   UserModel({
     required this.id,
@@ -43,10 +44,47 @@ class UserModel {
     this.employeeRecord,
     this.academicProfile,
     this.administrativeProfile,
+    this.contractorProfile,
   });
 
   String get fullName => '$firstName $lastName';
   bool get isActive => status.toLowerCase() == 'active';
+
+  // Contractor / Vendor convenience getters
+  bool get isContractor => archetype == 'external';
+  String? get vendorOrganization => contractorProfile?['vendor_organization'];
+  String? get serviceType => contractorProfile?['service_type'];
+  String? get gatePassId => contractorProfile?['gate_pass_id'] ?? universityRollNo;
+  String? get contractExpiresAt => contractorProfile?['contract_expires_at']?.toString();
+  String? get supervisorName => contractorProfile?['supervisor_name'];
+  String? get supervisorPhone => contractorProfile?['supervisor_phone'];
+  List<String> get permittedScopes {
+    final scopes = contractorProfile?['permitted_scopes'];
+    if (scopes is List) return List<String>.from(scopes);
+    return activeScopes;
+  }
+
+  // Student convenience getters
+  bool get isStudent => archetype == 'student';
+  String? get program => studentProfile?['program'];
+  String? get entryType => studentProfile?['entry_type'];
+  int? get admissionYear => studentProfile?['admission_year'];
+  int? get batchYear => studentProfile?['batch_year'];
+  int? get currentSemester => studentProfile?['current_semester'];
+  String? get sectionScope => studentProfile?['section_scope'];
+  String? get advisorName => studentProfile?['advisor_name'];
+
+  // Employee convenience getters
+  bool get isEmployee => archetype == 'employee';
+  String? get employeeCode => employeeRecord?['employee_code'] ?? universityRollNo;
+  String? get employmentType => employeeRecord?['employment_type'];
+  bool get isAcademic => employeeRecord?['is_academic'] == true || academicProfile != null;
+  bool get isAdministrative => employeeRecord?['is_administrative'] == true || administrativeProfile != null;
+  String? get academicRank => academicProfile?['academic_rank'];
+  String? get cabinLocation => academicProfile?['cabin_location'];
+  String? get designation => administrativeProfile?['designation'];
+  String? get primaryUnit => administrativeProfile?['primary_unit'];
+  String? get officeLocation => administrativeProfile?['office_location'];
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -72,6 +110,7 @@ class UserModel {
       employeeRecord: json['employee_record'] as Map<String, dynamic>?,
       academicProfile: json['academic_profile'] as Map<String, dynamic>?,
       administrativeProfile: json['administrative_profile'] as Map<String, dynamic>?,
+      contractorProfile: json['contractor_profile'] as Map<String, dynamic>?,
     );
   }
 
@@ -97,6 +136,7 @@ class UserModel {
       'employee_record': employeeRecord,
       'academic_profile': academicProfile,
       'administrative_profile': administrativeProfile,
+      'contractor_profile': contractorProfile,
     };
   }
 
@@ -121,6 +161,7 @@ class UserModel {
     Map<String, dynamic>? employeeRecord,
     Map<String, dynamic>? academicProfile,
     Map<String, dynamic>? administrativeProfile,
+    Map<String, dynamic>? contractorProfile,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -143,6 +184,7 @@ class UserModel {
       employeeRecord: employeeRecord ?? this.employeeRecord,
       academicProfile: academicProfile ?? this.academicProfile,
       administrativeProfile: administrativeProfile ?? this.administrativeProfile,
+      contractorProfile: contractorProfile ?? this.contractorProfile,
     );
   }
 

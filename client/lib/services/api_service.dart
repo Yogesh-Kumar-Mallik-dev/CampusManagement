@@ -198,6 +198,19 @@ class ApiService {
     throw Exception('Failed to create employee: ${res.body}');
   }
 
+  Future<UserModel> createContractor(Map<String, dynamic> req) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/users/contractor'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(req),
+    );
+    if (res.statusCode == 201) {
+      final data = jsonDecode(res.body);
+      return UserModel.fromJson(data['user']);
+    }
+    throw Exception('Failed to create contractor: ${res.body}');
+  }
+
   Future<UserModel> discontinueUser({
     required String userId,
     required String status,

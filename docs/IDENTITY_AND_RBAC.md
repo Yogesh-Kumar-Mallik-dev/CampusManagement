@@ -45,7 +45,17 @@ $$\text{Format: } \{\text{sanitized\_name}\}\_\{\text{joining\_year}\}\_\text{em
 **Example**:
 > Faculty: *Dr. Sharma*, Joined 2025 $\rightarrow$ **`dr_sharma_2025_emp_1`**
 
-### 2.3 Deterministic Sequence Allocation & Concurrency
+### 2.3 Contractor / External Vendor Handle Format
+
+$$\text{Format: } \{\text{sanitized\_name}\}\_\{\text{onboarding\_year}\}\_\text{ext}\_\{\text{sequence}\}$$
+
+- Applied across third-party outsourced personnel: Canteen / Mess operators, Facility Management & Cleaning, Security Guards, Transport & Shuttle Drivers, and Specialized Lab Maintenance Vendors.
+- Linked directly with an institutional **Gate Pass ID** and **Access Scopes** (e.g. `gate:main`, `building:canteen`).
+
+**Example**:
+> Contractor: *Mukesh Verma* (Sodexo Dining), Onboarded 2025 $\rightarrow$ **`mukesh_2025_ext_1`**
+
+### 2.4 Deterministic Sequence Allocation & Concurrency
 The `idgen` service handles concurrency via atomic database sequence counters or database table locking. If two students named "Rahul Sharma" are admitted concurrently in the same academic intake, the sequence allocator assigns sequence `1` and `2` with zero race conditions.
 
 ---

@@ -43,22 +43,30 @@ type UserProfileResponse struct {
 
 // StudentProfile holds academic admission facts
 type StudentProfile struct {
-	UserID          string `json:"user_id"`
-	AdmissionYear   int    `json:"admission_year"`
-	EntryType       string `json:"entry_type"` // 'regular', 'lateral', 'transfer'
-	Program         string `json:"program"`    // 'btech', 'mtech', 'phd'
-	CurrentSemester int    `json:"current_semester"`
-	BatchYear       int    `json:"batch_year"`
+	UserID                string `json:"user_id"`
+	AdmissionYear         int    `json:"admission_year"`
+	EntryType             string `json:"entry_type"` // 'regular', 'lateral', 'transfer'
+	Program               string `json:"program"`    // 'btech', 'mtech', 'phd'
+	CurrentSemester       int    `json:"current_semester"`
+	BatchYear             int    `json:"batch_year"`
+	SectionScope          string `json:"section_scope,omitempty"` // e.g. 'sec:cse-3a'
+	AdvisorName           string `json:"advisor_name,omitempty"`
+	HostelBlock           string `json:"hostel_block,omitempty"`
+	RoomNumber            string `json:"room_number,omitempty"`
+	EmergencyContactName  string `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone string `json:"emergency_contact_phone,omitempty"`
 }
 
 // EmployeeRecord holds HR and institutional employment anchor
 type EmployeeRecord struct {
-	UserID           string    `json:"user_id"`
-	JoiningDate      time.Time `json:"joining_date"`
-	EmployeeCode     string    `json:"employee_code,omitempty"`
-	EmploymentType   string    `json:"employment_type"` // 'permanent', 'contract', 'visiting'
-	IsAcademic       bool      `json:"is_academic"`       // Has teaching/research duties
-	IsAdministrative bool      `json:"is_administrative"` // Has operations/admin duties
+	UserID                string    `json:"user_id"`
+	JoiningDate           time.Time `json:"joining_date"`
+	EmployeeCode          string    `json:"employee_code,omitempty"`
+	EmploymentType        string    `json:"employment_type"` // 'permanent', 'contract', 'visiting'
+	IsAcademic            bool      `json:"is_academic"`       // Has teaching/research duties
+	IsAdministrative      bool      `json:"is_administrative"` // Has operations/admin duties
+	EmergencyContactName  string    `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone string    `json:"emergency_contact_phone,omitempty"`
 }
 
 // AcademicProfile holds academic appointment facts (teaching, research)
@@ -84,6 +92,10 @@ type ContractorProfile struct {
 	UserID             string     `json:"user_id"`
 	OnboardingYear     int        `json:"onboarding_year"`
 	VendorOrganization string     `json:"vendor_organization"`
-	ServiceType        string     `json:"service_type"` // 'canteen', 'mess', 'cleaning'
+	ServiceType        string     `json:"service_type"` // 'canteen', 'mess', 'cleaning', 'security', 'transport', 'maintenance'
 	ContractExpiresAt  *time.Time `json:"contract_expires_at,omitempty"`
+	GatePassID         string     `json:"gate_pass_id,omitempty"`
+	SupervisorName     string     `json:"supervisor_name,omitempty"`
+	SupervisorPhone    string     `json:"supervisor_phone,omitempty"`
+	PermittedScopes    []string   `json:"permitted_scopes,omitempty"`
 }

@@ -150,7 +150,49 @@ Provisions faculty or administrative staff with unified handle schema.
 
 ---
 
-### 2.4 Discontinue / Offboard User
+### 2.4 Onboard Contractor / Vendor Identity
+Onboards third-party staff, issues security gate pass, and assigns zone access.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/users/contractor`
+
+**Request Body:**
+```json
+{
+  "first_name": "Mukesh",
+  "last_name": "Verma",
+  "email": "mukesh.verma@sodexo.com",
+  "personal_email": "m.verma@personal.com",
+  "phone": "+91 98333 44556",
+  "onboarding_year": 2025,
+  "vendor_organization": "Sodexo Campus Dining",
+  "service_type": "canteen",
+  "gate_pass_id": "GP-2025-0891",
+  "supervisor_name": "Anil Kapoor",
+  "supervisor_phone": "+91 98222 11000",
+  "permitted_scopes": ["gate:main", "building:canteen"]
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+{
+  "id": "usr_01hc1f...",
+  "campus_handle": "mukesh_2025_ext_1",
+  "full_name": "Mukesh Verma",
+  "archetype": "external",
+  "status": "active",
+  "contractor_profile": {
+    "vendor_organization": "Sodexo Campus Dining",
+    "service_type": "canteen",
+    "gate_pass_id": "GP-2025-0891"
+  }
+}
+```
+
+---
+
+### 2.5 Discontinue / Offboard User
 Transitions user lifecycle to discontinued and revokes access.
 
 - **Method**: `POST`

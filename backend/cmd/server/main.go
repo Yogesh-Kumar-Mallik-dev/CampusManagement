@@ -109,6 +109,7 @@ func main() {
 	mux.HandleFunc("/api/v1/users/profile", userHandler.GetUserProfile)
 	mux.HandleFunc("/api/v1/users/student", userHandler.CreateStudent)
 	mux.HandleFunc("/api/v1/users/employee", userHandler.CreateEmployee)
+	mux.HandleFunc("/api/v1/users/contractor", userHandler.CreateContractor)
 	mux.HandleFunc("/api/v1/users/discontinue", userHandler.DiscontinueUser)
 	mux.HandleFunc("/api/v1/users/reactivate", userHandler.ReactivateUser)
 

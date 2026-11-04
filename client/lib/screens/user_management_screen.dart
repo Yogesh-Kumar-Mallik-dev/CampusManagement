@@ -23,7 +23,7 @@ class UserManagementScreen extends StatefulWidget {
 class _UserManagementScreenState extends State<UserManagementScreen> {
   List<UserModel> _users = [];
   bool _isLoading = false;
-  String _selectedFilter = 'all'; // 'all', 'student', 'employee', 'inactive'
+  String _selectedFilter = 'all'; // 'all', 'student', 'employee', 'external', 'inactive'
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -43,7 +43,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     setState(() => _isLoading = true);
     try {
       final list = await widget.storage.getUsers(
-        archetype: _selectedFilter == 'student' || _selectedFilter == 'employee' ? _selectedFilter : null,
+        archetype: _selectedFilter == 'student' || _selectedFilter == 'employee' || _selectedFilter == 'external'
+            ? _selectedFilter
+            : null,
         status: _selectedFilter == 'inactive' ? 'inactive' : null,
         search: _searchQuery,
       );
@@ -109,6 +111,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     final totalCount = _users.length;
     final activeCount = _users.where((u) => u.isActive).length;
+    final contractorCount = _users.where((u) => u.isContractor).length;
     final discontinuedCount = _users.where((u) => !u.isActive).length;
 
     return Scaffold(
@@ -159,7 +162,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             const SizedBox(height: 20),
 
             // 2. Metrics Bar
-            _buildMetricsBar(isDark, totalCount, activeCount, discontinuedCount),
+            _buildMetricsBar(isDark, totalCount, activeCount, contractorCount, discontinuedCount),
             const SizedBox(height: 20),
 
             // 3. Search and Segmented Filter Bar
@@ -203,15 +206,39 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
-  Widget _buildMetricsBar(bool isDark, int total, int active, int discontinued) {
-    return Row(
-      children: [
-        _buildMetricItem('Total Identities', '$total', isDark, AppColors.wineRed),
-        const SizedBox(width: 12),
-        _buildMetricItem('Active Credentials', '$active', isDark, AppColors.githubGreen),
-        const SizedBox(width: 12),
-        _buildMetricItem('Discontinued / Exited', '$discontinued', isDark, AppColors.statusRed),
-      ],
+  Widget _buildMetricsBar(bool isDark, int total, int active, int contractors, int discontinued) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 680;
+        final items = [
+          _buildMetricItem('Total Identities', '$total', isDark, AppColors.wineRed),
+          _buildMetricItem('Active Credentials', '$active', isDark, AppColors.githubGreen),
+          _buildMetricItem('Contractors & External', '$contractors', isDark, AppColors.statusYellow),
+          _buildMetricItem('Discontinued / Exited', '$discontinued', isDark, AppColors.statusRed),
+        ];
+
+        if (isNarrow) {
+          return Column(
+            children: [
+              Row(children: [items[0], const SizedBox(width: 10), items[1]]),
+              const SizedBox(height: 10),
+              Row(children: [items[2], const SizedBox(width: 10), items[3]]),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            items[0],
+            const SizedBox(width: 10),
+            items[1],
+            const SizedBox(width: 10),
+            items[2],
+            const SizedBox(width: 10),
+            items[3],
+          ],
+        );
+      },
     );
   }
 
@@ -271,12 +298,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       ('all', 'All Users'),
       ('student', 'Students'),
       ('employee', 'Faculty & Staff'),
+      ('external', 'Contractors & Vendors'),
       ('inactive', 'Discontinued'),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 640;
+        final isNarrow = constraints.maxWidth < 840;
 
         final searchField = SizedBox(
           height: 38,
@@ -451,7 +479,7 @@ class _UserDirectoryCardState extends State<_UserDirectoryCard> {
 
     final roleBadge = u.archetype == 'student'
         ? AppColors.primaryBadge(isDark)
-        : AppColors.greenBadge(isDark);
+        : (u.isContractor ? AppColors.yellowBadge(isDark) : AppColors.blueBadge(isDark));
 
     BadgeStyle statusBadge;
     switch (u.status.toLowerCase()) {
@@ -588,7 +616,11 @@ class _UserDirectoryCardState extends State<_UserDirectoryCard> {
                       border: Border.all(color: roleBadge.border, width: 1),
                     ),
                     child: Text(
-                      u.archetype.toUpperCase(),
+                      u.isContractor
+                          ? (u.vendorOrganization != null && u.vendorOrganization!.isNotEmpty
+                              ? 'CONTRACTOR • ${u.vendorOrganization}'
+                              : 'CONTRACTOR')
+                          : u.archetype.toUpperCase(),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -596,11 +628,21 @@ class _UserDirectoryCardState extends State<_UserDirectoryCard> {
                       ),
                     ),
                   ),
-                  if (u.universityRollNo != null && u.universityRollNo!.isNotEmpty)
+                  if (u.isContractor && u.gatePassId != null && u.gatePassId!.isNotEmpty)
+                    Text(
+                      u.gatePassId!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    )
+                  else if (u.universityRollNo != null && u.universityRollNo!.isNotEmpty)
                     Text(
                       u.universityRollNo!,
                       style: TextStyle(
                         fontSize: 11,
+                        fontFamily: 'monospace',
                         color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                       ),
                     )
@@ -638,7 +680,7 @@ class _UserCreationDialog extends StatefulWidget {
 }
 
 class _UserCreationDialogState extends State<_UserCreationDialog> {
-  int _selectedTab = 0; // 0: Student, 1: Employee
+  int _selectedTab = 0; // 0: Student, 1: Employee, 2: Contractor / Vendor
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -649,6 +691,10 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   final _stuPersonalEmail = TextEditingController();
   final _stuPhone = TextEditingController();
   final _stuAppNo = TextEditingController();
+  final _stuRollNo = TextEditingController();
+  final _stuRegNo = TextEditingController();
+  final _stuSection = TextEditingController(text: 'sec:cse-1a');
+  final _stuAdvisor = TextEditingController();
   int _stuAdmissionYear = DateTime.now().year;
   String _stuEntryType = 'regular'; // 'regular', 'lateral', 'transfer'
   String _stuProgram = 'btech'; // 'btech', 'mtech', 'phd'
@@ -659,6 +705,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   final _empEmail = TextEditingController();
   final _empPersonalEmail = TextEditingController();
   final _empPhone = TextEditingController();
+  final _empCode = TextEditingController();
   int _empJoiningYear = DateTime.now().year;
   String _empType = 'permanent'; // 'permanent', 'contract', 'visiting'
 
@@ -674,11 +721,26 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   final _empDesignation = TextEditingController();
   final _empOffice = TextEditingController();
 
+  // Contractor / External Form Controllers
+  final _extFirst = TextEditingController();
+  final _extLast = TextEditingController();
+  final _extEmail = TextEditingController();
+  final _extPersonalEmail = TextEditingController();
+  final _extPhone = TextEditingController();
+  int _extOnboardingYear = DateTime.now().year;
+  final _extVendorOrg = TextEditingController(text: 'Sodexo Campus Dining');
+  String _extServiceType = 'canteen';
+  final _extGatePass = TextEditingController();
+  final _extSupervisorName = TextEditingController();
+  final _extSupervisorPhone = TextEditingController();
+  final _extScopes = TextEditingController(text: 'gate:main, building:canteen');
+
   @override
   void initState() {
     super.initState();
     _stuFirst.addListener(() => setState(() {}));
     _empFirst.addListener(() => setState(() {}));
+    _extFirst.addListener(() => setState(() {}));
   }
 
   @override
@@ -689,15 +751,31 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
     _stuPersonalEmail.dispose();
     _stuPhone.dispose();
     _stuAppNo.dispose();
+    _stuRollNo.dispose();
+    _stuRegNo.dispose();
+    _stuSection.dispose();
+    _stuAdvisor.dispose();
 
     _empFirst.dispose();
     _empLast.dispose();
     _empEmail.dispose();
     _empPersonalEmail.dispose();
     _empPhone.dispose();
+    _empCode.dispose();
     _empCabin.dispose();
     _empDesignation.dispose();
     _empOffice.dispose();
+
+    _extFirst.dispose();
+    _extLast.dispose();
+    _extEmail.dispose();
+    _extPersonalEmail.dispose();
+    _extPhone.dispose();
+    _extVendorOrg.dispose();
+    _extGatePass.dispose();
+    _extSupervisorName.dispose();
+    _extSupervisorPhone.dispose();
+    _extScopes.dispose();
     super.dispose();
   }
 
@@ -714,6 +792,19 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
     final cleanName = name.replaceAll(RegExp(r'[^a-z0-9]'), '');
     final prefixName = cleanName.isEmpty ? 'name' : cleanName;
     return '${prefixName}_${_empJoiningYear}_emp_#';
+  }
+
+  String _generateContractorHandlePreview() {
+    final name = _extFirst.text.trim().toLowerCase();
+    final cleanName = name.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final prefixName = cleanName.isEmpty ? 'name' : cleanName;
+    return '${prefixName}_${_extOnboardingYear}_ext_#';
+  }
+
+  String _getCurrentHandlePreview() {
+    if (_selectedTab == 0) return _generateStudentHandlePreview();
+    if (_selectedTab == 1) return _generateEmployeeHandlePreview();
+    return _generateContractorHandlePreview();
   }
 
   Future<void> _submitStudent() async {
@@ -744,6 +835,10 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'entry_type': _stuEntryType,
         'program': _stuProgram,
         'admission_application_no': _stuAppNo.text.trim(),
+        'university_roll_no': _stuRollNo.text.trim(),
+        'university_reg_no': _stuRegNo.text.trim(),
+        'section_scope': _stuSection.text.trim(),
+        'advisor_name': _stuAdvisor.text.trim(),
       });
       if (mounted) {
         Navigator.of(context).pop();
@@ -790,6 +885,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'phone': _empPhone.text.trim(),
         'joining_year': _empJoiningYear,
         'employment_type': _empType,
+        'employee_code': _empCode.text.trim(),
         'is_academic': _empIsAcademic,
         'academic_rank': _empAcademicRank,
         'cabin_location': _empCabin.text.trim(),
@@ -798,6 +894,63 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'primary_unit': _empAdminUnit,
         'designation': _empDesignation.text.trim().isNotEmpty ? _empDesignation.text.trim() : 'Staff Member',
         'office_location': _empOffice.text.trim(),
+      });
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onUserCreated(user);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _submitContractor() async {
+    final first = _extFirst.text.trim();
+    final last = _extLast.text.trim();
+    if (first.isEmpty || last.isEmpty) {
+      setState(() => _errorMessage = 'First name and last name are required.');
+      return;
+    }
+    final vendor = _extVendorOrg.text.trim();
+    if (vendor.isEmpty) {
+      setState(() => _errorMessage = 'Vendor organization is required.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    final email = _extEmail.text.trim().isNotEmpty
+        ? _extEmail.text.trim()
+        : '${first.toLowerCase()}_${_extOnboardingYear}_ext@campus.edu';
+
+    final scopes = _extScopes.text
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    try {
+      final user = await widget.storage.createContractor({
+        'first_name': first,
+        'last_name': last,
+        'email': email,
+        'personal_email': _extPersonalEmail.text.trim(),
+        'phone': _extPhone.text.trim(),
+        'onboarding_year': _extOnboardingYear,
+        'vendor_organization': vendor,
+        'service_type': _extServiceType,
+        'gate_pass_id': _extGatePass.text.trim(),
+        'supervisor_name': _extSupervisorName.text.trim(),
+        'supervisor_phone': _extSupervisorPhone.text.trim(),
+        'permitted_scopes': scopes.isNotEmpty ? scopes : ['gate:main', 'building:canteen'],
       });
       if (mounted) {
         Navigator.of(context).pop();
@@ -876,7 +1029,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                           child: Text(
                             'Student Admission',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: _selectedTab == 0
                                   ? Colors.white
@@ -901,9 +1054,34 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                           child: Text(
                             'Employee Onboarding',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: _selectedTab == 1
+                                  ? Colors.white
+                                  : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _selectedTab = 2),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 2
+                                ? AppColors.wineRed
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            'Contractor / Vendor',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _selectedTab == 2
                                   ? Colors.white
                                   : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
                             ),
@@ -944,9 +1122,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                     ),
                     Flexible(
                       child: Text(
-                        _selectedTab == 0
-                            ? _generateStudentHandlePreview()
-                            : _generateEmployeeHandlePreview(),
+                        _getCurrentHandlePreview(),
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
@@ -964,7 +1140,9 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
               // Form fields
               Expanded(
                 child: SingleChildScrollView(
-                  child: _selectedTab == 0 ? _buildStudentForm(isDark) : _buildEmployeeForm(isDark),
+                  child: _selectedTab == 0
+                      ? _buildStudentForm(isDark)
+                      : (_selectedTab == 1 ? _buildEmployeeForm(isDark) : _buildContractorForm(isDark)),
                 ),
               ),
 
@@ -994,14 +1172,18 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                     ),
                     onPressed: _isSubmitting
                         ? null
-                        : (_selectedTab == 0 ? _submitStudent : _submitEmployee),
+                        : (_selectedTab == 0
+                            ? _submitStudent
+                            : (_selectedTab == 1 ? _submitEmployee : _submitContractor)),
                     child: _isSubmitting
                         ? const SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : Text(_selectedTab == 0 ? 'Admit Student' : 'Onboard Employee'),
+                        : Text(_selectedTab == 0
+                            ? 'Admit Student'
+                            : (_selectedTab == 1 ? 'Onboard Employee' : 'Onboard Contractor')),
                   ),
                 ],
               ),
@@ -1223,6 +1405,87 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildContractorForm(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('First Name *', _extFirst, 'e.g. Mukesh', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField('Last Name *', _extLast, 'e.g. Verma', isDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('Vendor Organization / Firm *', _extVendorOrg, 'e.g. Sodexo Campus Dining', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                'Service Category',
+                _extServiceType,
+                ['canteen', 'mess', 'cleaning', 'security', 'transport', 'maintenance', 'lab_vendor'],
+                (val) => setState(() => _extServiceType = val!),
+                isDark,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('Gate Pass / Security Badge ID', _extGatePass, 'e.g. GP-2025-0891 (Auto if empty)', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                'Onboarding Year',
+                _extOnboardingYear.toString(),
+                ['2024', '2025', '2026', '2027'],
+                (val) => setState(() => _extOnboardingYear = int.parse(val!)),
+                isDark,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('Contact Phone', _extPhone, '+91 98333 44556', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField('Official / Vendor Email', _extEmail, 'Auto-generated if empty', isDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('Site Supervisor Name', _extSupervisorName, 'e.g. Anil Kapoor', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField('Supervisor Phone', _extSupervisorPhone, '+91 98222 11000', isDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildTextField('Permitted Access Zones / Gate Scopes', _extScopes, 'e.g. gate:main, building:canteen', isDark),
       ],
     );
   }

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -191,6 +192,42 @@ func (h *UserHandler) seedDefaultUsers() {
 		Program:         "btech",
 		CurrentSemester: 8,
 		BatchYear:       2025,
+		SectionScope:    "sec:cse-4b",
+		AdvisorName:     "Dr. Priya Nair",
+	}
+
+	// 5. Contractor / External: Mukesh Verma (Sodexo Campus Dining Lead)
+	mukeshHandle := "mukesh_2025_ext_1"
+	mukeshID := "usr-" + mukeshHandle
+	mukeshExpiry := now.Add(300 * 24 * time.Hour)
+	h.users[mukeshID] = model.User{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        mukeshID,
+			CreatedAt: now.Add(-40 * 24 * time.Hour),
+			UpdatedAt: now,
+		},
+		CampusHandle:     mukeshHandle,
+		FirstName:        "Mukesh",
+		LastName:         "Verma",
+		Email:            "mukesh_2025_ext_1@campus.edu",
+		PersonalEmail:    "mukesh.verma@sodexo-dining.com",
+		Phone:            "+91 98333 44556",
+		Archetype:        model.ArchetypeExternal,
+		UniversityRollNo: "GP-2025-0891",
+		IsActive:         true,
+		Status:           "active",
+	}
+	h.handleToID[mukeshHandle] = mukeshID
+	h.contractorProfiles[mukeshID] = model.ContractorProfile{
+		UserID:             mukeshID,
+		OnboardingYear:     2025,
+		VendorOrganization: "Sodexo Campus Dining",
+		ServiceType:        "canteen",
+		ContractExpiresAt:  &mukeshExpiry,
+		GatePassID:         "GP-2025-0891",
+		SupervisorName:     "Anil Kapoor",
+		SupervisorPhone:    "+91 98222 11000",
+		PermittedScopes:    []string{"gate:main", "building:canteen"},
 	}
 
 	// Seed default roles into permission service if available
@@ -198,6 +235,7 @@ func (h *UserHandler) seedDefaultUsers() {
 		_ = h.permService.AssignRole(nil, harishID, "student_base", "sec:cse-3a", nil)
 		_ = h.permService.AssignRole(nil, harishID, "club_president", "club:robotics", nil)
 		_ = h.permService.AssignRole(nil, priyaID, "hod", "dept:cse", nil)
+		_ = h.permService.AssignRole(nil, mukeshID, "vendor_staff", "building:canteen", nil)
 	}
 }
 
@@ -205,12 +243,22 @@ type CreateStudentRequest struct {
 	FirstName              string `json:"first_name"`
 	LastName               string `json:"last_name"`
 	Email                  string `json:"email"`
-	PersonalEmail          string `json:"personal_email"`
-	Phone                  string `json:"phone"`
+	PersonalEmail          string `json:"personal_email,omitempty"`
+	Phone                  string `json:"phone,omitempty"`
 	AdmissionYear          int    `json:"admission_year"`
 	EntryType              string `json:"entry_type"` // 'regular', 'lateral', 'transfer'
 	Program                string `json:"program"`    // 'btech', 'mtech', 'phd'
-	AdmissionApplicationNo string `json:"admission_application_no"`
+	AdmissionApplicationNo string `json:"admission_application_no,omitempty"`
+	UniversityRollNo       string `json:"university_roll_no,omitempty"`
+	UniversityRegNo        string `json:"university_reg_no,omitempty"`
+	CurrentSemester        int    `json:"current_semester,omitempty"`
+	BatchYear              int    `json:"batch_year,omitempty"`
+	SectionScope           string `json:"section_scope,omitempty"`
+	AdvisorName            string `json:"advisor_name,omitempty"`
+	HostelBlock            string `json:"hostel_block,omitempty"`
+	RoomNumber             string `json:"room_number,omitempty"`
+	EmergencyContactName   string `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone  string `json:"emergency_contact_phone,omitempty"`
 }
 
 func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
@@ -231,6 +279,19 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	batchYear := req.BatchYear
+	if batchYear <= 0 {
+		batchYear = req.AdmissionYear + 4
+	}
+	currentSemester := req.CurrentSemester
+	if currentSemester <= 0 {
+		currentSemester = 1
+	}
+	sectionScope := req.SectionScope
+	if sectionScope == "" {
+		sectionScope = "sec:" + strings.ToLower(req.Program) + "-1a"
+	}
+
 	now := time.Now().UTC()
 	user := model.User{
 		BaseSyncModel: model.BaseSyncModel{
@@ -246,17 +307,25 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		Phone:                  req.Phone,
 		Archetype:              model.ArchetypeStudent,
 		AdmissionApplicationNo: req.AdmissionApplicationNo,
+		UniversityRollNo:       req.UniversityRollNo,
+		UniversityRegNo:        req.UniversityRegNo,
 		IsActive:               true,
 		Status:                 "active",
 	}
 
 	profile := model.StudentProfile{
-		UserID:          user.ID,
-		AdmissionYear:   req.AdmissionYear,
-		EntryType:       req.EntryType,
-		Program:         req.Program,
-		CurrentSemester: 1,
-		BatchYear:       req.AdmissionYear + 4,
+		UserID:                user.ID,
+		AdmissionYear:         req.AdmissionYear,
+		EntryType:             req.EntryType,
+		Program:               req.Program,
+		CurrentSemester:       currentSemester,
+		BatchYear:             batchYear,
+		SectionScope:          sectionScope,
+		AdvisorName:           req.AdvisorName,
+		HostelBlock:           req.HostelBlock,
+		RoomNumber:            req.RoomNumber,
+		EmergencyContactName:  req.EmergencyContactName,
+		EmergencyContactPhone: req.EmergencyContactPhone,
 	}
 
 	h.mu.Lock()
@@ -267,7 +336,7 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 
 	// Assign baseline student role
 	if h.permService != nil {
-		_ = h.permService.AssignRole(r.Context(), user.ID, "student_base", "global", nil)
+		_ = h.permService.AssignRole(r.Context(), user.ID, "student_base", sectionScope, nil)
 	}
 
 	resp := map[string]interface{}{
@@ -284,22 +353,28 @@ type CreateEmployeeRequest struct {
 	FirstName      string `json:"first_name"`
 	LastName       string `json:"last_name"`
 	Email          string `json:"email"`
-	PersonalEmail  string `json:"personal_email"`
-	Phone          string `json:"phone"`
+	PersonalEmail  string `json:"personal_email,omitempty"`
+	Phone          string `json:"phone,omitempty"`
 	JoiningYear    int    `json:"joining_year"`
+	EmployeeCode   string `json:"employee_code,omitempty"`
 	EmploymentType string `json:"employment_type"` // 'permanent', 'contract', 'visiting'
 
 	// Academic info (if applicable)
-	IsAcademic    bool     `json:"is_academic"`
-	AcademicRank  string   `json:"academic_rank,omitempty"`
-	CabinLocation string   `json:"cabin_location,omitempty"`
-	Departments   []string `json:"department_affiliations,omitempty"`
+	IsAcademic      bool     `json:"is_academic"`
+	AcademicRank    string   `json:"academic_rank,omitempty"`
+	CabinLocation   string   `json:"cabin_location,omitempty"`
+	GoogleScholarID string   `json:"google_scholar_id,omitempty"`
+	ResearchAreas   []string `json:"research_areas,omitempty"`
+	Departments     []string `json:"department_affiliations,omitempty"`
 
 	// Administrative info (if applicable)
 	IsAdministrative bool   `json:"is_administrative"`
 	PrimaryUnit      string `json:"primary_unit,omitempty"`
 	Designation      string `json:"designation,omitempty"`
 	OfficeLocation   string `json:"office_location,omitempty"`
+
+	EmergencyContactName  string `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone string `json:"emergency_contact_phone,omitempty"`
 }
 
 func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
@@ -327,23 +402,27 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		CampusHandle:  handle,
-		FirstName:     req.FirstName,
-		LastName:      req.LastName,
-		Email:         req.Email,
-		PersonalEmail: req.PersonalEmail,
-		Phone:         req.Phone,
-		Archetype:     model.ArchetypeEmployee,
-		IsActive:      true,
-		Status:        "active",
+		CampusHandle:     handle,
+		FirstName:        req.FirstName,
+		LastName:         req.LastName,
+		Email:            req.Email,
+		PersonalEmail:    req.PersonalEmail,
+		Phone:            req.Phone,
+		Archetype:        model.ArchetypeEmployee,
+		UniversityRollNo: req.EmployeeCode,
+		IsActive:         true,
+		Status:           "active",
 	}
 
 	empRecord := model.EmployeeRecord{
-		UserID:           user.ID,
-		JoiningDate:      now,
-		EmploymentType:   req.EmploymentType,
-		IsAcademic:       req.IsAcademic,
-		IsAdministrative: req.IsAdministrative,
+		UserID:                user.ID,
+		JoiningDate:           now,
+		EmployeeCode:          req.EmployeeCode,
+		EmploymentType:        req.EmploymentType,
+		IsAcademic:            req.IsAcademic,
+		IsAdministrative:      req.IsAdministrative,
+		EmergencyContactName:  req.EmergencyContactName,
+		EmergencyContactPhone: req.EmergencyContactPhone,
 	}
 
 	h.mu.Lock()
@@ -354,10 +433,12 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	var acadProfile *model.AcademicProfile
 	if req.IsAcademic {
 		ap := model.AcademicProfile{
-			UserID:        user.ID,
-			AcademicRank:  req.AcademicRank,
-			CabinLocation: req.CabinLocation,
-			Departments:   req.Departments,
+			UserID:          user.ID,
+			AcademicRank:    req.AcademicRank,
+			CabinLocation:   req.CabinLocation,
+			GoogleScholarID: req.GoogleScholarID,
+			ResearchAreas:   req.ResearchAreas,
+			Departments:     req.Departments,
 		}
 		h.academicProfiles[user.ID] = ap
 		acadProfile = &ap
@@ -376,11 +457,128 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	}
 	h.mu.Unlock()
 
+	// Assign roles based on capability
+	if h.permService != nil {
+		if req.IsAcademic {
+			scope := "dept:cse"
+			if len(req.Departments) > 0 && req.Departments[0] != "" {
+				scope = req.Departments[0]
+			}
+			_ = h.permService.AssignRole(r.Context(), user.ID, "faculty", scope, nil)
+		}
+		if req.IsAdministrative {
+			unitScope := req.PrimaryUnit
+			if unitScope == "" {
+				unitScope = "unit:general"
+			}
+			_ = h.permService.AssignRole(r.Context(), user.ID, "staff", unitScope, nil)
+		}
+	}
+
 	resp := map[string]interface{}{
 		"user":                   user,
 		"employee_record":        empRecord,
 		"academic_profile":       acadProfile,
 		"administrative_profile": adminProfile,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+type CreateContractorRequest struct {
+	FirstName          string     `json:"first_name"`
+	LastName           string     `json:"last_name"`
+	Email              string     `json:"email"`
+	PersonalEmail      string     `json:"personal_email,omitempty"`
+	Phone              string     `json:"phone,omitempty"`
+	OnboardingYear     int        `json:"onboarding_year"`
+	VendorOrganization string     `json:"vendor_organization"`
+	ServiceType        string     `json:"service_type"` // 'canteen', 'mess', 'cleaning', 'security', 'transport', 'maintenance'
+	ContractExpiresAt  *time.Time `json:"contract_expires_at,omitempty"`
+	GatePassID         string     `json:"gate_pass_id,omitempty"`
+	SupervisorName     string     `json:"supervisor_name,omitempty"`
+	SupervisorPhone    string     `json:"supervisor_phone,omitempty"`
+	PermittedScopes    []string   `json:"permitted_scopes,omitempty"`
+}
+
+func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req CreateContractorRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.OnboardingYear <= 0 {
+		req.OnboardingYear = time.Now().Year()
+	}
+
+	handle, err := h.idGen.NextExternalID(r.Context(), req.FirstName, req.OnboardingYear)
+	if err != nil {
+		http.Error(w, "Failed to generate contractor handle: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	gatePassID := req.GatePassID
+	if gatePassID == "" {
+		gatePassID = fmt.Sprintf("GP-%d-%s", req.OnboardingYear, handle)
+	}
+
+	now := time.Now().UTC()
+	user := model.User{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        "usr-" + handle,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		CampusHandle:     handle,
+		FirstName:        req.FirstName,
+		LastName:         req.LastName,
+		Email:            req.Email,
+		PersonalEmail:    req.PersonalEmail,
+		Phone:            req.Phone,
+		Archetype:        model.ArchetypeExternal,
+		UniversityRollNo: gatePassID,
+		IsActive:         true,
+		Status:           "active",
+	}
+
+	contractorProfile := model.ContractorProfile{
+		UserID:             user.ID,
+		OnboardingYear:     req.OnboardingYear,
+		VendorOrganization: req.VendorOrganization,
+		ServiceType:        req.ServiceType,
+		ContractExpiresAt:  req.ContractExpiresAt,
+		GatePassID:         gatePassID,
+		SupervisorName:     req.SupervisorName,
+		SupervisorPhone:    req.SupervisorPhone,
+		PermittedScopes:    req.PermittedScopes,
+	}
+
+	h.mu.Lock()
+	h.users[user.ID] = user
+	h.handleToID[handle] = user.ID
+	h.contractorProfiles[user.ID] = contractorProfile
+	h.mu.Unlock()
+
+	// Assign contractor / vendor role
+	if h.permService != nil {
+		scope := "gate:main"
+		if len(req.PermittedScopes) > 0 && req.PermittedScopes[0] != "" {
+			scope = req.PermittedScopes[0]
+		}
+		_ = h.permService.AssignRole(r.Context(), user.ID, "vendor_staff", scope, nil)
+	}
+
+	resp := map[string]interface{}{
+		"user":               user,
+		"contractor_profile": contractorProfile,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

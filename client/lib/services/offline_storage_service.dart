@@ -199,6 +199,29 @@ class OfflineStorageService {
           'batch_year': 2025,
         },
       ),
+      UserModel(
+        id: 'usr-mukesh_2025_ext_1',
+        campusHandle: 'mukesh_2025_ext_1',
+        firstName: 'Mukesh',
+        lastName: 'Verma',
+        email: 'mukesh_2025_ext_1@campus.edu',
+        personalEmail: 'mukesh.verma@sodexo-dining.com',
+        phone: '+91 98333 44556',
+        archetype: 'external',
+        universityRollNo: 'GP-2025-0891',
+        status: 'active',
+        activeScopes: ['gate:main', 'building:canteen'],
+        contractorProfile: {
+          'onboarding_year': 2025,
+          'vendor_organization': 'Sodexo Campus Dining',
+          'service_type': 'canteen',
+          'contract_expires_at': DateTime.now().add(const Duration(days: 300)).toIso8601String(),
+          'gate_pass_id': 'GP-2025-0891',
+          'supervisor_name': 'Anil Kapoor',
+          'supervisor_phone': '+91 98222 11000',
+          'permitted_scopes': ['gate:main', 'building:canteen'],
+        },
+      ),
     ]);
   }
 
@@ -368,6 +391,54 @@ class OfflineStorageService {
               'office_location': req['office_location'],
             }
           : null,
+    );
+    _cachedUsers.insert(0, newUser);
+    return newUser;
+  }
+
+  Future<UserModel> createContractor(Map<String, dynamic> req) async {
+    _seedDefaultUsersIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final user = await api.createContractor(req);
+        _cachedUsers.insert(0, user);
+        return user;
+      } catch (_) {}
+    }
+
+    // Offline Contractor Creation
+    final first = (req['first_name'] ?? 'external').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final year = req['onboarding_year'] ?? DateTime.now().year;
+    final prefix = '${first}_${year}_ext';
+    final count = _cachedUsers.where((u) => u.campusHandle.startsWith(prefix)).length + 1;
+    final handle = '${prefix}_$count';
+    final gatePass = req['gate_pass_id']?.toString().isNotEmpty == true
+        ? req['gate_pass_id'].toString()
+        : 'GP-$year-$handle';
+
+    final newUser = UserModel(
+      id: 'usr-$handle',
+      campusHandle: handle,
+      firstName: req['first_name'] ?? '',
+      lastName: req['last_name'] ?? '',
+      email: req['email'] ?? '$handle@campus.edu',
+      personalEmail: req['personal_email'],
+      phone: req['phone'],
+      archetype: 'external',
+      universityRollNo: gatePass,
+      status: 'active',
+      activeScopes: req['permitted_scopes'] is List ? List<String>.from(req['permitted_scopes']) : ['gate:main'],
+      contractorProfile: {
+        'onboarding_year': year,
+        'vendor_organization': req['vendor_organization'] ?? 'Campus External Vendor',
+        'service_type': req['service_type'] ?? 'canteen',
+        'contract_expires_at': req['contract_expires_at'] ?? DateTime.now().add(const Duration(days: 365)).toIso8601String(),
+        'gate_pass_id': gatePass,
+        'supervisor_name': req['supervisor_name'],
+        'supervisor_phone': req['supervisor_phone'],
+        'permitted_scopes': req['permitted_scopes'] is List ? req['permitted_scopes'] : ['gate:main'],
+      },
     );
     _cachedUsers.insert(0, newUser);
     return newUser;

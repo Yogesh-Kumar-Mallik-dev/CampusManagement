@@ -200,3 +200,91 @@ func TestUserAndDualRoleEmployeeFlow(t *testing.T) {
 		t.Fatalf("expected at least 1 user matching search 'priya'")
 	}
 }
+
+func TestContractorOnboardingAndProfile(t *testing.T) {
+	idSvc := idgen.NewIDService(nil)
+	permSvc := service.NewPermissionService(nil, nil)
+	permSvc.AddMemoryRole(model.Role{
+		Code: "vendor_staff",
+		Permissions: []model.Permission{
+			{Code: "facility:access"},
+		},
+	})
+	permSvc.AddMemoryScope(model.Scope{Code: "gate:main"})
+	permSvc.AddMemoryScope(model.Scope{Code: "building:canteen"})
+
+	h := NewUserHandler(idSvc, permSvc)
+
+	// 1. Onboard Contractor Mukesh
+	contractorJSON := `{
+		"first_name": "Mukesh",
+		"last_name": "Verma",
+		"email": "mukesh.verma@sodexo.com",
+		"personal_email": "m.verma@personal.com",
+		"phone": "+91 98333 44556",
+		"onboarding_year": 2025,
+		"vendor_organization": "Sodexo Campus Dining",
+		"service_type": "canteen",
+		"gate_pass_id": "GP-2025-0891",
+		"supervisor_name": "Anil Kapoor",
+		"supervisor_phone": "+91 98222 11000",
+		"permitted_scopes": ["gate:main", "building:canteen"]
+	}`
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/contractor", bytes.NewBufferString(contractorJSON))
+	h.CreateContractor(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for contractor, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var res map[string]interface{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &res)
+	u := res["user"].(map[string]interface{})
+	cp := res["contractor_profile"].(map[string]interface{})
+
+	handle := u["campus_handle"].(string)
+	if handle != "mukesh_2025_ext_1" && handle != "mukesh_2025_ext_2" {
+		t.Fatalf("unexpected contractor handle: %s", handle)
+	}
+	if u["archetype"] != "external" {
+		t.Fatalf("expected archetype external, got %v", u["archetype"])
+	}
+	if cp["vendor_organization"] != "Sodexo Campus Dining" {
+		t.Fatalf("expected Sodexo Campus Dining, got %v", cp["vendor_organization"])
+	}
+
+	// 2. Query Contractor Profile
+	profRec := httptest.NewRecorder()
+	profReq := httptest.NewRequest(http.MethodGet, "/api/v1/users/profile?handle="+handle, nil)
+	h.GetUserProfile(profRec, profReq)
+
+	if profRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for contractor profile, got %d", profRec.Code)
+	}
+
+	var profResp model.UserProfileResponse
+	_ = json.Unmarshal(profRec.Body.Bytes(), &profResp)
+	if profResp.ContractorProfile == nil {
+		t.Fatalf("expected contractor_profile to be present in profile response")
+	}
+	if profResp.ContractorProfile.VendorOrganization != "Sodexo Campus Dining" {
+		t.Fatalf("vendor organization mismatch: %s", profResp.ContractorProfile.VendorOrganization)
+	}
+
+	// 3. Query Users Filtered by Archetype External
+	listRec := httptest.NewRecorder()
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/users?archetype=external", nil)
+	h.HandleUsers(listRec, listReq)
+
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for archetype=external, got %d", listRec.Code)
+	}
+
+	var externals []model.User
+	_ = json.Unmarshal(listRec.Body.Bytes(), &externals)
+	if len(externals) == 0 {
+		t.Fatalf("expected at least 1 contractor in list")
+	}
+}

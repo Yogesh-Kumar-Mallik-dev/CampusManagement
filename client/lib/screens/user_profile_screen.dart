@@ -94,6 +94,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     String selectedStatus = 'graduated';
     if (_user.archetype == 'employee') {
       selectedStatus = 'resigned';
+    } else if (_user.isContractor) {
+      selectedStatus = 'discontinued';
     }
     final reasonController = TextEditingController();
     final adminHandle = widget.currentAdminUser?.campusHandle ?? 'admin_root';
@@ -115,7 +117,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       'terminated',
     ];
 
-    final options = _user.archetype == 'student' ? studentOptions : employeeOptions;
+    final contractorOptions = [
+      'discontinued',
+      'suspended',
+      'contract_expired',
+      'terminated',
+    ];
+
+    List<String> options;
+    if (_user.archetype == 'student') {
+      options = studentOptions;
+    } else if (_user.isContractor) {
+      options = contractorOptions;
+    } else {
+      options = employeeOptions;
+    }
 
     showDialog(
       context: context,
@@ -424,7 +440,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final statusBadge = _getStatusBadgeStyle(_user.status, isDark);
     final roleBadge = _user.archetype == 'student'
         ? AppColors.primaryBadge(isDark)
-        : AppColors.greenBadge(isDark);
+        : (_user.isContractor ? AppColors.yellowBadge(isDark) : AppColors.blueBadge(isDark));
 
     return Scaffold(
       appBar: AppBar(
@@ -672,38 +688,58 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 // Badges row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: roleBadge.background,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: roleBadge.border, width: 1),
-                          ),
-                          child: Text(
-                            _user.archetype.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: roleBadge.text,
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: roleBadge.background,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: roleBadge.border, width: 1),
+                            ),
+                            child: Text(
+                              _user.isContractor
+                                  ? (_user.vendorOrganization != null && _user.vendorOrganization!.isNotEmpty
+                                      ? 'CONTRACTOR • ${_user.vendorOrganization}'
+                                      : 'CONTRACTOR')
+                                  : _user.archetype.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: roleBadge.text,
+                              ),
                             ),
                           ),
-                        ),
-                        if (_user.universityRollNo != null && _user.universityRollNo!.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            'ID: ${_user.universityRollNo}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          if (_user.isContractor && _user.gatePassId != null && _user.gatePassId!.isNotEmpty)
+                            Text(
+                              'GATE PASS: ${_user.gatePassId}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              ),
+                            )
+                          else if (_user.universityRollNo != null && _user.universityRollNo!.isNotEmpty)
+                            Text(
+                              'ID: ${_user.universityRollNo}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              ),
                             ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     // Vector ID Code badge
                     Row(
                       children: [
@@ -878,6 +914,50 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildInstitutionalStandingCard(bool isDark) {
+    if (_user.isContractor) {
+      final cp = _user.contractorProfile ?? {};
+      final vendor = _user.vendorOrganization ?? 'Campus External Vendor';
+      final service = (_user.serviceType ?? 'Services').toUpperCase();
+      final gatePass = _user.gatePassId ?? _user.universityRollNo ?? 'GP-ASSIGNED';
+      final onboardingYear = cp['onboarding_year'] ?? 2025;
+      final supervisor = _user.supervisorName ?? 'Vendor Office';
+      final supPhone = _user.supervisorPhone ?? 'N/A';
+      final expiry = _user.contractExpiresAt ?? 'Active';
+      final zones = _user.permittedScopes.isNotEmpty
+          ? _user.permittedScopes.join(', ')
+          : 'gate:main, building:canteen';
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildFactRow('Vendor Organization', vendor, isDark),
+            const Divider(height: 16),
+            _buildFactRow('Service Classification', service, isDark),
+            const Divider(height: 16),
+            _buildFactRow('Security Gate Pass ID', gatePass, isDark),
+            const Divider(height: 16),
+            _buildFactRow('Onboarding Year', '$onboardingYear', isDark),
+            const Divider(height: 16),
+            _buildFactRow('Site Supervisor', '$supervisor ($supPhone)', isDark),
+            const Divider(height: 16),
+            _buildFactRow('Authorized Access Zones', zones, isDark),
+            const Divider(height: 16),
+            _buildFactRow('Contract Expiration', expiry.length > 10 ? expiry.substring(0, 10) : expiry, isDark),
+          ],
+        ),
+      );
+    }
+
     if (_user.archetype == 'student') {
       final p = _user.studentProfile ?? {};
       final admissionYear = p['admission_year'] ?? 2025;
@@ -885,6 +965,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final program = p['program'] ?? 'btech';
       final semester = p['current_semester'] ?? 1;
       final batchYear = p['batch_year'] ?? (admissionYear + 4);
+      final section = _user.sectionScope ?? p['section_scope'] ?? 'sec:cse-1a';
+      final advisor = _user.advisorName ?? p['advisor_name'] ?? 'Assigned Faculty Advisor';
 
       return Container(
         padding: const EdgeInsets.all(16),
@@ -903,6 +985,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             _buildFactRow('Admission Year & Entry', '$admissionYear (${entryType.toString().toUpperCase()})', isDark),
             const Divider(height: 16),
             _buildFactRow('Current Semester', 'Semester $semester', isDark),
+            const Divider(height: 16),
+            _buildFactRow('Cohort / Section Scope', section, isDark),
+            const Divider(height: 16),
+            _buildFactRow('Faculty Advisor', advisor, isDark),
             const Divider(height: 16),
             _buildFactRow('Graduation Cohort', 'Class of $batchYear', isDark),
           ],

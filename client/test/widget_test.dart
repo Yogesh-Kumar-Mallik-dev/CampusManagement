@@ -96,10 +96,40 @@ void main() {
     expect(find.text('Onboard New Campus Identity'), findsOneWidget);
     expect(find.text('Student Admission'), findsOneWidget);
     expect(find.text('Employee Onboarding'), findsOneWidget);
+    expect(find.text('Contractor / Vendor'), findsOneWidget);
     expect(find.text('Admit Student'), findsOneWidget);
+
+    // Switch to Contractor tab
+    await tester.tap(find.text('Contractor / Vendor'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vendor Organization / Firm *'), findsOneWidget);
+    expect(find.text('Gate Pass / Security Badge ID'), findsOneWidget);
+    expect(find.text('Onboard Contractor'), findsOneWidget);
 
     // Close Dialog
     await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // 6. Test Filter by Contractors & Vendors
+    await tester.tap(find.text('Contractors & Vendors'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('mukesh_2025_ext_1'), findsWidgets);
+    expect(find.textContaining('Sodexo Campus Dining'), findsWidgets);
+
+    // Open Contractor Profile
+    await tester.ensureVisible(find.text('mukesh_2025_ext_1').first);
+    await tester.tap(find.text('mukesh_2025_ext_1').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Security Gate Pass ID'), findsOneWidget);
+    expect(find.text('GP-2025-0891'), findsWidgets);
+    expect(find.text('Authorized Access Zones'), findsOneWidget);
+    expect(find.text('Discontinue User'), findsOneWidget);
+
+    // Return back to directory
+    await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
   });
 
