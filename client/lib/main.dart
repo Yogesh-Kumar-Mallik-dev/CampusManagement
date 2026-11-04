@@ -1,3 +1,4 @@
+import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'package:flutter/material.dart';
 import 'models/user.dart';
 import 'screens/home_screen.dart';
@@ -28,17 +29,19 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: AppTheme.themeModeNotifier,
-      builder: (context, themeMode, _) {
+    return ThemeProvider(
+      initTheme: AppTheme.lightTheme,
+      duration: const Duration(milliseconds: 350),
+      builder: (context, myTheme) {
         return MaterialApp(
           title: 'CampusOS',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: themeMode,
-          themeAnimationDuration: AppTheme.themeAnimationDuration,
-          themeAnimationCurve: AppTheme.themeAnimationCurve,
+          theme: myTheme,
+          builder: (context, child) {
+            return ThemeSwitchingArea(
+              child: child ?? const SizedBox(),
+            );
+          },
           home: _loggedInUser == null
               ? LoginScreen(
                   storage: widget.storage,

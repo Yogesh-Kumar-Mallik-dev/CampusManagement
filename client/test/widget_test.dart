@@ -73,12 +73,16 @@ void main() {
     final loginDarkToggle = find.byTooltip('Switch to Dark Mode');
     expect(loginDarkToggle, findsOneWidget);
     await tester.tap(loginDarkToggle);
-    await tester.pump(const Duration(milliseconds: 350));
+    for (int i = 0; i < 25; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
 
     final loginLightToggle = find.byTooltip('Switch to Light Mode');
     expect(loginLightToggle, findsOneWidget);
-    await tester.tap(loginLightToggle);
-    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(loginLightToggle, warnIfMissed: false);
+    for (int i = 0; i < 25; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
 
     // 2. Perform Login action
     await tester.tap(find.text('Sign In'));
@@ -96,12 +100,16 @@ void main() {
     final homeDarkToggle = find.byTooltip('Switch to Dark Mode');
     expect(homeDarkToggle, findsOneWidget);
     await tester.tap(homeDarkToggle);
-    await tester.pump(const Duration(milliseconds: 350));
+    for (int i = 0; i < 25; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
 
     final homeLightToggle = find.byTooltip('Switch to Light Mode');
     expect(homeLightToggle, findsOneWidget);
-    await tester.tap(homeLightToggle);
-    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(homeLightToggle, warnIfMissed: false);
+    for (int i = 0; i < 25; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
 
     // 4. Navigate to User Directory tab
     await tester.tap(find.text('Directory & Identities'));

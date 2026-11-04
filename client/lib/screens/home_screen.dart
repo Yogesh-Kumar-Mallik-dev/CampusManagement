@@ -1,3 +1,4 @@
+import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
@@ -151,18 +152,21 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 8),
 
-          // Theme Toggle with Smooth 60fps Animated Transition
-          ValueListenableBuilder<ThemeMode>(
-            valueListenable: AppTheme.themeModeNotifier,
-            builder: (context, themeMode, _) {
-              final isCurrentDark = themeMode == ThemeMode.dark;
+          // Theme Toggle with Premade Smooth Open Source Animated Theme Switcher
+          ThemeSwitcher.withTheme(
+            builder: (context, switcher, theme) {
+              final isCurrentDark = theme.brightness == Brightness.dark;
               return IconButton(
                 tooltip: isCurrentDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
                 icon: Icon(
                   isCurrentDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
                   size: 20,
                 ),
-                onPressed: AppTheme.toggleTheme,
+                onPressed: () {
+                  switcher.changeTheme(
+                    theme: isCurrentDark ? AppTheme.lightTheme : AppTheme.darkTheme,
+                  );
+                },
               );
             },
           ),
