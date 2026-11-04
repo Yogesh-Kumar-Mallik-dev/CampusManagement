@@ -133,6 +133,7 @@ func main() {
 	mux.HandleFunc("/api/v1/departments", departmentHandler.HandleDepartments)
 	mux.HandleFunc("/api/v1/academics/programs", departmentHandler.HandlePrograms)
 	mux.HandleFunc("/api/v1/academics/subjects", departmentHandler.HandleSubjects)
+	mux.HandleFunc("/api/v1/academics/subjects/syllabus", departmentHandler.HandleSubjectSyllabus)
 	mux.HandleFunc("/api/v1/academics/semesters", departmentHandler.HandleSemesters)
 	mux.HandleFunc("/api/v1/academics/sections", departmentHandler.HandleSections)
 	mux.HandleFunc("/api/v1/academics/sections/assign-student", departmentHandler.HandleAssignStudentToSection)
@@ -457,6 +458,30 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		Code:    "EC201",
 		Name:    "Signals & Systems",
 		Credits: 4,
+	})
+
+	bcaSub, _ := svc.CreateSubject(ctx, model.Subject{
+		Code:        "BCA 102 / 202",
+		OddSemCode:  "BCA-102",
+		EvenSemCode: "BCA-202",
+		Name:        "Computer Fundamentals & Problem Solving with C",
+		Credits:     4,
+		ActiveSyllabus: &model.SyllabusVersion{
+			RevisionCode:      "Scheme-2021",
+			EffectiveFromYear: "2021-2022",
+			Content:           "Unit 1: Intro to Computing Architecture & Number Systems\nUnit 2: C Syntax, Control Flow & Conditionals\nUnit 3: Arrays, Strings and Pointers\nUnit 4: File I/O and Standard Libraries",
+			ChangeSummary:     "Baseline curriculum ratified by Board of Studies (BoS)",
+			ApprovedBy:        "Academic Council & BoS Computing",
+		},
+	})
+	// Revise syllabus to Reg-2024 to create a historical audit trail
+	_, _ = svc.ReviseSyllabus(ctx, model.ReviseSyllabusRequest{
+		SubjectID:         bcaSub.ID,
+		RevisionCode:      "Reg-2024",
+		EffectiveFromYear: "2024-2025",
+		Content:           "Unit 1: Modern Systems, Bitwise Logic & Memory Layout\nUnit 2: Structured Programming, Control Flow & Recursion\nUnit 3: Deep Dive Pointers, Dynamic Memory & Structs\nUnit 4: POSIX File I/O, Error Handling & Concurrency Basics\nUnit 5: Memory Safety Case Studies: C to Rust Comparison",
+		ChangeSummary:     "Added Unit 5 Memory Safety analysis, upgraded POSIX I/O requirements for industry alignment",
+		ApprovedBy:        "Board of Studies (BoS) Curriculum Reform Committee",
 	})
 
 	// 6. Seed Program Semesters

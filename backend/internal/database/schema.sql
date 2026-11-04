@@ -400,3 +400,28 @@ CREATE TABLE IF NOT EXISTS section_teachers (
 ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS section_id UUID REFERENCES sections(id) ON DELETE SET NULL;
 ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS program_id UUID REFERENCES programs(id) ON DELETE SET NULL;
 
+-- 27. Subject Term Codes (Odd vs Even Semester Codes e.g. BCA 102/202)
+ALTER TABLE subjects ADD COLUMN IF NOT EXISTS odd_sem_code VARCHAR(32);
+ALTER TABLE subjects ADD COLUMN IF NOT EXISTS even_sem_code VARCHAR(32);
+
+-- 28. Syllabus Versions (Immutable audit trail of past and active curricula)
+CREATE TABLE IF NOT EXISTS syllabus_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE,
+    revision_code VARCHAR(64) NOT NULL,       -- e.g. 'Reg-2024', 'v1.0', 'Scheme 2021'
+    effective_from_year VARCHAR(32) NOT NULL, -- e.g. '2024-2025'
+    effective_to_year VARCHAR(32),            -- NULL if currently active
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    content TEXT NOT NULL,
+    change_summary TEXT,
+    approved_by VARCHAR(128),                 -- e.g. 'Academic Council / Board of Studies (BoS)'
+    approved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_syllabus_subject ON syllabus_versions(subject_id);
+CREATE INDEX IF NOT EXISTS idx_syllabus_active ON syllabus_versions(subject_id, is_active);
+
+

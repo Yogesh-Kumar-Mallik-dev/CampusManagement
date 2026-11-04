@@ -549,37 +549,119 @@ class ProgramModel {
       };
 }
 
+class SyllabusVersionModel {
+  final String id;
+  final String subjectId;
+  final String revisionCode;
+  final String effectiveFromYear;
+  final String? effectiveToYear;
+  final bool isActive;
+  final String content;
+  final String? changeSummary;
+  final String? approvedBy;
+  final String? approvedAt;
+  final DateTime? createdAt;
+
+  SyllabusVersionModel({
+    required this.id,
+    required this.subjectId,
+    required this.revisionCode,
+    required this.effectiveFromYear,
+    this.effectiveToYear,
+    required this.isActive,
+    required this.content,
+    this.changeSummary,
+    this.approvedBy,
+    this.approvedAt,
+    this.createdAt,
+  });
+
+  factory SyllabusVersionModel.fromJson(Map<String, dynamic> json) {
+    return SyllabusVersionModel(
+      id: json['id'] ?? '',
+      subjectId: json['subject_id'] ?? '',
+      revisionCode: json['revision_code'] ?? '',
+      effectiveFromYear: json['effective_from_year'] ?? '',
+      effectiveToYear: json['effective_to_year'],
+      isActive: json['is_active'] ?? false,
+      content: json['content'] ?? '',
+      changeSummary: json['change_summary'],
+      approvedBy: json['approved_by'],
+      approvedAt: json['approved_at'],
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'subject_id': subjectId,
+        'revision_code': revisionCode,
+        'effective_from_year': effectiveFromYear,
+        'effective_to_year': effectiveToYear,
+        'is_active': isActive,
+        'content': content,
+        'change_summary': changeSummary,
+        'approved_by': approvedBy,
+        'approved_at': approvedAt,
+        if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
+      };
+}
+
 class SubjectModel {
   final String id;
   final String code;
+  final String? oddSemCode;
+  final String? evenSemCode;
   final String name;
   final int credits;
   final List<String> departmentIds;
+  final SyllabusVersionModel? activeSyllabus;
 
   SubjectModel({
     required this.id,
     required this.code,
+    this.oddSemCode,
+    this.evenSemCode,
     required this.name,
     required this.credits,
     this.departmentIds = const [],
+    this.activeSyllabus,
   });
+
+  String resolveCode(int semNumber) {
+    if (semNumber % 2 == 1 && oddSemCode != null && oddSemCode!.trim().isNotEmpty) {
+      return oddSemCode!;
+    }
+    if (semNumber % 2 == 0 && evenSemCode != null && evenSemCode!.trim().isNotEmpty) {
+      return evenSemCode!;
+    }
+    return code;
+  }
 
   factory SubjectModel.fromJson(Map<String, dynamic> json) {
     return SubjectModel(
       id: json['id'] ?? '',
       code: json['code'] ?? '',
+      oddSemCode: json['odd_sem_code'],
+      evenSemCode: json['even_sem_code'],
       name: json['name'] ?? '',
       credits: json['credits'] ?? 3,
       departmentIds: (json['department_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      activeSyllabus: json['active_syllabus'] != null
+          ? SyllabusVersionModel.fromJson(json['active_syllabus'])
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'code': code,
+        'odd_sem_code': oddSemCode,
+        'even_sem_code': evenSemCode,
         'name': name,
         'credits': credits,
         'department_ids': departmentIds,
+        if (activeSyllabus != null) 'active_syllabus': activeSyllabus!.toJson(),
       };
 }
 

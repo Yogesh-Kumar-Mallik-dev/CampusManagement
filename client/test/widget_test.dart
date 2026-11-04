@@ -421,4 +421,135 @@ void main() {
     await tester.tap(find.byType(IconButton).last);
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+      'Academic Subjects & Syllabus Audit Trail: Odd/Even cycle aliasing, active curriculum and retrospective BoS archive',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(CampusManagementApp(storage: storage));
+    await tester.pump();
+
+    // Log in as Faculty / Admin
+    await tester.tap(find.text('Faculty'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // Navigate to Academic Hierarchy & Departments via sidebar
+    await tester.tap(find.text('Depts').first);
+    await tester.pumpAndSettle();
+
+    // 1. Verify 3 tabs exist in View Toggle
+    expect(find.textContaining('Academic Departments ('), findsOneWidget);
+    expect(find.textContaining('Cross-Program Sections'), findsOneWidget);
+    expect(find.textContaining('Subjects & Syllabi'), findsOneWidget);
+
+    // 2. Switch to Subjects & Syllabi tab
+    await tester.tap(find.textContaining('Subjects & Syllabi'));
+    await tester.pumpAndSettle();
+
+    // Verify Header updates
+    expect(find.text('Curriculum Subjects & Syllabus Audit'), findsOneWidget);
+    expect(find.text('Add Academic Subject'), findsOneWidget);
+
+    // 3. Filter to BCA 102 / 202 and verify card renders with odd and even semester badges
+    await tester.enterText(find.byType(TextField).first, 'BCA');
+    await tester.pumpAndSettle();
+
+    expect(find.text('BCA 102 / 202'), findsWidgets);
+    expect(find.textContaining('BCA-102'), findsWidgets);
+    expect(find.textContaining('BCA-202'), findsWidgets);
+    expect(find.textContaining('Reg-2024'), findsWidgets);
+
+    // 4. Open Syllabus Audit & History for BCA 102 / 202
+    final auditBtn = find.text('Syllabus Audit & History').first;
+    await tester.ensureVisible(auditBtn);
+    await tester.tap(auditBtn);
+    await tester.pumpAndSettle();
+
+    // Verify Dialog opened
+    expect(find.textContaining('Curriculum Syllabus Audit & Semester Term Aliasing'), findsOneWidget);
+    expect(find.text('SEMESTER CYCLE CODE RESOLVER (ODD / EVEN ALIASING)'), findsOneWidget);
+
+    // Verify cycle resolution for Sem 1 (Odd)
+    expect(find.text('Resolved: BCA-102 (Odd)'), findsOneWidget);
+
+    // Simulate Sem 2 (Even) by tapping Sem 2 chip
+    await tester.tap(find.text('Sem 2'));
+    await tester.pumpAndSettle();
+    expect(find.text('Resolved: BCA-202 (Even)'), findsOneWidget);
+
+    // Verify Active Scheme Section
+    expect(find.textContaining('ACTIVE CURRICULUM SCHEME (Reg-2024)'), findsOneWidget);
+    expect(find.text('CURRENTLY ACTIVE'), findsOneWidget);
+
+    // Verify Historical Audit Vault (Scheme-2021 is archived)
+    expect(find.textContaining('ACCREDITATION AUDIT VAULT'), findsOneWidget);
+    expect(find.text('Scheme-2021'), findsOneWidget);
+    expect(find.text('ARCHIVED / RETIRED'), findsOneWidget);
+    expect(find.text('Taught: 2021-2022 to 2024-2025'), findsOneWidget);
+
+    // Expand archived syllabus units
+    final expandBtn = find.text('Inspect Archived Syllabus Units');
+    expect(expandBtn, findsOneWidget);
+    await tester.ensureVisible(expandBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(expandBtn);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Computing Fundamentals & Architecture'), findsOneWidget);
+
+    // 5. Revise Syllabus to Reg-2026
+    final reviseBtn = find.text('Revise Syllabus (BoS Scheme Update)');
+    await tester.ensureVisible(reviseBtn);
+    await tester.tap(reviseBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Revise Syllabus: BCA 102 / 202'), findsOneWidget);
+
+    // Enter new revision code
+    await tester.enterText(find.widgetWithText(TextField, 'Reg-2025'), 'Reg-2026');
+    await tester.enterText(find.widgetWithText(TextField, '2025-2026'), '2026-2027');
+
+    // Submit new scheme
+    final publishBtn = find.text('Publish & Archive Previous');
+    await tester.ensureVisible(publishBtn);
+    await tester.tap(publishBtn);
+    await tester.pumpAndSettle();
+
+    // Verify new scheme is active Reg-2026 and previous Reg-2024 is now archived
+    expect(find.textContaining('ACTIVE CURRICULUM SCHEME (Reg-2026)'), findsOneWidget);
+    expect(find.text('Reg-2024'), findsOneWidget);
+
+    // Close audit dialog
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    // Clear search
+    await tester.enterText(find.byType(TextField).first, '');
+    await tester.pumpAndSettle();
+
+    // 6. Test Creating a new Academic Subject with Odd/Even codes
+    final addSubBtn = find.text('Add Academic Subject');
+    await tester.ensureVisible(addSubBtn);
+    await tester.tap(addSubBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Academic Subject'), findsWidgets);
+
+    // Fill form
+    await tester.enterText(find.widgetWithText(TextFormField, 'e.g. Computer Fundamentals & Programming'), 'Object Oriented Software Design');
+    await tester.enterText(find.widgetWithText(TextFormField, 'e.g. BCA-102'), 'OOD-101');
+    await tester.enterText(find.widgetWithText(TextFormField, 'e.g. BCA-202'), 'OOD-201');
+
+    // Submit
+    await tester.ensureVisible(find.text('Create Subject'));
+    await tester.tap(find.text('Create Subject'));
+    await tester.pumpAndSettle();
+
+    // Verify newly created subject is listed with derived canonical code OOD-101 / OOD-201
+    expect(find.text('OOD-101 / OOD-201'), findsWidgets);
+    expect(find.text('Object Oriented Software Design'), findsWidgets);
+  });
 }

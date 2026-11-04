@@ -22,6 +22,7 @@ class OfflineStorageService {
   final Map<String, String> _studentSectionMap = {};
   final Map<String, String> _studentProgramMap = {};
   final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
+  final Map<String, List<SyllabusVersionModel>> _cachedSyllabusVersions = {};
 
   // Optical Attendance active session & live verified roster
   OpticalSessionModel? _activeOpticalSession;
@@ -849,6 +850,30 @@ class OfflineStorageService {
     ]);
 
     // Seed sample subjects
+    final sylV1 = SyllabusVersionModel(
+      id: 'syl-subj-bca-1',
+      subjectId: 'subj-bca-102-202',
+      revisionCode: 'Scheme-2021',
+      effectiveFromYear: '2021-2022',
+      effectiveToYear: '2024-2025',
+      isActive: false,
+      content: 'Unit 1: Computing Fundamentals & Architecture.\nUnit 2: C Programming Syntax & Control Flow.\nUnit 3: Pointers, Arrays & Memory Structures.',
+      changeSummary: 'Initial BoS approved foundation syllabus',
+      approvedBy: 'Academic Council & BoS',
+    );
+    final sylV2 = SyllabusVersionModel(
+      id: 'syl-subj-bca-2',
+      subjectId: 'subj-bca-102-202',
+      revisionCode: 'Reg-2024',
+      effectiveFromYear: '2024-2025',
+      isActive: true,
+      content: 'Unit 1: Modern Systems Architecture & Logic.\nUnit 2: Advanced C & Data Modeling.\nUnit 3: Dynamic Memory & POSIX I/O.\nUnit 4: Memory Safety & Rust Modern Systems Case Studies.',
+      changeSummary: 'Added Unit 4 Memory Safety & Rust analysis per curriculum reform',
+      approvedBy: 'BoS Curriculum Reform Committee',
+    );
+
+    _cachedSyllabusVersions['subj-bca-102-202'] = [sylV2, sylV1];
+
     _cachedSubjects.addAll([
       SubjectModel(id: 'subj-cs301', code: 'CS301', name: 'Operating Systems', credits: 4, departmentIds: ['dept-cse']),
       SubjectModel(id: 'subj-cs302', code: 'CS302', name: 'Database Management Systems', credits: 4, departmentIds: ['dept-cse']),
@@ -856,6 +881,16 @@ class OfflineStorageService {
       SubjectModel(id: 'subj-cs304', code: 'CS304', name: 'Deep Learning & Neural Networks', credits: 4, departmentIds: ['dept-cse']),
       SubjectModel(id: 'subj-ma101', code: 'MA101', name: 'Discrete Mathematics', credits: 3, departmentIds: ['dept-cse', 'dept-math', 'dept-ece']),
       SubjectModel(id: 'subj-ec201', code: 'EC201', name: 'Signals & Systems', credits: 4, departmentIds: ['dept-ece']),
+      SubjectModel(
+        id: 'subj-bca-102-202',
+        code: 'BCA 102 / 202',
+        oddSemCode: 'BCA-102',
+        evenSemCode: 'BCA-202',
+        name: 'Computer Fundamentals & Problem Solving with C',
+        credits: 4,
+        departmentIds: ['dept-cse'],
+        activeSyllabus: sylV2,
+      ),
     ]);
 
     // Seed sample program semesters
@@ -1131,6 +1166,151 @@ class OfflineStorageService {
       } catch (_) {}
     }
     return _cachedSubjects;
+  }
+
+  Future<SubjectModel> createSubject(Map<String, dynamic> payload) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final created = await api.createSubject(payload);
+        _cachedSubjects.add(created);
+        if (created.activeSyllabus != null) {
+          _cachedSyllabusVersions[created.id] = [created.activeSyllabus!];
+        }
+        return created;
+      } catch (_) {}
+    }
+
+    final code = payload['code'] as String? ?? '';
+    final oddCode = payload['odd_sem_code'] as String?;
+    final evenCode = payload['even_sem_code'] as String?;
+    final name = payload['name'] as String? ?? 'Subject';
+    final credits = payload['credits'] as int? ?? 3;
+    final resolvedCode = code.isNotEmpty
+        ? code
+        : (oddCode != null && evenCode != null
+            ? '$oddCode / $evenCode'
+            : (oddCode ?? evenCode ?? 'SUBJ'));
+
+    final cleanKey = resolvedCode.toLowerCase().replaceAll(' ', '-').replaceAll('/', '-');
+    final id = 'subj-$cleanKey';
+    SyllabusVersionModel? syl;
+    if (payload['active_syllabus'] != null) {
+      syl = SyllabusVersionModel.fromJson(payload['active_syllabus']);
+    }
+
+    final sub = SubjectModel(
+      id: id,
+      code: resolvedCode,
+      oddSemCode: oddCode,
+      evenSemCode: evenCode,
+      name: name,
+      credits: credits,
+      activeSyllabus: syl,
+    );
+
+    _cachedSubjects.add(sub);
+    if (syl != null) {
+      _cachedSyllabusVersions[id] = [syl];
+    }
+    return sub;
+  }
+
+  Future<List<SyllabusVersionModel>> getSubjectSyllabusAudit(String subjectId) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final list = await api.fetchSyllabusAudit(subjectId);
+        _cachedSyllabusVersions[subjectId] = list;
+        return list;
+      } catch (_) {}
+    }
+    return _cachedSyllabusVersions[subjectId] ?? [];
+  }
+
+  Future<SyllabusVersionModel> reviseSubjectSyllabus(Map<String, dynamic> payload) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final revised = await api.reviseSyllabus(payload);
+        final list = _cachedSyllabusVersions[payload['subject_id']] ?? [];
+        _cachedSyllabusVersions[payload['subject_id']] = [
+          revised,
+          ...list.map((v) => SyllabusVersionModel(
+                id: v.id,
+                subjectId: v.subjectId,
+                revisionCode: v.revisionCode,
+                effectiveFromYear: v.effectiveFromYear,
+                effectiveToYear: v.isActive ? payload['effective_from_year'] ?? '2025-2026' : v.effectiveToYear,
+                isActive: false,
+                content: v.content,
+                changeSummary: v.changeSummary,
+                approvedBy: v.approvedBy,
+                approvedAt: v.approvedAt,
+                createdAt: v.createdAt,
+              ))
+        ];
+        return revised;
+      } catch (_) {}
+    }
+
+    final subjectId = payload['subject_id'] as String;
+    final effFrom = payload['effective_from_year'] as String? ?? '2025-2026';
+    final existing = _cachedSyllabusVersions[subjectId] ?? [];
+    final updatedList = existing.map((v) {
+      if (v.isActive) {
+        return SyllabusVersionModel(
+          id: v.id,
+          subjectId: v.subjectId,
+          revisionCode: v.revisionCode,
+          effectiveFromYear: v.effectiveFromYear,
+          effectiveToYear: effFrom,
+          isActive: false,
+          content: v.content,
+          changeSummary: v.changeSummary,
+          approvedBy: v.approvedBy,
+          approvedAt: v.approvedAt,
+          createdAt: v.createdAt,
+        );
+      }
+      return v;
+    }).toList();
+
+    final newVer = SyllabusVersionModel(
+      id: 'syl-$subjectId-${existing.length + 1}',
+      subjectId: subjectId,
+      revisionCode: payload['revision_code'] ?? 'Rev-New',
+      effectiveFromYear: effFrom,
+      isActive: true,
+      content: payload['content'] ?? '',
+      changeSummary: payload['change_summary'],
+      approvedBy: payload['approved_by'],
+      approvedAt: DateTime.now().toIso8601String(),
+      createdAt: DateTime.now(),
+    );
+
+    _cachedSyllabusVersions[subjectId] = [newVer, ...updatedList];
+
+    // Also update active syllabus on cached subject if found
+    final subIdx = _cachedSubjects.indexWhere((s) => s.id == subjectId);
+    if (subIdx != -1) {
+      final s = _cachedSubjects[subIdx];
+      _cachedSubjects[subIdx] = SubjectModel(
+        id: s.id,
+        code: s.code,
+        oddSemCode: s.oddSemCode,
+        evenSemCode: s.evenSemCode,
+        name: s.name,
+        credits: s.credits,
+        departmentIds: s.departmentIds,
+        activeSyllabus: newVer,
+      );
+    }
+
+    return newVer;
   }
 
   Future<List<SemesterModel>> getSemesters() async {

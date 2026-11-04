@@ -53,6 +53,9 @@ type AcademicService struct {
 	secTeachers     map[string]map[string]bool // sectionID -> teacherID -> true
 	secStudents     map[string]map[string]bool // sectionID -> studentID -> true
 	studentPrograms map[string]string          // studentID -> programID
+
+	// Immutable Syllabus Audit Trail & Versions
+	syllabusVersions map[string][]model.SyllabusVersion // subjectID -> versions
 }
 
 func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permService *PermissionService) *AcademicService {
@@ -83,6 +86,7 @@ func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permSer
 		secTeachers:        make(map[string]map[string]bool),
 		secStudents:        make(map[string]map[string]bool),
 		studentPrograms:    make(map[string]string),
+		syllabusVersions:   make(map[string][]model.SyllabusVersion),
 	}
 }
 
@@ -733,11 +737,41 @@ func (s *AcademicService) CreateSubject(ctx context.Context, sub model.Subject) 
 	defer s.mu.Unlock()
 
 	now := time.Now().UTC()
+	sub.OddSemCode = strings.TrimSpace(sub.OddSemCode)
+	sub.EvenSemCode = strings.TrimSpace(sub.EvenSemCode)
+	if strings.TrimSpace(sub.Code) == "" {
+		if sub.OddSemCode != "" && sub.EvenSemCode != "" {
+			sub.Code = fmt.Sprintf("%s / %s", sub.OddSemCode, sub.EvenSemCode)
+		} else if sub.OddSemCode != "" {
+			sub.Code = sub.OddSemCode
+		} else if sub.EvenSemCode != "" {
+			sub.Code = sub.EvenSemCode
+		} else {
+			return model.Subject{}, fmt.Errorf("subject code is required")
+		}
+	}
+
+	cleanKey := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(sub.Code, " ", "-"), "/", "-"))
 	if sub.ID == "" {
-		sub.ID = fmt.Sprintf("subj-%s", strings.ToLower(sub.Code))
+		sub.ID = fmt.Sprintf("subj-%s", cleanKey)
 	}
 	sub.CreatedAt = now
 	sub.UpdatedAt = now
+
+	// If initial syllabus provided, store it
+	if sub.ActiveSyllabus != nil {
+		syl := *sub.ActiveSyllabus
+		syl.SubjectID = sub.ID
+		if syl.ID == "" {
+			syl.ID = fmt.Sprintf("syl-%s-1", sub.ID)
+		}
+		syl.CreatedAt = now
+		syl.UpdatedAt = now
+		syl.IsActive = true
+		s.syllabusVersions[sub.ID] = []model.SyllabusVersion{syl}
+		sub.ActiveSyllabus = &syl
+	}
+
 	s.subjects[sub.ID] = sub
 	return sub, nil
 }
@@ -749,10 +783,95 @@ func (s *AcademicService) ListSubjects(ctx context.Context) ([]model.Subject, er
 	var result []model.Subject
 	for _, sub := range s.subjects {
 		if !sub.IsDeleted {
+			versions := s.syllabusVersions[sub.ID]
+			for _, v := range versions {
+				if v.IsActive {
+					activeCopy := v
+					sub.ActiveSyllabus = &activeCopy
+					break
+				}
+			}
 			result = append(result, sub)
 		}
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
+	return result, nil
+}
+
+func (s *AcademicService) ReviseSyllabus(ctx context.Context, req model.ReviseSyllabusRequest) (model.SyllabusVersion, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	sub, ok := s.subjects[req.SubjectID]
+	if !ok || sub.IsDeleted {
+		return model.SyllabusVersion{}, fmt.Errorf("subject not found")
+	}
+
+	if strings.TrimSpace(req.RevisionCode) == "" {
+		return model.SyllabusVersion{}, fmt.Errorf("revision code is required")
+	}
+	if strings.TrimSpace(req.Content) == "" {
+		return model.SyllabusVersion{}, fmt.Errorf("syllabus content cannot be empty")
+	}
+
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339)
+
+	effFrom := strings.TrimSpace(req.EffectiveFromYear)
+	if effFrom == "" {
+		effFrom = "2025-2026"
+	}
+
+	existingVersions := s.syllabusVersions[req.SubjectID]
+	for i := range existingVersions {
+		if existingVersions[i].IsActive {
+			existingVersions[i].IsActive = false
+			existingVersions[i].EffectiveToYear = &effFrom
+			existingVersions[i].UpdatedAt = now
+		}
+	}
+
+	newVersion := model.SyllabusVersion{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        fmt.Sprintf("syl-%s-%d", sub.ID, len(existingVersions)+1),
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		SubjectID:         sub.ID,
+		RevisionCode:      req.RevisionCode,
+		EffectiveFromYear: effFrom,
+		EffectiveToYear:   nil,
+		IsActive:          true,
+		Content:           req.Content,
+		ChangeSummary:     req.ChangeSummary,
+		ApprovedBy:        req.ApprovedBy,
+		ApprovedAt:        &nowStr,
+	}
+
+	s.syllabusVersions[req.SubjectID] = append(existingVersions, newVersion)
+
+	sub.ActiveSyllabus = &newVersion
+	sub.UpdatedAt = now
+	s.subjects[sub.ID] = sub
+
+	return newVersion, nil
+}
+
+func (s *AcademicService) GetSubjectSyllabusAuditTrail(ctx context.Context, subjectID string) ([]model.SyllabusVersion, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if _, ok := s.subjects[subjectID]; !ok {
+		return nil, fmt.Errorf("subject not found")
+	}
+
+	versions := s.syllabusVersions[subjectID]
+	result := make([]model.SyllabusVersion, len(versions))
+	copy(result, versions)
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
 	return result, nil
 }
 

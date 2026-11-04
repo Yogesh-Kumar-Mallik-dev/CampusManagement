@@ -351,6 +351,39 @@ class ApiService {
     throw Exception('Failed to fetch subjects (${res.statusCode})');
   }
 
+  Future<SubjectModel> createSubject(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/subjects'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      return SubjectModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create subject: ${res.body}');
+  }
+
+  Future<List<SyllabusVersionModel>> fetchSyllabusAudit(String subjectId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/subjects/syllabus?subject_id=$subjectId'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => SyllabusVersionModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch syllabus audit (${res.statusCode})');
+  }
+
+  Future<SyllabusVersionModel> reviseSyllabus(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/subjects/syllabus'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      return SyllabusVersionModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to revise syllabus: ${res.body}');
+  }
+
   Future<List<SemesterModel>> fetchSemesters() async {
     final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/semesters'));
     if (res.statusCode == 200) {

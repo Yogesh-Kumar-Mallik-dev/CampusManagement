@@ -81,6 +81,17 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
     }).toList();
   }
 
+  List<SubjectModel> get _filteredSubjects {
+    if (_searchQuery.trim().isEmpty) return _subjects;
+    final q = _searchQuery.toLowerCase().trim();
+    return _subjects.where((s) {
+      return s.name.toLowerCase().contains(q) ||
+          s.code.toLowerCase().contains(q) ||
+          (s.oddSemCode != null && s.oddSemCode!.toLowerCase().contains(q)) ||
+          (s.evenSemCode != null && s.evenSemCode!.toLowerCase().contains(q));
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -121,11 +132,16 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
                         _buildEmptyState(isDark)
                       else
                         _buildDepartmentsGrid(isDark),
-                    ] else ...[
+                    ] else if (_selectedTab == 1) ...[
                       if (_filteredSections.isEmpty)
                         _buildEmptySectionState(isDark)
                       else
                         _buildSectionsGrid(isDark),
+                    ] else ...[
+                      if (_filteredSubjects.isEmpty)
+                        _buildEmptySubjectState(isDark)
+                      else
+                        _buildSubjectsGrid(isDark),
                     ],
                   ],
                 ),
@@ -135,7 +151,36 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
   }
 
   Widget _buildHeader(bool isDark) {
-    final isDeptTab = _selectedTab == 0;
+    final String title;
+    final String subtitle;
+    final String icon;
+    final Color color;
+    final String buttonLabel;
+    final VoidCallback buttonAction;
+
+    if (_selectedTab == 0) {
+      title = 'Academic Departments & Structure';
+      subtitle = 'Manage departments with many-to-many subjects, teachers, and degree semesters';
+      icon = AppSvgIcon.building;
+      color = AppColors.wineRed;
+      buttonLabel = 'Add Department';
+      buttonAction = _openAddDepartmentDialog;
+    } else if (_selectedTab == 1) {
+      title = 'Cross-Program Sections & Cohorts';
+      subtitle = 'Manage shared semester divisions with multi-program student cohorts and common curricula';
+      icon = AppSvgIcon.layers;
+      color = const Color(0xFF8250DF);
+      buttonLabel = 'Add Shared Section';
+      buttonAction = _openAddSectionDialog;
+    } else {
+      title = 'Curriculum Subjects & Syllabus Audit';
+      subtitle = 'Odd/even term code aliasing (e.g. BCA 102/202) and immutable BoS accreditation audit trail';
+      icon = AppSvgIcon.book;
+      color = AppColors.githubGreen;
+      buttonLabel = 'Add Academic Subject';
+      buttonAction = _openAddSubjectDialog;
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -146,14 +191,14 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
               Row(
                 children: [
                   AppSvgIcon(
-                    svgString: isDeptTab ? AppSvgIcon.building : AppSvgIcon.layers,
+                    svgString: icon,
                     size: 24,
-                    color: isDeptTab ? AppColors.wineRed : const Color(0xFF8250DF),
+                    color: color,
                   ),
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(
-                      isDeptTab ? 'Academic Departments & Structure' : 'Cross-Program Sections & Cohorts',
+                      title,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -167,9 +212,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                isDeptTab
-                    ? 'Manage departments with many-to-many subjects, teachers, and degree semesters'
-                    : 'Manage shared semester divisions with multi-program student cohorts and common curricula',
+                subtitle,
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -181,16 +224,16 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
         ),
         const SizedBox(width: 16),
         ElevatedButton.icon(
-          onPressed: isDeptTab ? _openAddDepartmentDialog : _openAddSectionDialog,
+          onPressed: buttonAction,
           style: ElevatedButton.styleFrom(
-            backgroundColor: isDeptTab ? AppColors.wineRed : const Color(0xFF8250DF),
+            backgroundColor: color,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
           icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 16, color: Colors.white),
           label: Text(
-            isDeptTab ? 'Add Department' : 'Add Shared Section',
+            buttonLabel,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
         ),
@@ -232,6 +275,17 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isDark: isDark,
             onTap: () => setState(() {
               _selectedTab = 1;
+              _searchQuery = '';
+            }),
+          ),
+          _buildToggleButton(
+            title: 'Subjects & Syllabi (${_subjects.length})',
+            icon: AppSvgIcon.book,
+            isSelected: _selectedTab == 2,
+            activeColor: AppColors.githubGreen,
+            isDark: isDark,
+            onTap: () => setState(() {
+              _selectedTab = 2;
               _searchQuery = '';
             }),
           ),
@@ -303,72 +357,119 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
     final totalTeachers = _teachers.length;
     final totalSemesters = _semesters.length;
     final totalSections = _sections.length;
+    final aliasedSubjectsCount = _subjects
+        .where((s) => (s.oddSemCode != null && s.oddSemCode!.isNotEmpty) || (s.evenSemCode != null && s.evenSemCode!.isNotEmpty))
+        .length;
+    final activeSyllabusCount = _subjects.where((s) => s.activeSyllabus != null).length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 700;
-        final card1 = _selectedTab == 0
-            ? _buildMetricCard(
-                title: 'Departments',
-                count: _departments.length.toString(),
-                subtitle: '${_programs.length} degree programs',
-                icon: AppSvgIcon.building,
-                color: AppColors.wineRed,
-                isDark: isDark,
-              )
-            : _buildMetricCard(
-                title: 'Shared Sections',
-                count: totalSections.toString(),
-                subtitle: 'Multi-program cohorts',
-                icon: AppSvgIcon.layers,
-                color: const Color(0xFF8250DF),
-                isDark: isDark,
-              );
+        final Widget card1;
+        final Widget card2;
+        final Widget card3;
+        final Widget card4;
 
-        final card2 = _selectedTab == 0
-            ? _buildMetricCard(
-                title: 'Subjects (M:N)',
-                count: totalSubjects.toString(),
-                subtitle: 'Catalog course modules',
-                icon: AppSvgIcon.book,
-                color: AppColors.githubGreen,
-                isDark: isDark,
-              )
-            : _buildMetricCard(
-                title: 'Programs (M:N)',
-                count: _programs.length.toString(),
-                subtitle: 'Degree specializations',
-                icon: AppSvgIcon.userCheck,
-                color: AppColors.githubGreen,
-                isDark: isDark,
-              );
-
-        final card3 = _buildMetricCard(
-          title: 'Faculty (M:N)',
-          count: totalTeachers.toString(),
-          subtitle: 'Teaching affiliations',
-          icon: AppSvgIcon.user,
-          color: const Color(0xFF0969DA),
-          isDark: isDark,
-        );
-
-        final card4 = _selectedTab == 0
-            ? _buildMetricCard(
-                title: 'Semesters (M:N)',
-                count: totalSemesters.toString(),
-                subtitle: 'Active program cohorts',
-                icon: AppSvgIcon.layers,
-                color: const Color(0xFF8250DF),
-                isDark: isDark,
-              )
-            : _buildMetricCard(
-                title: 'Core Curriculum',
-                count: totalSubjects.toString(),
-                subtitle: 'Shared & elective courses',
-                icon: AppSvgIcon.book,
-                color: AppColors.wineRed,
-                isDark: isDark,
-              );
+        if (_selectedTab == 0) {
+          card1 = _buildMetricCard(
+            title: 'Departments',
+            count: _departments.length.toString(),
+            subtitle: '${_programs.length} degree programs',
+            icon: AppSvgIcon.building,
+            color: AppColors.wineRed,
+            isDark: isDark,
+          );
+          card2 = _buildMetricCard(
+            title: 'Subjects (M:N)',
+            count: totalSubjects.toString(),
+            subtitle: 'Catalog course modules',
+            icon: AppSvgIcon.book,
+            color: AppColors.githubGreen,
+            isDark: isDark,
+          );
+          card3 = _buildMetricCard(
+            title: 'Faculty (M:N)',
+            count: totalTeachers.toString(),
+            subtitle: 'Teaching affiliations',
+            icon: AppSvgIcon.user,
+            color: const Color(0xFF0969DA),
+            isDark: isDark,
+          );
+          card4 = _buildMetricCard(
+            title: 'Semesters (M:N)',
+            count: totalSemesters.toString(),
+            subtitle: 'Active program cohorts',
+            icon: AppSvgIcon.layers,
+            color: const Color(0xFF8250DF),
+            isDark: isDark,
+          );
+        } else if (_selectedTab == 1) {
+          card1 = _buildMetricCard(
+            title: 'Shared Sections',
+            count: totalSections.toString(),
+            subtitle: 'Multi-program cohorts',
+            icon: AppSvgIcon.layers,
+            color: const Color(0xFF8250DF),
+            isDark: isDark,
+          );
+          card2 = _buildMetricCard(
+            title: 'Programs (M:N)',
+            count: _programs.length.toString(),
+            subtitle: 'Degree specializations',
+            icon: AppSvgIcon.userCheck,
+            color: AppColors.githubGreen,
+            isDark: isDark,
+          );
+          card3 = _buildMetricCard(
+            title: 'Faculty (M:N)',
+            count: totalTeachers.toString(),
+            subtitle: 'Cross-disciplinary faculty',
+            icon: AppSvgIcon.user,
+            color: const Color(0xFF0969DA),
+            isDark: isDark,
+          );
+          card4 = _buildMetricCard(
+            title: 'Core Curriculum',
+            count: totalSubjects.toString(),
+            subtitle: 'Shared & elective courses',
+            icon: AppSvgIcon.book,
+            color: AppColors.wineRed,
+            isDark: isDark,
+          );
+        } else {
+          card1 = _buildMetricCard(
+            title: 'Curriculum Subjects',
+            count: totalSubjects.toString(),
+            subtitle: 'Catalog course modules',
+            icon: AppSvgIcon.book,
+            color: AppColors.githubGreen,
+            isDark: isDark,
+          );
+          card2 = _buildMetricCard(
+            title: 'Odd/Even Aliased',
+            count: aliasedSubjectsCount.toString(),
+            subtitle: 'e.g. BCA 102 / 202',
+            icon: AppSvgIcon.refresh,
+            color: const Color(0xFF0969DA),
+            isDark: isDark,
+          );
+          card3 = _buildMetricCard(
+            title: 'Active Curricula',
+            count: activeSyllabusCount.toString(),
+            subtitle: 'Current BoS schemes',
+            icon: AppSvgIcon.shield,
+            color: AppColors.wineRed,
+            isDark: isDark,
+          );
+          card4 = _buildMetricCard(
+            title: 'Historical Archive',
+            count: 'Immutable',
+            subtitle: 'NAAC / NBA Audit Trail',
+            icon: AppSvgIcon.clock,
+            color: const Color(0xFF8250DF),
+            isDark: isDark,
+          );
+        }
 
         if (isWide) {
           return Row(
@@ -463,6 +564,15 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
   }
 
   Widget _buildSearchBar(bool isDark) {
+    String hintText;
+    if (_selectedTab == 0) {
+      hintText = 'Search department by name, code (e.g. CSE, ECE) or HOD...';
+    } else if (_selectedTab == 1) {
+      hintText = 'Search section by name (e.g. Section B), cohort, or degree program...';
+    } else {
+      hintText = 'Search subjects by code (e.g. BCA 102/202, CS301), odd/even code, or title...';
+    }
+
     return Container(
       height: 42,
       decoration: BoxDecoration(
@@ -477,7 +587,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
         onChanged: (val) => setState(() => _searchQuery = val),
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Search department by name, code (e.g. CSE, ECE) or HOD...',
+          hintText: hintText,
           hintStyle: TextStyle(
             fontSize: 13,
             color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -994,6 +1104,342 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // SUBJECTS & SYLLABUS AUDIT ACTIONS & GRIDS
+  // ---------------------------------------------------------------------------
+
+  void _openAddSubjectDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _AddSubjectDialog(
+        storage: widget.storage,
+        onCreated: (sub) {
+          setState(() {
+            _subjects.removeWhere((s) => s.id == sub.id);
+            _subjects.insert(0, sub);
+          });
+        },
+      ),
+    );
+  }
+
+  void _openSyllabusAuditDialog(SubjectModel subject) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _SyllabusAuditDialog(
+        storage: widget.storage,
+        subject: subject,
+        onRevised: _loadData,
+      ),
+    );
+  }
+
+  void _openReviseSyllabusDialog(SubjectModel subject) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _ReviseSyllabusDialog(
+        storage: widget.storage,
+        subject: subject,
+        onRevised: _loadData,
+      ),
+    );
+  }
+
+  Widget _buildEmptySubjectState(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.githubGreen.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const AppSvgIcon(
+              svgString: AppSvgIcon.book,
+              size: 32,
+              color: AppColors.githubGreen,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchQuery.isNotEmpty ? 'No subjects matching "$_searchQuery"' : 'No academic subjects registered',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'Try searching by a different term code, subject name, or semester aliasing.'
+                : 'Register academic subjects, configure odd/even semester codes, and archive syllabi.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+          if (_searchQuery.isEmpty) ...[
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _openAddSubjectDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.githubGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 14, color: Colors.white),
+              label: const Text('Add Academic Subject'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubjectsGrid(bool isDark) {
+    final subs = _filteredSubjects;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 900 ? 3 : (constraints.maxWidth > 600 ? 2 : 1);
+        final itemWidth = (constraints.maxWidth - (crossAxisCount - 1) * 16) / crossAxisCount;
+
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: subs.map((sub) {
+            return SizedBox(
+              width: itemWidth,
+              child: _buildSubjectCard(sub, isDark),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildSubjectCard(SubjectModel sub, bool isDark) {
+    final hasOddEven = (sub.oddSemCode != null && sub.oddSemCode!.isNotEmpty) ||
+        (sub.evenSemCode != null && sub.evenSemCode!.isNotEmpty);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.githubGreen.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const AppSvgIcon(
+                        svgString: AppSvgIcon.book,
+                        size: 16,
+                        color: AppColors.githubGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            sub.code,
+                            key: ValueKey('subject_code_${sub.id}'),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          Text(
+                            sub.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.wineRed.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${sub.credits} Credits',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.wineRed,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Cycle Aliasing Badges (Odd vs Even Semesters)
+          if (hasOddEven) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF6F8FA),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 12, color: Color(0xFF0969DA)),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Semester Cycle Aliasing',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0969DA)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      if (sub.oddSemCode != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0969DA).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Odd Sem (1,3,5): ${sub.oddSemCode}',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF0969DA)),
+                          ),
+                        ),
+                      if (sub.evenSemCode != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8250DF).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Even Sem (2,4,6): ${sub.evenSemCode}',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF8250DF)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Active Syllabus Summary
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                const AppSvgIcon(svgString: AppSvgIcon.shield, size: 13, color: AppColors.githubGreen),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    sub.activeSyllabus != null
+                        ? 'Scheme: ${sub.activeSyllabus!.revisionCode} (Eff. ${sub.activeSyllabus!.effectiveFromYear})'
+                        : 'Curriculum Scheme: Standard BoS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Actions Row
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _openSyllabusAuditDialog(sub),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white : AppColors.lightTextPrimary,
+                    side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.book, size: 14),
+                  label: const Text('Syllabus Audit & History', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => _openReviseSyllabusDialog(sub),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.githubGreen,
+                  side: const BorderSide(color: AppColors.githubGreen),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 14, color: AppColors.githubGreen),
+                label: const Text('Revise', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -1505,11 +1951,78 @@ class _DepartmentDetailDialogState extends State<_DepartmentDetailDialog> with S
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (ctx, idx) {
         final sub = subjects[idx];
-        return ListTile(
-          dense: true,
-          leading: const AppSvgIcon(svgString: AppSvgIcon.book, size: 18, color: AppColors.wineRed),
-          title: Text('${sub.code} - ${sub.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          subtitle: Text('Credits: ${sub.credits}  |  Offered in ${sub.departmentIds.length} departments', style: const TextStyle(fontSize: 11)),
+        final hasOddEven = (sub.oddSemCode != null && sub.oddSemCode!.isNotEmpty) ||
+            (sub.evenSemCode != null && sub.evenSemCode!.isNotEmpty);
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Row(
+            children: [
+              const AppSvgIcon(svgString: AppSvgIcon.book, size: 18, color: AppColors.wineRed),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '${sub.code} - ${sub.name}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (hasOddEven) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0969DA).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              'Odd: ${sub.oddSemCode ?? sub.code} | Even: ${sub.evenSemCode ?? sub.code}',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0969DA)),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Credits: ${sub.credits}  |  ${sub.activeSyllabus != null ? "Active Scheme: ${sub.activeSyllabus!.revisionCode}" : "Curriculum Configured"}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => _SyllabusAuditDialog(
+                      storage: widget.storage,
+                      subject: sub,
+                      onRevised: _loadDetail,
+                    ),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const AppSvgIcon(svgString: AppSvgIcon.shield, size: 12),
+                label: const Text('Audit', style: TextStyle(fontSize: 11)),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -2828,6 +3341,1179 @@ class _MergeCohortDialogState extends State<_MergeCohortDialog> {
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// SYLLABUS AUDIT TRAIL & CYCLE ALIASING DIALOG (ACCREDITATION ARCHIVE)
+// -----------------------------------------------------------------------------
+
+class _SyllabusAuditDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final SubjectModel subject;
+  final VoidCallback? onRevised;
+
+  const _SyllabusAuditDialog({
+    required this.storage,
+    required this.subject,
+    this.onRevised,
+  });
+
+  @override
+  State<_SyllabusAuditDialog> createState() => _SyllabusAuditDialogState();
+}
+
+class _SyllabusAuditDialogState extends State<_SyllabusAuditDialog> {
+  List<SyllabusVersionModel> _auditTrail = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  int _simulatedSemester = 1;
+  final Set<String> _expandedContentIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAuditTrail();
+  }
+
+  Future<void> _loadAuditTrail() async {
+    setState(() => _isLoading = true);
+    try {
+      final list = await widget.storage.getSubjectSyllabusAudit(widget.subject.id);
+      if (mounted) {
+        setState(() {
+          _auditTrail = list;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _openReviseModal() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _ReviseSyllabusDialog(
+        storage: widget.storage,
+        subject: widget.subject,
+        onRevised: () {
+          _loadAuditTrail();
+          widget.onRevised?.call();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sub = widget.subject;
+    final hasOddEven = (sub.oddSemCode != null && sub.oddSemCode!.isNotEmpty) ||
+        (sub.evenSemCode != null && sub.evenSemCode!.isNotEmpty);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 780),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Dialog Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.githubGreen.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const AppSvgIcon(svgString: AppSvgIcon.book, size: 20, color: AppColors.githubGreen),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${sub.code} - ${sub.name}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Curriculum Syllabus Audit & Semester Term Aliasing',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.wineRed))
+                    : SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_errorMessage != null) ...[
+                              Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                              const SizedBox(height: 12),
+                            ],
+
+                            // 1. Cycle / Term Code Aliasing Resolver
+                            _buildCycleResolverSection(sub, hasOddEven, isDark),
+                            const SizedBox(height: 20),
+
+                            // 2. Active Scheme Curriculum
+                            _buildActiveSchemeSection(isDark),
+                            const SizedBox(height: 20),
+
+                            // 3. Immutable Historical Revisions Vault (NAAC/NBA/UGC)
+                            _buildAuditTrailSection(isDark),
+                          ],
+                        ),
+                      ),
+              ),
+
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+
+              // Bottom Actions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _openReviseModal,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.githubGreen,
+                      side: const BorderSide(color: AppColors.githubGreen),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 14, color: AppColors.githubGreen),
+                    label: const Text('Revise Syllabus (BoS Scheme Update)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? const Color(0xFF21262D) : const Color(0xFFF6F8FA),
+                      foregroundColor: isDark ? Colors.white : AppColors.lightTextPrimary,
+                      elevation: 0,
+                      side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCycleResolverSection(SubjectModel sub, bool hasOddEven, bool isDark) {
+    final resolvedCode = sub.resolveCode(_simulatedSemester);
+    final isOdd = _simulatedSemester % 2 == 1;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF6F8FA),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? const Color(0xFF30363D) : const Color(0xFFD0D7DE),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 14, color: Color(0xFF0969DA)),
+              const SizedBox(width: 8),
+              const Text(
+                'SEMESTER CYCLE CODE RESOLVER (ODD / EVEN ALIASING)',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5, color: Color(0xFF0969DA)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            hasOddEven
+                ? 'Subject code dynamically resolves across semester cohorts independent of degree programs.'
+                : 'Canonical single-code subject. Configure odd/even semester aliasing if offered across cycles.',
+            style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+          ),
+          const SizedBox(height: 12),
+
+          // Code mapping chips
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            children: [
+              _buildAliasPill(
+                label: 'Canonical Code',
+                code: sub.code,
+                color: isDark ? Colors.white : AppColors.lightTextPrimary,
+                bgColor: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0),
+              ),
+              if (sub.oddSemCode != null)
+                _buildAliasPill(
+                  label: 'Odd Semesters (1, 3, 5, 7)',
+                  code: sub.oddSemCode!,
+                  color: const Color(0xFF0969DA),
+                  bgColor: const Color(0xFF0969DA).withValues(alpha: 0.12),
+                ),
+              if (sub.evenSemCode != null)
+                _buildAliasPill(
+                  label: 'Even Semesters (2, 4, 6, 8)',
+                  code: sub.evenSemCode!,
+                  color: const Color(0xFF8250DF),
+                  bgColor: const Color(0xFF8250DF).withValues(alpha: 0.12),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Interactive Cycle Simulator
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Simulate Term Offering:',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isOdd
+                            ? const Color(0xFF0969DA).withValues(alpha: 0.15)
+                            : const Color(0xFF8250DF).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Resolved: $resolvedCode (${isOdd ? "Odd" : "Even"})',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isOdd ? const Color(0xFF0969DA) : const Color(0xFF8250DF),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: List.generate(6, (index) {
+                    final semNum = index + 1;
+                    final isSelected = _simulatedSemester == semNum;
+                    return InkWell(
+                      onTap: () => setState(() => _simulatedSemester = semNum),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? (semNum % 2 == 1 ? const Color(0xFF0969DA) : const Color(0xFF8250DF))
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.transparent
+                                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                          ),
+                        ),
+                        child: Text(
+                          'Sem $semNum',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? Colors.white : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAliasPill({
+    required String label,
+    required String code,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$label: ', style: TextStyle(fontSize: 10, color: color)),
+          Text(code, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveSchemeSection(bool isDark) {
+    final active = _auditTrail.firstWhere((v) => v.isActive, orElse: () {
+      return SyllabusVersionModel(
+        id: 'fallback-syl',
+        subjectId: widget.subject.id,
+        revisionCode: widget.subject.activeSyllabus?.revisionCode ?? 'Scheme-Default',
+        effectiveFromYear: widget.subject.activeSyllabus?.effectiveFromYear ?? '2024-2025',
+        isActive: true,
+        content: widget.subject.activeSyllabus?.content ?? 'Syllabus content active and ratified by BoS.',
+        changeSummary: widget.subject.activeSyllabus?.changeSummary,
+        approvedBy: widget.subject.activeSyllabus?.approvedBy ?? 'Board of Studies (BoS)',
+      );
+    });
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.githubGreen.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    const AppSvgIcon(svgString: AppSvgIcon.shield, size: 16, color: AppColors.githubGreen),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'ACTIVE CURRICULUM SCHEME (${active.revisionCode})',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.githubGreen,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.githubGreen.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'CURRENTLY ACTIVE',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.githubGreen),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          Text(
+            'Effective Academic Years: ${active.effectiveFromYear} - Present  |  Ratified by: ${active.approvedBy ?? "Academic BoS Council"}',
+            style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+          ),
+          if (active.changeSummary != null && active.changeSummary!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Change Justification: ${active.changeSummary}',
+              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.wineRed),
+            ),
+          ],
+          const SizedBox(height: 12),
+
+          // Content Box
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0)),
+            ),
+            child: Text(
+              active.content,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditTrailSection(bool isDark) {
+    final pastVersions = _auditTrail.where((v) => !v.isActive).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const AppSvgIcon(svgString: AppSvgIcon.clock, size: 14, color: Color(0xFF8250DF)),
+            const SizedBox(width: 8),
+            Text(
+              'ACCREDITATION AUDIT VAULT (${pastVersions.length} HISTORICAL REVISIONS)',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+                color: Color(0xFF8250DF),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'All past syllabi are immutably archived for UGC, NBA, and NAAC retrospective cohort verification.',
+          style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+        ),
+        const SizedBox(height: 12),
+
+        if (pastVersions.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+            ),
+            child: const Center(
+              child: Text(
+                'No past syllabus schemes archived yet. When new curriculum revisions are published, prior copies are automatically locked here.',
+                style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: pastVersions.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (ctx, idx) {
+              final v = pastVersions[idx];
+              final isExpanded = _expandedContentIds.contains(v.id);
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  v.revisionCode,
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.wineRed.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'ARCHIVED / RETIRED',
+                                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.wineRed),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Taught: ${v.effectiveFromYear} to ${v.effectiveToYear ?? "Replaced"}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Approved by: ${v.approvedBy ?? "BoS Committee"}  |  Summary: ${v.changeSummary ?? "Baseline approved syllabus"}',
+                      style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Expand/Collapse Toggle
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (isExpanded) {
+                            _expandedContentIds.remove(v.id);
+                          } else {
+                            _expandedContentIds.add(v.id);
+                          }
+                        });
+                      },
+                      child: Row(
+                        children: [
+                          AppSvgIcon(
+                            svgString: isExpanded ? AppSvgIcon.chevronDown : AppSvgIcon.arrowRight,
+                            size: 12,
+                            color: const Color(0xFF0969DA),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isExpanded ? 'Hide Archived Syllabus Units' : 'Inspect Archived Syllabus Units',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0969DA)),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    if (isExpanded) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1)),
+                        ),
+                        child: Text(
+                          v.content,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.4,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// REVISE SYLLABUS MODAL (PUBLISH NEW BoS REFORM SCHEME)
+// -----------------------------------------------------------------------------
+
+class _ReviseSyllabusDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final SubjectModel subject;
+  final VoidCallback onRevised;
+
+  const _ReviseSyllabusDialog({
+    required this.storage,
+    required this.subject,
+    required this.onRevised,
+  });
+
+  @override
+  State<_ReviseSyllabusDialog> createState() => _ReviseSyllabusDialogState();
+}
+
+class _ReviseSyllabusDialogState extends State<_ReviseSyllabusDialog> {
+  final _revisionController = TextEditingController(text: 'Reg-2025');
+  final _effectiveYearController = TextEditingController(text: '2025-2026');
+  final _approvedByController = TextEditingController(text: 'Board of Studies (BoS) Computing & Academic Council');
+  final _changeSummaryController = TextEditingController();
+  final _contentController = TextEditingController();
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.subject.activeSyllabus != null) {
+      _contentController.text = widget.subject.activeSyllabus!.content;
+    }
+  }
+
+  @override
+  void dispose() {
+    _revisionController.dispose();
+    _effectiveYearController.dispose();
+    _approvedByController.dispose();
+    _changeSummaryController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final rev = _revisionController.text.trim();
+    final content = _contentController.text.trim();
+    if (rev.isEmpty) {
+      setState(() => _errorMessage = 'Revision code is required (e.g. Reg-2025)');
+      return;
+    }
+    if (content.isEmpty) {
+      setState(() => _errorMessage = 'Syllabus content cannot be empty');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.storage.reviseSubjectSyllabus({
+        'subject_id': widget.subject.id,
+        'revision_code': rev,
+        'effective_from_year': _effectiveYearController.text.trim(),
+        'approved_by': _approvedByController.text.trim(),
+        'change_summary': _changeSummaryController.text.trim(),
+        'content': content,
+      });
+      widget.onRevised();
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 580),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const AppSvgIcon(svgString: AppSvgIcon.book, size: 18, color: AppColors.githubGreen),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'Revise Syllabus: ${widget.subject.code}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 14),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Publishing a new scheme immutably archives the current syllabus with effective cohort bounds for accreditation audits.',
+                  style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                ),
+                const SizedBox(height: 16),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _revisionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Revision Code *',
+                          hintText: 'e.g. Reg-2025, Scheme-2025',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _effectiveYearController,
+                        decoration: const InputDecoration(
+                          labelText: 'Effective Academic Year *',
+                          hintText: 'e.g. 2025-2026',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _approvedByController,
+                  decoration: const InputDecoration(
+                    labelText: 'Approving Authority (BoS / Council)',
+                    hintText: 'e.g. Board of Studies (BoS) Computing',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _changeSummaryController,
+                  decoration: const InputDecoration(
+                    labelText: 'Change Justification / Summary',
+                    hintText: 'e.g. Added Unit 5 Modern Systems and POSIX Concurrency',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _contentController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Modular Syllabus Units & Reference Texts *',
+                    hintText: 'Unit 1: Introduction...\nUnit 2: Core Concepts...\nUnit 3: Case Studies...',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                if (_errorMessage != null) ...[
+                  Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                  const SizedBox(height: 10),
+                ],
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _isSubmitting ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.githubGreen,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Publish & Archive Previous'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// ADD ACADEMIC SUBJECT DIALOG
+// -----------------------------------------------------------------------------
+
+class _AddSubjectDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final ValueChanged<SubjectModel> onCreated;
+
+  const _AddSubjectDialog({
+    required this.storage,
+    required this.onCreated,
+  });
+
+  @override
+  State<_AddSubjectDialog> createState() => _AddSubjectDialogState();
+}
+
+class _AddSubjectDialogState extends State<_AddSubjectDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _codeController = TextEditingController();
+  final _oddCodeController = TextEditingController();
+  final _evenCodeController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _creditsController = TextEditingController(text: '4');
+  final _revisionController = TextEditingController(text: 'Scheme-2025');
+  final _effectiveYearController = TextEditingController(text: '2025-2026');
+  final _contentController = TextEditingController(text: 'Unit 1: Foundational Principles & Architecture.\nUnit 2: Applied Modular Systems.\nUnit 3: Case Studies and Laboratory Practice.');
+
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _oddCodeController.dispose();
+    _evenCodeController.dispose();
+    _nameController.dispose();
+    _creditsController.dispose();
+    _revisionController.dispose();
+    _effectiveYearController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final credits = int.tryParse(_creditsController.text.trim()) ?? 4;
+      final oddCode = _oddCodeController.text.trim().toUpperCase();
+      final evenCode = _evenCodeController.text.trim().toUpperCase();
+      var code = _codeController.text.trim().toUpperCase();
+
+      if (code.isEmpty) {
+        if (oddCode.isNotEmpty && evenCode.isNotEmpty) {
+          code = '$oddCode / $evenCode';
+        } else if (oddCode.isNotEmpty) {
+          code = oddCode;
+        } else if (evenCode.isNotEmpty) {
+          code = evenCode;
+        } else {
+          code = 'SUBJ-${DateTime.now().millisecondsSinceEpoch % 1000}';
+        }
+      }
+
+      final payload = {
+        'code': code,
+        'odd_sem_code': oddCode.isNotEmpty ? oddCode : null,
+        'even_sem_code': evenCode.isNotEmpty ? evenCode : null,
+        'name': _nameController.text.trim(),
+        'credits': credits,
+        'active_syllabus': {
+          'revision_code': _revisionController.text.trim(),
+          'effective_from_year': _effectiveYearController.text.trim(),
+          'is_active': true,
+          'content': _contentController.text.trim(),
+          'change_summary': 'Initial ratified curriculum scheme',
+          'approved_by': 'Board of Studies (BoS) Computing',
+        },
+      };
+
+      final created = await widget.storage.createSubject(payload);
+      widget.onCreated(created);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 580),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const AppSvgIcon(svgString: AppSvgIcon.book, size: 18, color: AppColors.githubGreen),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Add Academic Subject',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 14),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Configure subject code aliasing (e.g. BCA-102 in odd sems, BCA-202 in even sems) and initial ratified syllabus.',
+                    style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Subject Name *',
+                      hintText: 'e.g. Computer Fundamentals & Programming',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    validator: (val) => val == null || val.trim().isEmpty ? 'Subject name is required' : null,
+                  ),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _oddCodeController,
+                          decoration: const InputDecoration(
+                            labelText: 'Odd Sem Code (Optional)',
+                            hintText: 'e.g. BCA-102',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _evenCodeController,
+                          decoration: const InputDecoration(
+                            labelText: 'Even Sem Code (Optional)',
+                            hintText: 'e.g. BCA-202',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 90,
+                        child: TextFormField(
+                          controller: _creditsController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Credits',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    controller: _codeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Canonical Display Code (Optional)',
+                      hintText: 'e.g. BCA 102 / 202 or CS301 (Auto-derived if empty)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  const Text(
+                    'INITIAL SYLLABUS SCHEME',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5, color: AppColors.githubGreen),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _revisionController,
+                          decoration: const InputDecoration(
+                            labelText: 'Revision Code',
+                            hintText: 'e.g. Scheme-2025',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _effectiveYearController,
+                          decoration: const InputDecoration(
+                            labelText: 'Effective Year',
+                            hintText: 'e.g. 2025-2026',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    controller: _contentController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Curriculum Units & Content',
+                      hintText: 'Unit 1: Primitive Data Structures\nUnit 2: Stacks and Queues...',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (_errorMessage != null) ...[
+                    Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                    const SizedBox(height: 10),
+                  ],
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: _isSubmitting ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.githubGreen,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Create Subject'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

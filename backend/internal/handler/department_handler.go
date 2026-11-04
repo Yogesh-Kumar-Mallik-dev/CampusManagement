@@ -120,19 +120,96 @@ func (h *DepartmentHandler) HandlePrograms(w http.ResponseWriter, r *http.Reques
 	_ = json.NewEncoder(w).Encode(programs)
 }
 
-// HandleSubjects handles GET /api/v1/academics/subjects
+// HandleSubjects handles GET and POST for /api/v1/academics/subjects
 func (h *DepartmentHandler) HandleSubjects(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
+		subjects, err := h.academicService.ListSubjects(r.Context())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(subjects)
+
+	case http.MethodPost:
+		var req model.Subject
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.Name) == "" {
+			http.Error(w, "Subject name is required", http.StatusBadRequest)
+			return
+		}
+		created, err := h.academicService.CreateSubject(r.Context(), req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(created)
+
+	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
-	subjects, err := h.academicService.ListSubjects(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+}
+
+// HandleSubjectSyllabus handles GET (audit trail) and POST (revise syllabus) for /api/v1/academics/subjects/syllabus
+func (h *DepartmentHandler) HandleSubjectSyllabus(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		subjectID := r.URL.Query().Get("subject_id")
+		if subjectID == "" {
+			subjectID = r.URL.Query().Get("id")
+		}
+		if subjectID == "" {
+			http.Error(w, "subject_id parameter is required", http.StatusBadRequest)
+			return
+		}
+
+		auditTrail, err := h.academicService.GetSubjectSyllabusAuditTrail(r.Context(), subjectID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(auditTrail)
+
+	case http.MethodPost:
+		var req model.ReviseSyllabusRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+
+		if strings.TrimSpace(req.SubjectID) == "" {
+			http.Error(w, "subject_id is required", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.RevisionCode) == "" {
+			http.Error(w, "revision_code is required", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.Content) == "" {
+			http.Error(w, "content is required", http.StatusBadRequest)
+			return
+		}
+
+		revised, err := h.academicService.ReviseSyllabus(r.Context(), req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(revised)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(subjects)
 }
 
 // HandleSemesters handles GET /api/v1/academics/semesters

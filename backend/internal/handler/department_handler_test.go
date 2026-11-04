@@ -397,3 +397,129 @@ func TestCrossProgramSectionsAndStudentEnrollment(t *testing.T) {
 	}
 }
 
+func TestSubjectOddEvenCodesAndSyllabusAuditTrail(t *testing.T) {
+	_, _, deptHandler := setupTestAcademicEnv(t)
+
+	// 1. Create a subject with Odd and Even semester codes
+	createSubPayload := model.Subject{
+		OddSemCode:  "BCA-102",
+		EvenSemCode: "BCA-202",
+		Name:        "Computer Fundamentals & Problem Solving with C",
+		Credits:     4,
+		ActiveSyllabus: &model.SyllabusVersion{
+			RevisionCode:      "Scheme-2021",
+			EffectiveFromYear: "2021-2022",
+			Content:           "Unit 1: Fundamentals. Unit 2: C Programming Syntax.",
+			ChangeSummary:     "Baseline curriculum ratified by Board of Studies",
+			ApprovedBy:        "Academic Council & BoS",
+		},
+	}
+
+	body, _ := json.Marshal(createSubPayload)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/academics/subjects", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	deptHandler.HandleSubjects(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var createdSub model.Subject
+	if err := json.Unmarshal(w.Body.Bytes(), &createdSub); err != nil {
+		t.Fatalf("failed to decode created subject: %v", err)
+	}
+
+	// Verify odd / even semester resolution
+	if createdSub.ResolveCodeForSemester(1) != "BCA-102" {
+		t.Errorf("expected BCA-102 for odd sem 1, got %s", createdSub.ResolveCodeForSemester(1))
+	}
+	if createdSub.ResolveCodeForSemester(3) != "BCA-102" {
+		t.Errorf("expected BCA-102 for odd sem 3, got %s", createdSub.ResolveCodeForSemester(3))
+	}
+	if createdSub.ResolveCodeForSemester(2) != "BCA-202" {
+		t.Errorf("expected BCA-202 for even sem 2, got %s", createdSub.ResolveCodeForSemester(2))
+	}
+	if createdSub.ResolveCodeForSemester(4) != "BCA-202" {
+		t.Errorf("expected BCA-202 for even sem 4, got %s", createdSub.ResolveCodeForSemester(4))
+	}
+	if createdSub.Code != "BCA-102 / BCA-202" {
+		t.Errorf("expected canonical code 'BCA-102 / BCA-202', got %s", createdSub.Code)
+	}
+
+	// Verify initial syllabus is active
+	if createdSub.ActiveSyllabus == nil || !createdSub.ActiveSyllabus.IsActive {
+		t.Fatalf("expected active syllabus on created subject")
+	}
+	if createdSub.ActiveSyllabus.RevisionCode != "Scheme-2021" {
+		t.Errorf("expected Scheme-2021 revision, got %s", createdSub.ActiveSyllabus.RevisionCode)
+	}
+
+	// 2. Revise Syllabus (Academic Reform 2024)
+	revisePayload := model.ReviseSyllabusRequest{
+		SubjectID:         createdSub.ID,
+		RevisionCode:      "Reg-2024",
+		EffectiveFromYear: "2024-2025",
+		Content:           "Unit 1: Modern Systems. Unit 2: Advanced C. Unit 3: Concurrency & Rust Comparison.",
+		ChangeSummary:     "Added Unit 3 Memory safety & Rust comparison",
+		ApprovedBy:        "BoS Curriculum Reform Committee",
+	}
+	revBody, _ := json.Marshal(revisePayload)
+	revReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/subjects/syllabus", bytes.NewReader(revBody))
+	wRev := httptest.NewRecorder()
+	deptHandler.HandleSubjectSyllabus(wRev, revReq)
+
+	if wRev.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for revise syllabus, got %d: %s", wRev.Code, wRev.Body.String())
+	}
+
+	var revisedSyl model.SyllabusVersion
+	if err := json.Unmarshal(wRev.Body.Bytes(), &revisedSyl); err != nil {
+		t.Fatalf("failed to decode revised syllabus: %v", err)
+	}
+	if !revisedSyl.IsActive {
+		t.Errorf("new revision should be active")
+	}
+	if revisedSyl.RevisionCode != "Reg-2024" {
+		t.Errorf("expected Reg-2024, got %s", revisedSyl.RevisionCode)
+	}
+
+	// 3. Query Audit Trail
+	auditReq := httptest.NewRequest(http.MethodGet, "/api/v1/academics/subjects/syllabus?subject_id="+createdSub.ID, nil)
+	wAudit := httptest.NewRecorder()
+	deptHandler.HandleSubjectSyllabus(wAudit, auditReq)
+
+	if wAudit.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for syllabus audit trail, got %d: %s", wAudit.Code, wAudit.Body.String())
+	}
+
+	var auditTrail []model.SyllabusVersion
+	if err := json.Unmarshal(wAudit.Body.Bytes(), &auditTrail); err != nil {
+		t.Fatalf("failed to decode audit trail: %v", err)
+	}
+
+	if len(auditTrail) != 2 {
+		t.Fatalf("expected exactly 2 syllabus versions in audit trail, got %d", len(auditTrail))
+	}
+
+	// First element should be newest (active)
+	activeItem := auditTrail[0]
+	if !activeItem.IsActive || activeItem.RevisionCode != "Reg-2024" {
+		t.Errorf("expected newest audit item to be active Reg-2024, got %+v", activeItem)
+	}
+	if activeItem.EffectiveToYear != nil {
+		t.Errorf("active syllabus should have nil effective_to_year")
+	}
+
+	// Second element should be previous (archived)
+	archivedItem := auditTrail[1]
+	if archivedItem.IsActive {
+		t.Errorf("previous syllabus must be marked inactive (is_active = false)")
+	}
+	if archivedItem.RevisionCode != "Scheme-2021" {
+		t.Errorf("expected archived item to be Scheme-2021, got %s", archivedItem.RevisionCode)
+	}
+	if archivedItem.EffectiveToYear == nil || *archivedItem.EffectiveToYear != "2024-2025" {
+		t.Errorf("expected archived item effective_to_year to be '2024-2025', got %v", archivedItem.EffectiveToYear)
+	}
+}
+

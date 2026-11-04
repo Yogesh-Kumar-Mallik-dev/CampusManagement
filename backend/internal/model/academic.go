@@ -32,10 +32,48 @@ type Program struct {
 // Subject represents an academic subject/course module
 type Subject struct {
 	BaseSyncModel
-	Code          string   `json:"code"`        // e.g. 'CS301'
-	Name          string   `json:"name"`        // e.g. 'Operating Systems'
-	Credits       int      `json:"credits"`     // e.g. 4
-	DepartmentIDs []string `json:"department_ids,omitempty"` // Departments offering this subject
+	Code           string           `json:"code"`                    // Canonical display e.g. 'BCA 102/202' or 'CS301'
+	OddSemCode     string           `json:"odd_sem_code,omitempty"`  // e.g. 'BCA-102' for odd semesters (Sem 1, 3, 5...)
+	EvenSemCode    string           `json:"even_sem_code,omitempty"` // e.g. 'BCA-202' for even semesters (Sem 2, 4, 6...)
+	Name           string           `json:"name"`                    // e.g. 'Computer Fundamentals & Programming'
+	Credits        int              `json:"credits"`                 // e.g. 4
+	DepartmentIDs  []string         `json:"department_ids,omitempty"`// Departments offering this subject
+	ActiveSyllabus *SyllabusVersion `json:"active_syllabus,omitempty"`// Currently active curriculum
+}
+
+// ResolveCodeForSemester returns the term-specific code if odd/even codes are configured
+func (s Subject) ResolveCodeForSemester(semNumber int) string {
+	if semNumber%2 == 1 && s.OddSemCode != "" {
+		return s.OddSemCode
+	}
+	if semNumber%2 == 0 && s.EvenSemCode != "" {
+		return s.EvenSemCode
+	}
+	return s.Code
+}
+
+// SyllabusVersion stores an immutable version of a course syllabus for academic audits
+type SyllabusVersion struct {
+	BaseSyncModel
+	SubjectID         string  `json:"subject_id"`
+	RevisionCode      string  `json:"revision_code"`       // e.g. 'Reg-2024', 'v1.0'
+	EffectiveFromYear string  `json:"effective_from_year"` // '2024-2025'
+	EffectiveToYear   *string `json:"effective_to_year,omitempty"`
+	IsActive          bool    `json:"is_active"`
+	Content           string  `json:"content"`             // Modular text / units / references
+	ChangeSummary     string  `json:"change_summary,omitempty"`
+	ApprovedBy        string  `json:"approved_by,omitempty"`
+	ApprovedAt        *string `json:"approved_at,omitempty"`
+}
+
+// ReviseSyllabusRequest is the payload to publish a new syllabus scheme, archiving the previous one
+type ReviseSyllabusRequest struct {
+	SubjectID         string `json:"subject_id"`
+	RevisionCode      string `json:"revision_code"`
+	EffectiveFromYear string `json:"effective_from_year"`
+	Content           string `json:"content"`
+	ChangeSummary     string `json:"change_summary"`
+	ApprovedBy        string `json:"approved_by"`
 }
 
 // Semester represents a specific semester cohort from a program (e.g. B.Tech CSE Semester 5, Sec 3A)
