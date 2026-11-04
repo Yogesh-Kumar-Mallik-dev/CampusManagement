@@ -1,5 +1,5 @@
+import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'package:flutter/material.dart';
-import '../main.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
@@ -80,325 +80,333 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Theme Toggle in Header
+          // Theme Toggle in Header with Premade Smooth Open Source Animated Theme Switcher
           Positioned(
             top: 16,
             right: 16,
-            child: IconButton(
-              tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-              icon: Icon(
-                isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                size: 20,
-              ),
-              onPressed: () {
-                appThemeModeNotifier.value = isDark ? ThemeMode.light : ThemeMode.dark;
+            child: ThemeSwitcher.withTheme(
+              builder: (context, switcher, theme) {
+                final isCurrentDark = theme.brightness == Brightness.dark;
+                return IconButton(
+                  tooltip: isCurrentDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+                  icon: Icon(
+                    isCurrentDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    switcher.changeTheme(
+                      theme: isCurrentDark ? AppTheme.lightTheme : AppTheme.darkTheme,
+                    );
+                  },
+                );
               },
             ),
           ),
 
-          // Centered Login Card
+          // Strictly Non-Scrollable Centered Login Container
           Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: AnimatedContainer(
-                  duration: AppTheme.themeAnimationDuration,
-                  curve: AppTheme.themeAnimationCurve,
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 26),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                        width: 1,
                       ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // High-Definition Logo
-                        const Center(
-                          child: AppLogo(height: 54),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
                         ),
-                        const SizedBox(height: 20),
-
-                        // Title & Subtitle
-                        Text(
-                          'Institutional Sign In',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Enter your canonical campus handle or email',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Error Banner (if any)
-                        if (_errorMessage != null) ...[
-                          Builder(
-                            builder: (context) {
-                              final redBadge = AppColors.redBadge(isDark);
-                              return AnimatedContainer(
-                                duration: AppTheme.themeAnimationDuration,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: redBadge.background,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: redBadge.border, width: 1),
-                                ),
-                                child: Row(
-                                  children: [
-                                    AppSvgIcon(
-                                      svgString: AppSvgIcon.alertTriangle,
-                                      size: 16,
-                                      color: redBadge.text,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _errorMessage!,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: redBadge.text,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // High-Definition Emblem
+                          const Center(
+                            child: AppLogo(height: 52),
                           ),
                           const SizedBox(height: 16),
-                        ],
 
-                        // Identifier Field
-                        Text(
-                          'Campus Handle or Email',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _identifierController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            hintText: 'e.g. harish_2025_l_btech_1',
-                            prefixIcon: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: AppSvgIcon(
-                                svgString: AppSvgIcon.user,
-                                size: 16,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                              ),
+                          // Title & Subtitle
+                          Text(
+                            'Institutional Sign In',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Campus handle or email is required';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Password Field
-                        Text(
-                          'Password',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            hintText: 'Enter account password',
-                            prefixIcon: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: AppSvgIcon(
-                                svgString: AppSvgIcon.lock,
-                                size: 16,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                              ),
-                            ),
-                            suffixIcon: IconButton(
-                              icon: AppSvgIcon(
-                                svgString: _obscurePassword ? AppSvgIcon.eye : AppSvgIcon.eyeOff,
-                                size: 16,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                              ),
-                              onPressed: () {
-                                setState(() => _obscurePassword = !_obscurePassword);
-                              },
+                          const SizedBox(height: 4),
+                          Text(
+                            'Enter your canonical campus handle or email',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Password is required';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
+                          const SizedBox(height: 20),
 
-                        // Remember Me Checkbox
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: Checkbox(
-                                value: _rememberMe,
-                                activeColor: AppColors.wineRed,
-                                onChanged: (val) {
-                                  setState(() => _rememberMe = val ?? true);
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Keep signed in on this workstation',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Sign In Button
-                        SizedBox(
-                          height: 44,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.wineRed,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                          // Error Banner (if any)
+                          if (_errorMessage != null) ...[
+                            Builder(
+                              builder: (context) {
+                                final redBadge = AppColors.redBadge(isDark);
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: redBadge.background,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: redBadge.border, width: 1),
+                                  ),
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        'Sign In',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                      ),
-                                      SizedBox(width: 8),
                                       AppSvgIcon(
-                                        svgString: AppSvgIcon.arrowRight,
-                                        size: 16,
-                                        color: Colors.white,
+                                        svgString: AppSvgIcon.alertTriangle,
+                                        size: 15,
+                                        color: redBadge.text,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _errorMessage!,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: redBadge.text,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Quick Access Personas (1-Click Fill)
-                        Divider(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Quick Access Personas (1-Click Fill)',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            _buildQuickPersonaChip(
-                              label: 'Student',
-                              handle: 'harish_2025_l_btech_1',
-                              badgeStyle: AppColors.primaryBadge(isDark),
+                                );
+                              },
                             ),
-                            _buildQuickPersonaChip(
-                              label: 'Faculty',
-                              handle: 'priya_2024_emp_1',
-                              badgeStyle: AppColors.greenBadge(isDark),
-                            ),
-                            _buildQuickPersonaChip(
-                              label: 'Security',
-                              handle: 'ramesh_2023_emp_1',
-                              badgeStyle: AppColors.neutralBadge(isDark),
-                            ),
+                            const SizedBox(height: 14),
                           ],
-                        ),
-                        const SizedBox(height: 16),
 
-                        // Institutional Security Note
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AppSvgIcon(
-                              svgString: AppSvgIcon.shield,
-                              size: 13,
-                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          // Identifier Field
+                          Text(
+                            'Campus Handle or Email',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
                             ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                'Offline-Capable RBAC Directory Active',
-                                style: TextStyle(
-                                  fontSize: 11,
+                          ),
+                          const SizedBox(height: 5),
+                          TextFormField(
+                            controller: _identifierController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              hintText: 'e.g. harish_2025_l_btech_1',
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.all(11),
+                                child: AppSvgIcon(
+                                  svgString: AppSvgIcon.user,
+                                  size: 15,
                                   color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ],
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Campus handle or email is required';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Password Field
+                          Text(
+                            'Password',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              hintText: 'Enter account password',
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.all(11),
+                                child: AppSvgIcon(
+                                  svgString: AppSvgIcon.lock,
+                                  size: 15,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                ),
+                              ),
+                              suffixIcon: IconButton(
+                                icon: AppSvgIcon(
+                                  svgString: _obscurePassword ? AppSvgIcon.eye : AppSvgIcon.eyeOff,
+                                  size: 15,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                ),
+                                onPressed: () {
+                                  setState(() => _obscurePassword = !_obscurePassword);
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Password is required';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Remember Me Checkbox
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: Checkbox(
+                                  value: _rememberMe,
+                                  activeColor: AppColors.wineRed,
+                                  onChanged: (val) {
+                                    setState(() => _rememberMe = val ?? true);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Keep signed in on this workstation',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Sign In Button
+                          SizedBox(
+                            height: 42,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _handleLogin,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.wineRed,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'Sign In',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                        SizedBox(width: 8),
+                                        AppSvgIcon(
+                                          svgString: AppSvgIcon.arrowRight,
+                                          size: 15,
+                                          color: Colors.white,
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Quick Access Personas (1-Click Fill)
+                          Divider(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Quick Access Personas (1-Click Fill)',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _buildQuickPersonaChip(
+                                label: 'Student',
+                                handle: 'harish_2025_l_btech_1',
+                                badgeStyle: AppColors.primaryBadge(isDark),
+                              ),
+                              _buildQuickPersonaChip(
+                                label: 'Faculty',
+                                handle: 'priya_2024_emp_1',
+                                badgeStyle: AppColors.greenBadge(isDark),
+                              ),
+                              _buildQuickPersonaChip(
+                                label: 'Security',
+                                handle: 'ramesh_2023_emp_1',
+                                badgeStyle: AppColors.neutralBadge(isDark),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Institutional Security Note
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              AppSvgIcon(
+                                svgString: AppSvgIcon.shield,
+                                size: 12,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Offline-Capable RBAC Directory Active',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_client/main.dart';
 import 'package:campus_client/screens/home_screen.dart';
@@ -24,6 +25,9 @@ void main() {
     expect(find.text('Sign In'), findsOneWidget);
     expect(find.text('Student'), findsOneWidget);
     expect(find.text('Faculty'), findsOneWidget);
+
+    // Verify Login Screen is strictly non-scrollable (no SingleChildScrollView)
+    expect(find.descendant(of: find.byType(LoginScreen), matching: find.byType(SingleChildScrollView)), findsNothing);
 
     // 2. Perform Login action
     await tester.tap(find.text('Sign In'));
