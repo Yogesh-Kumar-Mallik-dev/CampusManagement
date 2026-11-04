@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 /// Institutional AppLogo component.
-/// Renders the logo in ultra-high definition using Flutter's GPU-accelerated
-/// bicubic texture pipeline (`FilterQuality.high`), eliminating the software
-/// downsampling blur caused by SVG raster wrappers.
+/// Renders the authentic logo in ultra-high definition using Flutter's GPU-accelerated
+/// bicubic texture pipeline (`FilterQuality.high`).
+///
+/// Seamlessly adapts to Light and Dark modes with clean alpha transparency,
+/// preventing the logo from glowing like a harsh sticker in dark themes.
 class AppLogo extends StatelessWidget {
   final double? height;
   final double? width;
@@ -11,15 +13,17 @@ class AppLogo extends StatelessWidget {
 
   const AppLogo({
     super.key,
-    this.height = 42,
+    this.height = 40,
     this.width,
     this.fit = BoxFit.contain,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Image.asset(
-      'assets/images/logo.png',
+      isDark ? 'assets/images/logo_dark.png' : 'assets/images/logo_light.png',
       height: height,
       width: width,
       fit: fit,
