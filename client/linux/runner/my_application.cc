@@ -25,14 +25,28 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Use a header bar when running in GNOME as this is the common style used
-  // by applications and is the setup most users will be using (e.g. Ubuntu
-  // desktop).
-  // If running on X and not using GNOME then just use a traditional title bar
-  // in case the window manager does more exotic layout, e.g. tiling.
-  // If running on Wayland assume the header bar will work (may need changing
-  // if future cases occur).
-  gboolean use_header_bar = TRUE;
+  // Use a client-side header bar only when running specifically in GNOME Shell,
+  // where client-side decorations are expected by the desktop environment.
+  // On all other desktop environments and window managers (especially tiling
+  // window managers like Hyprland, Sway, i3, or server-side decoration WMs like
+  // KDE KWin, XFWM, etc.), do NOT use a client-side GtkHeaderBar.
+  // This allows the OS window manager to manage the window decorations,
+  // title bar, minimize, maximize, and close controls natively according to
+  // the user's desktop configuration.
+  gboolean use_header_bar = FALSE;
+
+  const gchar* current_desktop = g_getenv("XDG_CURRENT_DESKTOP");
+  if (current_desktop != NULL) {
+    gchar** desktops = g_strsplit(current_desktop, ":", -1);
+    for (gchar** d = desktops; *d != NULL; d++) {
+      if (g_ascii_strcasecmp(*d, "gnome") == 0) {
+        use_header_bar = TRUE;
+        break;
+      }
+    }
+    g_strfreev(desktops);
+  }
+
 #ifdef GDK_WINDOWING_X11
   GdkScreen* screen = gtk_window_get_screen(window);
   if (GDK_IS_X11_SCREEN(screen)) {
@@ -42,14 +56,21 @@ static void my_application_activate(GApplication* application) {
     }
   }
 #endif
+
+  // On Hyprland, Sway, or tiling compositors, always delegate window management to the OS/WM
+  if (g_getenv("HYPRLAND_INSTANCE_SIGNATURE") != NULL ||
+      g_getenv("SWAYSOCK") != NULL) {
+    use_header_bar = FALSE;
+  }
+
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "campus_client");
+    gtk_header_bar_set_title(header_bar, "Campus Management");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "campus_client");
+    gtk_window_set_title(window, "Campus Management");
   }
 
   gtk_window_set_default_size(window, 1280, 720);
