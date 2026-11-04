@@ -9,6 +9,8 @@ import '../widgets/app_logo.dart';
 import 'attendance_screen.dart';
 import 'notices_screen.dart';
 import 'timetable_screen.dart';
+import 'user_management_screen.dart';
+import 'user_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -95,6 +97,10 @@ class _HomeScreenState extends State<HomeScreen> {
       NoticesScreen(
         storage: widget.storage,
         userScopes: _currentUser.activeScopes,
+      ),
+      UserManagementScreen(
+        storage: widget.storage,
+        currentUser: _currentUser,
       ),
     ];
 
@@ -282,6 +288,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   label: 'Notices',
                 ),
+                BottomNavigationBarItem(
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.user),
+                  activeIcon: AppSvgIcon(
+                    svgString: AppSvgIcon.user,
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                  ),
+                  label: 'Directory',
+                ),
               ],
             ),
     );
@@ -409,6 +423,36 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                    side: BorderSide(
+                      color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
+                      width: 1,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.user, size: 14),
+                  label: const Text('View Profile', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(
+                          storage: widget.storage,
+                          userIdentifier: _currentUser.id,
+                          initialUser: _currentUser,
+                          currentAdminUser: _currentUser,
+                          onUserUpdated: () async {
+                            final fresh = await widget.storage.getUserProfile(_currentUser.id);
+                            setState(() => _currentUser = fresh);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -459,17 +503,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: AppColors.statusYellow,
                   onTap: () => setState(() => _currentIndex = 3),
                 ),
+                _buildOperationCard(
+                  title: 'Directory & Identities',
+                  subtitle: 'Onboarding & lifecycle exit control',
+                  iconSvg: AppSvgIcon.user,
+                  color: AppColors.wineRed,
+                  onTap: () => setState(() => _currentIndex = 4),
+                ),
               ];
 
               if (isWide) {
-                return Row(
-                  children: [
-                    Expanded(child: cards[0]),
-                    const SizedBox(width: 12),
-                    Expanded(child: cards[1]),
-                    const SizedBox(width: 12),
-                    Expanded(child: cards[2]),
-                  ],
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: cards.map((c) {
+                    final cardWidth = (constraints.maxWidth - 36) / 4;
+                    return SizedBox(width: cardWidth, child: c);
+                  }).toList(),
                 );
               }
               return Column(
@@ -479,6 +529,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   cards[1],
                   const SizedBox(height: 10),
                   cards[2],
+                  const SizedBox(height: 10),
+                  cards[3],
                 ],
               );
             },
@@ -574,6 +626,7 @@ class _CampusSidebar extends StatelessWidget {
       (svg: AppSvgIcon.calendar, label: 'Timetable'),
       (svg: AppSvgIcon.attendance, label: 'Attendance'),
       (svg: AppSvgIcon.bell, label: 'Notices'),
+      (svg: AppSvgIcon.user, label: 'Directory'),
     ];
 
     return Container(

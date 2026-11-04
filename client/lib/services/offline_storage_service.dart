@@ -11,6 +11,7 @@ class OfflineStorageService {
   final List<TimetableSlotModel> _cachedTimetable = [];
   final List<NoticeModel> _cachedNotices = [];
   final List<AttendanceSummaryModel> _cachedSummaries = [];
+  final List<UserModel> _cachedUsers = [];
 
   // Offline Outbox: Sessions recorded locally waiting to sync with Go backend
   final List<AttendanceSessionModel> _attendanceOutbox = [];
@@ -83,6 +84,356 @@ class OfflineStorageService {
       List.unmodifiable(_cachedSummaries);
   List<AttendanceSessionModel> get attendanceOutbox =>
       List.unmodifiable(_attendanceOutbox);
+  List<UserModel> get cachedUsers => List.unmodifiable(_cachedUsers);
+
+  void _seedDefaultUsersIfEmpty() {
+    if (_cachedUsers.isNotEmpty) return;
+    _cachedUsers.addAll([
+      UserModel(
+        id: 'usr-harish_2025_l_btech_1',
+        campusHandle: 'harish_2025_l_btech_1',
+        firstName: 'Harish',
+        lastName: 'Kumar',
+        email: 'harish_2025_l_btech_1@campus.edu',
+        personalEmail: 'harish.kumar@example.com',
+        phone: '+91 98765 43210',
+        archetype: 'student',
+        universityRollNo: '2025-CS-042',
+        admissionApplicationNo: 'APP-2025-0819',
+        universityRegNo: 'REG-2025-9921',
+        status: 'active',
+        activeScopes: ['global', 'sec:cse-3a', 'club:robotics'],
+        studentProfile: {
+          'admission_year': 2025,
+          'entry_type': 'lateral',
+          'program': 'btech',
+          'current_semester': 3,
+          'batch_year': 2029,
+        },
+      ),
+      UserModel(
+        id: 'usr-priya_2024_emp_1',
+        campusHandle: 'priya_2024_emp_1',
+        firstName: 'Dr. Priya',
+        lastName: 'Nair',
+        email: 'priya_2024_emp_1@campus.edu',
+        personalEmail: 'p.nair@academic-research.org',
+        phone: '+91 98111 22334',
+        archetype: 'employee',
+        universityRollNo: 'EMP-2024-0012',
+        status: 'active',
+        activeScopes: ['global', 'dept:cse', 'sec:cse-3a', 'unit:student_affairs'],
+        employeeRecord: {
+          'joining_date': '2024-01-15T00:00:00Z',
+          'employee_code': 'FAC-CS-012',
+          'employment_type': 'permanent',
+          'is_academic': true,
+          'is_administrative': true,
+        },
+        academicProfile: {
+          'academic_rank': 'Professor',
+          'cabin_location': 'LH-302, Academic Block B',
+          'departments': ['dept:cse'],
+        },
+        administrativeProfile: {
+          'primary_unit': 'unit:student_affairs',
+          'designation': 'Dean of Student Affairs',
+          'office_location': 'Administrative Complex Room 104',
+        },
+      ),
+      UserModel(
+        id: 'usr-ramesh_2023_emp_1',
+        campusHandle: 'ramesh_2023_emp_1',
+        firstName: 'Ramesh',
+        lastName: 'Singh',
+        email: 'ramesh_2023_emp_1@campus.edu',
+        personalEmail: 'ramesh.singh@campus-ops.net',
+        phone: '+91 97222 33445',
+        archetype: 'employee',
+        universityRollNo: 'EMP-2023-0089',
+        status: 'active',
+        activeScopes: ['global', 'unit:security', 'facility:gate-1'],
+        employeeRecord: {
+          'joining_date': '2023-06-01T00:00:00Z',
+          'employee_code': 'ADM-SEC-089',
+          'employment_type': 'permanent',
+          'is_academic': false,
+          'is_administrative': true,
+        },
+        administrativeProfile: {
+          'primary_unit': 'unit:security',
+          'designation': 'Chief Security Officer',
+          'office_location': 'Main Gate Security HQ',
+        },
+      ),
+      UserModel(
+        id: 'usr-vikram_2021_r_btech_1',
+        campusHandle: 'vikram_2021_r_btech_1',
+        firstName: 'Vikram',
+        lastName: 'Malhotra',
+        email: 'vikram_2021_r_btech_1@campus.edu',
+        personalEmail: 'vikram.malhotra@alumni.org',
+        phone: '+91 99000 11223',
+        archetype: 'student',
+        universityRollNo: '2021-CS-001',
+        admissionApplicationNo: 'APP-2021-0044',
+        status: 'graduated',
+        discontinuationReason: 'Graduated Class of 2025 (B.Tech CSE with First Class Honors)',
+        discontinuedAt: '2025-06-30T10:00:00Z',
+        discontinuedBy: 'usr-priya_2024_emp_1',
+        activeScopes: [],
+        studentProfile: {
+          'admission_year': 2021,
+          'entry_type': 'regular',
+          'program': 'btech',
+          'current_semester': 8,
+          'batch_year': 2025,
+        },
+      ),
+    ]);
+  }
+
+  Future<List<UserModel>> getUsers({
+    String? archetype,
+    String? status,
+    String? search,
+    bool forceRefresh = false,
+  }) async {
+    _seedDefaultUsersIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final users = await api.fetchUsers(
+          archetype: archetype,
+          status: status,
+          search: search,
+        );
+        _cachedUsers
+          ..clear()
+          ..addAll(users);
+        return _cachedUsers;
+      } catch (_) {}
+    }
+
+    // Offline filter
+    return _cachedUsers.where((u) {
+      if (archetype != null && archetype.isNotEmpty && archetype != 'all') {
+        if (u.archetype != archetype) return false;
+      }
+      if (status != null && status.isNotEmpty && status != 'all') {
+        if (status == 'inactive') {
+          if (u.isActive) return false;
+        } else if (u.status.toLowerCase() != status.toLowerCase()) {
+          return false;
+        }
+      }
+      if (search != null && search.trim().isNotEmpty) {
+        final q = search.trim().toLowerCase();
+        final match = u.fullName.toLowerCase().contains(q) ||
+            u.campusHandle.toLowerCase().contains(q) ||
+            u.email.toLowerCase().contains(q) ||
+            (u.universityRollNo?.toLowerCase().contains(q) ?? false);
+        if (!match) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  Future<UserModel> getUserProfile(String idOrHandle) async {
+    _seedDefaultUsersIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final profile = await api.fetchUserProfile(idOrHandle);
+        final idx = _cachedUsers.indexWhere((u) => u.id == profile.id || u.campusHandle == profile.campusHandle);
+        if (idx != -1) {
+          _cachedUsers[idx] = profile;
+        } else {
+          _cachedUsers.add(profile);
+        }
+        return profile;
+      } catch (_) {}
+    }
+
+    final cached = _cachedUsers.firstWhere(
+      (u) => u.id == idOrHandle || u.campusHandle == idOrHandle,
+      orElse: () => UserModel(
+        id: idOrHandle,
+        campusHandle: idOrHandle,
+        firstName: 'Campus',
+        lastName: 'Member',
+        email: '$idOrHandle@campus.edu',
+        archetype: 'student',
+        status: 'active',
+      ),
+    );
+    return cached;
+  }
+
+  Future<UserModel> createStudent(Map<String, dynamic> req) async {
+    _seedDefaultUsersIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final user = await api.createStudent(req);
+        _cachedUsers.insert(0, user);
+        return user;
+      } catch (_) {}
+    }
+
+    // Offline optimistic creation
+    final firstName = (req['first_name'] ?? 'student').toString().toLowerCase();
+    final year = req['admission_year'] ?? 2025;
+    final entry = (req['entry_type'] ?? 'regular').toString().toLowerCase().substring(0, 1);
+    final prog = (req['program'] ?? 'btech').toString().toLowerCase();
+    final handle = '${firstName}_${year}_${entry}_${prog}_${_cachedUsers.length + 1}';
+
+    final newUser = UserModel(
+      id: 'usr-$handle',
+      campusHandle: handle,
+      firstName: req['first_name'] ?? '',
+      lastName: req['last_name'] ?? '',
+      email: req['email'] ?? '$handle@campus.edu',
+      personalEmail: req['personal_email'],
+      phone: req['phone'],
+      archetype: 'student',
+      admissionApplicationNo: req['admission_application_no'],
+      status: 'active',
+      activeScopes: ['global', 'sec:cse-3a'],
+      studentProfile: {
+        'admission_year': year,
+        'entry_type': req['entry_type'] ?? 'regular',
+        'program': prog,
+        'current_semester': 1,
+        'batch_year': year + 4,
+      },
+    );
+    _cachedUsers.insert(0, newUser);
+    return newUser;
+  }
+
+  Future<UserModel> createEmployee(Map<String, dynamic> req) async {
+    _seedDefaultUsersIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final user = await api.createEmployee(req);
+        _cachedUsers.insert(0, user);
+        return user;
+      } catch (_) {}
+    }
+
+    // Offline optimistic creation
+    final firstName = (req['first_name'] ?? 'emp').toString().toLowerCase();
+    final year = req['joining_year'] ?? 2025;
+    final handle = '${firstName}_${year}_emp_${_cachedUsers.length + 1}';
+
+    final newUser = UserModel(
+      id: 'usr-$handle',
+      campusHandle: handle,
+      firstName: req['first_name'] ?? '',
+      lastName: req['last_name'] ?? '',
+      email: req['email'] ?? '$handle@campus.edu',
+      personalEmail: req['personal_email'],
+      phone: req['phone'],
+      archetype: 'employee',
+      status: 'active',
+      activeScopes: ['global'],
+      employeeRecord: {
+        'joining_date': DateTime.now().toIso8601String(),
+        'employment_type': req['employment_type'] ?? 'permanent',
+        'is_academic': req['is_academic'] == true,
+        'is_administrative': req['is_administrative'] == true,
+      },
+      academicProfile: req['is_academic'] == true
+          ? {
+              'academic_rank': req['academic_rank'] ?? 'Assistant Professor',
+              'cabin_location': req['cabin_location'],
+              'departments': req['department_affiliations'] ?? ['dept:cse'],
+            }
+          : null,
+      administrativeProfile: req['is_administrative'] == true
+          ? {
+              'primary_unit': req['primary_unit'] ?? 'registrar',
+              'designation': req['designation'] ?? 'Staff',
+              'office_location': req['office_location'],
+            }
+          : null,
+    );
+    _cachedUsers.insert(0, newUser);
+    return newUser;
+  }
+
+  Future<UserModel> discontinueUser({
+    required String userId,
+    required String status,
+    required String reason,
+    required String discontinuedBy,
+  }) async {
+    _seedDefaultUsersIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final updated = await api.discontinueUser(
+          userId: userId,
+          status: status,
+          reason: reason,
+          discontinuedBy: discontinuedBy,
+        );
+        final idx = _cachedUsers.indexWhere((u) => u.id == userId);
+        if (idx != -1) {
+          _cachedUsers[idx] = updated;
+        }
+        return updated;
+      } catch (_) {}
+    }
+
+    // Offline mutation
+    final idx = _cachedUsers.indexWhere((u) => u.id == userId);
+    if (idx != -1) {
+      final u = _cachedUsers[idx];
+      final updated = u.copyWith(
+        status: status,
+        discontinuationReason: reason,
+        discontinuedAt: DateTime.now().toIso8601String(),
+        discontinuedBy: discontinuedBy,
+        activeScopes: [], // Revoked
+      );
+      _cachedUsers[idx] = updated;
+      return updated;
+    }
+    throw Exception('User not found in cache');
+  }
+
+  Future<UserModel> reactivateUser(String userId) async {
+    _seedDefaultUsersIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final updated = await api.reactivateUser(userId);
+        final idx = _cachedUsers.indexWhere((u) => u.id == userId);
+        if (idx != -1) {
+          _cachedUsers[idx] = updated;
+        }
+        return updated;
+      } catch (_) {}
+    }
+
+    // Offline mutation
+    final idx = _cachedUsers.indexWhere((u) => u.id == userId);
+    if (idx != -1) {
+      final u = _cachedUsers[idx];
+      final updated = u.copyWith(
+        status: 'active',
+        discontinuationReason: '',
+        discontinuedAt: null,
+        activeScopes: ['global'],
+      );
+      _cachedUsers[idx] = updated;
+      return updated;
+    }
+    throw Exception('User not found in cache');
+  }
 
   int get pendingSyncCount => _attendanceOutbox.length;
 

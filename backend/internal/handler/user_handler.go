@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"campus/backend/internal/idgen"
@@ -13,12 +15,189 @@ import (
 type UserHandler struct {
 	idGen       *idgen.IDService
 	permService *service.PermissionService
+
+	mu                 sync.RWMutex
+	users              map[string]model.User // Key: user.ID
+	handleToID         map[string]string     // Key: campus_handle -> user.ID
+	studentProfiles    map[string]model.StudentProfile
+	employeeRecords    map[string]model.EmployeeRecord
+	academicProfiles   map[string]model.AcademicProfile
+	adminProfiles      map[string]model.AdministrativeProfile
+	contractorProfiles map[string]model.ContractorProfile
 }
 
 func NewUserHandler(idGen *idgen.IDService, permService *service.PermissionService) *UserHandler {
-	return &UserHandler{
-		idGen:       idGen,
-		permService: permService,
+	h := &UserHandler{
+		idGen:              idGen,
+		permService:        permService,
+		users:              make(map[string]model.User),
+		handleToID:         make(map[string]string),
+		studentProfiles:    make(map[string]model.StudentProfile),
+		employeeRecords:    make(map[string]model.EmployeeRecord),
+		academicProfiles:   make(map[string]model.AcademicProfile),
+		adminProfiles:      make(map[string]model.AdministrativeProfile),
+		contractorProfiles: make(map[string]model.ContractorProfile),
+	}
+
+	h.seedDefaultUsers()
+	return h
+}
+
+func (h *UserHandler) seedDefaultUsers() {
+	now := time.Now().UTC()
+
+	// 1. Student Harish Kumar
+	harishHandle := "harish_2025_l_btech_1"
+	harishID := "usr-" + harishHandle
+	h.users[harishID] = model.User{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        harishID,
+			CreatedAt: now.Add(-60 * 24 * time.Hour),
+			UpdatedAt: now,
+		},
+		CampusHandle:           harishHandle,
+		FirstName:              "Harish",
+		LastName:               "Kumar",
+		Email:                  "harish_2025_l_btech_1@campus.edu",
+		PersonalEmail:          "harish.kumar@example.com",
+		Phone:                  "+91 98765 43210",
+		Archetype:              model.ArchetypeStudent,
+		AdmissionApplicationNo: "APP-2025-0819",
+		UniversityRollNo:       "2025-CS-042",
+		UniversityRegNo:        "REG-2025-9921",
+		IsActive:               true,
+		Status:                 "active",
+	}
+	h.handleToID[harishHandle] = harishID
+	h.studentProfiles[harishID] = model.StudentProfile{
+		UserID:          harishID,
+		AdmissionYear:   2025,
+		EntryType:       "lateral",
+		Program:         "btech",
+		CurrentSemester: 3,
+		BatchYear:       2029,
+	}
+
+	// 2. Employee Dr. Priya Nair (Dual-track Academic & Administrative)
+	priyaHandle := "priya_2024_emp_1"
+	priyaID := "usr-" + priyaHandle
+	h.users[priyaID] = model.User{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        priyaID,
+			CreatedAt: now.Add(-300 * 24 * time.Hour),
+			UpdatedAt: now,
+		},
+		CampusHandle:     priyaHandle,
+		FirstName:        "Dr. Priya",
+		LastName:         "Nair",
+		Email:            "priya_2024_emp_1@campus.edu",
+		PersonalEmail:    "p.nair@academic-research.org",
+		Phone:            "+91 98111 22334",
+		Archetype:        model.ArchetypeEmployee,
+		UniversityRollNo: "EMP-2024-0012",
+		IsActive:         true,
+		Status:           "active",
+	}
+	h.handleToID[priyaHandle] = priyaID
+	h.employeeRecords[priyaID] = model.EmployeeRecord{
+		UserID:           priyaID,
+		JoiningDate:      now.Add(-300 * 24 * time.Hour),
+		EmployeeCode:     "FAC-CS-012",
+		EmploymentType:   "permanent",
+		IsAcademic:       true,
+		IsAdministrative: true,
+	}
+	h.academicProfiles[priyaID] = model.AcademicProfile{
+		UserID:          priyaID,
+		AcademicRank:    "Professor",
+		CabinLocation:   "LH-302, Academic Block B",
+		GoogleScholarID: "priya_nair_iitb",
+		ResearchAreas:   []string{"Distributed Systems", "Cloud Computing", "Formal Verification"},
+		Departments:     []string{"dept:cse"},
+	}
+	h.adminProfiles[priyaID] = model.AdministrativeProfile{
+		UserID:         priyaID,
+		PrimaryUnit:    "unit:student_affairs",
+		Designation:    "Dean of Student Affairs",
+		OfficeLocation: "Administrative Complex Room 104",
+	}
+
+	// 3. Employee Ramesh Singh (Administrative Operations)
+	rameshHandle := "ramesh_2023_emp_1"
+	rameshID := "usr-" + rameshHandle
+	h.users[rameshID] = model.User{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        rameshID,
+			CreatedAt: now.Add(-500 * 24 * time.Hour),
+			UpdatedAt: now,
+		},
+		CampusHandle:     rameshHandle,
+		FirstName:        "Ramesh",
+		LastName:         "Singh",
+		Email:            "ramesh_2023_emp_1@campus.edu",
+		PersonalEmail:    "ramesh.singh@campus-ops.net",
+		Phone:            "+91 97222 33445",
+		Archetype:        model.ArchetypeEmployee,
+		UniversityRollNo: "EMP-2023-0089",
+		IsActive:         true,
+		Status:           "active",
+	}
+	h.handleToID[rameshHandle] = rameshID
+	h.employeeRecords[rameshID] = model.EmployeeRecord{
+		UserID:           rameshID,
+		JoiningDate:      now.Add(-500 * 24 * time.Hour),
+		EmployeeCode:     "ADM-SEC-089",
+		EmploymentType:   "permanent",
+		IsAcademic:       false,
+		IsAdministrative: true,
+	}
+	h.adminProfiles[rameshID] = model.AdministrativeProfile{
+		UserID:         rameshID,
+		PrimaryUnit:    "unit:security",
+		Designation:    "Chief Security Officer",
+		OfficeLocation: "Main Gate Security HQ",
+	}
+
+	// 4. Sample Discontinued User: Vikram Malhotra (Graduated Alumnus)
+	vikramHandle := "vikram_2021_r_btech_1"
+	vikramID := "usr-" + vikramHandle
+	discontinuedTime := now.Add(-90 * 24 * time.Hour)
+	h.users[vikramID] = model.User{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        vikramID,
+			CreatedAt: now.Add(-4 * 365 * 24 * time.Hour),
+			UpdatedAt: discontinuedTime,
+		},
+		CampusHandle:           vikramHandle,
+		FirstName:              "Vikram",
+		LastName:               "Malhotra",
+		Email:                  "vikram_2021_r_btech_1@campus.edu",
+		PersonalEmail:          "vikram.malhotra@alumni.org",
+		Phone:                  "+91 99000 11223",
+		Archetype:              model.ArchetypeStudent,
+		AdmissionApplicationNo: "APP-2021-0044",
+		UniversityRollNo:       "2021-CS-001",
+		IsActive:               false,
+		Status:                 "graduated",
+		DiscontinuationReason:  "Graduated Class of 2025 (B.Tech CSE with First Class Honors)",
+		DiscontinuedAt:         &discontinuedTime,
+		DiscontinuedBy:         "usr-priya_2024_emp_1",
+	}
+	h.handleToID[vikramHandle] = vikramID
+	h.studentProfiles[vikramID] = model.StudentProfile{
+		UserID:          vikramID,
+		AdmissionYear:   2021,
+		EntryType:       "regular",
+		Program:         "btech",
+		CurrentSemester: 8,
+		BatchYear:       2025,
+	}
+
+	// Seed default roles into permission service if available
+	if h.permService != nil {
+		_ = h.permService.AssignRole(nil, harishID, "student_base", "sec:cse-3a", nil)
+		_ = h.permService.AssignRole(nil, harishID, "club_president", "club:robotics", nil)
+		_ = h.permService.AssignRole(nil, priyaID, "hod", "dept:cse", nil)
 	}
 }
 
@@ -68,6 +247,7 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		Archetype:              model.ArchetypeStudent,
 		AdmissionApplicationNo: req.AdmissionApplicationNo,
 		IsActive:               true,
+		Status:                 "active",
 	}
 
 	profile := model.StudentProfile{
@@ -77,6 +257,17 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		Program:         req.Program,
 		CurrentSemester: 1,
 		BatchYear:       req.AdmissionYear + 4,
+	}
+
+	h.mu.Lock()
+	h.users[user.ID] = user
+	h.handleToID[handle] = user.ID
+	h.studentProfiles[user.ID] = profile
+	h.mu.Unlock()
+
+	// Assign baseline student role
+	if h.permService != nil {
+		_ = h.permService.AssignRole(r.Context(), user.ID, "student_base", "global", nil)
 	}
 
 	resp := map[string]interface{}{
@@ -144,6 +335,7 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		Phone:         req.Phone,
 		Archetype:     model.ArchetypeEmployee,
 		IsActive:      true,
+		Status:        "active",
 	}
 
 	empRecord := model.EmployeeRecord{
@@ -154,31 +346,269 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		IsAdministrative: req.IsAdministrative,
 	}
 
-	resp := map[string]interface{}{
-		"user":            user,
-		"employee_record": empRecord,
-	}
+	h.mu.Lock()
+	h.users[user.ID] = user
+	h.handleToID[handle] = user.ID
+	h.employeeRecords[user.ID] = empRecord
 
+	var acadProfile *model.AcademicProfile
 	if req.IsAcademic {
-		resp["academic_profile"] = model.AcademicProfile{
+		ap := model.AcademicProfile{
 			UserID:        user.ID,
 			AcademicRank:  req.AcademicRank,
 			CabinLocation: req.CabinLocation,
 			Departments:   req.Departments,
 		}
+		h.academicProfiles[user.ID] = ap
+		acadProfile = &ap
 	}
 
+	var adminProfile *model.AdministrativeProfile
 	if req.IsAdministrative {
-		resp["administrative_profile"] = model.AdministrativeProfile{
+		ad := model.AdministrativeProfile{
 			UserID:         user.ID,
 			PrimaryUnit:    req.PrimaryUnit,
 			Designation:    req.Designation,
 			OfficeLocation: req.OfficeLocation,
 		}
+		h.adminProfiles[user.ID] = ad
+		adminProfile = &ad
+	}
+	h.mu.Unlock()
+
+	resp := map[string]interface{}{
+		"user":                   user,
+		"employee_record":        empRecord,
+		"academic_profile":       acadProfile,
+		"administrative_profile": adminProfile,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// HandleUsers handles listing users with filters
+func (h *UserHandler) HandleUsers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	archetypeFilter := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("archetype")))
+	statusFilter := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status")))
+	searchQuery := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("search")))
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var result []model.User
+	for _, u := range h.users {
+		// Archetype filter
+		if archetypeFilter != "" && archetypeFilter != "all" {
+			if string(u.Archetype) != archetypeFilter {
+				continue
+			}
+		}
+
+		// Status filter
+		if statusFilter != "" && statusFilter != "all" {
+			if statusFilter == "inactive" {
+				if u.IsActive {
+					continue
+				}
+			} else if strings.ToLower(u.Status) != statusFilter {
+				continue
+			}
+		}
+
+		// Search query filter (matches handle, first_name, last_name, email)
+		if searchQuery != "" {
+			nameMatch := strings.Contains(strings.ToLower(u.FirstName+" "+u.LastName), searchQuery)
+			handleMatch := strings.Contains(strings.ToLower(u.CampusHandle), searchQuery)
+			emailMatch := strings.Contains(strings.ToLower(u.Email), searchQuery)
+			rollMatch := strings.Contains(strings.ToLower(u.UniversityRollNo), searchQuery)
+			if !nameMatch && !handleMatch && !emailMatch && !rollMatch {
+				continue
+			}
+		}
+
+		result = append(result, u)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+// GetUserProfile returns complete aggregate details for a user
+func (h *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	targetID := strings.TrimSpace(r.URL.Query().Get("id"))
+	targetHandle := strings.TrimSpace(r.URL.Query().Get("handle"))
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var user model.User
+	var found bool
+
+	if targetID != "" {
+		user, found = h.users[targetID]
+	}
+	if !found && targetHandle != "" {
+		if id, exists := h.handleToID[targetHandle]; exists {
+			user, found = h.users[id]
+		}
+	}
+
+	if !found {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	profileResp := model.UserProfileResponse{
+		User: user,
+	}
+
+	if sp, exists := h.studentProfiles[user.ID]; exists {
+		profileResp.StudentProfile = &sp
+	}
+	if er, exists := h.employeeRecords[user.ID]; exists {
+		profileResp.EmployeeRecord = &er
+	}
+	if ap, exists := h.academicProfiles[user.ID]; exists {
+		profileResp.AcademicProfile = &ap
+	}
+	if ad, exists := h.adminProfiles[user.ID]; exists {
+		profileResp.AdministrativeProfile = &ad
+	}
+	if cp, exists := h.contractorProfiles[user.ID]; exists {
+		profileResp.ContractorProfile = &cp
+	}
+
+	if h.permService != nil {
+		profileResp.AssignedRoles = h.permService.GetUserRoles(user.ID)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(profileResp)
+}
+
+type DiscontinueUserRequest struct {
+	UserID         string `json:"user_id"`
+	Status         string `json:"status"` // 'graduated', 'resigned', 'retired', 'suspended', 'discontinued'
+	Reason         string `json:"reason"`
+	DiscontinuedBy string `json:"discontinued_by"`
+}
+
+// DiscontinueUser marks a user inactive with an audit reason and revokes their active permissions
+func (h *UserHandler) DiscontinueUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req DiscontinueUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.UserID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	cleanStatus := strings.TrimSpace(strings.ToLower(req.Status))
+	if cleanStatus == "" {
+		cleanStatus = "discontinued"
+	}
+
+	h.mu.Lock()
+	user, exists := h.users[req.UserID]
+	if !exists {
+		h.mu.Unlock()
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	now := time.Now().UTC()
+	user.IsActive = false
+	user.Status = cleanStatus
+	user.DiscontinuationReason = req.Reason
+	user.DiscontinuedAt = &now
+	user.DiscontinuedBy = req.DiscontinuedBy
+	user.UpdatedAt = now
+
+	h.users[req.UserID] = user
+	h.mu.Unlock()
+
+	// Revoke security permissions
+	if h.permService != nil {
+		_ = h.permService.RevokeAllUserRoles(r.Context(), user.ID)
+	}
+
+	resp := map[string]interface{}{
+		"status":  "success",
+		"message": "User successfully discontinued and active permissions revoked",
+		"user":    user,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+type ReactivateUserRequest struct {
+	UserID string `json:"user_id"`
+}
+
+// ReactivateUser restores an inactive/discontinued user back to active status
+func (h *UserHandler) ReactivateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ReactivateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.UserID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	h.mu.Lock()
+	user, exists := h.users[req.UserID]
+	if !exists {
+		h.mu.Unlock()
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	now := time.Now().UTC()
+	user.IsActive = true
+	user.Status = "active"
+	user.DiscontinuationReason = ""
+	user.DiscontinuedAt = nil
+	user.UpdatedAt = now
+
+	h.users[req.UserID] = user
+	h.mu.Unlock()
+
+	resp := map[string]interface{}{
+		"status":  "success",
+		"message": "User reactivated successfully",
+		"user":    user,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }
 

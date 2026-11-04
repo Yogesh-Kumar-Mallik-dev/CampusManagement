@@ -108,4 +108,131 @@ class ApiService {
     );
     return res.statusCode == 200;
   }
+
+  Future<List<UserModel>> fetchUsers({
+    String? archetype,
+    String? status,
+    String? search,
+  }) async {
+    final params = <String, String>{};
+    if (archetype != null && archetype.isNotEmpty && archetype != 'all') {
+      params['archetype'] = archetype;
+    }
+    if (status != null && status.isNotEmpty && status != 'all') {
+      params['status'] = status;
+    }
+    if (search != null && search.isNotEmpty) {
+      params['search'] = search;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/users').replace(queryParameters: params.isEmpty ? null : params);
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => UserModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to load users (${res.statusCode})');
+  }
+
+  Future<UserModel> fetchUserProfile(String idOrHandle) async {
+    final isHandle = !idOrHandle.startsWith('usr-');
+    final query = isHandle ? 'handle=$idOrHandle' : 'id=$idOrHandle';
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/users/profile?$query'));
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      final userMap = data['user'] as Map<String, dynamic>;
+      // Combine aggregate data into UserModel
+      return UserModel(
+        id: userMap['id'] ?? '',
+        campusHandle: userMap['campus_handle'] ?? '',
+        firstName: userMap['first_name'] ?? '',
+        lastName: userMap['last_name'] ?? '',
+        email: userMap['email'] ?? '',
+        personalEmail: userMap['personal_email'],
+        phone: userMap['phone'],
+        archetype: userMap['archetype'] ?? 'student',
+        universityRollNo: userMap['university_roll_no'],
+        admissionApplicationNo: userMap['admission_application_no'],
+        universityRegNo: userMap['university_reg_no'],
+        status: userMap['status'] ?? 'active',
+        discontinuationReason: userMap['discontinuation_reason'],
+        discontinuedAt: userMap['discontinued_at']?.toString(),
+        discontinuedBy: userMap['discontinued_by'],
+        studentProfile: data['student_profile'],
+        employeeRecord: data['employee_record'],
+        academicProfile: data['academic_profile'],
+        administrativeProfile: data['administrative_profile'],
+        activeScopes: (data['assigned_roles'] as List?)
+                ?.map((r) => (r['scope_code'] ?? 'global').toString())
+                .toSet()
+                .toList() ??
+            ['global'],
+      );
+    }
+    throw Exception('Failed to load user profile (${res.statusCode})');
+  }
+
+  Future<UserModel> createStudent(Map<String, dynamic> req) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/users/student'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(req),
+    );
+    if (res.statusCode == 201) {
+      final data = jsonDecode(res.body);
+      return UserModel.fromJson(data['user']);
+    }
+    throw Exception('Failed to create student: ${res.body}');
+  }
+
+  Future<UserModel> createEmployee(Map<String, dynamic> req) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/users/employee'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(req),
+    );
+    if (res.statusCode == 201) {
+      final data = jsonDecode(res.body);
+      return UserModel.fromJson(data['user']);
+    }
+    throw Exception('Failed to create employee: ${res.body}');
+  }
+
+  Future<UserModel> discontinueUser({
+    required String userId,
+    required String status,
+    required String reason,
+    required String discontinuedBy,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/users/discontinue'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': userId,
+        'status': status,
+        'reason': reason,
+        'discontinued_by': discontinuedBy,
+      }),
+    );
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return UserModel.fromJson(data['user']);
+    }
+    throw Exception('Failed to discontinue user: ${res.body}');
+  }
+
+  Future<UserModel> reactivateUser(String userId) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/users/reactivate'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': userId,
+      }),
+    );
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return UserModel.fromJson(data['user']);
+    }
+    throw Exception('Failed to reactivate user: ${res.body}');
+  }
 }

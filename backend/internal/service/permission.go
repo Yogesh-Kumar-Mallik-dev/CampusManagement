@@ -76,6 +76,43 @@ func (s *PermissionService) AssignRole(ctx context.Context, userID, roleCode, sc
 	return nil
 }
 
+// RevokeAllUserRoles revokes all role assignments for a discontinued or suspended user
+func (s *PermissionService) RevokeAllUserRoles(ctx context.Context, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	assignments, exists := s.memAssigns[userID]
+	if exists {
+		now := time.Now().UTC()
+		for i := range assignments {
+			assignments[i].IsActive = false
+			assignments[i].UpdatedAt = now
+		}
+		s.memAssigns[userID] = assignments
+	}
+
+	if s.cache != nil {
+		_, _ = s.cache.FetchOrCompute(ctx, "perm:"+userID, 0, func(ctx context.Context) ([]byte, error) {
+			return nil, nil
+		})
+	}
+	return nil
+}
+
+// GetUserRoles returns all role assignments for a given user
+func (s *PermissionService) GetUserRoles(userID string) []model.UserRoleAssignment {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	assignments, exists := s.memAssigns[userID]
+	if !exists {
+		return []model.UserRoleAssignment{}
+	}
+	res := make([]model.UserRoleAssignment, len(assignments))
+	copy(res, assignments)
+	return res
+}
+
 // Can evaluates if a user can execute `permissionCode` within `requestedScope`
 func (s *PermissionService) Can(ctx context.Context, userID, permissionCode, requestedScope string) (bool, string) {
 	s.mu.RLock()

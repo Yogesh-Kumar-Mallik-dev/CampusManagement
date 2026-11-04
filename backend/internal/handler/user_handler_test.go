@@ -141,4 +141,62 @@ func TestUserAndDualRoleEmployeeFlow(t *testing.T) {
 	if resC.Allowed {
 		t.Fatalf("expected budget approval in dept:cse to be denied")
 	}
+
+	// 7. Test User Discontinuation & Security Revocation
+	disReqBody := `{"user_id":"` + priyaID + `","status":"resigned","reason":"Accepted tenure at MIT","discontinued_by":"usr-admin"}`
+	disRec := httptest.NewRecorder()
+	disReq := httptest.NewRequest(http.MethodPost, "/api/v1/users/discontinue", bytes.NewBufferString(disReqBody))
+	h.DiscontinueUser(disRec, disReq)
+
+	if disRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on discontinue, got %d: %s", disRec.Code, disRec.Body.String())
+	}
+
+	// Verify permissions revoked immediately
+	chkRevoked := httptest.NewRecorder()
+	reqRevoked := httptest.NewRequest(http.MethodGet, "/api/v1/permissions/check?user_id="+priyaID+"&action=attendance:approve&scope=dept:cse", nil)
+	h.CheckPermission(chkRevoked, reqRevoked)
+	var resRevoked model.PermissionCheckResponse
+	_ = json.Unmarshal(chkRevoked.Body.Bytes(), &resRevoked)
+	if resRevoked.Allowed {
+		t.Fatalf("expected permissions to be revoked after discontinuation")
+	}
+
+	// 8. Test Reactivation
+	reReqBody := `{"user_id":"` + priyaID + `"}`
+	reRec := httptest.NewRecorder()
+	reReq := httptest.NewRequest(http.MethodPost, "/api/v1/users/reactivate", bytes.NewBufferString(reReqBody))
+	h.ReactivateUser(reRec, reReq)
+
+	if reRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on reactivate, got %d: %s", reRec.Code, reRec.Body.String())
+	}
+
+	// 9. Test User Profile
+	profRec := httptest.NewRecorder()
+	profReq := httptest.NewRequest(http.MethodGet, "/api/v1/users/profile?id="+priyaID, nil)
+	h.GetUserProfile(profRec, profReq)
+
+	if profRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on profile, got %d", profRec.Code)
+	}
+	var profResp model.UserProfileResponse
+	_ = json.Unmarshal(profRec.Body.Bytes(), &profResp)
+	if profResp.User.Status != "active" || profResp.AcademicProfile == nil {
+		t.Fatalf("invalid profile response: %+v", profResp)
+	}
+
+	// 10. Test User List with Search & Status filters
+	listRec := httptest.NewRecorder()
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/users?search=priya", nil)
+	h.HandleUsers(listRec, listReq)
+
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on list, got %d", listRec.Code)
+	}
+	var usersList []model.User
+	_ = json.Unmarshal(listRec.Body.Bytes(), &usersList)
+	if len(usersList) == 0 {
+		t.Fatalf("expected at least 1 user matching search 'priya'")
+	}
 }

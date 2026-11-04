@@ -1,0 +1,1291 @@
+import 'package:flutter/material.dart';
+import '../models/user.dart';
+import '../services/offline_storage_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
+import '../theme/svg_icons.dart';
+import 'user_profile_screen.dart';
+
+class UserManagementScreen extends StatefulWidget {
+  final OfflineStorageService storage;
+  final UserModel? currentUser;
+
+  const UserManagementScreen({
+    super.key,
+    required this.storage,
+    this.currentUser,
+  });
+
+  @override
+  State<UserManagementScreen> createState() => _UserManagementScreenState();
+}
+
+class _UserManagementScreenState extends State<UserManagementScreen> {
+  List<UserModel> _users = [];
+  bool _isLoading = false;
+  String _selectedFilter = 'all'; // 'all', 'student', 'employee', 'inactive'
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() => _isLoading = true);
+    try {
+      final list = await widget.storage.getUsers(
+        archetype: _selectedFilter == 'student' || _selectedFilter == 'employee' ? _selectedFilter : null,
+        status: _selectedFilter == 'inactive' ? 'inactive' : null,
+        search: _searchQuery,
+      );
+      if (mounted) {
+        setState(() {
+          _users = list;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _onFilterChanged(String filter) {
+    setState(() => _selectedFilter = filter);
+    _loadUsers();
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() => _searchQuery = query);
+    _loadUsers();
+  }
+
+  void _openCreateUserDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _UserCreationDialog(
+        storage: widget.storage,
+        onUserCreated: (newUser) {
+          _loadUsers();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully onboarded ${newUser.fullName} (${newUser.campusHandle})!'),
+              backgroundColor: AppColors.githubGreen,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openUserProfile(UserModel user) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(
+          storage: widget.storage,
+          userIdentifier: user.id.isNotEmpty ? user.id : user.campusHandle,
+          initialUser: user,
+          currentAdminUser: widget.currentUser,
+          onUserUpdated: _loadUsers,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final totalCount = _users.length;
+    final activeCount = _users.where((u) => u.isActive).length;
+    final discontinuedCount = _users.where((u) => !u.isActive).length;
+
+    return Scaffold(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Header & Actions Strip
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Campus Directory & Identity Management',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Canonical handle generation, scoped permissions, and institutional lifecycle governance.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.wineRed,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    elevation: 0,
+                  ),
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 16, color: Colors.white),
+                  label: const Text('Onboard User', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: _openCreateUserDialog,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // 2. Metrics Bar
+            _buildMetricsBar(isDark, totalCount, activeCount, discontinuedCount),
+            const SizedBox(height: 20),
+
+            // 3. Search and Segmented Filter Bar
+            _buildSearchAndFilterBar(isDark),
+            const SizedBox(height: 20),
+
+            // 4. Users Grid / List
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.wineRed),
+                ),
+              )
+            else if (_users.isEmpty)
+              _buildEmptyState(isDark)
+            else
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 720;
+                  final itemWidth = isWide ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
+
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: _users.map((u) {
+                      return SizedBox(
+                        width: itemWidth,
+                        child: _UserDirectoryCard(
+                          user: u,
+                          onTap: () => _openUserProfile(u),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricsBar(bool isDark, int total, int active, int discontinued) {
+    return Row(
+      children: [
+        _buildMetricItem('Total Identities', '$total', isDark, AppColors.wineRed),
+        const SizedBox(width: 12),
+        _buildMetricItem('Active Credentials', '$active', isDark, AppColors.githubGreen),
+        const SizedBox(width: 12),
+        _buildMetricItem('Discontinued / Exited', '$discontinued', isDark, AppColors.statusRed),
+      ],
+    );
+  }
+
+  Widget _buildMetricItem(String label, String value, bool isDark, Color accentColor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: accentColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchAndFilterBar(bool isDark) {
+    final filters = [
+      ('all', 'All Users'),
+      ('student', 'Students'),
+      ('employee', 'Faculty & Staff'),
+      ('inactive', 'Discontinued'),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 640;
+
+        final searchField = SizedBox(
+          height: 38,
+          child: TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Search by handle, name, roll no, or email...',
+              hintStyle: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+              ),
+              prefixIcon: Padding(
+                padding: const EdgeInsets.all(10),
+                child: AppSvgIcon(
+                  svgString: AppSvgIcon.search,
+                  size: 14,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 12),
+                      onPressed: () {
+                        _searchController.clear();
+                        _onSearchChanged('');
+                      },
+                    )
+                  : null,
+              contentPadding: EdgeInsets.zero,
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final filterChips = Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: filters.map((f) {
+            final isSelected = _selectedFilter == f.$1;
+            return InkWell(
+              onTap: () => _onFilterChanged(f.$1),
+              borderRadius: BorderRadius.circular(6),
+              child: AnimatedContainer(
+                duration: AppTheme.themeAnimationDuration,
+                curve: AppTheme.themeAnimationCurve,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? (isDark ? AppColors.wineRedDarkSubtle : AppColors.wineRedSubtle)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isSelected
+                        ? (isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder)
+                        : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  f.$2,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected
+                        ? (isDark ? AppColors.wineRedDarkText : AppColors.wineRed)
+                        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              width: 1,
+            ),
+          ),
+          child: isNarrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    searchField,
+                    const SizedBox(height: 10),
+                    filterChips,
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: searchField),
+                    const SizedBox(width: 12),
+                    filterChips,
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(40),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          AppSvgIcon(
+            svgString: AppSvgIcon.user,
+            size: 36,
+            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'No matching campus identities found',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Try adjusting your search criteria or filter.',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserDirectoryCard extends StatefulWidget {
+  final UserModel user;
+  final VoidCallback onTap;
+
+  const _UserDirectoryCard({
+    required this.user,
+    required this.onTap,
+  });
+
+  @override
+  State<_UserDirectoryCard> createState() => _UserDirectoryCardState();
+}
+
+class _UserDirectoryCardState extends State<_UserDirectoryCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final u = widget.user;
+
+    final roleBadge = u.archetype == 'student'
+        ? AppColors.primaryBadge(isDark)
+        : AppColors.greenBadge(isDark);
+
+    BadgeStyle statusBadge;
+    switch (u.status.toLowerCase()) {
+      case 'active':
+        statusBadge = AppColors.greenBadge(isDark);
+        break;
+      case 'graduated':
+        statusBadge = AppColors.blueBadge(isDark);
+        break;
+      case 'suspended':
+      case 'discontinued':
+        statusBadge = AppColors.redBadge(isDark);
+        break;
+      default:
+        statusBadge = AppColors.neutralBadge(isDark);
+    }
+
+    final bgColor = _isHovered
+        ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
+        : (isDark ? AppColors.darkSurface : AppColors.lightSurface);
+
+    final borderColor = _isHovered
+        ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+        : (isDark ? AppColors.darkBorder : AppColors.lightBorder);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppTheme.themeAnimationDuration,
+          curve: AppTheme.themeAnimationCurve,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // User Avatar
+                  Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: u.isActive
+                          ? AppColors.wineRed
+                          : (isDark ? AppColors.darkBorder : Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      u.firstName.isNotEmpty ? u.firstName[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                u.fullName,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: statusBadge.background,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: statusBadge.border, width: 1),
+                              ),
+                              child: Text(
+                                u.status.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusBadge.text,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        // Canonical Handle Monospace Badge
+                        Text(
+                          u.campusHandle,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: roleBadge.background,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: roleBadge.border, width: 1),
+                    ),
+                    child: Text(
+                      u.archetype.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: roleBadge.text,
+                      ),
+                    ),
+                  ),
+                  if (u.universityRollNo != null && u.universityRollNo!.isNotEmpty)
+                    Text(
+                      u.universityRollNo!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    )
+                  else
+                    Text(
+                      u.email,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UserCreationDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final ValueChanged<UserModel> onUserCreated;
+
+  const _UserCreationDialog({
+    required this.storage,
+    required this.onUserCreated,
+  });
+
+  @override
+  State<_UserCreationDialog> createState() => _UserCreationDialogState();
+}
+
+class _UserCreationDialogState extends State<_UserCreationDialog> {
+  int _selectedTab = 0; // 0: Student, 1: Employee
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  // Student Form Controllers
+  final _stuFirst = TextEditingController();
+  final _stuLast = TextEditingController();
+  final _stuEmail = TextEditingController();
+  final _stuPersonalEmail = TextEditingController();
+  final _stuPhone = TextEditingController();
+  final _stuAppNo = TextEditingController();
+  int _stuAdmissionYear = DateTime.now().year;
+  String _stuEntryType = 'regular'; // 'regular', 'lateral', 'transfer'
+  String _stuProgram = 'btech'; // 'btech', 'mtech', 'phd'
+
+  // Employee Form Controllers
+  final _empFirst = TextEditingController();
+  final _empLast = TextEditingController();
+  final _empEmail = TextEditingController();
+  final _empPersonalEmail = TextEditingController();
+  final _empPhone = TextEditingController();
+  int _empJoiningYear = DateTime.now().year;
+  String _empType = 'permanent'; // 'permanent', 'contract', 'visiting'
+
+  // Academic track options
+  bool _empIsAcademic = true;
+  String _empAcademicRank = 'Assistant Professor';
+  final _empCabin = TextEditingController();
+  final String _empDept = 'dept:cse';
+
+  // Administrative track options
+  bool _empIsAdmin = false;
+  String _empAdminUnit = 'unit:student_affairs';
+  final _empDesignation = TextEditingController();
+  final _empOffice = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _stuFirst.addListener(() => setState(() {}));
+    _empFirst.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _stuFirst.dispose();
+    _stuLast.dispose();
+    _stuEmail.dispose();
+    _stuPersonalEmail.dispose();
+    _stuPhone.dispose();
+    _stuAppNo.dispose();
+
+    _empFirst.dispose();
+    _empLast.dispose();
+    _empEmail.dispose();
+    _empPersonalEmail.dispose();
+    _empPhone.dispose();
+    _empCabin.dispose();
+    _empDesignation.dispose();
+    _empOffice.dispose();
+    super.dispose();
+  }
+
+  String _generateStudentHandlePreview() {
+    final name = _stuFirst.text.trim().toLowerCase();
+    final cleanName = name.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final prefixName = cleanName.isEmpty ? 'name' : cleanName;
+    final entryCode = _stuEntryType == 'regular' ? 'r' : (_stuEntryType == 'lateral' ? 'l' : 't');
+    return '${prefixName}_${_stuAdmissionYear}_${entryCode}_${_stuProgram}_#';
+  }
+
+  String _generateEmployeeHandlePreview() {
+    final name = _empFirst.text.trim().toLowerCase();
+    final cleanName = name.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final prefixName = cleanName.isEmpty ? 'name' : cleanName;
+    return '${prefixName}_${_empJoiningYear}_emp_#';
+  }
+
+  Future<void> _submitStudent() async {
+    final first = _stuFirst.text.trim();
+    final last = _stuLast.text.trim();
+    if (first.isEmpty || last.isEmpty) {
+      setState(() => _errorMessage = 'First name and last name are required.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    final email = _stuEmail.text.trim().isNotEmpty
+        ? _stuEmail.text.trim()
+        : '${first.toLowerCase()}_$_stuAdmissionYear@campus.edu';
+
+    try {
+      final user = await widget.storage.createStudent({
+        'first_name': first,
+        'last_name': last,
+        'email': email,
+        'personal_email': _stuPersonalEmail.text.trim(),
+        'phone': _stuPhone.text.trim(),
+        'admission_year': _stuAdmissionYear,
+        'entry_type': _stuEntryType,
+        'program': _stuProgram,
+        'admission_application_no': _stuAppNo.text.trim(),
+      });
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onUserCreated(user);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _submitEmployee() async {
+    final first = _empFirst.text.trim();
+    final last = _empLast.text.trim();
+    if (first.isEmpty || last.isEmpty) {
+      setState(() => _errorMessage = 'First name and last name are required.');
+      return;
+    }
+
+    if (!_empIsAcademic && !_empIsAdmin) {
+      setState(() => _errorMessage = 'Employee must be affiliated with Academic track, Administrative track, or both.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    final email = _empEmail.text.trim().isNotEmpty
+        ? _empEmail.text.trim()
+        : '${first.toLowerCase()}_${_empJoiningYear}_emp@campus.edu';
+
+    try {
+      final user = await widget.storage.createEmployee({
+        'first_name': first,
+        'last_name': last,
+        'email': email,
+        'personal_email': _empPersonalEmail.text.trim(),
+        'phone': _empPhone.text.trim(),
+        'joining_year': _empJoiningYear,
+        'employment_type': _empType,
+        'is_academic': _empIsAcademic,
+        'academic_rank': _empAcademicRank,
+        'cabin_location': _empCabin.text.trim(),
+        'department_affiliations': [_empDept],
+        'is_administrative': _empIsAdmin,
+        'primary_unit': _empAdminUnit,
+        'designation': _empDesignation.text.trim().isNotEmpty ? _empDesignation.text.trim() : 'Staff Member',
+        'office_location': _empOffice.text.trim(),
+      });
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onUserCreated(user);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 580, maxHeight: 720),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Onboard New Campus Identity',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Archetype Selector Tabs
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _selectedTab = 0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 0
+                                ? AppColors.wineRed
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            'Student Admission',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _selectedTab == 0
+                                  ? Colors.white
+                                  : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _selectedTab = 1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 1
+                                ? AppColors.wineRed
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            'Employee Onboarding',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _selectedTab == 1
+                                  ? Colors.white
+                                  : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Dynamic Handle Preview
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.wineRedDarkSubtle : AppColors.wineRedSubtle,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const AppSvgIcon(
+                      svgString: AppSvgIcon.shield,
+                      size: 14,
+                      color: AppColors.wineRed,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Handle: ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        _selectedTab == 0
+                            ? _generateStudentHandlePreview()
+                            : _generateEmployeeHandlePreview(),
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Form fields
+              Expanded(
+                child: SingleChildScrollView(
+                  child: _selectedTab == 0 ? _buildStudentForm(isDark) : _buildEmployeeForm(isDark),
+                ),
+              ),
+
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(fontSize: 12, color: AppColors.statusRed),
+                ),
+              ],
+              const SizedBox(height: 14),
+
+              // Actions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.wineRed,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: _isSubmitting
+                        ? null
+                        : (_selectedTab == 0 ? _submitStudent : _submitEmployee),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(_selectedTab == 0 ? 'Admit Student' : 'Onboard Employee'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentForm(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('First Name *', _stuFirst, 'e.g. Harish', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField('Last Name *', _stuLast, 'e.g. Kumar', isDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('Institutional Email (Optional)', _stuEmail, 'Auto-generated if empty', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField('Personal Email', _stuPersonalEmail, 'e.g. harish@gmail.com', isDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('Phone Number', _stuPhone, '+91 98765 43210', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField('Admission Application No', _stuAppNo, 'e.g. APP-2025-0819', isDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildDropdown(
+                'Admission Year',
+                _stuAdmissionYear.toString(),
+                ['2023', '2024', '2025', '2026'],
+                (val) => setState(() => _stuAdmissionYear = int.parse(val!)),
+                isDark,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                'Entry Type',
+                _stuEntryType,
+                ['regular', 'lateral', 'transfer'],
+                (val) => setState(() => _stuEntryType = val!),
+                isDark,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                'Program',
+                _stuProgram,
+                ['btech', 'mtech', 'phd'],
+                (val) => setState(() => _stuProgram = val!),
+                isDark,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmployeeForm(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('First Name *', _empFirst, 'e.g. Priya', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField('Last Name *', _empLast, 'e.g. Nair', isDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('Official Email (Optional)', _empEmail, 'Auto-generated if empty', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField('Personal Email', _empPersonalEmail, 'e.g. priya@gmail.com', isDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField('Phone Number', _empPhone, '+91 98111 22334', isDark),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                'Joining Year',
+                _empJoiningYear.toString(),
+                ['2022', '2023', '2024', '2025', '2026'],
+                (val) => setState(() => _empJoiningYear = int.parse(val!)),
+                isDark,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                'Employment Type',
+                _empType,
+                ['permanent', 'contract', 'visiting'],
+                (val) => setState(() => _empType = val!),
+                isDark,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+
+        // Dual Track Selectors
+        const Text(
+          'Institutional Tracks (Single or Dual-Track Appointment)',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+
+        // Academic Track Toggle
+        CheckboxListTile(
+          value: _empIsAcademic,
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Academic Track (Teaching & Research duties)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          onChanged: (val) => setState(() => _empIsAcademic = val ?? false),
+        ),
+        if (_empIsAcademic) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildDropdown(
+                    'Academic Rank',
+                    _empAcademicRank,
+                    ['Assistant Professor', 'Associate Professor', 'Professor', 'Lecturer'],
+                    (val) => setState(() => _empAcademicRank = val!),
+                    isDark,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTextField('Cabin Location', _empCabin, 'e.g. LH-302', isDark),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        // Administrative Track Toggle
+        CheckboxListTile(
+          value: _empIsAdmin,
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Administrative Track (Operations & Governance duties)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          onChanged: (val) => setState(() => _empIsAdmin = val ?? false),
+        ),
+        if (_empIsAdmin) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDropdown(
+                        'Primary Administrative Unit',
+                        _empAdminUnit,
+                        ['unit:student_affairs', 'unit:security', 'registrar', 'library', 'it_center'],
+                        (val) => setState(() => _empAdminUnit = val!),
+                        isDark,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildTextField('Designation', _empDesignation, 'e.g. Dean of Student Affairs', isDark),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildTextField('Office Location', _empOffice, 'e.g. Admin Complex Rm 104', isDark),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController ctrl, String hint, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 38,
+          child: TextField(
+            controller: ctrl,
+            style: const TextStyle(fontSize: 12),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown(String label, String value, List<String> options, ValueChanged<String?> onChanged, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 38,
+          child: DropdownButtonFormField<String>(
+            initialValue: value,
+            isDense: true,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
+            dropdownColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              ),
+            ),
+            items: options.map((opt) {
+              return DropdownMenuItem(
+                value: opt,
+                child: Text(opt.toUpperCase()),
+              );
+            }).toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}

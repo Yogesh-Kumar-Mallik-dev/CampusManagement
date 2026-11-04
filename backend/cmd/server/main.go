@@ -104,9 +104,13 @@ func main() {
 		_ = json.NewEncoder(w).Encode(status)
 	})
 
-	// User Onboarding & ID Generation Routes
+	// User Management, ID Generation & Lifecycle Routes
+	mux.HandleFunc("/api/v1/users", userHandler.HandleUsers)
+	mux.HandleFunc("/api/v1/users/profile", userHandler.GetUserProfile)
 	mux.HandleFunc("/api/v1/users/student", userHandler.CreateStudent)
 	mux.HandleFunc("/api/v1/users/employee", userHandler.CreateEmployee)
+	mux.HandleFunc("/api/v1/users/discontinue", userHandler.DiscontinueUser)
+	mux.HandleFunc("/api/v1/users/reactivate", userHandler.ReactivateUser)
 
 	// Scoped Permissions Endpoints
 	mux.HandleFunc("/api/v1/permissions/assign", userHandler.AssignRole)

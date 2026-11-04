@@ -102,6 +102,12 @@ class AppColors {
         text: isDark ? statusRedDarkText : statusRed,
       );
 
+  static BadgeStyle blueBadge(bool isDark) => BadgeStyle(
+        background: isDark ? const Color(0xFF0D253F) : const Color(0xFFEFF6FF),
+        border: isDark ? const Color(0xFF1D4ED8) : const Color(0xFFBFDBFE),
+        text: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+      );
+
   static BadgeStyle neutralBadge(bool isDark) => BadgeStyle(
         background: isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9),
         border: isDark ? darkBorder : lightBorder,

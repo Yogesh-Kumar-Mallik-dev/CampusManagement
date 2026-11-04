@@ -13,17 +13,32 @@ const (
 // User represents the core identity
 type User struct {
 	BaseSyncModel
-	CampusHandle           string    `json:"campus_handle"` // e.g. harish_2025_l_btech_1, priya_2024_emp_1
-	FirstName              string    `json:"first_name"`
-	LastName               string    `json:"last_name"`
-	Email                  string    `json:"email"`
-	PersonalEmail          string    `json:"personal_email,omitempty"`
-	Phone                  string    `json:"phone,omitempty"`
-	Archetype              Archetype `json:"archetype"`
-	AdmissionApplicationNo string    `json:"admission_application_no,omitempty"`
-	UniversityRollNo       string    `json:"university_roll_no,omitempty"`
-	UniversityRegNo        string    `json:"university_reg_no,omitempty"`
-	IsActive               bool      `json:"is_active"`
+	CampusHandle           string     `json:"campus_handle"` // e.g. harish_2025_l_btech_1, priya_2024_emp_1
+	FirstName              string     `json:"first_name"`
+	LastName               string     `json:"last_name"`
+	Email                  string     `json:"email"`
+	PersonalEmail          string     `json:"personal_email,omitempty"`
+	Phone                  string     `json:"phone,omitempty"`
+	Archetype              Archetype  `json:"archetype"`
+	AdmissionApplicationNo string     `json:"admission_application_no,omitempty"`
+	UniversityRollNo       string     `json:"university_roll_no,omitempty"`
+	UniversityRegNo        string     `json:"university_reg_no,omitempty"`
+	IsActive               bool       `json:"is_active"`
+	Status                 string     `json:"status"` // 'active', 'graduated', 'discontinued', 'suspended', 'resigned', 'retired'
+	DiscontinuationReason  string     `json:"discontinuation_reason,omitempty"`
+	DiscontinuedAt         *time.Time `json:"discontinued_at,omitempty"`
+	DiscontinuedBy         string     `json:"discontinued_by,omitempty"`
+}
+
+// UserProfileResponse aggregates complete institutional identity facts
+type UserProfileResponse struct {
+	User                  User                   `json:"user"`
+	StudentProfile        *StudentProfile        `json:"student_profile,omitempty"`
+	EmployeeRecord        *EmployeeRecord        `json:"employee_record,omitempty"`
+	AcademicProfile       *AcademicProfile       `json:"academic_profile,omitempty"`
+	AdministrativeProfile *AdministrativeProfile `json:"administrative_profile,omitempty"`
+	ContractorProfile     *ContractorProfile     `json:"contractor_profile,omitempty"`
+	AssignedRoles         []UserRoleAssignment   `json:"assigned_roles,omitempty"`
 }
 
 // StudentProfile holds academic admission facts

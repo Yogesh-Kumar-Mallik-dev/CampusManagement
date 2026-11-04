@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS users (
     university_reg_no VARCHAR(64) UNIQUE,
 
     is_active BOOLEAN DEFAULT TRUE,
+    status VARCHAR(32) DEFAULT 'active', -- 'active', 'graduated', 'discontinued', 'suspended', 'resigned', 'retired'
+    discontinuation_reason TEXT,
+    discontinued_at TIMESTAMPTZ,
+    discontinued_by VARCHAR(128),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     is_deleted BOOLEAN DEFAULT FALSE

@@ -4,9 +4,23 @@ class UserModel {
   final String firstName;
   final String lastName;
   final String email;
+  final String? personalEmail;
+  final String? phone;
   final String archetype; // 'student', 'employee', 'external'
   final String? universityRollNo;
+  final String? admissionApplicationNo;
+  final String? universityRegNo;
+  final String status; // 'active', 'graduated', 'discontinued', 'suspended', 'resigned', 'retired'
+  final String? discontinuationReason;
+  final String? discontinuedAt;
+  final String? discontinuedBy;
   final List<String> activeScopes;
+
+  // Sub-profile metadata
+  final Map<String, dynamic>? studentProfile;
+  final Map<String, dynamic>? employeeRecord;
+  final Map<String, dynamic>? academicProfile;
+  final Map<String, dynamic>? administrativeProfile;
 
   UserModel({
     required this.id,
@@ -14,12 +28,25 @@ class UserModel {
     required this.firstName,
     required this.lastName,
     required this.email,
+    this.personalEmail,
+    this.phone,
     required this.archetype,
     this.universityRollNo,
+    this.admissionApplicationNo,
+    this.universityRegNo,
+    this.status = 'active',
+    this.discontinuationReason,
+    this.discontinuedAt,
+    this.discontinuedBy,
     this.activeScopes = const [],
+    this.studentProfile,
+    this.employeeRecord,
+    this.academicProfile,
+    this.administrativeProfile,
   });
 
   String get fullName => '$firstName $lastName';
+  bool get isActive => status.toLowerCase() == 'active';
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -28,11 +55,23 @@ class UserModel {
       firstName: json['first_name'] ?? '',
       lastName: json['last_name'] ?? '',
       email: json['email'] ?? '',
+      personalEmail: json['personal_email'],
+      phone: json['phone'],
       archetype: json['archetype'] ?? 'student',
       universityRollNo: json['university_roll_no'],
+      admissionApplicationNo: json['admission_application_no'],
+      universityRegNo: json['university_reg_no'],
+      status: json['status'] ?? (json['is_active'] == false ? 'discontinued' : 'active'),
+      discontinuationReason: json['discontinuation_reason'],
+      discontinuedAt: json['discontinued_at']?.toString(),
+      discontinuedBy: json['discontinued_by'],
       activeScopes: json['active_scopes'] != null
           ? List<String>.from(json['active_scopes'])
           : [],
+      studentProfile: json['student_profile'] as Map<String, dynamic>?,
+      employeeRecord: json['employee_record'] as Map<String, dynamic>?,
+      academicProfile: json['academic_profile'] as Map<String, dynamic>?,
+      administrativeProfile: json['administrative_profile'] as Map<String, dynamic>?,
     );
   }
 
@@ -43,10 +82,68 @@ class UserModel {
       'first_name': firstName,
       'last_name': lastName,
       'email': email,
+      'personal_email': personalEmail,
+      'phone': phone,
       'archetype': archetype,
       'university_roll_no': universityRollNo,
+      'admission_application_no': admissionApplicationNo,
+      'university_reg_no': universityRegNo,
+      'status': status,
+      'discontinuation_reason': discontinuationReason,
+      'discontinued_at': discontinuedAt,
+      'discontinued_by': discontinuedBy,
       'active_scopes': activeScopes,
+      'student_profile': studentProfile,
+      'employee_record': employeeRecord,
+      'academic_profile': academicProfile,
+      'administrative_profile': administrativeProfile,
     };
+  }
+
+  UserModel copyWith({
+    String? id,
+    String? campusHandle,
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? personalEmail,
+    String? phone,
+    String? archetype,
+    String? universityRollNo,
+    String? admissionApplicationNo,
+    String? universityRegNo,
+    String? status,
+    String? discontinuationReason,
+    String? discontinuedAt,
+    String? discontinuedBy,
+    List<String>? activeScopes,
+    Map<String, dynamic>? studentProfile,
+    Map<String, dynamic>? employeeRecord,
+    Map<String, dynamic>? academicProfile,
+    Map<String, dynamic>? administrativeProfile,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      campusHandle: campusHandle ?? this.campusHandle,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      email: email ?? this.email,
+      personalEmail: personalEmail ?? this.personalEmail,
+      phone: phone ?? this.phone,
+      archetype: archetype ?? this.archetype,
+      universityRollNo: universityRollNo ?? this.universityRollNo,
+      admissionApplicationNo: admissionApplicationNo ?? this.admissionApplicationNo,
+      universityRegNo: universityRegNo ?? this.universityRegNo,
+      status: status ?? this.status,
+      discontinuationReason: discontinuationReason ?? this.discontinuationReason,
+      discontinuedAt: discontinuedAt ?? this.discontinuedAt,
+      discontinuedBy: discontinuedBy ?? this.discontinuedBy,
+      activeScopes: activeScopes ?? this.activeScopes,
+      studentProfile: studentProfile ?? this.studentProfile,
+      employeeRecord: employeeRecord ?? this.employeeRecord,
+      academicProfile: academicProfile ?? this.academicProfile,
+      administrativeProfile: administrativeProfile ?? this.administrativeProfile,
+    );
   }
 
   @override
