@@ -393,5 +393,32 @@ void main() {
 
     // Verify created Section C appears
     expect(find.text('Section C'), findsWidgets);
+
+    // 6. Inspect Section A (where student Harish is enrolled)
+    final inspectSecABtn = find.widgetWithText(OutlinedButton, 'Inspect Section Cohort').last;
+    await tester.ensureVisible(inspectSecABtn);
+    await tester.tap(inspectSecABtn);
+    await tester.pumpAndSettle();
+
+    // Switch to Enrolled Cohort tab
+    await tester.tap(find.widgetWithText(Tab, 'Enrolled Cohort (1)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Harish Kumar'), findsOneWidget);
+    expect(find.text('Move Section'), findsOneWidget);
+
+    // Tap Move Section to verify transfer dialog
+    await tester.tap(find.text('Move Section'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Move Student Section'), findsOneWidget);
+
+    // Close Move Section dialog
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // Close Section inspector dialog
+    await tester.tap(find.byType(IconButton).last);
+    await tester.pumpAndSettle();
   });
 }

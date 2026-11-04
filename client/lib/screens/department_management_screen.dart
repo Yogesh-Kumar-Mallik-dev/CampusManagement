@@ -2392,35 +2392,447 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
 
   Widget _buildStudentsList(bool isDark) {
     final students = _detail?.students ?? [];
-    if (students.isEmpty) {
-      return const Center(child: Text('No students currently assigned to this section cohort.'));
-    }
 
-    return ListView.separated(
-      itemCount: students.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (ctx, idx) {
-        final st = students[idx];
-        return ListTile(
-          dense: true,
-          leading: Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFF8250DF).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(4),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Action Bar for Cohort Mobility
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: Text(
+                'Enrolled Student Roster (${students.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            child: Text(
-              st.firstName.isNotEmpty ? st.firstName[0] : 'S',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF8250DF)),
-            ),
-          ),
-          title: Text(st.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          subtitle: Text('${st.campusHandle}  |  ${st.email}', style: const TextStyle(fontSize: 11)),
-        );
-      },
+            const SizedBox(width: 8),
+            if (students.isNotEmpty)
+              OutlinedButton.icon(
+                onPressed: _openMergeCohortDialog,
+                icon: const AppSvgIcon(svgString: AppSvgIcon.layers, size: 12, color: Color(0xFF8250DF)),
+                label: const Text('Consolidate Cohort', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF8250DF),
+                  side: const BorderSide(color: Color(0xFF8250DF), width: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        Expanded(
+          child: students.isEmpty
+              ? const Center(child: Text('No students currently assigned to this section cohort.'))
+              : ListView.separated(
+                  itemCount: students.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (ctx, idx) {
+                    final st = students[idx];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8250DF).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              st.firstName.isNotEmpty ? st.firstName[0] : 'S',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF8250DF)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(st.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text(
+                                  '${st.campusHandle}  |  ${st.email}',
+                                  style: const TextStyle(fontSize: 11),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => _openTransferStudentDialog(st),
+                            icon: const AppSvgIcon(svgString: AppSvgIcon.userCheck, size: 12, color: Color(0xFF8250DF)),
+                            label: const Text('Move Section', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF8250DF),
+                              side: const BorderSide(color: Color(0xFF8250DF), width: 1),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _openTransferStudentDialog(UserModel student) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _TransferStudentDialog(
+        storage: widget.storage,
+        student: student,
+        currentSection: widget.section,
+        onTransferred: () {
+          _loadDetail();
+        },
+      ),
+    );
+  }
+
+  void _openMergeCohortDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _MergeCohortDialog(
+        storage: widget.storage,
+        sourceSection: widget.section,
+        onMerged: () {
+          _loadDetail();
+        },
+      ),
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// TRANSFER STUDENT TO ANOTHER SECTION DIALOG
+// -----------------------------------------------------------------------------
+
+class _TransferStudentDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final UserModel student;
+  final SectionModel currentSection;
+  final VoidCallback onTransferred;
+
+  const _TransferStudentDialog({
+    required this.storage,
+    required this.student,
+    required this.currentSection,
+    required this.onTransferred,
+  });
+
+  @override
+  State<_TransferStudentDialog> createState() => _TransferStudentDialogState();
+}
+
+class _TransferStudentDialogState extends State<_TransferStudentDialog> {
+  String? _targetSectionId;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final otherSections = widget.storage.cachedSections
+        .where((s) => s.id != widget.currentSection.id)
+        .toList();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.userCheck, size: 18, color: Color(0xFF8250DF)),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Move Student Section',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 8),
+
+              Text(
+                'Student: ${widget.student.fullName} (${widget.student.campusHandle})',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Current Section: ${widget.currentSection.displayName}',
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+              ),
+              const SizedBox(height: 16),
+
+              const Text('Select Target Section Division *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              if (otherSections.isEmpty)
+                const Text('No other sections available. Create a new section first.', style: TextStyle(fontSize: 12, color: AppColors.statusRed))
+              else
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: _targetSectionId,
+                  decoration: const InputDecoration(isDense: true),
+                  hint: const Text('Choose destination section...'),
+                  items: otherSections.map((s) {
+                    return DropdownMenuItem(
+                      value: s.id,
+                      child: Text(
+                        '${s.name} - Sem ${s.semesterNumber} (${s.programNames.join(", ")})',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setState(() => _targetSectionId = val),
+                ),
+              const SizedBox(height: 16),
+
+              if (_errorMessage != null) ...[
+                Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                const SizedBox(height: 10),
+              ],
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: (_isSubmitting || _targetSectionId == null)
+                        ? null
+                        : () async {
+                            setState(() {
+                              _isSubmitting = true;
+                              _errorMessage = null;
+                            });
+                            try {
+                              await widget.storage.transferStudentSection(
+                                studentId: widget.student.id,
+                                targetSectionId: _targetSectionId!,
+                              );
+                              widget.onTransferred();
+                              if (context.mounted) Navigator.of(context).pop();
+                            } catch (e) {
+                              setState(() {
+                                _errorMessage = e.toString().replaceFirst('Exception: ', '');
+                                _isSubmitting = false;
+                              });
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8250DF),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Confirm Move'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// CONSOLIDATE / MERGE SECTION COHORTS DIALOG
+// -----------------------------------------------------------------------------
+
+class _MergeCohortDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final SectionModel sourceSection;
+  final VoidCallback onMerged;
+
+  const _MergeCohortDialog({
+    required this.storage,
+    required this.sourceSection,
+    required this.onMerged,
+  });
+
+  @override
+  State<_MergeCohortDialog> createState() => _MergeCohortDialogState();
+}
+
+class _MergeCohortDialogState extends State<_MergeCohortDialog> {
+  String? _targetSectionId;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final otherSections = widget.storage.cachedSections
+        .where((s) => s.id != widget.sourceSection.id)
+        .toList();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.layers, size: 18, color: Color(0xFF8250DF)),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Consolidate Cohort / Merge Sections',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 8),
+
+              Text(
+                'Source Section: ${widget.sourceSection.displayName}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Migrate all students in this division into a single combined section (e.g. when sections are reduced in succeeding semesters).',
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+              ),
+              const SizedBox(height: 16),
+
+              const Text('Select Destination Combined Section *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              if (otherSections.isEmpty)
+                const Text('No other sections available to merge into.', style: TextStyle(fontSize: 12, color: AppColors.statusRed))
+              else
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: _targetSectionId,
+                  decoration: const InputDecoration(isDense: true),
+                  hint: const Text('Choose destination combined section...'),
+                  items: otherSections.map((s) {
+                    return DropdownMenuItem(
+                      value: s.id,
+                      child: Text(
+                        '${s.name} - Sem ${s.semesterNumber} (${s.programNames.join(", ")})',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setState(() => _targetSectionId = val),
+                ),
+              const SizedBox(height: 16),
+
+              if (_errorMessage != null) ...[
+                Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                const SizedBox(height: 10),
+              ],
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: (_isSubmitting || _targetSectionId == null)
+                        ? null
+                        : () async {
+                            setState(() {
+                              _isSubmitting = true;
+                              _errorMessage = null;
+                            });
+                            try {
+                              await widget.storage.mergeSectionCohorts(
+                                sourceSectionId: widget.sourceSection.id,
+                                targetSectionId: _targetSectionId!,
+                              );
+                              widget.onMerged();
+                              if (context.mounted) Navigator.of(context).pop();
+                            } catch (e) {
+                              setState(() {
+                                _errorMessage = e.toString().replaceFirst('Exception: ', '');
+                                _isSubmitting = false;
+                              });
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8250DF),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Confirm Consolidation'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 

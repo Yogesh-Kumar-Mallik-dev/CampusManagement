@@ -328,5 +328,72 @@ func TestCrossProgramSectionsAndStudentEnrollment(t *testing.T) {
 	if len(secDetail.Programs) != 3 {
 		t.Errorf("expected 3 programs attached to section, got %d", len(secDetail.Programs))
 	}
+
+	// 4. Test Student Section Mobility (Moving student1 from Section B to Section A)
+	secAPayload := model.CreateSectionRequest{
+		Name:           "Section A",
+		SemesterNumber: 5,
+		AcademicYear:   "2025-2026",
+		ProgramIDs:     []string{"prog-btech-cse", "prog-btech-aiml"},
+		SubjectIDs:     []string{"subj-cs301", "subj-cs302"},
+	}
+	bodyA, _ := json.Marshal(secAPayload)
+	reqA := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections", bytes.NewReader(bodyA))
+	wA := httptest.NewRecorder()
+	deptHandler.HandleSections(wA, reqA)
+	if wA.Code != http.StatusCreated {
+		t.Fatalf("failed to create Section A: %d", wA.Code)
+	}
+	var createdSecA model.Section
+	_ = json.Unmarshal(wA.Body.Bytes(), &createdSecA)
+
+	// Move student1 to Section A
+	transferReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections/transfer-student", bytes.NewReader([]byte(`{
+		"student_id": "`+student1+`",
+		"target_section_id": "`+createdSecA.ID+`"
+	}`)))
+	wTransfer := httptest.NewRecorder()
+	deptHandler.HandleTransferStudentSection(wTransfer, transferReq)
+	if wTransfer.Code != http.StatusOK {
+		t.Fatalf("failed to transfer student: %d: %s", wTransfer.Code, wTransfer.Body.String())
+	}
+
+	// Verify Section B now has only 1 student, and Section A has 1
+	detailBReq := httptest.NewRequest(http.MethodGet, "/api/v1/academics/sections?id="+createdSec.ID, nil)
+	wBDetail := httptest.NewRecorder()
+	deptHandler.HandleSections(wBDetail, detailBReq)
+	var secBUpdated model.SectionDetail
+	_ = json.Unmarshal(wBDetail.Body.Bytes(), &secBUpdated)
+	if len(secBUpdated.Students) != 1 {
+		t.Errorf("expected 1 student remaining in Section B after transfer, got %d", len(secBUpdated.Students))
+	}
+
+	// 5. Test Section Cohort Merging (Consolidation into single section in succeeding semester)
+	mergeReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections/merge", bytes.NewReader([]byte(`{
+		"source_section_id": "`+createdSec.ID+`",
+		"target_section_id": "`+createdSecA.ID+`"
+	}`)))
+	wMerge := httptest.NewRecorder()
+	deptHandler.HandleMergeSectionCohorts(wMerge, mergeReq)
+	if wMerge.Code != http.StatusOK {
+		t.Fatalf("failed to merge cohorts: %d: %s", wMerge.Code, wMerge.Body.String())
+	}
+
+	// Verify Section B is now consolidated (0 students) and Section A has all 2 students
+	wBAfterMerge := httptest.NewRecorder()
+	deptHandler.HandleSections(wBAfterMerge, httptest.NewRequest(http.MethodGet, "/api/v1/academics/sections?id="+createdSec.ID, nil))
+	var secBEmpty model.SectionDetail
+	_ = json.Unmarshal(wBAfterMerge.Body.Bytes(), &secBEmpty)
+	if len(secBEmpty.Students) != 0 {
+		t.Errorf("expected 0 students in Section B after merge, got %d", len(secBEmpty.Students))
+	}
+
+	wAAfterMerge := httptest.NewRecorder()
+	deptHandler.HandleSections(wAAfterMerge, httptest.NewRequest(http.MethodGet, "/api/v1/academics/sections?id="+createdSecA.ID, nil))
+	var secAFull model.SectionDetail
+	_ = json.Unmarshal(wAAfterMerge.Body.Bytes(), &secAFull)
+	if len(secAFull.Students) != 2 {
+		t.Errorf("expected 2 students consolidated in Section A, got %d", len(secAFull.Students))
+	}
 }
 

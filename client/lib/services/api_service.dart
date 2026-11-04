@@ -428,4 +428,40 @@ class ApiService {
       throw Exception('Failed to assign student to section: ${res.body}');
     }
   }
+
+  Future<void> transferStudentSection({
+    required String studentId,
+    required String targetSectionId,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/sections/transfer-student'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'student_id': studentId,
+        'target_section_id': targetSectionId,
+      }),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to transfer student section: ${res.body}');
+    }
+  }
+
+  Future<int> mergeSectionCohorts({
+    required String sourceSectionId,
+    required String targetSectionId,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/sections/merge'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'source_section_id': sourceSectionId,
+        'target_section_id': targetSectionId,
+      }),
+    );
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return data['students_migrated'] ?? 0;
+    }
+    throw Exception('Failed to merge section cohorts: ${res.body}');
+  }
 }

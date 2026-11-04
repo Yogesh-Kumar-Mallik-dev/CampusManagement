@@ -264,3 +264,73 @@ func (h *DepartmentHandler) HandleAssignStudentToSection(w http.ResponseWriter, 
 	})
 }
 
+// HandleTransferStudentSection handles POST /api/v1/academics/sections/transfer-student
+func (h *DepartmentHandler) HandleTransferStudentSection(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload struct {
+		StudentID       string `json:"student_id"`
+		TargetSectionID string `json:"target_section_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if payload.StudentID == "" || payload.TargetSectionID == "" {
+		http.Error(w, "student_id and target_section_id are required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.academicService.TransferStudentSection(r.Context(), payload.StudentID, payload.TargetSectionID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":           true,
+		"student_id":        payload.StudentID,
+		"target_section_id": payload.TargetSectionID,
+	})
+}
+
+// HandleMergeSectionCohorts handles POST /api/v1/academics/sections/merge
+func (h *DepartmentHandler) HandleMergeSectionCohorts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload struct {
+		SourceSectionID string `json:"source_section_id"`
+		TargetSectionID string `json:"target_section_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if payload.SourceSectionID == "" || payload.TargetSectionID == "" {
+		http.Error(w, "source_section_id and target_section_id are required", http.StatusBadRequest)
+		return
+	}
+
+	count, err := h.academicService.MergeSectionCohorts(r.Context(), payload.SourceSectionID, payload.TargetSectionID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":           true,
+		"students_migrated": count,
+		"source_section_id": payload.SourceSectionID,
+		"target_section_id": payload.TargetSectionID,
+	})
+}
+

@@ -1320,4 +1320,121 @@ class OfflineStorageService {
     _studentSectionMap[studentId] = sectionId;
     _studentProgramMap[studentId] = programId;
   }
+
+  Future<void> transferStudentSection({
+    required String studentId,
+    required String targetSectionId,
+  }) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        await api.transferStudentSection(
+          studentId: studentId,
+          targetSectionId: targetSectionId,
+        );
+      } catch (_) {}
+    }
+
+    final oldSecId = _studentSectionMap[studentId];
+    _studentSectionMap[studentId] = targetSectionId;
+
+    if (oldSecId != null) {
+      final oldIdx = _cachedSections.indexWhere((s) => s.id == oldSecId);
+      if (oldIdx != -1) {
+        final old = _cachedSections[oldIdx];
+        _cachedSections[oldIdx] = SectionModel(
+          id: old.id,
+          name: old.name,
+          semesterNumber: old.semesterNumber,
+          academicYear: old.academicYear,
+          displayName: old.displayName,
+          departmentId: old.departmentId,
+          programIds: old.programIds,
+          programNames: old.programNames,
+          subjectIds: old.subjectIds,
+          teacherIds: old.teacherIds,
+          studentCount: (old.studentCount > 0 ? old.studentCount - 1 : 0),
+        );
+      }
+    }
+
+    final targetIdx = _cachedSections.indexWhere((s) => s.id == targetSectionId);
+    if (targetIdx != -1) {
+      final tgt = _cachedSections[targetIdx];
+      _cachedSections[targetIdx] = SectionModel(
+        id: tgt.id,
+        name: tgt.name,
+        semesterNumber: tgt.semesterNumber,
+        academicYear: tgt.academicYear,
+        displayName: tgt.displayName,
+        departmentId: tgt.departmentId,
+        programIds: tgt.programIds,
+        programNames: tgt.programNames,
+        subjectIds: tgt.subjectIds,
+        teacherIds: tgt.teacherIds,
+        studentCount: tgt.studentCount + 1,
+      );
+    }
+  }
+
+  Future<int> mergeSectionCohorts({
+    required String sourceSectionId,
+    required String targetSectionId,
+  }) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        return await api.mergeSectionCohorts(
+          sourceSectionId: sourceSectionId,
+          targetSectionId: targetSectionId,
+        );
+      } catch (_) {}
+    }
+
+    int migrated = 0;
+    _studentSectionMap.forEach((stId, secId) {
+      if (secId == sourceSectionId) {
+        _studentSectionMap[stId] = targetSectionId;
+        migrated++;
+      }
+    });
+
+    final srcIdx = _cachedSections.indexWhere((s) => s.id == sourceSectionId);
+    if (srcIdx != -1) {
+      final src = _cachedSections[srcIdx];
+      _cachedSections[srcIdx] = SectionModel(
+        id: src.id,
+        name: src.name,
+        semesterNumber: src.semesterNumber,
+        academicYear: src.academicYear,
+        displayName: src.displayName,
+        departmentId: src.departmentId,
+        programIds: src.programIds,
+        programNames: src.programNames,
+        subjectIds: src.subjectIds,
+        teacherIds: src.teacherIds,
+        studentCount: 0,
+      );
+    }
+
+    final tgtIdx = _cachedSections.indexWhere((s) => s.id == targetSectionId);
+    if (tgtIdx != -1) {
+      final tgt = _cachedSections[tgtIdx];
+      _cachedSections[tgtIdx] = SectionModel(
+        id: tgt.id,
+        name: tgt.name,
+        semesterNumber: tgt.semesterNumber,
+        academicYear: tgt.academicYear,
+        displayName: tgt.displayName,
+        departmentId: tgt.departmentId,
+        programIds: tgt.programIds,
+        programNames: tgt.programNames,
+        subjectIds: tgt.subjectIds,
+        teacherIds: tgt.teacherIds,
+        studentCount: tgt.studentCount + migrated,
+      );
+    }
+
+    return migrated;
+  }
 }

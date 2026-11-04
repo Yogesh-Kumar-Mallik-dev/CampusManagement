@@ -136,6 +136,8 @@ func main() {
 	mux.HandleFunc("/api/v1/academics/semesters", departmentHandler.HandleSemesters)
 	mux.HandleFunc("/api/v1/academics/sections", departmentHandler.HandleSections)
 	mux.HandleFunc("/api/v1/academics/sections/assign-student", departmentHandler.HandleAssignStudentToSection)
+	mux.HandleFunc("/api/v1/academics/sections/transfer-student", departmentHandler.HandleTransferStudentSection)
+	mux.HandleFunc("/api/v1/academics/sections/merge", departmentHandler.HandleMergeSectionCohorts)
 	mux.HandleFunc("/api/v1/academics/teachers", departmentHandler.HandleTeachers)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)

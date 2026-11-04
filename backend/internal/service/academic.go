@@ -1086,6 +1086,62 @@ func (s *AcademicService) AssignStudentToSection(ctx context.Context, studentID,
 	return nil
 }
 
+func (s *AcademicService) TransferStudentSection(ctx context.Context, studentID, targetSectionID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.sections[targetSectionID]; !ok {
+		return fmt.Errorf("target section not found")
+	}
+
+	// Remove from any current section
+	for _, stMap := range s.secStudents {
+		delete(stMap, studentID)
+	}
+
+	// Add to target section
+	if s.secStudents[targetSectionID] == nil {
+		s.secStudents[targetSectionID] = make(map[string]bool)
+	}
+	s.secStudents[targetSectionID][studentID] = true
+	return nil
+}
+
+func (s *AcademicService) MergeSectionCohorts(ctx context.Context, sourceSectionID, targetSectionID string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.sections[sourceSectionID]; !ok {
+		return 0, fmt.Errorf("source section not found")
+	}
+	if _, ok := s.sections[targetSectionID]; !ok {
+		return 0, fmt.Errorf("target section not found")
+	}
+	if sourceSectionID == targetSectionID {
+		return 0, fmt.Errorf("source and target sections must be different")
+	}
+
+	sourceStudents := s.secStudents[sourceSectionID]
+	if len(sourceStudents) == 0 {
+		return 0, nil
+	}
+
+	if s.secStudents[targetSectionID] == nil {
+		s.secStudents[targetSectionID] = make(map[string]bool)
+	}
+
+	count := 0
+	for studentID := range sourceStudents {
+		s.secStudents[targetSectionID][studentID] = true
+		count++
+	}
+
+	// Clear source section
+	s.secStudents[sourceSectionID] = make(map[string]bool)
+
+	return count, nil
+}
+
 func (s *AcademicService) AllocateSubjectToSection(ctx context.Context, secID string, alloc model.SectionSubjectAllocation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
