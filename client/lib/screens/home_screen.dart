@@ -5,6 +5,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_logo.dart';
 import 'attendance_screen.dart';
 import 'notices_screen.dart';
 import 'timetable_screen.dart';
@@ -89,23 +90,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
-        title: Row(
+        title: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: const BoxDecoration(
-                color: AppColors.wineRed,
-                borderRadius: BorderRadius.all(Radius.circular(6)),
-              ),
-              child: const AppSvgIcon(
-                svgString: AppSvgIcon.academicCap,
-                size: 16,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
+            AppLogo(size: 26),
+            SizedBox(width: 10),
+            Text(
               'CampusOS',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
