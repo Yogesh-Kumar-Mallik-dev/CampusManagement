@@ -224,3 +224,109 @@ func TestDepartmentHandlerInvalidRequests(t *testing.T) {
 		t.Errorf("expected 400 Bad Request, got %d", w.Code)
 	}
 }
+
+func TestCrossProgramSectionsAndStudentEnrollment(t *testing.T) {
+	acadSvc, userHandler, deptHandler := setupTestAcademicEnv(t)
+
+	// Seed AI/ML and DS programs
+	_, _ = acadSvc.CreateProgram(context.Background(), model.Program{
+		Code:           "BTECH-AIML",
+		Name:           "B.Tech in Artificial Intelligence & Machine Learning",
+		DegreeLevel:    "undergraduate",
+		TotalSemesters: 8,
+	})
+	_, _ = acadSvc.CreateProgram(context.Background(), model.Program{
+		Code:           "BTECH-DS",
+		Name:           "B.Tech in Data Science",
+		DegreeLevel:    "undergraduate",
+		TotalSemesters: 8,
+	})
+
+	// 1. Create a Cross-Program Section shared across CSE, AI/ML, and DS
+	createSecPayload := model.CreateSectionRequest{
+		Name:           "Section B",
+		SemesterNumber: 3,
+		AcademicYear:   "2025-2026",
+		ProgramIDs:     []string{"prog-btech-cse", "prog-btech-aiml", "prog-btech-ds"},
+		SubjectIDs:     []string{"subj-cs301", "subj-cs302", "subj-ma101"},
+		TeacherIDs:     []string{"usr-priya_2024_emp_1"},
+	}
+
+	body, _ := json.Marshal(createSecPayload)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	deptHandler.HandleSections(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var createdSec model.Section
+	_ = json.Unmarshal(w.Body.Bytes(), &createdSec)
+	if createdSec.Name != "Section B" {
+		t.Errorf("expected Section B, got %s", createdSec.Name)
+	}
+	if len(createdSec.ProgramIDs) != 3 {
+		t.Errorf("expected 3 programs sharing this section, got %d", len(createdSec.ProgramIDs))
+	}
+
+	// 2. Assign two students with different degree programs to the SAME Section B
+	student1 := "usr-harish_2025_l_btech_1"
+	assign1 := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections/assign-student", bytes.NewReader([]byte(`{
+		"student_id": "`+student1+`",
+		"section_id": "`+createdSec.ID+`",
+		"program_id": "prog-btech-cse"
+	}`)))
+	w1 := httptest.NewRecorder()
+	deptHandler.HandleAssignStudentToSection(w1, assign1)
+	if w1.Code != http.StatusOK {
+		t.Fatalf("failed to assign student 1: %d", w1.Code)
+	}
+
+	student2 := "usr-anjali_2025_l_btech_2"
+	// Register student2 in userHandler
+	userHandler.users[student2] = model.User{
+		BaseSyncModel: model.BaseSyncModel{ID: student2},
+		CampusHandle:  "anjali.sharma@campus.edu",
+		FirstName:     "Anjali",
+		LastName:      "Sharma",
+		Archetype:     "student",
+	}
+
+	assign2 := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections/assign-student", bytes.NewReader([]byte(`{
+		"student_id": "`+student2+`",
+		"section_id": "`+createdSec.ID+`",
+		"program_id": "prog-btech-aiml"
+	}`)))
+	w2 := httptest.NewRecorder()
+	deptHandler.HandleAssignStudentToSection(w2, assign2)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("failed to assign student 2: %d", w2.Code)
+	}
+
+	// 3. Inspect Section Detail and verify cohort aggregation
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/v1/academics/sections?id="+createdSec.ID, nil)
+	wDetail := httptest.NewRecorder()
+	deptHandler.HandleSections(wDetail, detailReq)
+
+	if wDetail.Code != http.StatusOK {
+		t.Fatalf("failed to get section detail: %d", wDetail.Code)
+	}
+
+	var secDetail model.SectionDetail
+	_ = json.Unmarshal(wDetail.Body.Bytes(), &secDetail)
+
+	if len(secDetail.Students) != 2 {
+		t.Errorf("expected 2 students enrolled in Section B, got %d", len(secDetail.Students))
+	}
+	if secDetail.ProgramBreakdown["BTECH-CSE"] != 1 {
+		t.Errorf("expected 1 CSE student in section, got %d", secDetail.ProgramBreakdown["BTECH-CSE"])
+	}
+	if secDetail.ProgramBreakdown["BTECH-AIML"] != 1 {
+		t.Errorf("expected 1 AIML student in section, got %d", secDetail.ProgramBreakdown["BTECH-AIML"])
+	}
+	if len(secDetail.Programs) != 3 {
+		t.Errorf("expected 3 programs attached to section, got %d", len(secDetail.Programs))
+	}
+}
+

@@ -53,18 +53,24 @@ type UserProfileResponse struct {
 
 // StudentProfile holds academic admission facts
 type StudentProfile struct {
-	UserID                string `json:"user_id"`
-	AdmissionYear         int    `json:"admission_year"`
-	EntryType             string `json:"entry_type"` // 'regular', 'lateral', 'transfer'
-	Program               string `json:"program"`    // 'btech', 'mtech', 'phd'
-	CurrentSemester       int    `json:"current_semester"`
-	BatchYear             int    `json:"batch_year"`
-	SectionScope          string `json:"section_scope,omitempty"` // e.g. 'sec:cse-3a'
-	AdvisorName           string `json:"advisor_name,omitempty"`
-	HostelBlock           string `json:"hostel_block,omitempty"`
-	RoomNumber            string `json:"room_number,omitempty"`
-	EmergencyContactName  string `json:"emergency_contact_name,omitempty"`
-	EmergencyContactPhone string `json:"emergency_contact_phone,omitempty"`
+	UserID                string  `json:"user_id"`
+	AdmissionYear         int     `json:"admission_year"`
+	EntryType             string  `json:"entry_type"` // 'regular', 'lateral', 'transfer'
+	Program               string  `json:"program"`    // 'btech', 'mtech', 'phd'
+	ProgramID             *string `json:"program_id,omitempty"` // Degree program e.g. 'prog-btech-cse'
+	ProgramCode           string  `json:"program_code,omitempty"`
+	ProgramName           string  `json:"program_name,omitempty"`
+	CurrentSemester       int     `json:"current_semester"`
+	BatchYear             int     `json:"batch_year"`
+	SectionScope          string  `json:"section_scope,omitempty"` // e.g. 'sec:cse-3a'
+	SectionID             *string `json:"section_id,omitempty"`    // Cross-program section cohort e.g. 'sec-sem3-b'
+	SectionName           string  `json:"section_name,omitempty"`
+	SemesterID            *string `json:"semester_id,omitempty"`
+	AdvisorName           string  `json:"advisor_name,omitempty"`
+	HostelBlock           string  `json:"hostel_block,omitempty"`
+	RoomNumber            string  `json:"room_number,omitempty"`
+	EmergencyContactName  string  `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone string  `json:"emergency_contact_phone,omitempty"`
 }
 
 // EmployeeRecord holds HR and institutional employment anchor

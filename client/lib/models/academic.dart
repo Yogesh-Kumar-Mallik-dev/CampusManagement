@@ -686,3 +686,155 @@ class SemesterDetailModel {
     );
   }
 }
+
+class SectionModel {
+  final String id;
+  final String name;
+  final int semesterNumber;
+  final String academicYear;
+  final String displayName;
+  final String? departmentId;
+  final List<String> programIds;
+  final List<String> programNames;
+  final List<String> subjectIds;
+  final List<String> teacherIds;
+  final int studentCount;
+
+  SectionModel({
+    required this.id,
+    required this.name,
+    required this.semesterNumber,
+    required this.academicYear,
+    required this.displayName,
+    this.departmentId,
+    this.programIds = const [],
+    this.programNames = const [],
+    this.subjectIds = const [],
+    this.teacherIds = const [],
+    this.studentCount = 0,
+  });
+
+  factory SectionModel.fromJson(Map<String, dynamic> json) {
+    return SectionModel(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      semesterNumber: json['semester_number'] ?? 1,
+      academicYear: json['academic_year'] ?? '',
+      displayName: json['display_name'] ?? '',
+      departmentId: json['department_id'],
+      programIds: (json['program_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      programNames: (json['program_names'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      subjectIds: (json['subject_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      teacherIds: (json['teacher_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      studentCount: json['student_count'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'semester_number': semesterNumber,
+        'academic_year': academicYear,
+        'display_name': displayName,
+        'department_id': departmentId,
+        'program_ids': programIds,
+        'program_names': programNames,
+        'subject_ids': subjectIds,
+        'teacher_ids': teacherIds,
+        'student_count': studentCount,
+      };
+}
+
+class SectionSubjectAllocationModel {
+  final String subjectId;
+  final String subjectCode;
+  final String subjectName;
+  final int credits;
+  final String? programId;
+  final String? programCode;
+  final String? programName;
+  final String? teacherId;
+  final String? teacherName;
+
+  SectionSubjectAllocationModel({
+    required this.subjectId,
+    required this.subjectCode,
+    required this.subjectName,
+    required this.credits,
+    this.programId,
+    this.programCode,
+    this.programName,
+    this.teacherId,
+    this.teacherName,
+  });
+
+  bool get isSharedCore => programId == null || programId!.isEmpty;
+
+  factory SectionSubjectAllocationModel.fromJson(Map<String, dynamic> json) {
+    return SectionSubjectAllocationModel(
+      subjectId: json['subject_id'] ?? '',
+      subjectCode: json['subject_code'] ?? '',
+      subjectName: json['subject_name'] ?? '',
+      credits: json['credits'] ?? 3,
+      programId: json['program_id'],
+      programCode: json['program_code'],
+      programName: json['program_name'],
+      teacherId: json['teacher_id'],
+      teacherName: json['teacher_name'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'subject_id': subjectId,
+        'subject_code': subjectCode,
+        'subject_name': subjectName,
+        'credits': credits,
+        'program_id': programId,
+        'program_code': programCode,
+        'program_name': programName,
+        'teacher_id': teacherId,
+        'teacher_name': teacherName,
+      };
+}
+
+class SectionDetailModel {
+  final SectionModel section;
+  final List<ProgramModel> programs;
+  final List<SubjectModel> subjects;
+  final List<SectionSubjectAllocationModel> subjectAllocations;
+  final List<UserModel> teachers;
+  final List<UserModel> students;
+  final Map<String, int> programBreakdown;
+
+  SectionDetailModel({
+    required this.section,
+    required this.programs,
+    required this.subjects,
+    required this.subjectAllocations,
+    required this.teachers,
+    required this.students,
+    required this.programBreakdown,
+  });
+
+  factory SectionDetailModel.fromJson(Map<String, dynamic> json) {
+    final breakdownRaw = json['program_breakdown'] as Map<String, dynamic>? ?? {};
+    final breakdown = <String, int>{};
+    breakdownRaw.forEach((k, v) {
+      if (v is num) breakdown[k] = v.toInt();
+    });
+
+    return SectionDetailModel(
+      section: SectionModel.fromJson(json['section'] ?? {}),
+      programs: (json['programs'] as List?)?.map((e) => ProgramModel.fromJson(e)).toList() ?? [],
+      subjects: (json['subjects'] as List?)?.map((e) => SubjectModel.fromJson(e)).toList() ?? [],
+      subjectAllocations: (json['subject_allocations'] as List?)
+              ?.map((e) => SectionSubjectAllocationModel.fromJson(e))
+              .toList() ??
+          [],
+      teachers: (json['teachers'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? [],
+      students: (json['students'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? [],
+      programBreakdown: breakdown,
+    );
+  }
+}
+

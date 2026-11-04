@@ -83,3 +83,62 @@ type CreateDepartmentRequest struct {
 	TeacherIDs  []string `json:"teacher_ids,omitempty"`
 	SemesterIDs []string `json:"semester_ids,omitempty"`
 }
+
+// Section represents a classroom cohort/division in a semester that can be shared across multiple programs
+// (e.g. Section B in Years 1-2 shared across B.Tech CSE, AI/ML, and DS cohorts).
+type Section struct {
+	BaseSyncModel
+	Name           string   `json:"name"`            // e.g. 'Section B'
+	SemesterNumber int      `json:"semester_number"` // 1 through 8
+	AcademicYear   string   `json:"academic_year"`   // e.g. '2025-2026'
+	DisplayName    string   `json:"display_name"`    // e.g. 'Semester 3 - Section B'
+	DepartmentID   *string  `json:"department_id,omitempty"`
+
+	// Many-to-Many Programs sharing this section cohort
+	ProgramIDs   []string `json:"program_ids,omitempty"`   // e.g. ['prog-btech-cse', 'prog-btech-aiml', 'prog-btech-ds']
+	ProgramNames []string `json:"program_names,omitempty"` // e.g. ['B.Tech CSE', 'B.Tech AI/ML']
+
+	// Many-to-Many Subjects & Teachers
+	SubjectIDs []string `json:"subject_ids,omitempty"`
+	TeacherIDs []string `json:"teacher_ids,omitempty"`
+
+	// Student enrollment metrics
+	StudentCount int `json:"student_count"`
+}
+
+// SectionSubjectAllocation details whether a subject in the section is shared across all programs
+// or specific to one program (e.g. AI/ML elective in Semester 5).
+type SectionSubjectAllocation struct {
+	SubjectID   string  `json:"subject_id"`
+	SubjectCode string  `json:"subject_code"`
+	SubjectName string  `json:"subject_name"`
+	Credits     int     `json:"credits"`
+	ProgramID   *string `json:"program_id,omitempty"`   // nil = shared common subject; non-nil = program-specific
+	ProgramCode *string `json:"program_code,omitempty"` // e.g. 'BTECH-AIML'
+	ProgramName *string `json:"program_name,omitempty"`
+	TeacherID   *string `json:"teacher_id,omitempty"`
+	TeacherName *string `json:"teacher_name,omitempty"`
+}
+
+// SectionDetail provides full hydrated details for a section cohort
+type SectionDetail struct {
+	Section            Section                    `json:"section"`
+	Programs           []Program                  `json:"programs"`
+	Subjects           []Subject                  `json:"subjects"`
+	SubjectAllocations []SectionSubjectAllocation `json:"subject_allocations"`
+	Teachers           []User                     `json:"teachers"`
+	Students           []User                     `json:"students"`
+	ProgramBreakdown   map[string]int             `json:"program_breakdown,omitempty"` // programCode -> student count
+}
+
+// CreateSectionRequest is the payload to create a new section cohort
+type CreateSectionRequest struct {
+	Name           string   `json:"name"`            // e.g. 'Section B'
+	SemesterNumber int      `json:"semester_number"` // e.g. 3
+	AcademicYear   string   `json:"academic_year"`   // e.g. '2025-2026'
+	DepartmentID   *string  `json:"department_id,omitempty"`
+	ProgramIDs     []string `json:"program_ids"`     // M:N Programs
+	SubjectIDs     []string `json:"subject_ids,omitempty"`
+	TeacherIDs     []string `json:"teacher_ids,omitempty"`
+}
+

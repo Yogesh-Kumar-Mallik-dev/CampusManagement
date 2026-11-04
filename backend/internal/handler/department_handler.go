@@ -177,3 +177,90 @@ func (h *DepartmentHandler) HandleTeachers(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(teachers)
 }
+
+// HandleSections handles GET and POST for /api/v1/academics/sections
+func (h *DepartmentHandler) HandleSections(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		id := r.URL.Query().Get("id")
+		if id != "" {
+			detail, err := h.academicService.GetSectionDetail(r.Context(), id, h.userResolver, nil)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(detail)
+			return
+		}
+
+		sections, err := h.academicService.ListSections(r.Context())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(sections)
+
+	case http.MethodPost:
+		var req model.CreateSectionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.Name) == "" || len(req.ProgramIDs) == 0 {
+			http.Error(w, "Section name and at least one associated program are required", http.StatusBadRequest)
+			return
+		}
+
+		created, err := h.academicService.CreateSection(r.Context(), req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(created)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// HandleAssignStudentToSection handles POST /api/v1/academics/sections/assign-student
+func (h *DepartmentHandler) HandleAssignStudentToSection(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload struct {
+		StudentID string `json:"student_id"`
+		SectionID string `json:"section_id"`
+		ProgramID string `json:"program_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if payload.StudentID == "" || payload.SectionID == "" {
+		http.Error(w, "StudentID and SectionID are required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.academicService.AssignStudentToSection(r.Context(), payload.StudentID, payload.SectionID, payload.ProgramID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"student_id": payload.StudentID,
+		"section_id": payload.SectionID,
+		"program_id": payload.ProgramID,
+	})
+}
+

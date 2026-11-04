@@ -316,4 +316,82 @@ void main() {
     await tester.tap(find.byType(IconButton).last);
     await tester.pumpAndSettle();
   });
+
+  testWidgets('Cross-program section flow: Admin inspects Section B with multi-program enrollment (CSE, AI/ML, DS) and creates a shared section',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(CampusManagementApp(storage: storage));
+    await tester.pump();
+
+    // Login as Faculty / Admin
+    await tester.tap(find.text('Faculty'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // 1. Navigate to Departments tab via sidebar
+    await tester.tap(find.text('Depts').first);
+    await tester.pumpAndSettle();
+
+    // 2. Switch to Cross-Program Sections view
+    final sectionsToggle = find.textContaining('Cross-Program Sections');
+    expect(sectionsToggle, findsOneWidget);
+    await tester.tap(sectionsToggle);
+    await tester.pumpAndSettle();
+
+    // Verify view switch
+    expect(find.text('Cross-Program Sections & Cohorts'), findsOneWidget);
+    expect(find.text('Add Shared Section'), findsOneWidget);
+
+    // 3. Verify Section B card contains shared programs CSE, AIML, DS
+    expect(find.text('Section B'), findsWidgets);
+    expect(find.text('BTECH-CSE'), findsWidgets);
+    expect(find.text('BTECH-AIML'), findsWidgets);
+    expect(find.text('BTECH-DS'), findsWidgets);
+
+    // 4. Inspect Section B cohort details
+    final inspectBtn = find.text('Inspect Section Cohort').first;
+    await tester.ensureVisible(inspectBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(inspectBtn);
+    await tester.pumpAndSettle();
+
+    // Verify cross-program banner and allocations
+    expect(find.textContaining('Shared Cross-Program Cohort'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Curriculum (3)'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Faculty (1)'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Enrolled Cohort (0)'), findsOneWidget);
+
+    // Close Section inspector dialog
+    await tester.tap(find.byType(IconButton).last);
+    await tester.pumpAndSettle();
+
+    // 5. Open Add Shared Section dialog
+    final addSecBtn = find.text('Add Shared Section');
+    await tester.ensureVisible(addSecBtn);
+    await tester.tap(addSecBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Shared Section Cohort'), findsOneWidget);
+    expect(find.text('Participating Degree Programs (Many-to-Many)'), findsOneWidget);
+
+    // Enter name
+    await tester.enterText(find.widgetWithText(TextFormField, 'e.g. Section B'), 'Section C');
+
+    // Toggle a subject chip
+    await tester.ensureVisible(find.widgetWithText(FilterChip, 'CS301 - Operating Systems'));
+    await tester.tap(find.widgetWithText(FilterChip, 'CS301 - Operating Systems'));
+    await tester.pumpAndSettle();
+
+    // Submit dialog
+    final createBtn = find.text('Create Shared Section');
+    await tester.ensureVisible(createBtn);
+    await tester.tap(createBtn);
+    await tester.pumpAndSettle();
+
+    // Verify created Section C appears
+    expect(find.text('Section C'), findsWidgets);
+  });
 }

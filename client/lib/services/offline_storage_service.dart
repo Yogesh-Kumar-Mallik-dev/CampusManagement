@@ -18,6 +18,10 @@ class OfflineStorageService {
   final List<ProgramModel> _cachedPrograms = [];
   final List<SubjectModel> _cachedSubjects = [];
   final List<SemesterModel> _cachedSemesters = [];
+  final List<SectionModel> _cachedSections = [];
+  final Map<String, String> _studentSectionMap = {};
+  final Map<String, String> _studentProgramMap = {};
+  final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
 
   // Optical Attendance active session & live verified roster
   OpticalSessionModel? _activeOpticalSession;
@@ -116,6 +120,10 @@ class OfflineStorageService {
   List<SemesterModel> get cachedSemesters {
     _seedDefaultAcademicHierarchyIfEmpty();
     return List.unmodifiable(_cachedSemesters);
+  }
+  List<SectionModel> get cachedSections {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    return List.unmodifiable(_cachedSections);
   }
 
   void _seedDefaultUsersIfEmpty() {
@@ -811,6 +819,20 @@ class OfflineStorageService {
         totalSemesters: 8,
       ),
       ProgramModel(
+        id: 'prog-btech-aiml',
+        code: 'BTECH-AIML',
+        name: 'B.Tech in Artificial Intelligence & Machine Learning',
+        degreeLevel: 'undergraduate',
+        totalSemesters: 8,
+      ),
+      ProgramModel(
+        id: 'prog-btech-ds',
+        code: 'BTECH-DS',
+        name: 'B.Tech in Data Science',
+        degreeLevel: 'undergraduate',
+        totalSemesters: 8,
+      ),
+      ProgramModel(
         id: 'prog-btech-ece',
         code: 'BTECH-ECE',
         name: 'B.Tech in Electronics & Communication',
@@ -831,6 +853,7 @@ class OfflineStorageService {
       SubjectModel(id: 'subj-cs301', code: 'CS301', name: 'Operating Systems', credits: 4, departmentIds: ['dept-cse']),
       SubjectModel(id: 'subj-cs302', code: 'CS302', name: 'Database Management Systems', credits: 4, departmentIds: ['dept-cse']),
       SubjectModel(id: 'subj-cs303', code: 'CS303', name: 'Design & Analysis of Algorithms', credits: 4, departmentIds: ['dept-cse']),
+      SubjectModel(id: 'subj-cs304', code: 'CS304', name: 'Deep Learning & Neural Networks', credits: 4, departmentIds: ['dept-cse']),
       SubjectModel(id: 'subj-ma101', code: 'MA101', name: 'Discrete Mathematics', credits: 3, departmentIds: ['dept-cse', 'dept-math', 'dept-ece']),
       SubjectModel(id: 'subj-ec201', code: 'EC201', name: 'Signals & Systems', credits: 4, departmentIds: ['dept-ece']),
     ]);
@@ -921,6 +944,76 @@ class OfflineStorageService {
         semesterCount: 1,
       ),
     ]);
+
+    // Seed Cross-Program Sections
+    _cachedSections.addAll([
+      SectionModel(
+        id: 'sec-sem3-section-b',
+        name: 'Section B',
+        semesterNumber: 3,
+        academicYear: '2025-2026',
+        displayName: 'Semester 3 - Section B (BTECH-CSE, BTECH-AIML, BTECH-DS)',
+        departmentId: 'dept-cse',
+        programIds: ['prog-btech-cse', 'prog-btech-aiml', 'prog-btech-ds'],
+        programNames: ['BTECH-CSE', 'BTECH-AIML', 'BTECH-DS'],
+        subjectIds: ['subj-cs301', 'subj-cs302', 'subj-ma101'],
+        teacherIds: ['usr-priya_2024_emp_1'],
+        studentCount: 1,
+      ),
+      SectionModel(
+        id: 'sec-sem5-section-a',
+        name: 'Section A',
+        semesterNumber: 5,
+        academicYear: '2025-2026',
+        displayName: 'Semester 5 - Section A (BTECH-CSE, BTECH-AIML)',
+        departmentId: 'dept-cse',
+        programIds: ['prog-btech-cse', 'prog-btech-aiml'],
+        programNames: ['BTECH-CSE', 'BTECH-AIML'],
+        subjectIds: ['subj-cs301', 'subj-cs302', 'subj-cs303', 'subj-cs304'],
+        teacherIds: ['usr-priya_2024_emp_1'],
+        studentCount: 1,
+      ),
+    ]);
+
+    // Seed subject allocations (core shared vs program specialized)
+    _sectionAllocations['sec-sem5-section-a'] = [
+      SectionSubjectAllocationModel(
+        subjectId: 'subj-cs301',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        credits: 4,
+        programId: null, // Shared Core
+      ),
+      SectionSubjectAllocationModel(
+        subjectId: 'subj-cs302',
+        subjectCode: 'CS302',
+        subjectName: 'Database Management Systems',
+        credits: 4,
+        programId: null, // Shared Core
+      ),
+      SectionSubjectAllocationModel(
+        subjectId: 'subj-cs303',
+        subjectCode: 'CS303',
+        subjectName: 'Design & Analysis of Algorithms',
+        credits: 4,
+        programId: 'prog-btech-cse',
+        programCode: 'BTECH-CSE',
+        programName: 'B.Tech in Computer Science & Engineering',
+      ),
+      SectionSubjectAllocationModel(
+        subjectId: 'subj-cs304',
+        subjectCode: 'CS304',
+        subjectName: 'Deep Learning & Neural Networks',
+        credits: 4,
+        programId: 'prog-btech-aiml',
+        programCode: 'BTECH-AIML',
+        programName: 'B.Tech in Artificial Intelligence & Machine Learning',
+      ),
+    ];
+
+    // Seed student Harish section & program assignment
+    _studentSectionMap['usr-harish_2025_l_btech_1'] = 'sec-sem5-section-a';
+    _studentProgramMap['usr-harish_2025_l_btech_1'] = 'prog-btech-cse';
   }
 
   Future<List<DepartmentModel>> getDepartments({bool forceRefresh = false}) async {
@@ -1083,5 +1176,148 @@ class OfflineStorageService {
       teachers: teachers,
       students: students,
     );
+  }
+
+  // ----------------------------------------------------
+  // CROSS-PROGRAM SECTIONS
+  // ----------------------------------------------------
+
+  Future<List<SectionModel>> getSections({bool forceRefresh = false}) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline && (forceRefresh || _cachedSections.isEmpty)) {
+      try {
+        final list = await api.fetchSections();
+        _cachedSections
+          ..clear()
+          ..addAll(list);
+        return List<SectionModel>.from(_cachedSections);
+      } catch (_) {}
+    }
+    return List<SectionModel>.from(_cachedSections);
+  }
+
+  Future<SectionModel> addSection(Map<String, dynamic> payload) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final created = await api.createSection(payload);
+        _cachedSections.removeWhere((s) => s.id == created.id);
+        _cachedSections.insert(0, created);
+        return created;
+      } catch (_) {}
+    }
+
+    _seedDefaultAcademicHierarchyIfEmpty();
+    final name = (payload['name'] ?? '').toString().trim();
+    final semNum = payload['semester_number'] is int ? payload['semester_number'] as int : 1;
+    final year = (payload['academic_year'] ?? '2025-2026').toString();
+    final secKey = name.toLowerCase().replaceAll(' ', '-');
+    final secId = 'sec-sem$semNum-$secKey';
+
+    final progIds = (payload['program_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final progNames = <String>[];
+    for (final pid in progIds) {
+      final p = _cachedPrograms.cast<ProgramModel?>().firstWhere((pr) => pr?.id == pid, orElse: () => null);
+      if (p != null) progNames.add(p.code);
+    }
+
+    final subIds = (payload['subject_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final teacherIds = (payload['teacher_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+
+    final newSec = SectionModel(
+      id: secId,
+      name: name,
+      semesterNumber: semNum,
+      academicYear: year,
+      displayName: 'Semester $semNum - $name (${progNames.join(", ")})',
+      departmentId: payload['department_id'],
+      programIds: progIds,
+      programNames: progNames,
+      subjectIds: subIds,
+      teacherIds: teacherIds,
+      studentCount: 0,
+    );
+
+    _cachedSections.removeWhere((s) => s.id == newSec.id);
+    _cachedSections.insert(0, newSec);
+    return newSec;
+  }
+
+  Future<SectionDetailModel> getSectionDetail(String id) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        return await api.fetchSectionDetail(id);
+      } catch (_) {}
+    }
+
+    final sec = _cachedSections.firstWhere(
+      (s) => s.id == id,
+      orElse: () => _cachedSections.first,
+    );
+
+    final programs = _cachedPrograms.where((p) => sec.programIds.contains(p.id)).toList();
+    final subjects = _cachedSubjects.where((s) => sec.subjectIds.contains(s.id)).toList();
+    final teachers = _cachedUsers.where((u) => sec.teacherIds.contains(u.id)).toList();
+
+    // Allocations (fallback to default core allocations if none defined)
+    var allocs = _sectionAllocations[sec.id];
+    if (allocs == null || allocs.isEmpty) {
+      allocs = subjects
+          .map((sub) => SectionSubjectAllocationModel(
+                subjectId: sub.id,
+                subjectCode: sub.code,
+                subjectName: sub.name,
+                credits: sub.credits,
+                programId: null, // Shared core
+              ))
+          .toList();
+    }
+
+    // Students enrolled in this section
+    final enrolledStudents = _cachedUsers.where((u) {
+      if (u.archetype != 'student') return false;
+      return _studentSectionMap[u.id] == sec.id;
+    }).toList();
+
+    // Program breakdown
+    final breakdown = <String, int>{};
+    for (final st in enrolledStudents) {
+      final pid = _studentProgramMap[st.id];
+      final prog = _cachedPrograms.cast<ProgramModel?>().firstWhere((p) => p?.id == pid, orElse: () => null);
+      final code = prog?.code ?? 'General';
+      breakdown[code] = (breakdown[code] ?? 0) + 1;
+    }
+
+    return SectionDetailModel(
+      section: sec,
+      programs: programs,
+      subjects: subjects,
+      subjectAllocations: allocs,
+      teachers: teachers,
+      students: enrolledStudents,
+      programBreakdown: breakdown,
+    );
+  }
+
+  Future<void> assignStudentToSection({
+    required String studentId,
+    required String sectionId,
+    required String programId,
+  }) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        await api.assignStudentToSection(
+          studentId: studentId,
+          sectionId: sectionId,
+          programId: programId,
+        );
+      } catch (_) {}
+    }
+    _studentSectionMap[studentId] = sectionId;
+    _studentProgramMap[studentId] = programId;
   }
 }

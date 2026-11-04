@@ -357,3 +357,46 @@ CREATE TABLE IF NOT EXISTS semester_teachers (
 
 -- Note: Students have a Many-to-One relationship with Semester (not directly to Department)
 ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS semester_id UUID REFERENCES semesters(id) ON DELETE SET NULL;
+
+-- 23. Academic Sections (Cross-program cohorts/divisions within a semester)
+CREATE TABLE IF NOT EXISTS sections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(32) NOT NULL,             -- e.g. 'Section B'
+    semester_number INT NOT NULL,          -- e.g. 1, 2, 3, 5
+    academic_year VARCHAR(32) NOT NULL,    -- '2025-2026'
+    display_name VARCHAR(255) NOT NULL,    -- e.g. 'Semester 3 - Section B'
+    department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sections_term ON sections(semester_number, academic_year);
+
+-- 24. Section <-> Program Many-to-Many (Section shared across multiple programs e.g. CSE, AI/ML, DS)
+CREATE TABLE IF NOT EXISTS section_programs (
+    section_id UUID REFERENCES sections(id) ON DELETE CASCADE,
+    program_id UUID REFERENCES programs(id) ON DELETE CASCADE,
+    PRIMARY KEY (section_id, program_id)
+);
+
+-- 25. Section <-> Subject Many-to-Many (with optional program specialization)
+CREATE TABLE IF NOT EXISTS section_subjects (
+    section_id UUID REFERENCES sections(id) ON DELETE CASCADE,
+    subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE,
+    program_id UUID REFERENCES programs(id) ON DELETE CASCADE, -- NULL = common core; non-NULL = program-specific
+    PRIMARY KEY (section_id, subject_id, program_id)
+);
+
+-- 26. Section <-> Teacher Many-to-Many
+CREATE TABLE IF NOT EXISTS section_teachers (
+    section_id UUID REFERENCES sections(id) ON DELETE CASCADE,
+    teacher_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL,
+    PRIMARY KEY (section_id, teacher_id)
+);
+
+-- Note: Students belong to their Degree Program and active Section cohort
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS section_id UUID REFERENCES sections(id) ON DELETE SET NULL;
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS program_id UUID REFERENCES programs(id) ON DELETE SET NULL;
+

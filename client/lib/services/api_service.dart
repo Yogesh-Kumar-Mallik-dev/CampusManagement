@@ -376,4 +376,56 @@ class ApiService {
     }
     throw Exception('Failed to fetch teachers (${res.statusCode})');
   }
+
+  // ----------------------------------------------------
+  // CROSS-PROGRAM SECTIONS
+  // ----------------------------------------------------
+
+  Future<List<SectionModel>> fetchSections() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/sections'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => SectionModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch sections (${res.statusCode})');
+  }
+
+  Future<SectionModel> createSection(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/sections'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      return SectionModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create section: ${res.body}');
+  }
+
+  Future<SectionDetailModel> fetchSectionDetail(String id) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/sections?id=$id'));
+    if (res.statusCode == 200) {
+      return SectionDetailModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to fetch section detail (${res.statusCode})');
+  }
+
+  Future<void> assignStudentToSection({
+    required String studentId,
+    required String sectionId,
+    required String programId,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/sections/assign-student'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'student_id': studentId,
+        'section_id': sectionId,
+        'program_id': programId,
+      }),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to assign student to section: ${res.body}');
+    }
+  }
 }

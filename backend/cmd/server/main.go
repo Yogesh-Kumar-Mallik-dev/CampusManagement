@@ -134,6 +134,8 @@ func main() {
 	mux.HandleFunc("/api/v1/academics/programs", departmentHandler.HandlePrograms)
 	mux.HandleFunc("/api/v1/academics/subjects", departmentHandler.HandleSubjects)
 	mux.HandleFunc("/api/v1/academics/semesters", departmentHandler.HandleSemesters)
+	mux.HandleFunc("/api/v1/academics/sections", departmentHandler.HandleSections)
+	mux.HandleFunc("/api/v1/academics/sections/assign-student", departmentHandler.HandleAssignStudentToSection)
 	mux.HandleFunc("/api/v1/academics/teachers", departmentHandler.HandleTeachers)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
@@ -399,6 +401,18 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		TotalSemesters: 8,
 	})
 	_, _ = svc.CreateProgram(ctx, model.Program{
+		Code:           "BTECH-AIML",
+		Name:           "B.Tech in Artificial Intelligence & Machine Learning",
+		DegreeLevel:    "undergraduate",
+		TotalSemesters: 8,
+	})
+	_, _ = svc.CreateProgram(ctx, model.Program{
+		Code:           "BTECH-DS",
+		Name:           "B.Tech in Data Science",
+		DegreeLevel:    "undergraduate",
+		TotalSemesters: 8,
+	})
+	_, _ = svc.CreateProgram(ctx, model.Program{
 		Code:           "BTECH-ECE",
 		Name:           "B.Tech in Electronics & Communication",
 		DegreeLevel:    "undergraduate",
@@ -425,6 +439,11 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 	_, _ = svc.CreateSubject(ctx, model.Subject{
 		Code:    "CS303",
 		Name:    "Design & Analysis of Algorithms",
+		Credits: 4,
+	})
+	_, _ = svc.CreateSubject(ctx, model.Subject{
+		Code:    "CS304",
+		Name:    "Deep Learning & Neural Networks",
 		Credits: 4,
 	})
 	_, _ = svc.CreateSubject(ctx, model.Subject{
@@ -501,6 +520,47 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		SemesterIDs: []string{"sem-btech-cse-3-2a"},
 	})
 
-	// 8. Enroll Student Harish into Semester 5 (Many-to-One enrollment)
+	// 8. Seed Cross-Program Sections
+	deptCSEID := "dept-cse"
+	// Section B (Years 1-2 cohort shared across CSE, AI/ML, and DS with common core subjects)
+	secB, _ := svc.CreateSection(ctx, model.CreateSectionRequest{
+		Name:           "Section B",
+		SemesterNumber: 3,
+		AcademicYear:   "2025-2026",
+		DepartmentID:   &deptCSEID,
+		ProgramIDs:     []string{"prog-btech-cse", "prog-btech-aiml", "prog-btech-ds"},
+		SubjectIDs:     []string{"subj-cs301", "subj-cs302", "subj-ma101"},
+		TeacherIDs:     []string{"usr-priya_2024_emp_1"},
+	})
+	_ = secB
+
+	// Section A (Semester 5 shared class across CSE & AI/ML with core + program specialization)
+	secA, _ := svc.CreateSection(ctx, model.CreateSectionRequest{
+		Name:           "Section A",
+		SemesterNumber: 5,
+		AcademicYear:   "2025-2026",
+		DepartmentID:   &deptCSEID,
+		ProgramIDs:     []string{"prog-btech-cse", "prog-btech-aiml"},
+		SubjectIDs:     []string{"subj-cs301", "subj-cs302", "subj-cs303"},
+		TeacherIDs:     []string{"usr-priya_2024_emp_1"},
+	})
+	// Allocate AI/ML specialized elective into Section A
+	progAIMLID := "prog-btech-aiml"
+	_ = svc.AllocateSubjectToSection(ctx, secA.ID, model.SectionSubjectAllocation{
+		SubjectID:   "subj-cs304",
+		SubjectCode: "CS304",
+		SubjectName: "Deep Learning & Neural Networks",
+		Credits:     4,
+		ProgramID:   &progAIMLID,
+		ProgramCode: stringPtr("BTECH-AIML"),
+		ProgramName: stringPtr("B.Tech in Artificial Intelligence & Machine Learning"),
+	})
+
+	// 9. Enroll Student Harish into Semester 5 & Section A (Degree: BTECH-CSE)
 	_ = svc.AssignStudentToSemester(ctx, "usr-harish_2025_l_btech_1", "sem-btech-cse-5-3a")
+	_ = svc.AssignStudentToSection(ctx, "usr-harish_2025_l_btech_1", secA.ID, "prog-btech-cse")
+}
+
+func stringPtr(s string) *string {
+	return &s
 }

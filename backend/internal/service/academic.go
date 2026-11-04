@@ -45,6 +45,14 @@ type AcademicService struct {
 	semSubjects   map[string]map[string]bool // semesterID -> subjectID -> true
 	semTeachers   map[string]map[string]bool // semesterID -> teacherID -> true
 	semStudents   map[string]map[string]bool // semesterID -> studentID -> true
+
+	// Cross-program Sections (Shared cohorts e.g. Year 1-2 Section B across CSE, AI/ML, DS)
+	sections        map[string]model.Section
+	secPrograms     map[string]map[string]bool // sectionID -> programID -> true
+	secSubjects     map[string][]model.SectionSubjectAllocation // sectionID -> subject allocations
+	secTeachers     map[string]map[string]bool // sectionID -> teacherID -> true
+	secStudents     map[string]map[string]bool // sectionID -> studentID -> true
+	studentPrograms map[string]string          // studentID -> programID
 }
 
 func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permService *PermissionService) *AcademicService {
@@ -69,6 +77,12 @@ func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permSer
 		semSubjects:        make(map[string]map[string]bool),
 		semTeachers:        make(map[string]map[string]bool),
 		semStudents:        make(map[string]map[string]bool),
+		sections:           make(map[string]model.Section),
+		secPrograms:        make(map[string]map[string]bool),
+		secSubjects:        make(map[string][]model.SectionSubjectAllocation),
+		secTeachers:        make(map[string]map[string]bool),
+		secStudents:        make(map[string]map[string]bool),
+		studentPrograms:    make(map[string]string),
 	}
 }
 
@@ -858,3 +872,240 @@ func appendUnique(slice []string, val string) []string {
 	}
 	return append(slice, val)
 }
+
+// ----------------------------------------------------
+// CROSS-PROGRAM SECTIONS (SHARED COHORTS)
+// ----------------------------------------------------
+
+func (s *AcademicService) CreateSection(ctx context.Context, req model.CreateSectionRequest) (model.Section, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return model.Section{}, fmt.Errorf("section name is required")
+	}
+	if req.SemesterNumber < 1 || req.SemesterNumber > 12 {
+		return model.Section{}, fmt.Errorf("invalid semester number")
+	}
+	if len(req.ProgramIDs) == 0 {
+		return model.Section{}, fmt.Errorf("section must be associated with at least one program")
+	}
+
+	cleanYear := strings.TrimSpace(req.AcademicYear)
+	if cleanYear == "" {
+		cleanYear = "2025-2026"
+	}
+
+	cleanNameKey := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+	secID := fmt.Sprintf("sec-sem%d-%s", req.SemesterNumber, cleanNameKey)
+	now := time.Now().UTC()
+
+	var progNames []string
+	for _, pid := range req.ProgramIDs {
+		if p, ok := s.programs[pid]; ok {
+			progNames = append(progNames, p.Code)
+		}
+	}
+
+	displayName := fmt.Sprintf("Semester %d - %s (%s)", req.SemesterNumber, name, strings.Join(progNames, ", "))
+
+	sec := model.Section{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        secID,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		Name:           name,
+		SemesterNumber: req.SemesterNumber,
+		AcademicYear:   cleanYear,
+		DisplayName:    displayName,
+		DepartmentID:   req.DepartmentID,
+		ProgramIDs:     req.ProgramIDs,
+		ProgramNames:   progNames,
+		SubjectIDs:     req.SubjectIDs,
+		TeacherIDs:     req.TeacherIDs,
+	}
+
+	// Register M:N Programs
+	if s.secPrograms[secID] == nil {
+		s.secPrograms[secID] = make(map[string]bool)
+	}
+	for _, pid := range req.ProgramIDs {
+		s.secPrograms[secID][pid] = true
+	}
+
+	// Register M:N Teachers
+	if s.secTeachers[secID] == nil {
+		s.secTeachers[secID] = make(map[string]bool)
+	}
+	for _, tid := range req.TeacherIDs {
+		s.secTeachers[secID][tid] = true
+	}
+
+	// Register default shared allocations for subjects
+	s.secSubjects[secID] = nil
+	for _, subID := range req.SubjectIDs {
+		if sub, ok := s.subjects[subID]; ok {
+			s.secSubjects[secID] = append(s.secSubjects[secID], model.SectionSubjectAllocation{
+				SubjectID:   sub.ID,
+				SubjectCode: sub.Code,
+				SubjectName: sub.Name,
+				Credits:     sub.Credits,
+				ProgramID:   nil, // shared core subject by default
+			})
+		}
+	}
+
+	s.sections[secID] = sec
+	return sec, nil
+}
+
+func (s *AcademicService) ListSections(ctx context.Context) ([]model.Section, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []model.Section
+	for _, sec := range s.sections {
+		if !sec.IsDeleted {
+			sec.StudentCount = len(s.secStudents[sec.ID])
+			var progNames []string
+			for pid := range s.secPrograms[sec.ID] {
+				if p, ok := s.programs[pid]; ok {
+					progNames = append(progNames, p.Code)
+				}
+			}
+			sort.Strings(progNames)
+			sec.ProgramNames = progNames
+			result = append(result, sec)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].SemesterNumber != result[j].SemesterNumber {
+			return result[i].SemesterNumber < result[j].SemesterNumber
+		}
+		return result[i].Name < result[j].Name
+	})
+	return result, nil
+}
+
+func (s *AcademicService) GetSectionDetail(ctx context.Context, secID string, userResolver func(id string) (model.User, bool), studentProgramResolver func(id string) string) (model.SectionDetail, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	sec, ok := s.sections[secID]
+	if !ok || sec.IsDeleted {
+		return model.SectionDetail{}, fmt.Errorf("section not found")
+	}
+
+	// Programs
+	var programs []model.Program
+	for pid := range s.secPrograms[secID] {
+		if p, found := s.programs[pid]; found && !p.IsDeleted {
+			programs = append(programs, p)
+		}
+	}
+	sort.Slice(programs, func(i, j int) bool { return programs[i].Code < programs[j].Code })
+
+	// Subjects & Allocations
+	allocs := s.secSubjects[secID]
+	var subjects []model.Subject
+	seenSub := make(map[string]bool)
+	for _, a := range allocs {
+		if !seenSub[a.SubjectID] {
+			seenSub[a.SubjectID] = true
+			if sub, found := s.subjects[a.SubjectID]; found {
+				subjects = append(subjects, sub)
+			}
+		}
+	}
+
+	// Teachers
+	var teachers []model.User
+	for tid := range s.secTeachers[secID] {
+		if userResolver != nil {
+			if u, found := userResolver(tid); found && !u.IsDeleted {
+				teachers = append(teachers, u)
+			}
+		}
+	}
+	sort.Slice(teachers, func(i, j int) bool { return teachers[i].LastName < teachers[j].LastName })
+
+	// Students & Program breakdown
+	var students []model.User
+	programBreakdown := make(map[string]int)
+	for sid := range s.secStudents[secID] {
+		if userResolver != nil {
+			if u, found := userResolver(sid); found && !u.IsDeleted {
+				students = append(students, u)
+			}
+		}
+		progCode := "General"
+		if studentProgramResolver != nil {
+			if pCode := studentProgramResolver(sid); pCode != "" {
+				progCode = pCode
+			}
+		} else if pid, ok := s.studentPrograms[sid]; ok {
+			if p, ok := s.programs[pid]; ok {
+				progCode = p.Code
+			}
+		}
+		programBreakdown[progCode]++
+	}
+	sort.Slice(students, func(i, j int) bool { return students[i].CampusHandle < students[j].CampusHandle })
+
+	sec.StudentCount = len(students)
+
+	return model.SectionDetail{
+		Section:            sec,
+		Programs:           programs,
+		Subjects:           subjects,
+		SubjectAllocations: allocs,
+		Teachers:           teachers,
+		Students:           students,
+		ProgramBreakdown:   programBreakdown,
+	}, nil
+}
+
+func (s *AcademicService) AssignStudentToSection(ctx context.Context, studentID, sectionID, programID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Clear student from previous section cohort (Many-to-One student->section)
+	for _, stMap := range s.secStudents {
+		delete(stMap, studentID)
+	}
+
+	if s.secStudents[sectionID] == nil {
+		s.secStudents[sectionID] = make(map[string]bool)
+	}
+	s.secStudents[sectionID][studentID] = true
+	if programID != "" {
+		s.studentPrograms[studentID] = programID
+	}
+	return nil
+}
+
+func (s *AcademicService) AllocateSubjectToSection(ctx context.Context, secID string, alloc model.SectionSubjectAllocation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.sections[secID]; !ok {
+		return fmt.Errorf("section not found")
+	}
+
+	// Update or append
+	updated := false
+	for i, existing := range s.secSubjects[secID] {
+		if existing.SubjectID == alloc.SubjectID && ((existing.ProgramID == nil && alloc.ProgramID == nil) || (existing.ProgramID != nil && alloc.ProgramID != nil && *existing.ProgramID == *alloc.ProgramID)) {
+			s.secSubjects[secID][i] = alloc
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		s.secSubjects[secID] = append(s.secSubjects[secID], alloc)
+	}
+	return nil
+}
+
