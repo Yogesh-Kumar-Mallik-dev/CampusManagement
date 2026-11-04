@@ -30,6 +30,16 @@ type User struct {
 	DiscontinuedBy         string     `json:"discontinued_by,omitempty"`
 }
 
+func (u User) FullName() string {
+	if u.FirstName == "" {
+		return u.LastName
+	}
+	if u.LastName == "" {
+		return u.FirstName
+	}
+	return u.FirstName + " " + u.LastName
+}
+
 // UserProfileResponse aggregates complete institutional identity facts
 type UserProfileResponse struct {
 	User                  User                   `json:"user"`

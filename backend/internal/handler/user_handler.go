@@ -857,3 +857,35 @@ func (h *UserHandler) CheckPermission(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }
+
+// FindUser resolves a user by ID or campus handle
+func (h *UserHandler) FindUser(identifier string) (model.User, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if u, ok := h.users[identifier]; ok {
+		return u, true
+	}
+	if id, ok := h.handleToID[identifier]; ok {
+		if u, ok := h.users[id]; ok {
+			return u, true
+		}
+	}
+	return model.User{}, false
+}
+
+// ListTeachers returns all academic employee users for department assignment
+func (h *UserHandler) ListTeachers() []model.User {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var teachers []model.User
+	for _, u := range h.users {
+		if !u.IsDeleted && u.Archetype == model.ArchetypeEmployee {
+			if rec, ok := h.employeeRecords[u.ID]; ok && rec.IsAcademic {
+				teachers = append(teachers, u)
+			}
+		}
+	}
+	return teachers
+}

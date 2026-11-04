@@ -259,3 +259,101 @@ CREATE INDEX IF NOT EXISTS idx_notices_scope ON notices(target_scope_id);
 CREATE INDEX IF NOT EXISTS idx_notices_published ON notices(published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notices_updated ON notices(updated_at);
 
+
+-- ========================================================
+-- PHASE 2: DEPARTMENTS, PROGRAMS, SEMESTERS & SUBJECTS M:N
+-- ========================================================
+
+-- 14. Academic Departments
+CREATE TABLE IF NOT EXISTS departments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(32) UNIQUE NOT NULL,      -- e.g. 'CSE', 'ECE', 'MATH'
+    name VARCHAR(255) NOT NULL,            -- e.g. 'Computer Science & Engineering'
+    description TEXT,
+    hod_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_departments_code ON departments(code);
+
+-- 15. Degree Programs (Overarching degree courses)
+CREATE TABLE IF NOT EXISTS programs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(32) UNIQUE NOT NULL,      -- e.g. 'BTECH-CSE', 'MBA'
+    name VARCHAR(255) NOT NULL,            -- e.g. 'Bachelor of Technology in Computer Science'
+    degree_level VARCHAR(32) NOT NULL,     -- 'undergraduate', 'postgraduate', 'doctoral'
+    total_semesters INT NOT NULL DEFAULT 8,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_programs_code ON programs(code);
+
+-- 16. Subjects (Course modules)
+CREATE TABLE IF NOT EXISTS subjects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(32) UNIQUE NOT NULL,      -- e.g. 'CS301'
+    name VARCHAR(255) NOT NULL,            -- e.g. 'Operating Systems'
+    credits INT NOT NULL DEFAULT 4,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_subjects_code ON subjects(code);
+
+-- 17. Semesters (from a Program, e.g. B.Tech CSE Semester 5, Sec 3A)
+CREATE TABLE IF NOT EXISTS semesters (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    program_id UUID REFERENCES programs(id) ON DELETE CASCADE,
+    semester_number INT NOT NULL,
+    academic_year VARCHAR(32) NOT NULL,    -- '2025-2026'
+    section VARCHAR(16) NOT NULL,          -- '3A'
+    display_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_semesters_program ON semesters(program_id);
+
+-- 18. Department <-> Subject Many-to-Many
+CREATE TABLE IF NOT EXISTS department_subjects (
+    department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
+    subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE,
+    PRIMARY KEY (department_id, subject_id)
+);
+
+-- 19. Department <-> Teacher Many-to-Many
+CREATE TABLE IF NOT EXISTS department_teachers (
+    department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
+    teacher_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (department_id, teacher_id)
+);
+
+-- 20. Department <-> Semester Many-to-Many
+CREATE TABLE IF NOT EXISTS department_semesters (
+    department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
+    semester_id UUID REFERENCES semesters(id) ON DELETE CASCADE,
+    PRIMARY KEY (department_id, semester_id)
+);
+
+-- 21. Semester <-> Subject Many-to-Many (within the department)
+CREATE TABLE IF NOT EXISTS semester_subjects (
+    semester_id UUID REFERENCES semesters(id) ON DELETE CASCADE,
+    subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE,
+    PRIMARY KEY (semester_id, subject_id)
+);
+
+-- 22. Semester <-> Teacher Many-to-Many
+CREATE TABLE IF NOT EXISTS semester_teachers (
+    semester_id UUID REFERENCES semesters(id) ON DELETE CASCADE,
+    teacher_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (semester_id, teacher_id)
+);
+
+-- Note: Students have a Many-to-One relationship with Semester (not directly to Department)
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS semester_id UUID REFERENCES semesters(id) ON DELETE SET NULL;

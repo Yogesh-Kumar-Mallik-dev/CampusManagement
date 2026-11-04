@@ -85,6 +85,7 @@ func main() {
 
 	userHandler := handler.NewUserHandler(idService, permService)
 	academicHandler := handler.NewAcademicHandler(academicService)
+	departmentHandler := handler.NewDepartmentHandler(academicService, userHandler.FindUser, userHandler.ListTeachers)
 	authHandler := handler.NewAuthHandler(permService)
 
 	// 4. Define HTTP Routes
@@ -127,6 +128,13 @@ func main() {
 	mux.HandleFunc("/api/v1/attendance/optical/roster", academicHandler.GetOpticalSessionRoster)
 	mux.HandleFunc("/api/v1/attendance/optical/end", academicHandler.EndOpticalSession)
 	mux.HandleFunc("/api/v1/notices", academicHandler.HandleNotices)
+
+	// Departments & Academic Hierarchy (M:N and N:1)
+	mux.HandleFunc("/api/v1/departments", departmentHandler.HandleDepartments)
+	mux.HandleFunc("/api/v1/academics/programs", departmentHandler.HandlePrograms)
+	mux.HandleFunc("/api/v1/academics/subjects", departmentHandler.HandleSubjects)
+	mux.HandleFunc("/api/v1/academics/semesters", departmentHandler.HandleSemesters)
+	mux.HandleFunc("/api/v1/academics/teachers", departmentHandler.HandleTeachers)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
 	mux.HandleFunc("/api/v1/sync", academicHandler.DeltaSync)
@@ -382,4 +390,117 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		Priority:        "normal",
 		TargetScopeCode: "sec:cse-3a",
 	})
+
+	// 4. Seed Academic Programs (Overarching degree courses)
+	_, _ = svc.CreateProgram(ctx, model.Program{
+		Code:           "BTECH-CSE",
+		Name:           "B.Tech in Computer Science & Engineering",
+		DegreeLevel:    "undergraduate",
+		TotalSemesters: 8,
+	})
+	_, _ = svc.CreateProgram(ctx, model.Program{
+		Code:           "BTECH-ECE",
+		Name:           "B.Tech in Electronics & Communication",
+		DegreeLevel:    "undergraduate",
+		TotalSemesters: 8,
+	})
+	_, _ = svc.CreateProgram(ctx, model.Program{
+		Code:           "BTECH-MECH",
+		Name:           "B.Tech in Mechanical Engineering",
+		DegreeLevel:    "undergraduate",
+		TotalSemesters: 8,
+	})
+
+	// 5. Seed Catalog Subjects
+	_, _ = svc.CreateSubject(ctx, model.Subject{
+		Code:    "CS301",
+		Name:    "Operating Systems",
+		Credits: 4,
+	})
+	_, _ = svc.CreateSubject(ctx, model.Subject{
+		Code:    "CS302",
+		Name:    "Database Management Systems",
+		Credits: 4,
+	})
+	_, _ = svc.CreateSubject(ctx, model.Subject{
+		Code:    "CS303",
+		Name:    "Design & Analysis of Algorithms",
+		Credits: 4,
+	})
+	_, _ = svc.CreateSubject(ctx, model.Subject{
+		Code:    "MA101",
+		Name:    "Discrete Mathematics",
+		Credits: 3,
+	})
+	_, _ = svc.CreateSubject(ctx, model.Subject{
+		Code:    "EC201",
+		Name:    "Signals & Systems",
+		Credits: 4,
+	})
+
+	// 6. Seed Program Semesters
+	_, _ = svc.CreateSemester(ctx, model.Semester{
+		ProgramCode:    "BTECH-CSE",
+		ProgramName:    "B.Tech in Computer Science & Engineering",
+		SemesterNumber: 5,
+		AcademicYear:   "2025-2026",
+		Section:        "3A",
+		DisplayName:    "B.Tech CSE - Semester 5 (Sec 3A)",
+		SubjectIDs:     []string{"subj-cs301", "subj-cs302", "subj-cs303"},
+		TeacherIDs:     []string{"usr-priya_2024_emp_1"},
+	})
+	_, _ = svc.CreateSemester(ctx, model.Semester{
+		ProgramCode:    "BTECH-CSE",
+		ProgramName:    "B.Tech in Computer Science & Engineering",
+		SemesterNumber: 3,
+		AcademicYear:   "2025-2026",
+		Section:        "2A",
+		DisplayName:    "B.Tech CSE - Semester 3 (Sec 2A)",
+		SubjectIDs:     []string{"subj-ma101"},
+		TeacherIDs:     []string{"usr-priya_2024_emp_1"},
+	})
+	_, _ = svc.CreateSemester(ctx, model.Semester{
+		ProgramCode:    "BTECH-ECE",
+		ProgramName:    "B.Tech in Electronics & Communication",
+		SemesterNumber: 5,
+		AcademicYear:   "2025-2026",
+		Section:        "1A",
+		DisplayName:    "B.Tech ECE - Semester 5 (Sec 1A)",
+		SubjectIDs:     []string{"subj-ec201", "subj-ma101"},
+		TeacherIDs:     []string{"usr-priya_2024_emp_1"},
+	})
+
+	// 7. Seed Departments (with M:N relations)
+	hodID := "usr-priya_2024_emp_1"
+	_, _ = svc.CreateDepartment(ctx, model.CreateDepartmentRequest{
+		Code:        "CSE",
+		Name:        "Department of Computer Science & Engineering",
+		Description: "Advancing computing frontiers through cutting-edge systems, AI, and cybersecurity research.",
+		HODID:       &hodID,
+		SubjectIDs:  []string{"subj-cs301", "subj-cs302", "subj-cs303", "subj-ma101"},
+		TeacherIDs:  []string{"usr-priya_2024_emp_1"},
+		SemesterIDs: []string{"sem-btech-cse-5-3a", "sem-btech-cse-3-2a"},
+	})
+
+	_, _ = svc.CreateDepartment(ctx, model.CreateDepartmentRequest{
+		Code:        "ECE",
+		Name:        "Department of Electronics & Communication",
+		Description: "Leading innovations in embedded robotics, VLSI architectures, and RF communication.",
+		HODID:       &hodID,
+		SubjectIDs:  []string{"subj-ec201", "subj-ma101"},
+		TeacherIDs:  []string{"usr-priya_2024_emp_1"},
+		SemesterIDs: []string{"sem-btech-ece-5-1a"},
+	})
+
+	_, _ = svc.CreateDepartment(ctx, model.CreateDepartmentRequest{
+		Code:        "MATH",
+		Name:        "Department of Mathematics & Computing",
+		Description: "Theoretical foundational sciences, numerical computing, and applied mathematical statistics.",
+		SubjectIDs:  []string{"subj-ma101"},
+		TeacherIDs:  []string{"usr-priya_2024_emp_1"},
+		SemesterIDs: []string{"sem-btech-cse-3-2a"},
+	})
+
+	// 8. Enroll Student Harish into Semester 5 (Many-to-One enrollment)
+	_ = svc.AssignStudentToSemester(ctx, "usr-harish_2025_l_btech_1", "sem-btech-cse-5-3a")
 }

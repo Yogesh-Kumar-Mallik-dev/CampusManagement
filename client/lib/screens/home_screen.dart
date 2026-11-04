@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_logo.dart';
 import 'attendance_screen.dart';
+import 'department_management_screen.dart';
 import 'notices_screen.dart';
 import 'timetable_screen.dart';
 import 'user_management_screen.dart';
@@ -99,6 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
         userScopes: _currentUser.activeScopes,
       ),
       UserManagementScreen(
+        storage: widget.storage,
+        currentUser: _currentUser,
+      ),
+      DepartmentManagementScreen(
         storage: widget.storage,
         currentUser: _currentUser,
       ),
@@ -302,6 +307,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
                   ),
                   label: 'Directory',
+                ),
+                BottomNavigationBarItem(
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.building),
+                  activeIcon: AppSvgIcon(
+                    svgString: AppSvgIcon.building,
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                  ),
+                  label: 'Departments',
                 ),
               ],
             ),
@@ -517,6 +530,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: AppColors.wineRed,
                   onTap: () => setState(() => _currentIndex = 4),
                 ),
+                _buildOperationCard(
+                  title: 'Departments & Academics',
+                  subtitle: 'M:N subjects, teachers, and semesters',
+                  iconSvg: AppSvgIcon.building,
+                  color: const Color(0xFF0969DA),
+                  onTap: () => setState(() => _currentIndex = 5),
+                ),
               ];
 
               if (isWide) {
@@ -634,6 +654,7 @@ class _CampusSidebar extends StatelessWidget {
       (svg: AppSvgIcon.attendance, label: 'Attendance'),
       (svg: AppSvgIcon.bell, label: 'Notices'),
       (svg: AppSvgIcon.user, label: 'Directory'),
+      (svg: AppSvgIcon.building, label: 'Depts'),
     ];
 
     return Container(

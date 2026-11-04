@@ -226,4 +226,94 @@ void main() {
     // Verify returning to Classroom Attendance overview
     expect(find.text('Classroom Attendance'), findsOneWidget);
   });
+
+  testWidgets('Department management flow: Admin adds department with M:N subjects, teachers, and program semesters',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(CampusManagementApp(storage: storage));
+    await tester.pump();
+
+    // Login as Faculty / Admin
+    await tester.tap(find.text('Faculty'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // 1. Navigate to Departments tab via sidebar
+    await tester.tap(find.text('Depts').first);
+    await tester.pumpAndSettle();
+
+    // 2. Verify Departments screen header and metrics
+    expect(find.text('Academic Departments & Structure'), findsOneWidget);
+    expect(find.text('Add Department'), findsOneWidget);
+    expect(find.text('CSE'), findsWidgets);
+    expect(find.text('ECE'), findsWidgets);
+    expect(find.text('MATH'), findsWidgets);
+
+    // 3. Open Add Department dialog
+    await tester.tap(find.text('Add Department'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Academic Department'), findsOneWidget);
+    expect(find.text('Associated Subjects (Many-to-Many)'), findsOneWidget);
+    expect(find.text('Affiliated Teachers / Faculty (Many-to-Many)'), findsOneWidget);
+    expect(find.text('Program Semesters (Many-to-Many)'), findsOneWidget);
+
+    // Enter department details
+    await tester.enterText(find.widgetWithText(TextFormField, 'e.g. CSE'), 'AI');
+    await tester.enterText(find.widgetWithText(TextFormField, 'e.g. Computer Science & Engineering'), 'Department of Artificial Intelligence');
+
+    // Toggle a subject chip, teacher chip, and semester chip
+    await tester.ensureVisible(find.widgetWithText(FilterChip, 'CS301 - Operating Systems'));
+    await tester.tap(find.widgetWithText(FilterChip, 'CS301 - Operating Systems'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.widgetWithText(FilterChip, 'Dr. Priya Nair'));
+    await tester.tap(find.widgetWithText(FilterChip, 'Dr. Priya Nair'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.widgetWithText(FilterChip, 'B.Tech CSE - Semester 5 (Sec 3A)'));
+    await tester.tap(find.widgetWithText(FilterChip, 'B.Tech CSE - Semester 5 (Sec 3A)'));
+    await tester.pumpAndSettle();
+
+    // Submit dialog
+    await tester.ensureVisible(find.text('Create Department'));
+    await tester.tap(find.text('Create Department'));
+    await tester.pumpAndSettle();
+
+    // 4. Verify created department appears
+    expect(find.text('AI'), findsWidgets);
+    expect(find.text('Department of Artificial Intelligence'), findsOneWidget);
+
+    // 5. Open Department Hierarchy & Details inspector
+    final inspectBtn = find.text('View Hierarchy & Details').first;
+    await tester.ensureVisible(inspectBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(inspectBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(Tab, 'Subjects (1)'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Teachers (1)'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Semesters (1)'), findsOneWidget);
+
+    // Switch to Semesters tab
+    await tester.tap(find.widgetWithText(Tab, 'Semesters (1)'));
+    await tester.pumpAndSettle();
+
+    // Inspect Semester Roster
+    final rosterBtn = find.text('Inspect Roster').first;
+    await tester.ensureVisible(rosterBtn);
+    await tester.tap(rosterBtn);
+    await tester.pumpAndSettle();
+
+    // Verify institutional note on Many-to-One student relationship
+    expect(find.textContaining('Students enroll in their active Semester cohort (Many-to-One)'), findsOneWidget);
+    expect(find.textContaining('Enrolled Student Roster'), findsOneWidget);
+
+    // Close Dialogs
+    await tester.tap(find.byType(IconButton).last);
+    await tester.pumpAndSettle();
+  });
 }

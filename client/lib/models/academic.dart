@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'user.dart';
 
 class CourseModel {
   final String id;
@@ -443,6 +444,245 @@ class OpticalVerificationResult {
       handle: json['campus_handle'] ?? '',
       sequence: json['sequence'] ?? 0,
       recordedAt: DateTime.tryParse(json['recorded_at'] ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+
+// -----------------------------------------------------------------------------
+// DEPARTMENTS & ACADEMIC HIERARCHY (M:N and N:1)
+// -----------------------------------------------------------------------------
+
+class DepartmentModel {
+  final String id;
+  final String code;
+  final String name;
+  final String description;
+  final String? hodId;
+  final String? hodName;
+  final List<String> subjectIds;
+  final List<String> teacherIds;
+  final List<String> semesterIds;
+  final int subjectCount;
+  final int teacherCount;
+  final int semesterCount;
+
+  DepartmentModel({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.description,
+    this.hodId,
+    this.hodName,
+    this.subjectIds = const [],
+    this.teacherIds = const [],
+    this.semesterIds = const [],
+    this.subjectCount = 0,
+    this.teacherCount = 0,
+    this.semesterCount = 0,
+  });
+
+  factory DepartmentModel.fromJson(Map<String, dynamic> json) {
+    return DepartmentModel(
+      id: json['id'] ?? '',
+      code: json['code'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      hodId: json['hod_id'],
+      hodName: json['hod_name'],
+      subjectIds: (json['subject_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      teacherIds: (json['teacher_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      semesterIds: (json['semester_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      subjectCount: json['subject_count'] ?? 0,
+      teacherCount: json['teacher_count'] ?? 0,
+      semesterCount: json['semester_count'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'code': code,
+        'name': name,
+        'description': description,
+        if (hodId != null) 'hod_id': hodId,
+        if (hodName != null) 'hod_name': hodName,
+        'subject_ids': subjectIds,
+        'teacher_ids': teacherIds,
+        'semester_ids': semesterIds,
+        'subject_count': subjectCount,
+        'teacher_count': teacherCount,
+        'semester_count': semesterCount,
+      };
+}
+
+class ProgramModel {
+  final String id;
+  final String code;
+  final String name;
+  final String degreeLevel;
+  final int totalSemesters;
+
+  ProgramModel({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.degreeLevel,
+    required this.totalSemesters,
+  });
+
+  factory ProgramModel.fromJson(Map<String, dynamic> json) {
+    return ProgramModel(
+      id: json['id'] ?? '',
+      code: json['code'] ?? '',
+      name: json['name'] ?? '',
+      degreeLevel: json['degree_level'] ?? 'undergraduate',
+      totalSemesters: json['total_semesters'] ?? 8,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'code': code,
+        'name': name,
+        'degree_level': degreeLevel,
+        'total_semesters': totalSemesters,
+      };
+}
+
+class SubjectModel {
+  final String id;
+  final String code;
+  final String name;
+  final int credits;
+  final List<String> departmentIds;
+
+  SubjectModel({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.credits,
+    this.departmentIds = const [],
+  });
+
+  factory SubjectModel.fromJson(Map<String, dynamic> json) {
+    return SubjectModel(
+      id: json['id'] ?? '',
+      code: json['code'] ?? '',
+      name: json['name'] ?? '',
+      credits: json['credits'] ?? 3,
+      departmentIds: (json['department_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'code': code,
+        'name': name,
+        'credits': credits,
+        'department_ids': departmentIds,
+      };
+}
+
+class SemesterModel {
+  final String id;
+  final String programId;
+  final String programCode;
+  final String programName;
+  final int semesterNumber;
+  final String academicYear;
+  final String section;
+  final String displayName;
+  final List<String> subjectIds;
+  final List<String> teacherIds;
+  final int studentCount;
+
+  SemesterModel({
+    required this.id,
+    required this.programId,
+    required this.programCode,
+    required this.programName,
+    required this.semesterNumber,
+    required this.academicYear,
+    required this.section,
+    required this.displayName,
+    this.subjectIds = const [],
+    this.teacherIds = const [],
+    this.studentCount = 0,
+  });
+
+  factory SemesterModel.fromJson(Map<String, dynamic> json) {
+    return SemesterModel(
+      id: json['id'] ?? '',
+      programId: json['program_id'] ?? '',
+      programCode: json['program_code'] ?? '',
+      programName: json['program_name'] ?? '',
+      semesterNumber: json['semester_number'] ?? 1,
+      academicYear: json['academic_year'] ?? '',
+      section: json['section'] ?? '',
+      displayName: json['display_name'] ?? '',
+      subjectIds: (json['subject_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      teacherIds: (json['teacher_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      studentCount: json['student_count'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'program_id': programId,
+        'program_code': programCode,
+        'program_name': programName,
+        'semester_number': semesterNumber,
+        'academic_year': academicYear,
+        'section': section,
+        'display_name': displayName,
+        'subject_ids': subjectIds,
+        'teacher_ids': teacherIds,
+        'student_count': studentCount,
+      };
+}
+
+class DepartmentDetailModel {
+  final DepartmentModel department;
+  final List<SubjectModel> subjects;
+  final List<UserModel> teachers;
+  final List<SemesterModel> semesters;
+
+  DepartmentDetailModel({
+    required this.department,
+    required this.subjects,
+    required this.teachers,
+    required this.semesters,
+  });
+
+  factory DepartmentDetailModel.fromJson(Map<String, dynamic> json) {
+    return DepartmentDetailModel(
+      department: DepartmentModel.fromJson(json['department'] ?? {}),
+      subjects: (json['subjects'] as List?)?.map((e) => SubjectModel.fromJson(e)).toList() ?? [],
+      teachers: (json['teachers'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? [],
+      semesters: (json['semesters'] as List?)?.map((e) => SemesterModel.fromJson(e)).toList() ?? [],
+    );
+  }
+}
+
+class SemesterDetailModel {
+  final SemesterModel semester;
+  final List<SubjectModel> subjects;
+  final List<UserModel> teachers;
+  final List<UserModel> students;
+
+  SemesterDetailModel({
+    required this.semester,
+    required this.subjects,
+    required this.teachers,
+    required this.students,
+  });
+
+  factory SemesterDetailModel.fromJson(Map<String, dynamic> json) {
+    return SemesterDetailModel(
+      semester: SemesterModel.fromJson(json['semester'] ?? {}),
+      subjects: (json['subjects'] as List?)?.map((e) => SubjectModel.fromJson(e)).toList() ?? [],
+      teachers: (json['teachers'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? [],
+      students: (json['students'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? [],
     );
   }
 }

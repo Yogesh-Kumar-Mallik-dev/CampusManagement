@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,18 @@ type AcademicService struct {
 	// Optical Data Transfer Attendance state
 	opticalSessions    map[string]*model.OpticalAttendanceSession
 	verifiedBySession  map[string]map[string]bool // sessionID -> studentID -> true
+
+	// Departments & Academic Hierarchy (M:N and N:1)
+	departments   map[string]model.Department
+	programs      map[string]model.Program
+	semesters     map[string]model.Semester
+	subjects      map[string]model.Subject
+	deptSubjects  map[string]map[string]bool // deptID -> subjectID -> true
+	deptTeachers  map[string]map[string]bool // deptID -> teacherID -> true
+	deptSemesters map[string]map[string]bool // deptID -> semesterID -> true
+	semSubjects   map[string]map[string]bool // semesterID -> subjectID -> true
+	semTeachers   map[string]map[string]bool // semesterID -> teacherID -> true
+	semStudents   map[string]map[string]bool // semesterID -> studentID -> true
 }
 
 func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permService *PermissionService) *AcademicService {
@@ -46,6 +59,16 @@ func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permSer
 		notices:            make(map[string]model.Notice),
 		opticalSessions:    make(map[string]*model.OpticalAttendanceSession),
 		verifiedBySession:  make(map[string]map[string]bool),
+		departments:        make(map[string]model.Department),
+		programs:           make(map[string]model.Program),
+		semesters:          make(map[string]model.Semester),
+		subjects:           make(map[string]model.Subject),
+		deptSubjects:       make(map[string]map[string]bool),
+		deptTeachers:       make(map[string]map[string]bool),
+		deptSemesters:      make(map[string]map[string]bool),
+		semSubjects:        make(map[string]map[string]bool),
+		semTeachers:        make(map[string]map[string]bool),
+		semStudents:        make(map[string]map[string]bool),
 	}
 }
 
@@ -520,4 +543,318 @@ func (s *AcademicService) EndOpticalSession(ctx context.Context, sessionID strin
 	}
 
 	return nil, nil
+}
+
+
+// ----------------------------------------------------
+// DEPARTMENTS & ACADEMIC HIERARCHY (M:N and N:1)
+// ----------------------------------------------------
+
+func (s *AcademicService) CreateDepartment(ctx context.Context, req model.CreateDepartmentRequest) (model.Department, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	code := strings.ToUpper(strings.TrimSpace(req.Code))
+	if code == "" {
+		return model.Department{}, fmt.Errorf("department code is required")
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return model.Department{}, fmt.Errorf("department name is required")
+	}
+
+	deptID := fmt.Sprintf("dept-%s", strings.ToLower(code))
+	now := time.Now().UTC()
+
+	dept := model.Department{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        deptID,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		Code:        code,
+		Name:        name,
+		Description: req.Description,
+		HODID:       req.HODID,
+		SubjectIDs:  req.SubjectIDs,
+		TeacherIDs:  req.TeacherIDs,
+		SemesterIDs: req.SemesterIDs,
+	}
+
+	// Register M:N Subject relations
+	if s.deptSubjects[deptID] == nil {
+		s.deptSubjects[deptID] = make(map[string]bool)
+	}
+	for _, subID := range req.SubjectIDs {
+		s.deptSubjects[deptID][subID] = true
+		if sub, ok := s.subjects[subID]; ok {
+			sub.DepartmentIDs = appendUnique(sub.DepartmentIDs, deptID)
+			s.subjects[subID] = sub
+		}
+	}
+
+	// Register M:N Teacher relations
+	if s.deptTeachers[deptID] == nil {
+		s.deptTeachers[deptID] = make(map[string]bool)
+	}
+	for _, tID := range req.TeacherIDs {
+		s.deptTeachers[deptID][tID] = true
+	}
+
+	// Register M:N Program Semester relations
+	if s.deptSemesters[deptID] == nil {
+		s.deptSemesters[deptID] = make(map[string]bool)
+	}
+	for _, semID := range req.SemesterIDs {
+		s.deptSemesters[deptID][semID] = true
+	}
+
+	dept.SubjectCount = len(s.deptSubjects[deptID])
+	dept.TeacherCount = len(s.deptTeachers[deptID])
+	dept.SemesterCount = len(s.deptSemesters[deptID])
+
+	s.departments[deptID] = dept
+	return dept, nil
+}
+
+func (s *AcademicService) ListDepartments(ctx context.Context) ([]model.Department, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []model.Department
+	for _, d := range s.departments {
+		if !d.IsDeleted {
+			d.SubjectCount = len(s.deptSubjects[d.ID])
+			d.TeacherCount = len(s.deptTeachers[d.ID])
+			d.SemesterCount = len(s.deptSemesters[d.ID])
+			result = append(result, d)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
+	return result, nil
+}
+
+func (s *AcademicService) GetDepartmentDetail(ctx context.Context, deptID string, userResolver func(id string) (model.User, bool)) (model.DepartmentDetail, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	dept, ok := s.departments[deptID]
+	if !ok || dept.IsDeleted {
+		return model.DepartmentDetail{}, fmt.Errorf("department not found")
+	}
+
+	var subjects []model.Subject
+	for subID := range s.deptSubjects[deptID] {
+		if sub, found := s.subjects[subID]; found && !sub.IsDeleted {
+			subjects = append(subjects, sub)
+		}
+	}
+	sort.Slice(subjects, func(i, j int) bool { return subjects[i].Code < subjects[j].Code })
+
+	var teachers []model.User
+	for tID := range s.deptTeachers[deptID] {
+		if userResolver != nil {
+			if u, found := userResolver(tID); found && !u.IsDeleted {
+				teachers = append(teachers, u)
+			}
+		}
+	}
+	sort.Slice(teachers, func(i, j int) bool { return teachers[i].LastName < teachers[j].LastName })
+
+	var semesters []model.Semester
+	for semID := range s.deptSemesters[deptID] {
+		if sem, found := s.semesters[semID]; found && !sem.IsDeleted {
+			sem.StudentCount = len(s.semStudents[sem.ID])
+			semesters = append(semesters, sem)
+		}
+	}
+	sort.Slice(semesters, func(i, j int) bool { return semesters[i].SemesterNumber < semesters[j].SemesterNumber })
+
+	dept.SubjectCount = len(subjects)
+	dept.TeacherCount = len(teachers)
+	dept.SemesterCount = len(semesters)
+
+	return model.DepartmentDetail{
+		Department: dept,
+		Subjects:   subjects,
+		Teachers:   teachers,
+		Semesters:  semesters,
+	}, nil
+}
+
+// ----------------------------------------------------
+// PROGRAMS, SEMESTERS & SUBJECTS
+// ----------------------------------------------------
+
+func (s *AcademicService) CreateProgram(ctx context.Context, p model.Program) (model.Program, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UTC()
+	if p.ID == "" {
+		p.ID = fmt.Sprintf("prog-%s", strings.ToLower(p.Code))
+	}
+	p.CreatedAt = now
+	p.UpdatedAt = now
+	s.programs[p.ID] = p
+	return p, nil
+}
+
+func (s *AcademicService) ListPrograms(ctx context.Context) ([]model.Program, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []model.Program
+	for _, p := range s.programs {
+		if !p.IsDeleted {
+			result = append(result, p)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
+	return result, nil
+}
+
+func (s *AcademicService) CreateSubject(ctx context.Context, sub model.Subject) (model.Subject, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UTC()
+	if sub.ID == "" {
+		sub.ID = fmt.Sprintf("subj-%s", strings.ToLower(sub.Code))
+	}
+	sub.CreatedAt = now
+	sub.UpdatedAt = now
+	s.subjects[sub.ID] = sub
+	return sub, nil
+}
+
+func (s *AcademicService) ListSubjects(ctx context.Context) ([]model.Subject, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []model.Subject
+	for _, sub := range s.subjects {
+		if !sub.IsDeleted {
+			result = append(result, sub)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
+	return result, nil
+}
+
+func (s *AcademicService) CreateSemester(ctx context.Context, sem model.Semester) (model.Semester, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UTC()
+	if sem.ID == "" {
+		sem.ID = fmt.Sprintf("sem-%s-%d-%s", strings.ToLower(sem.ProgramCode), sem.SemesterNumber, strings.ToLower(sem.Section))
+	}
+	sem.CreatedAt = now
+	sem.UpdatedAt = now
+	s.semesters[sem.ID] = sem
+
+	// Register M:N subjects within this semester
+	if s.semSubjects[sem.ID] == nil {
+		s.semSubjects[sem.ID] = make(map[string]bool)
+	}
+	for _, subID := range sem.SubjectIDs {
+		s.semSubjects[sem.ID][subID] = true
+	}
+
+	// Register M:N teachers in this semester
+	if s.semTeachers[sem.ID] == nil {
+		s.semTeachers[sem.ID] = make(map[string]bool)
+	}
+	for _, tID := range sem.TeacherIDs {
+		s.semTeachers[sem.ID][tID] = true
+	}
+
+	return sem, nil
+}
+
+func (s *AcademicService) ListSemesters(ctx context.Context) ([]model.Semester, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []model.Semester
+	for _, sem := range s.semesters {
+		if !sem.IsDeleted {
+			sem.StudentCount = len(s.semStudents[sem.ID])
+			result = append(result, sem)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].DisplayName < result[j].DisplayName })
+	return result, nil
+}
+
+func (s *AcademicService) GetSemesterDetail(ctx context.Context, semID string, userResolver func(id string) (model.User, bool)) (model.SemesterDetail, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	sem, ok := s.semesters[semID]
+	if !ok || sem.IsDeleted {
+		return model.SemesterDetail{}, fmt.Errorf("semester not found")
+	}
+
+	var subjects []model.Subject
+	for subID := range s.semSubjects[semID] {
+		if sub, found := s.subjects[subID]; found && !sub.IsDeleted {
+			subjects = append(subjects, sub)
+		}
+	}
+	sort.Slice(subjects, func(i, j int) bool { return subjects[i].Code < subjects[j].Code })
+
+	var teachers []model.User
+	for tID := range s.semTeachers[semID] {
+		if userResolver != nil {
+			if u, found := userResolver(tID); found && !u.IsDeleted {
+				teachers = append(teachers, u)
+			}
+		}
+	}
+	sort.Slice(teachers, func(i, j int) bool { return teachers[i].LastName < teachers[j].LastName })
+
+	var students []model.User
+	for sID := range s.semStudents[semID] {
+		if userResolver != nil {
+			if u, found := userResolver(sID); found && !u.IsDeleted {
+				students = append(students, u)
+			}
+		}
+	}
+	sort.Slice(students, func(i, j int) bool { return students[i].CampusHandle < students[j].CampusHandle })
+
+	sem.StudentCount = len(students)
+	return model.SemesterDetail{
+		Semester: sem,
+		Subjects: subjects,
+		Teachers: teachers,
+		Students: students,
+	}, nil
+}
+
+func (s *AcademicService) AssignStudentToSemester(ctx context.Context, studentID, semesterID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Clear student from any prior semester (Many-to-one strictly enforces 1 semester cohort per student)
+	for _, studentMap := range s.semStudents {
+		delete(studentMap, studentID)
+	}
+
+	if s.semStudents[semesterID] == nil {
+		s.semStudents[semesterID] = make(map[string]bool)
+	}
+	s.semStudents[semesterID][studentID] = true
+	return nil
+}
+
+func appendUnique(slice []string, val string) []string {
+	for _, item := range slice {
+		if item == val {
+			return slice
+		}
+	}
+	return append(slice, val)
 }

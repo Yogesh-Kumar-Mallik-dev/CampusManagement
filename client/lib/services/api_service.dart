@@ -299,4 +299,81 @@ class ApiService {
       throw Exception('Failed to conclude optical session');
     }
   }
+
+  // ----------------------------------------------------
+  // DEPARTMENTS & ACADEMIC HIERARCHY
+  // ----------------------------------------------------
+
+  Future<List<DepartmentModel>> fetchDepartments() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/departments'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => DepartmentModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch departments (${res.statusCode})');
+  }
+
+  Future<DepartmentModel> createDepartment(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/departments'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      return DepartmentModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create department: ${res.body}');
+  }
+
+  Future<DepartmentDetailModel> fetchDepartmentDetail(String id) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/departments?id=$id'));
+    if (res.statusCode == 200) {
+      return DepartmentDetailModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to fetch department detail (${res.statusCode})');
+  }
+
+  Future<List<ProgramModel>> fetchPrograms() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/programs'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => ProgramModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch programs (${res.statusCode})');
+  }
+
+  Future<List<SubjectModel>> fetchSubjects() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/subjects'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => SubjectModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch subjects (${res.statusCode})');
+  }
+
+  Future<List<SemesterModel>> fetchSemesters() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/semesters'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => SemesterModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch semesters (${res.statusCode})');
+  }
+
+  Future<SemesterDetailModel> fetchSemesterDetail(String id) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/semesters?id=$id'));
+    if (res.statusCode == 200) {
+      return SemesterDetailModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to fetch semester detail (${res.statusCode})');
+  }
+
+  Future<List<UserModel>> fetchTeachers() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/teachers'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => UserModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch teachers (${res.statusCode})');
+  }
 }

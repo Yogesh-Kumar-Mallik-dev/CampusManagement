@@ -14,6 +14,10 @@ class OfflineStorageService {
   final List<NoticeModel> _cachedNotices = [];
   final List<AttendanceSummaryModel> _cachedSummaries = [];
   final List<UserModel> _cachedUsers = [];
+  final List<DepartmentModel> _cachedDepartments = [];
+  final List<ProgramModel> _cachedPrograms = [];
+  final List<SubjectModel> _cachedSubjects = [];
+  final List<SemesterModel> _cachedSemesters = [];
 
   // Optical Attendance active session & live verified roster
   OpticalSessionModel? _activeOpticalSession;
@@ -93,7 +97,26 @@ class OfflineStorageService {
       List.unmodifiable(_cachedSummaries);
   List<AttendanceSessionModel> get attendanceOutbox =>
       List.unmodifiable(_attendanceOutbox);
-  List<UserModel> get cachedUsers => List.unmodifiable(_cachedUsers);
+  List<UserModel> get cachedUsers {
+    _seedDefaultUsersIfEmpty();
+    return List.unmodifiable(_cachedUsers);
+  }
+  List<DepartmentModel> get cachedDepartments {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    return List.unmodifiable(_cachedDepartments);
+  }
+  List<ProgramModel> get cachedPrograms {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    return List.unmodifiable(_cachedPrograms);
+  }
+  List<SubjectModel> get cachedSubjects {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    return List.unmodifiable(_cachedSubjects);
+  }
+  List<SemesterModel> get cachedSemesters {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    return List.unmodifiable(_cachedSemesters);
+  }
 
   void _seedDefaultUsersIfEmpty() {
     if (_cachedUsers.isNotEmpty) return;
@@ -769,5 +792,296 @@ class OfflineStorageService {
       } catch (_) {}
     }
     _activeOpticalSession = null;
+  }
+
+  // ----------------------------------------------------
+  // DEPARTMENTS & ACADEMIC HIERARCHY
+  // ----------------------------------------------------
+
+  void _seedDefaultAcademicHierarchyIfEmpty() {
+    if (_cachedDepartments.isNotEmpty) return;
+
+    // Seed sample programs
+    _cachedPrograms.addAll([
+      ProgramModel(
+        id: 'prog-btech-cse',
+        code: 'BTECH-CSE',
+        name: 'B.Tech in Computer Science & Engineering',
+        degreeLevel: 'undergraduate',
+        totalSemesters: 8,
+      ),
+      ProgramModel(
+        id: 'prog-btech-ece',
+        code: 'BTECH-ECE',
+        name: 'B.Tech in Electronics & Communication',
+        degreeLevel: 'undergraduate',
+        totalSemesters: 8,
+      ),
+      ProgramModel(
+        id: 'prog-btech-mech',
+        code: 'BTECH-MECH',
+        name: 'B.Tech in Mechanical Engineering',
+        degreeLevel: 'undergraduate',
+        totalSemesters: 8,
+      ),
+    ]);
+
+    // Seed sample subjects
+    _cachedSubjects.addAll([
+      SubjectModel(id: 'subj-cs301', code: 'CS301', name: 'Operating Systems', credits: 4, departmentIds: ['dept-cse']),
+      SubjectModel(id: 'subj-cs302', code: 'CS302', name: 'Database Management Systems', credits: 4, departmentIds: ['dept-cse']),
+      SubjectModel(id: 'subj-cs303', code: 'CS303', name: 'Design & Analysis of Algorithms', credits: 4, departmentIds: ['dept-cse']),
+      SubjectModel(id: 'subj-ma101', code: 'MA101', name: 'Discrete Mathematics', credits: 3, departmentIds: ['dept-cse', 'dept-math', 'dept-ece']),
+      SubjectModel(id: 'subj-ec201', code: 'EC201', name: 'Signals & Systems', credits: 4, departmentIds: ['dept-ece']),
+    ]);
+
+    // Seed sample program semesters
+    _cachedSemesters.addAll([
+      SemesterModel(
+        id: 'sem-btech-cse-5-3a',
+        programId: 'prog-btech-cse',
+        programCode: 'BTECH-CSE',
+        programName: 'B.Tech in Computer Science & Engineering',
+        semesterNumber: 5,
+        academicYear: '2025-2026',
+        section: '3A',
+        displayName: 'B.Tech CSE - Semester 5 (Sec 3A)',
+        subjectIds: ['subj-cs301', 'subj-cs302', 'subj-cs303'],
+        teacherIds: ['usr-priya_2024_emp_1'],
+        studentCount: 1,
+      ),
+      SemesterModel(
+        id: 'sem-btech-cse-3-2a',
+        programId: 'prog-btech-cse',
+        programCode: 'BTECH-CSE',
+        programName: 'B.Tech in Computer Science & Engineering',
+        semesterNumber: 3,
+        academicYear: '2025-2026',
+        section: '2A',
+        displayName: 'B.Tech CSE - Semester 3 (Sec 2A)',
+        subjectIds: ['subj-ma101'],
+        teacherIds: ['usr-priya_2024_emp_1'],
+        studentCount: 0,
+      ),
+      SemesterModel(
+        id: 'sem-btech-ece-5-1a',
+        programId: 'prog-btech-ece',
+        programCode: 'BTECH-ECE',
+        programName: 'B.Tech in Electronics & Communication',
+        semesterNumber: 5,
+        academicYear: '2025-2026',
+        section: '1A',
+        displayName: 'B.Tech ECE - Semester 5 (Sec 1A)',
+        subjectIds: ['subj-ec201', 'subj-ma101'],
+        teacherIds: ['usr-priya_2024_emp_1'],
+        studentCount: 0,
+      ),
+    ]);
+
+    // Seed default departments with M:N relations
+    _cachedDepartments.addAll([
+      DepartmentModel(
+        id: 'dept-cse',
+        code: 'CSE',
+        name: 'Department of Computer Science & Engineering',
+        description: 'Advancing computing frontiers through cutting-edge systems, AI, and cybersecurity research.',
+        hodId: 'usr-priya_2024_emp_1',
+        hodName: 'Dr. Priya Nair',
+        subjectIds: ['subj-cs301', 'subj-cs302', 'subj-cs303', 'subj-ma101'],
+        teacherIds: ['usr-priya_2024_emp_1'],
+        semesterIds: ['sem-btech-cse-5-3a', 'sem-btech-cse-3-2a'],
+        subjectCount: 4,
+        teacherCount: 1,
+        semesterCount: 2,
+      ),
+      DepartmentModel(
+        id: 'dept-ece',
+        code: 'ECE',
+        name: 'Department of Electronics & Communication',
+        description: 'Leading innovations in embedded robotics, VLSI architectures, and RF communication.',
+        hodId: 'usr-priya_2024_emp_1',
+        hodName: 'Dr. Priya Nair',
+        subjectIds: ['subj-ec201', 'subj-ma101'],
+        teacherIds: ['usr-priya_2024_emp_1'],
+        semesterIds: ['sem-btech-ece-5-1a'],
+        subjectCount: 2,
+        teacherCount: 1,
+        semesterCount: 1,
+      ),
+      DepartmentModel(
+        id: 'dept-math',
+        code: 'MATH',
+        name: 'Department of Mathematics & Computing',
+        description: 'Theoretical foundational sciences, numerical computing, and applied mathematical statistics.',
+        subjectIds: ['subj-ma101'],
+        teacherIds: ['usr-priya_2024_emp_1'],
+        semesterIds: ['sem-btech-cse-3-2a'],
+        subjectCount: 1,
+        teacherCount: 1,
+        semesterCount: 1,
+      ),
+    ]);
+  }
+
+  Future<List<DepartmentModel>> getDepartments({bool forceRefresh = false}) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline && (forceRefresh || _cachedDepartments.isEmpty)) {
+      try {
+        final list = await api.fetchDepartments();
+        _cachedDepartments
+          ..clear()
+          ..addAll(list);
+        return List<DepartmentModel>.from(_cachedDepartments);
+      } catch (_) {}
+    }
+    return List<DepartmentModel>.from(_cachedDepartments);
+  }
+
+  Future<DepartmentModel> addDepartment(Map<String, dynamic> payload) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final created = await api.createDepartment(payload);
+        _cachedDepartments.removeWhere((d) => d.id == created.id);
+        _cachedDepartments.insert(0, created);
+        return created;
+      } catch (_) {}
+    }
+
+    _seedDefaultAcademicHierarchyIfEmpty();
+    final code = (payload['code'] ?? '').toString().toUpperCase().trim();
+    final name = (payload['name'] ?? '').toString().trim();
+    final deptId = 'dept-${code.toLowerCase()}';
+    final subjectIds = (payload['subject_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final teacherIds = (payload['teacher_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final semesterIds = (payload['semester_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+
+    String? hodName;
+    final hodId = payload['hod_id'] as String?;
+    if (hodId != null) {
+      final user = _cachedUsers.cast<UserModel?>().firstWhere((u) => u?.id == hodId, orElse: () => null);
+      if (user != null) hodName = user.fullName;
+    }
+
+    final newDept = DepartmentModel(
+      id: deptId,
+      code: code,
+      name: name,
+      description: payload['description'] ?? '',
+      hodId: hodId,
+      hodName: hodName,
+      subjectIds: subjectIds,
+      teacherIds: teacherIds,
+      semesterIds: semesterIds,
+      subjectCount: subjectIds.length,
+      teacherCount: teacherIds.length,
+      semesterCount: semesterIds.length,
+    );
+
+    _cachedDepartments.removeWhere((d) => d.id == newDept.id);
+    _cachedDepartments.insert(0, newDept);
+    return newDept;
+  }
+
+  Future<DepartmentDetailModel> getDepartmentDetail(String id) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        return await api.fetchDepartmentDetail(id);
+      } catch (_) {}
+    }
+
+    final dept = _cachedDepartments.firstWhere(
+      (d) => d.id == id,
+      orElse: () => _cachedDepartments.first,
+    );
+
+    final subjects = _cachedSubjects.where((s) => dept.subjectIds.contains(s.id)).toList();
+    final teachers = _cachedUsers.where((u) => dept.teacherIds.contains(u.id)).toList();
+    final semesters = _cachedSemesters.where((sem) => dept.semesterIds.contains(sem.id)).toList();
+
+    return DepartmentDetailModel(
+      department: dept,
+      subjects: subjects,
+      teachers: teachers,
+      semesters: semesters,
+    );
+  }
+
+  Future<List<ProgramModel>> getPrograms() async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final list = await api.fetchPrograms();
+        _cachedPrograms
+          ..clear()
+          ..addAll(list);
+        return _cachedPrograms;
+      } catch (_) {}
+    }
+    return _cachedPrograms;
+  }
+
+  Future<List<SubjectModel>> getSubjects() async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final list = await api.fetchSubjects();
+        _cachedSubjects
+          ..clear()
+          ..addAll(list);
+        return _cachedSubjects;
+      } catch (_) {}
+    }
+    return _cachedSubjects;
+  }
+
+  Future<List<SemesterModel>> getSemesters() async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final list = await api.fetchSemesters();
+        _cachedSemesters
+          ..clear()
+          ..addAll(list);
+        return _cachedSemesters;
+      } catch (_) {}
+    }
+    return _cachedSemesters;
+  }
+
+  Future<SemesterDetailModel> getSemesterDetail(String id) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        return await api.fetchSemesterDetail(id);
+      } catch (_) {}
+    }
+
+    final sem = _cachedSemesters.firstWhere(
+      (s) => s.id == id,
+      orElse: () => _cachedSemesters.first,
+    );
+
+    final subjects = _cachedSubjects.where((s) => sem.subjectIds.contains(s.id)).toList();
+    final teachers = _cachedUsers.where((u) => sem.teacherIds.contains(u.id)).toList();
+    // Students enrolled in this semester (Many-to-one relationship)
+    final students = _cachedUsers.where((u) {
+      if (u.archetype != 'student') return false;
+      return sem.id == 'sem-btech-cse-5-3a'; // Student Harish enrolled here
+    }).toList();
+
+    return SemesterDetailModel(
+      semester: sem,
+      subjects: subjects,
+      teachers: teachers,
+      students: students,
+    );
   }
 }
