@@ -69,6 +69,17 @@ void main() {
     // Verify Login Screen is strictly non-scrollable (no SingleChildScrollView)
     expect(find.descendant(of: find.byType(LoginScreen), matching: find.byType(SingleChildScrollView)), findsNothing);
 
+    // Verify smooth theme switching without interpolation or layout overflow errors
+    final loginDarkToggle = find.byTooltip('Switch to Dark Mode');
+    expect(loginDarkToggle, findsOneWidget);
+    await tester.tap(loginDarkToggle);
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final loginLightToggle = find.byTooltip('Switch to Light Mode');
+    expect(loginLightToggle, findsOneWidget);
+    await tester.tap(loginLightToggle);
+    await tester.pump(const Duration(milliseconds: 350));
+
     // 2. Perform Login action
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -80,6 +91,17 @@ void main() {
     expect(find.text('Attendance'), findsWidgets);
     expect(find.text('Targeted Notices'), findsWidgets);
     expect(find.text('Directory & Identities'), findsOneWidget);
+
+    // Verify smooth theme toggle on home dashboard
+    final homeDarkToggle = find.byTooltip('Switch to Dark Mode');
+    expect(homeDarkToggle, findsOneWidget);
+    await tester.tap(homeDarkToggle);
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final homeLightToggle = find.byTooltip('Switch to Light Mode');
+    expect(homeLightToggle, findsOneWidget);
+    await tester.tap(homeLightToggle);
+    await tester.pump(const Duration(milliseconds: 350));
 
     // 4. Navigate to User Directory tab
     await tester.tap(find.text('Directory & Identities'));

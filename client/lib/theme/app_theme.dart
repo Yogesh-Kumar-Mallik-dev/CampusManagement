@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 class AppTheme {
+  // Global Theme Controller for smooth 60fps/120fps animated transitions
+  static final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(ThemeMode.light);
+
+  static void toggleTheme() {
+    themeModeNotifier.value =
+        themeModeNotifier.value == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+  }
+
   // Smooth 60fps/120fps Theme Transition Constants
   static const Duration themeAnimationDuration = Duration(milliseconds: 300);
   static const Curve themeAnimationCurve = Curves.easeInOutCubic;
@@ -57,7 +65,7 @@ class AppTheme {
           backgroundColor: AppColors.wineRed,
           foregroundColor: Colors.white,
           elevation: 0,
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          textStyle: const TextStyle(inherit: false, fontWeight: FontWeight.w600, fontSize: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
@@ -67,7 +75,7 @@ class AppTheme {
           foregroundColor: AppColors.wineRed,
           side: const BorderSide(color: AppColors.wineRed, width: 1),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          textStyle: const TextStyle(inherit: false, fontWeight: FontWeight.w600, fontSize: 14),
         ),
       ),
       chipTheme: ChipThemeData(
@@ -79,7 +87,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(6),
           side: const BorderSide(color: AppColors.lightBorder, width: 1),
         ),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(inherit: false, fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.lightTextPrimary),
       ),
       inputDecorationTheme: InputDecorationTheme(
         isDense: true,
@@ -196,9 +204,17 @@ class AppTheme {
           backgroundColor: AppColors.wineRed,
           foregroundColor: Colors.white,
           elevation: 0,
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          textStyle: const TextStyle(inherit: false, fontWeight: FontWeight.w600, fontSize: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.wineRedLight,
+          side: const BorderSide(color: AppColors.wineRedDarkBorder, width: 1),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          textStyle: const TextStyle(inherit: false, fontWeight: FontWeight.w600, fontSize: 14),
         ),
       ),
       chipTheme: ChipThemeData(
@@ -210,7 +226,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(6),
           side: const BorderSide(color: AppColors.darkBorder, width: 1),
         ),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(inherit: false, fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
       ),
       inputDecorationTheme: InputDecorationTheme(
         isDense: true,
