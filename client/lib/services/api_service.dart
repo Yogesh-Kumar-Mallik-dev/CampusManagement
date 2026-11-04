@@ -1,11 +1,45 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/academic.dart';
+import '../models/user.dart';
 
 class ApiService {
   final String baseUrl;
 
   ApiService({this.baseUrl = 'http://localhost:8080'});
+
+  Future<UserModel> login(String identifier, String password) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'identifier': identifier,
+            'password': password,
+          }),
+        )
+        .timeout(const Duration(seconds: 4));
+
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      final userMap = data['user'] as Map<String, dynamic>;
+      final scopes = (data['scopes'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          ['global'];
+
+      return UserModel(
+        id: userMap['id'] ?? 'usr-$identifier',
+        campusHandle: userMap['campus_handle'] ?? identifier,
+        firstName: userMap['first_name'] ?? 'Campus',
+        lastName: userMap['last_name'] ?? 'User',
+        email: userMap['email'] ?? '$identifier@campus.edu',
+        archetype: userMap['archetype'] ?? 'student',
+        activeScopes: scopes,
+      );
+    }
+    throw Exception('Authentication failed (${res.statusCode})');
+  }
 
   Future<bool> checkHealth() async {
     try {

@@ -1,11 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_client/main.dart';
+import 'package:campus_client/screens/home_screen.dart';
+import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
 import 'package:campus_client/widgets/app_logo.dart';
 
 void main() {
-  testWidgets('Campus app renders home dashboard with logo and navigation',
+  testWidgets('Campus app renders login screen and logs in to home dashboard',
       (WidgetTester tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);
@@ -13,8 +15,22 @@ void main() {
     await tester.pumpWidget(CampusManagementApp(storage: storage));
     await tester.pump();
 
-    // Verify high-definition logo and dashboard cards render
+    // 1. Verify Login Screen renders with high-definition logo, no signup, and quick persona shortcuts
+    expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.byType(AppLogo), findsOneWidget);
+    expect(find.text('Institutional Sign In'), findsOneWidget);
+    expect(find.text('Campus Handle or Email'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
+    expect(find.text('Sign In'), findsOneWidget);
+    expect(find.text('Student'), findsOneWidget);
+    expect(find.text('Faculty'), findsOneWidget);
+
+    // 2. Perform Login action
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // 3. Verify transition to Home Dashboard
+    expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.text('Academic Operations'), findsOneWidget);
     expect(find.text('Timetable'), findsWidgets);
     expect(find.text('Attendance'), findsWidgets);

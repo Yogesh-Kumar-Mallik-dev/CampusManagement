@@ -12,8 +12,15 @@ import 'timetable_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final OfflineStorageService storage;
+  final UserModel? currentUser;
+  final VoidCallback? onLogout;
 
-  const HomeScreen({super.key, required this.storage});
+  const HomeScreen({
+    super.key,
+    required this.storage,
+    this.currentUser,
+    this.onLogout,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -57,7 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
         activeScopes: ['global', 'unit:security', 'facility:gate-1'],
       ),
     ];
-    _currentUser = _personas.first;
+    final initial = widget.currentUser ?? _personas.first;
+    if (!_personas.contains(initial)) {
+      _personas.insert(0, initial);
+    }
+    _currentUser = _personas.firstWhere((p) => p == initial);
     _checkServer();
   }
 
@@ -207,6 +218,17 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
+          if (widget.onLogout != null) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Sign Out (${_currentUser.campusHandle})',
+              icon: const Icon(Icons.logout, size: 18),
+              onPressed: () {
+                widget.storage.logout();
+                widget.onLogout!();
+              },
+            ),
+          ],
           const SizedBox(width: 16),
         ],
       ),

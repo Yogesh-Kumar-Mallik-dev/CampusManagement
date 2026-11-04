@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'models/user.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 import 'services/api_service.dart';
 import 'services/offline_storage_service.dart';
 import 'theme/app_theme.dart';
@@ -25,6 +27,8 @@ class CampusManagementApp extends StatefulWidget {
 }
 
 class _CampusManagementAppState extends State<CampusManagementApp> {
+  UserModel? _loggedInUser;
+
   @override
   void initState() {
     super.initState();
@@ -51,7 +55,20 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
       themeMode: appThemeModeNotifier.value,
       themeAnimationDuration: AppTheme.themeAnimationDuration,
       themeAnimationCurve: AppTheme.themeAnimationCurve,
-      home: HomeScreen(storage: widget.storage),
+      home: _loggedInUser == null
+          ? LoginScreen(
+              storage: widget.storage,
+              onLoginSuccess: (user) {
+                setState(() => _loggedInUser = user);
+              },
+            )
+          : HomeScreen(
+              storage: widget.storage,
+              currentUser: _loggedInUser,
+              onLogout: () {
+                setState(() => _loggedInUser = null);
+              },
+            ),
     );
   }
 }

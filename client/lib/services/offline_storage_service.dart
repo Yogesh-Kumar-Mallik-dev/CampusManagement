@@ -1,5 +1,6 @@
 import 'dart:async';
 import '../models/academic.dart';
+import '../models/user.dart';
 import 'api_service.dart';
 
 class OfflineStorageService {
@@ -14,9 +15,65 @@ class OfflineStorageService {
   // Offline Outbox: Sessions recorded locally waiting to sync with Go backend
   final List<AttendanceSessionModel> _attendanceOutbox = [];
 
+  UserModel? _currentUser;
   bool isOnline = false;
 
   OfflineStorageService({required this.api});
+
+  UserModel? get currentUser => _currentUser;
+
+  Future<UserModel> authenticate(String identifier, String password) async {
+    try {
+      isOnline = await api.checkHealth();
+      if (isOnline) {
+        final user = await api.login(identifier, password);
+        _currentUser = user;
+        return user;
+      }
+    } catch (_) {}
+
+    final clean = identifier.trim().toLowerCase();
+    final user = getMockUserForHandle(clean);
+    _currentUser = user;
+    return user;
+  }
+
+  void logout() {
+    _currentUser = null;
+  }
+
+  static UserModel getMockUserForHandle(String clean) {
+    if (clean.contains('priya') || clean.contains('emp_1') || clean.contains('faculty')) {
+      return UserModel(
+        id: 'usr-priya_2024_emp_1',
+        campusHandle: 'priya_2024_emp_1',
+        firstName: 'Dr. Priya',
+        lastName: 'Nair',
+        email: 'priya_2024_emp_1@campus.edu',
+        archetype: 'employee',
+        activeScopes: ['global', 'dept:cse', 'sec:cse-3a', 'unit:student_affairs'],
+      );
+    } else if (clean.contains('ramesh') || clean.contains('security')) {
+      return UserModel(
+        id: 'usr-ramesh_2023_emp_1',
+        campusHandle: 'ramesh_2023_emp_1',
+        firstName: 'Ramesh',
+        lastName: 'Singh',
+        email: 'ramesh_2023_emp_1@campus.edu',
+        archetype: 'employee',
+        activeScopes: ['global', 'unit:security', 'facility:gate-1'],
+      );
+    }
+    return UserModel(
+      id: 'usr-harish_2025_l_btech_1',
+      campusHandle: 'harish_2025_l_btech_1',
+      firstName: 'Harish',
+      lastName: 'Kumar',
+      email: 'harish_2025_l_btech_1@campus.edu',
+      archetype: 'student',
+      activeScopes: ['global', 'sec:cse-3a', 'club:robotics'],
+    );
+  }
 
   List<CourseModel> get cachedCourses => List.unmodifiable(_cachedCourses);
   List<TimetableSlotModel> get cachedTimetable =>

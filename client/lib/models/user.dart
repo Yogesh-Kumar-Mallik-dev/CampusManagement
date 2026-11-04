@@ -48,4 +48,14 @@ class UserModel {
       'active_scopes': activeScopes,
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserModel &&
+          runtimeType == other.runtimeType &&
+          (id == other.id || campusHandle == other.campusHandle);
+
+  @override
+  int get hashCode => id.isNotEmpty ? id.hashCode : campusHandle.hashCode;
 }

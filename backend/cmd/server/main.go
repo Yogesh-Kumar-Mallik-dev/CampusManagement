@@ -85,9 +85,13 @@ func main() {
 
 	userHandler := handler.NewUserHandler(idService, permService)
 	academicHandler := handler.NewAcademicHandler(academicService)
+	authHandler := handler.NewAuthHandler(permService)
 
 	// 4. Define HTTP Routes
 	mux := http.NewServeMux()
+
+	// Authentication Endpoints
+	mux.HandleFunc("/api/v1/auth/login", authHandler.Login)
 
 	// Health check endpoint
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
