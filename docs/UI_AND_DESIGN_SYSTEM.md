@@ -1,0 +1,109 @@
+# UI & Design System
+
+This document outlines the **Material 3 Design System**, **Institutional Color Palette**, **Theme Architecture**, and **SVG Asset Guidelines** for the CampusManagement Flutter client.
+
+---
+
+## 1. Visual Identity & Color Palette
+
+The interface adopts a high-contrast institutional aesthetic inspired by GitHub Primer and academic collegiate branding.
+
+### 1.1 Brand Colors
+
+| Token | Hex Value | Role & Usage |
+| :--- | :--- | :--- |
+| **Wine Red** (Primary) | `#7A1C30` | Primary actions, app bar headers, faculty broadcast badges, identity titles. |
+| **Wine Red Subtle** | `#FDF2F4` / `#2D1217` | Subtle pill badges, tag backgrounds, active navigation indicator. |
+| **GitHub Green** (Accent) | `#238636` | Verification confirmations, success badges, student scan launchers. |
+| **GitHub Green Subtle** | `#EBF6ED` / `#112316` | Present attendance indicators, verified receipt banners. |
+
+### 1.2 Neutral Scales & Constant Border Geometry
+
+To prevent **layout shift (CLS)** when hovering, focusing, or activating elements, all surface cards, list tiles, and input containers maintain a **constant 1.0px border**.
+
+| Token | Light Theme | Dark Theme |
+| :--- | :--- | :--- |
+| **Canvas Background** | `#F6F8FA` | `#0D1117` |
+| **Surface Card** | `#FFFFFF` | `#161B22` |
+| **Border / Divider** | `#D0D7DE` | `#30363D` |
+| **Primary Text** | `#1F2328` | `#F0F6FC` |
+| **Secondary Text** | `#656D76` | `#8B949E` |
+| **Muted Monospace** | `#8C959F` | `#6E7681` |
+
+---
+
+## 2. Animated Theme Transitions (`animated_theme_switcher`)
+
+Rather than abruptly flipping theme brightness, CampusManagement integrates `animated_theme_switcher` to create a smooth, circular clip or cross-fade transition between light and dark modes.
+
+### 2.1 Implementation Pattern
+Toggles wrap actions inside `ThemeSwitcher.withTheme`:
+
+```dart
+ThemeSwitcher.withTheme(
+  builder: (context, switcher) => IconButton(
+    icon: AppSvgIcon(
+      svgString: isDark ? AppSvgIcon.sun : AppSvgIcon.moon,
+      size: 18,
+      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+    ),
+    tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+    onPressed: () {
+      final newTheme = isDark ? AppTheme.lightTheme : AppTheme.darkTheme;
+      switcher.changeTheme(theme: newTheme);
+    },
+  ),
+);
+```
+
+---
+
+## 3. High-Definition SVG App Logo (`AppLogo`)
+
+The institutional logo (`logo.svg`) is rendered at vector precision:
+- **Light Theme**: Renders with rich default brand fills (`#7A1C30` with dark accents).
+- **Dark Theme**: Passes through a specialized color matrix or filter inversion:
+  ```dart
+  ColorFilter.matrix([
+    -1,  0,  0, 0, 255, // Invert R
+     0, -1,  0, 0, 255, // Invert G
+     0,  0, -1, 0, 255, // Invert B
+     0,  0,  0, 1,   0, // Preserve Alpha
+  ])
+  ```
+- **Zero Blurriness**: Rendered via vector SVG pipelines rather than rasterized PNG approximations.
+
+---
+
+## 4. Non-Scrollable Viewport Architecture (Login Screen)
+
+Institutional sign-in screens must feel solid, focused, and app-like without awkward scroll bounce or accidental vertical scrolling on laptops and tablets.
+
+- The login viewport wraps the card inside a `FittedBox(fit: BoxFit.scaleDown)`.
+- If the screen height is compressed (such as on mobile landscape or split-screen mode), the entire sign-in dialog scales down proportionally to fit the viewport cleanly with **no vertical scrollbars**.
+- Verified by automated widget tests:
+  ```dart
+  expect(
+    find.descendant(of: find.byType(LoginScreen), matching: find.byType(SingleChildScrollView)),
+    findsNothing,
+  );
+  ```
+
+---
+
+## 5. Strict Zero-Emoji Vector Icon System (`AppSvgIcon`)
+
+In accordance with institutional UI guidelines, **no Unicode emojis are used in the interface**. All icons are rendered via lightweight, inline SVG strings (`AppSvgIcon`).
+
+### 5.1 Standard Vector Glyphs
+
+| Glyph Name | Constant | Semantic Role |
+| :--- | :--- | :--- |
+| `qrCode` | `AppSvgIcon.qrCode` | Optical broadcast, rolling QR, scan launcher |
+| `attendance` | `AppSvgIcon.attendance` | Attendance rosters, presence status, verification checks |
+| `timetable` | `AppSvgIcon.timetable` | Weekly schedule, classroom timetable slots |
+| `notice` | `AppSvgIcon.notice` | Targeted administrative broadcasts |
+| `shield` | `AppSvgIcon.shield` | Anti-screenshot protection alert, RBAC authority |
+| `check` | `AppSvgIcon.check` | Verified attendance badge, completed state |
+| `close` | `AppSvgIcon.close` | Session conclusion, modal dismissal |
+| `sun` / `moon`| `AppSvgIcon.sun` | Smooth light/dark theme switcher |
