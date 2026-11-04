@@ -2,6 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"sync"
@@ -24,18 +28,24 @@ type AcademicService struct {
 	sessions       map[string]model.AttendanceSession
 	records        map[string]model.AttendanceRecord
 	notices        map[string]model.Notice
+
+	// Optical Data Transfer Attendance state
+	opticalSessions    map[string]*model.OpticalAttendanceSession
+	verifiedBySession  map[string]map[string]bool // sessionID -> studentID -> true
 }
 
 func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permService *PermissionService) *AcademicService {
 	return &AcademicService{
-		db:             db,
-		cache:          cache,
-		permService:    permService,
-		courses:        make(map[string]model.Course),
-		timetableSlots: make(map[string]model.TimetableSlot),
-		sessions:       make(map[string]model.AttendanceSession),
-		records:        make(map[string]model.AttendanceRecord),
-		notices:        make(map[string]model.Notice),
+		db:                 db,
+		cache:              cache,
+		permService:        permService,
+		courses:            make(map[string]model.Course),
+		timetableSlots:     make(map[string]model.TimetableSlot),
+		sessions:           make(map[string]model.AttendanceSession),
+		records:            make(map[string]model.AttendanceRecord),
+		notices:            make(map[string]model.Notice),
+		opticalSessions:    make(map[string]*model.OpticalAttendanceSession),
+		verifiedBySession:  make(map[string]map[string]bool),
 	}
 }
 
@@ -331,4 +341,183 @@ func (s *AcademicService) GetDeltaSync(ctx context.Context, since time.Time, use
 	}
 
 	return resp, nil
+}
+
+// ----------------------------------------------------
+// OPTICAL DATA TRANSFER ATTENDANCE (RAPIDLY CHANGING QR)
+// ----------------------------------------------------
+
+func (s *AcademicService) StartOpticalSession(ctx context.Context, session model.OpticalAttendanceSession) (*model.OpticalAttendanceSession, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UTC()
+	if session.ID == "" {
+		session.ID = fmt.Sprintf("opt-sess-%d", now.UnixNano())
+	}
+
+	if session.SessionSecret == "" {
+		bytes := make([]byte, 16)
+		if _, err := rand.Read(bytes); err == nil {
+			session.SessionSecret = hex.EncodeToString(bytes)
+		} else {
+			session.SessionSecret = fmt.Sprintf("secret-%d", now.UnixNano())
+		}
+	}
+
+	if session.RefreshInterval <= 0 {
+		session.RefreshInterval = 1500 // 1.5 seconds default
+	}
+
+	session.StartedAt = now
+	session.ExpiresAt = now.Add(90 * time.Minute)
+	session.IsActive = true
+	session.VerifiedRecords = []model.AttendanceRecord{}
+
+	// Enrich course info
+	if c, ok := s.courses[session.CourseID]; ok {
+		session.CourseCode = c.Code
+		session.CourseName = c.Name
+	}
+
+	// Create backing AttendanceSession
+	baseSess := model.AttendanceSession{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        session.ID,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		CourseID:       session.CourseID,
+		CourseCode:     session.CourseCode,
+		CourseName:     session.CourseName,
+		ScopeCode:      session.ScopeCode,
+		MarkedByUserID: session.MarkedByUserID,
+		MarkedByName:   session.MarkedByName,
+		SessionDate:    now.Format("2006-01-02"),
+		Topic:          fmt.Sprintf("Lecture in %s (Optical Stream)", session.RoomNumber),
+		IsFinalized:    false,
+		Records:        []model.AttendanceRecord{},
+	}
+	s.sessions[session.ID] = baseSess
+
+	s.opticalSessions[session.ID] = &session
+	s.verifiedBySession[session.ID] = make(map[string]bool)
+
+	return &session, nil
+}
+
+func (s *AcademicService) VerifyOpticalAttendance(ctx context.Context, req model.OpticalVerificationRequest) (*model.OpticalVerificationResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, ok := s.opticalSessions[req.SessionID]
+	if !ok || !session.IsActive {
+		return nil, fmt.Errorf("active optical session not found or has concluded")
+	}
+
+	nowUnix := time.Now().Unix()
+	drift := nowUnix - req.Timestamp
+	// Replay / Freshness: frames must be scanned live within 10 seconds (drift > 10 is expired)
+	if drift > 10 || drift < -5 {
+		return nil, fmt.Errorf("expired optical frame (#%d generated %ds ago). Scan live display", req.Sequence, drift)
+	}
+
+	// Compute expected HMAC signature
+	mac := hmac.New(sha256.New, []byte(session.SessionSecret))
+	dataPayload := fmt.Sprintf("%s:%d:%d:%s", req.SessionID, req.Sequence, req.Timestamp, req.Nonce)
+	mac.Write([]byte(dataPayload))
+	expectedSig := hex.EncodeToString(mac.Sum(nil))
+
+	// Truncated signature comparison (first 16 hex chars used in QR code for compactness)
+	if len(req.Signature) >= 16 && len(expectedSig) >= 16 {
+		if req.Signature[:16] != expectedSig[:16] {
+			return nil, fmt.Errorf("invalid optical packet cryptographic signature")
+		}
+	} else if req.Signature != expectedSig {
+		return nil, fmt.Errorf("invalid optical packet cryptographic signature")
+	}
+
+	// Prevent duplicate scan in same session
+	if s.verifiedBySession[req.SessionID][req.StudentID] {
+		return nil, fmt.Errorf("attendance already recorded for %s in this session", req.StudentName)
+	}
+
+	s.verifiedBySession[req.SessionID][req.StudentID] = true
+	now := time.Now().UTC()
+	recID := fmt.Sprintf("rec-%s-%s", req.SessionID, req.StudentID)
+
+	record := model.AttendanceRecord{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        recID,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		SessionID:   req.SessionID,
+		StudentID:   req.StudentID,
+		StudentName: req.StudentName,
+		Handle:      req.Handle,
+		Status:      model.StatusPresent,
+		Remarks:     fmt.Sprintf("Optical Verified [Frame #%d, Latency %ds]", req.Sequence, drift),
+	}
+
+	session.VerifiedRecords = append(session.VerifiedRecords, record)
+	s.records[recID] = record
+
+	// Update base session
+	if baseSess, exists := s.sessions[req.SessionID]; exists {
+		baseSess.Records = append(baseSess.Records, record)
+		baseSess.UpdatedAt = now
+		s.sessions[req.SessionID] = baseSess
+	}
+
+	return &model.OpticalVerificationResponse{
+		Verified:     true,
+		Message:      "Optical packet verified. Attendance recorded.",
+		SessionID:    req.SessionID,
+		CourseCode:   session.CourseCode,
+		CourseName:   session.CourseName,
+		StudentName:  req.StudentName,
+		Handle:       req.Handle,
+		Sequence:     req.Sequence,
+		RecordedAt:   now,
+		AttendanceID: recID,
+	}, nil
+}
+
+func (s *AcademicService) GetOpticalSessionRoster(ctx context.Context, sessionID string) ([]model.AttendanceRecord, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	session, ok := s.opticalSessions[sessionID]
+	if !ok {
+		return nil, fmt.Errorf("session not found")
+	}
+
+	res := make([]model.AttendanceRecord, len(session.VerifiedRecords))
+	copy(res, session.VerifiedRecords)
+	return res, nil
+}
+
+func (s *AcademicService) EndOpticalSession(ctx context.Context, sessionID string) (*model.AttendanceSession, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, ok := s.opticalSessions[sessionID]
+	if !ok {
+		return nil, fmt.Errorf("session not found")
+	}
+
+	session.IsActive = false
+	now := time.Now().UTC()
+	session.ExpiresAt = now
+
+	baseSess, exists := s.sessions[sessionID]
+	if exists {
+		baseSess.IsFinalized = true
+		baseSess.UpdatedAt = now
+		s.sessions[sessionID] = baseSess
+		return &baseSess, nil
+	}
+
+	return nil, nil
 }

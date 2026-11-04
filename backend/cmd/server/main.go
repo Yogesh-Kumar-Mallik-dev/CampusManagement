@@ -121,6 +121,10 @@ func main() {
 	mux.HandleFunc("/api/v1/academics/timetable", academicHandler.HandleTimetable)
 	mux.HandleFunc("/api/v1/attendance/sync", academicHandler.SyncAttendance)
 	mux.HandleFunc("/api/v1/attendance/summary", academicHandler.GetAttendanceSummary)
+	mux.HandleFunc("/api/v1/attendance/optical/start", academicHandler.StartOpticalSession)
+	mux.HandleFunc("/api/v1/attendance/optical/verify", academicHandler.VerifyOpticalAttendance)
+	mux.HandleFunc("/api/v1/attendance/optical/roster", academicHandler.GetOpticalSessionRoster)
+	mux.HandleFunc("/api/v1/attendance/optical/end", academicHandler.EndOpticalSession)
 	mux.HandleFunc("/api/v1/notices", academicHandler.HandleNotices)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)

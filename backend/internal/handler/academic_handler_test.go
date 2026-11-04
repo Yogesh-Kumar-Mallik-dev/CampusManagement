@@ -2,10 +2,15 @@ package handler
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"campus/backend/internal/model"
 	"campus/backend/internal/service"
@@ -123,4 +128,91 @@ func TestAcademicHandlerEndpoints(t *testing.T) {
 	if len(delta.Courses) != 1 || len(delta.TimetableSlots) != 1 || len(delta.Notices) != 1 {
 		t.Fatalf("delta response mismatch: %+v", delta)
 	}
+
+	// 8. Optical Attendance Data Transfer with Rapidly Changing QR Codes
+	optStartJSON := `{
+		"course_id": "` + courses[0].ID + `",
+		"scope_code": "sec:cse-3a",
+		"room_number": "LH-101",
+		"marked_by_user_id": "usr-priya_1",
+		"marked_by_name": "Dr. Priya Nair",
+		"refresh_interval_ms": 1500
+	}`
+	recOptStart := httptest.NewRecorder()
+	reqOptStart := httptest.NewRequest(http.MethodPost, "/api/v1/attendance/optical/start", bytes.NewBufferString(optStartJSON))
+	h.StartOpticalSession(recOptStart, reqOptStart)
+
+	if recOptStart.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for optical session, got %d: %s", recOptStart.Code, recOptStart.Body.String())
+	}
+
+	var optSess model.OpticalAttendanceSession
+	_ = json.Unmarshal(recOptStart.Body.Bytes(), &optSess)
+	if optSess.ID == "" || optSess.SessionSecret == "" {
+		t.Fatalf("invalid optical session response: %+v", optSess)
+	}
+
+	// Simulate student generating/scanning a valid live optical packet
+	nowUnix := time.Now().Unix()
+	seq := 12
+	nonce := "abc12345"
+	dataPayload := optSess.ID + ":12:" + string(bytes.TrimSpace([]byte(recDelta.Body.String()))) // placeholder for signature computation
+	_ = dataPayload
+
+	// Compute HMAC signature for test
+	var expectedSig string
+	{
+		mac := hmac.New(sha256.New, []byte(optSess.SessionSecret))
+		mac.Write([]byte(optSess.ID + ":12:" + bytesToString(nowUnix) + ":" + nonce))
+		expectedSig = hex.EncodeToString(mac.Sum(nil))
+	}
+
+	verifyJSON := `{
+		"session_id": "` + optSess.ID + `",
+		"student_id": "usr-harish_2025_l_btech_1",
+		"student_name": "Harish Kumar",
+		"campus_handle": "harish_2025_l_btech_1",
+		"sequence": ` + bytesToString(int64(seq)) + `,
+		"timestamp": ` + bytesToString(nowUnix) + `,
+		"nonce": "` + nonce + `",
+		"signature": "` + expectedSig + `"
+	}`
+	recVerify := httptest.NewRecorder()
+	reqVerify := httptest.NewRequest(http.MethodPost, "/api/v1/attendance/optical/verify", bytes.NewBufferString(verifyJSON))
+	h.VerifyOpticalAttendance(recVerify, reqVerify)
+
+	if recVerify.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for optical verification, got %d: %s", recVerify.Code, recVerify.Body.String())
+	}
+
+	var vResp model.OpticalVerificationResponse
+	_ = json.Unmarshal(recVerify.Body.Bytes(), &vResp)
+	if !vResp.Verified || vResp.Handle != "harish_2025_l_btech_1" {
+		t.Fatalf("invalid verification response: %+v", vResp)
+	}
+
+	// Verify duplicate scan rejection
+	recDup := httptest.NewRecorder()
+	reqDup := httptest.NewRequest(http.MethodPost, "/api/v1/attendance/optical/verify", bytes.NewBufferString(verifyJSON))
+	h.VerifyOpticalAttendance(recDup, reqDup)
+	if recDup.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request on duplicate scan, got %d", recDup.Code)
+	}
+
+	// Verify roster
+	recRoster := httptest.NewRecorder()
+	reqRoster := httptest.NewRequest(http.MethodGet, "/api/v1/attendance/optical/roster?session_id="+optSess.ID, nil)
+	h.GetOpticalSessionRoster(recRoster, reqRoster)
+	if recRoster.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on roster, got %d", recRoster.Code)
+	}
+	var roster []model.AttendanceRecord
+	_ = json.Unmarshal(recRoster.Body.Bytes(), &roster)
+	if len(roster) != 1 || roster[0].StudentID != "usr-harish_2025_l_btech_1" {
+		t.Fatalf("expected 1 student in optical roster, got %v", roster)
+	}
+}
+
+func bytesToString(n int64) string {
+	return fmt.Sprintf("%d", n)
 }

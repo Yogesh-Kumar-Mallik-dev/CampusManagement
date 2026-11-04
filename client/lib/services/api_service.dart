@@ -235,4 +235,55 @@ class ApiService {
     }
     throw Exception('Failed to reactivate user: ${res.body}');
   }
+
+  // ----------------------------------------------------
+  // OPTICAL DATA TRANSFER ATTENDANCE
+  // ----------------------------------------------------
+
+  Future<OpticalSessionModel> startOpticalSession(Map<String, dynamic> data) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/attendance/optical/start'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    if (res.statusCode == 201) {
+      return OpticalSessionModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to start optical session: ${res.body}');
+  }
+
+  Future<OpticalVerificationResult> verifyOpticalAttendance(Map<String, dynamic> req) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/attendance/optical/verify'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(req),
+    );
+    if (res.statusCode == 200) {
+      return OpticalVerificationResult.fromJson(jsonDecode(res.body));
+    }
+    final body = jsonDecode(res.body);
+    throw Exception(body['message'] ?? res.body);
+  }
+
+  Future<List<AttendanceRecordModel>> fetchOpticalSessionRoster(String sessionId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/api/v1/attendance/optical/roster?session_id=$sessionId'),
+    );
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.map((e) => AttendanceRecordModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to load optical roster (${res.statusCode})');
+  }
+
+  Future<void> endOpticalSession(String sessionId) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/attendance/optical/end'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'session_id': sessionId}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to conclude optical session');
+    }
+  }
 }

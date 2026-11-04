@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class CourseModel {
   final String id;
   final String code;
@@ -118,6 +120,7 @@ class AttendanceRecordModel {
   final String studentName;
   final String campusHandle;
   String status; // 'present', 'absent', 'late', 'excused'
+  final String remarks;
 
   AttendanceRecordModel({
     required this.id,
@@ -126,6 +129,7 @@ class AttendanceRecordModel {
     required this.studentName,
     required this.campusHandle,
     required this.status,
+    this.remarks = '',
   });
 
   factory AttendanceRecordModel.fromJson(Map<String, dynamic> json) {
@@ -136,6 +140,7 @@ class AttendanceRecordModel {
       studentName: json['student_name'] ?? '',
       campusHandle: json['campus_handle'] ?? '',
       status: json['status'] ?? 'present',
+      remarks: json['remarks'] ?? '',
     );
   }
 
@@ -146,6 +151,7 @@ class AttendanceRecordModel {
         'student_name': studentName,
         'campus_handle': campusHandle,
         'status': status,
+        'remarks': remarks,
       };
 }
 
@@ -265,4 +271,178 @@ class NoticeModel {
         'priority': priority,
         'published_at': publishedAt.toIso8601String(),
       };
+}
+
+class OpticalSessionModel {
+  final String id;
+  final String courseId;
+  final String courseCode;
+  final String courseName;
+  final String scopeCode;
+  final String roomNumber;
+  final String markedByUserId;
+  final String markedByName;
+  final String sessionSecret;
+  final int refreshIntervalMs;
+  final DateTime startedAt;
+  final DateTime expiresAt;
+  final bool isActive;
+  final List<AttendanceRecordModel> verifiedRecords;
+
+  OpticalSessionModel({
+    required this.id,
+    required this.courseId,
+    required this.courseCode,
+    required this.courseName,
+    required this.scopeCode,
+    required this.roomNumber,
+    required this.markedByUserId,
+    required this.markedByName,
+    required this.sessionSecret,
+    this.refreshIntervalMs = 1500,
+    required this.startedAt,
+    required this.expiresAt,
+    this.isActive = true,
+    this.verifiedRecords = const [],
+  });
+
+  factory OpticalSessionModel.fromJson(Map<String, dynamic> json) {
+    var rawList = json['verified_records'] as List? ?? [];
+    return OpticalSessionModel(
+      id: json['id'] ?? '',
+      courseId: json['course_id'] ?? '',
+      courseCode: json['course_code'] ?? '',
+      courseName: json['course_name'] ?? '',
+      scopeCode: json['scope_code'] ?? '',
+      roomNumber: json['room_number'] ?? '',
+      markedByUserId: json['marked_by_user_id'] ?? '',
+      markedByName: json['marked_by_name'] ?? '',
+      sessionSecret: json['session_secret'] ?? '',
+      refreshIntervalMs: json['refresh_interval_ms'] ?? 1500,
+      startedAt: DateTime.tryParse(json['started_at'] ?? '') ?? DateTime.now(),
+      expiresAt: DateTime.tryParse(json['expires_at'] ?? '') ?? DateTime.now().add(const Duration(hours: 2)),
+      isActive: json['is_active'] ?? true,
+      verifiedRecords: rawList.map((e) => AttendanceRecordModel.fromJson(e)).toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'course_id': courseId,
+        'course_code': courseCode,
+        'course_name': courseName,
+        'scope_code': scopeCode,
+        'room_number': roomNumber,
+        'marked_by_user_id': markedByUserId,
+        'marked_by_name': markedByName,
+        'session_secret': sessionSecret,
+        'refresh_interval_ms': refreshIntervalMs,
+        'started_at': startedAt.toIso8601String(),
+        'expires_at': expiresAt.toIso8601String(),
+        'is_active': isActive,
+        'verified_records': verifiedRecords.map((r) => r.toJson()).toList(),
+      };
+}
+
+class OpticalFramePacket {
+  final String sessionId;
+  final String courseCode;
+  final String courseName;
+  final String room;
+  final int sequence;
+  final int timestamp;
+  final String nonce;
+  final String signature;
+
+  OpticalFramePacket({
+    required this.sessionId,
+    required this.courseCode,
+    required this.courseName,
+    required this.room,
+    required this.sequence,
+    required this.timestamp,
+    required this.nonce,
+    required this.signature,
+  });
+
+  String encode() {
+    final payload = {
+      't': 'OPT',
+      'sid': sessionId,
+      'cc': courseCode,
+      'cn': courseName,
+      'rm': room,
+      'seq': sequence,
+      'ts': timestamp,
+      'nc': nonce,
+      'sig': signature.length > 16 ? signature.substring(0, 16) : signature,
+    };
+    final jsonStr = jsonEncode(payload);
+    return 'CPOS:OPT:${base64Url.encode(utf8.encode(jsonStr))}';
+  }
+
+  static OpticalFramePacket? decode(String raw) {
+    try {
+      if (!raw.startsWith('CPOS:OPT:')) return null;
+      final b64 = raw.substring('CPOS:OPT:'.length);
+      final jsonStr = utf8.decode(base64Url.decode(b64));
+      final Map<String, dynamic> map = jsonDecode(jsonStr);
+      return OpticalFramePacket(
+        sessionId: map['sid'] ?? '',
+        courseCode: map['cc'] ?? '',
+        courseName: map['cn'] ?? '',
+        room: map['rm'] ?? '',
+        sequence: map['seq'] ?? 0,
+        timestamp: map['ts'] ?? 0,
+        nonce: map['nc'] ?? '',
+        signature: map['sig'] ?? '',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool isExpired({int maxAgeSeconds = 6}) {
+    final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final diff = nowSeconds - timestamp;
+    return diff > maxAgeSeconds || diff < -3;
+  }
+}
+
+class OpticalVerificationResult {
+  final bool verified;
+  final String message;
+  final String sessionId;
+  final String courseCode;
+  final String courseName;
+  final String studentName;
+  final String handle;
+  final int sequence;
+  final DateTime recordedAt;
+
+  OpticalVerificationResult({
+    required this.verified,
+    required this.message,
+    required this.sessionId,
+    required this.courseCode,
+    required this.courseName,
+    required this.studentName,
+    required this.handle,
+    required this.sequence,
+    required this.recordedAt,
+  });
+
+  factory OpticalVerificationResult.fromJson(Map<String, dynamic> json) {
+    return OpticalVerificationResult(
+      verified: json['verified'] ?? false,
+      message: json['message'] ?? '',
+      sessionId: json['session_id'] ?? '',
+      courseCode: json['course_code'] ?? '',
+      courseName: json['course_name'] ?? '',
+      studentName: json['student_name'] ?? '',
+      handle: json['campus_handle'] ?? '',
+      sequence: json['sequence'] ?? 0,
+      recordedAt: DateTime.tryParse(json['recorded_at'] ?? '') ?? DateTime.now(),
+    );
+  }
 }

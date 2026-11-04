@@ -107,6 +107,50 @@ type OfflineAttendanceBatch struct {
 	Sessions []AttendanceSession `json:"sessions"`
 }
 
+// OpticalAttendanceSession represents an active rolling QR optical broadcast session
+type OpticalAttendanceSession struct {
+	ID              string             `json:"id"`
+	CourseID        string             `json:"course_id"`
+	CourseCode      string             `json:"course_code"`
+	CourseName      string             `json:"course_name"`
+	ScopeCode       string             `json:"scope_code"`
+	RoomNumber      string             `json:"room_number"`
+	MarkedByUserID  string             `json:"marked_by_user_id"`
+	MarkedByName    string             `json:"marked_by_name"`
+	SessionSecret   string             `json:"session_secret"`
+	RefreshInterval int                `json:"refresh_interval_ms"` // e.g. 1500
+	StartedAt       time.Time          `json:"started_at"`
+	ExpiresAt       time.Time          `json:"expires_at"`
+	IsActive        bool               `json:"is_active"`
+	VerifiedRecords []AttendanceRecord `json:"verified_records"`
+}
+
+// OpticalVerificationRequest is submitted when a student scans a rolling frame
+type OpticalVerificationRequest struct {
+	SessionID   string `json:"session_id"`
+	StudentID   string `json:"student_id"`
+	StudentName string `json:"student_name"`
+	Handle      string `json:"campus_handle"`
+	Sequence    int    `json:"sequence"`
+	Timestamp   int64  `json:"timestamp"`
+	Nonce       string `json:"nonce"`
+	Signature   string `json:"signature"`
+}
+
+// OpticalVerificationResponse reports the result of the optical verification
+type OpticalVerificationResponse struct {
+	Verified     bool      `json:"verified"`
+	Message      string    `json:"message"`
+	SessionID    string    `json:"session_id"`
+	CourseCode   string    `json:"course_code"`
+	CourseName   string    `json:"course_name"`
+	StudentName  string    `json:"student_name"`
+	Handle       string    `json:"campus_handle"`
+	Sequence     int       `json:"sequence"`
+	RecordedAt   time.Time `json:"recorded_at"`
+	AttendanceID string    `json:"attendance_id"`
+}
+
 // DeltaSyncResponse returns all delta updates for a client since a given timestamp
 type DeltaSyncResponse struct {
 	ServerTime         time.Time           `json:"server_time"`

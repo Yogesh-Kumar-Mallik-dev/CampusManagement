@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:campus_client/main.dart';
+import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/screens/home_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/services/api_service.dart';
@@ -8,6 +10,44 @@ import 'package:campus_client/services/offline_storage_service.dart';
 import 'package:campus_client/widgets/app_logo.dart';
 
 void main() {
+  test('OpticalFramePacket encoding, decoding, and expiration logic', () {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final packet = OpticalFramePacket(
+      sessionId: 'sess_123',
+      courseCode: 'CS301',
+      courseName: 'Operating Systems',
+      room: 'LH-101',
+      sequence: 42,
+      timestamp: now,
+      nonce: 'a1b2c3d4',
+      signature: '9f8e7d6c5b4a',
+    );
+
+    final raw = packet.encode();
+    expect(raw.startsWith('CPOS:OPT:'), isTrue);
+
+    final decoded = OpticalFramePacket.decode(raw);
+    expect(decoded, isNotNull);
+    expect(decoded!.sessionId, 'sess_123');
+    expect(decoded.courseCode, 'CS301');
+    expect(decoded.sequence, 42);
+    expect(decoded.nonce, 'a1b2c3d4');
+    expect(decoded.isExpired(maxAgeSeconds: 6), isFalse);
+
+    // Test expired frame
+    final expiredPacket = OpticalFramePacket(
+      sessionId: 'sess_123',
+      courseCode: 'CS301',
+      courseName: 'Operating Systems',
+      room: 'LH-101',
+      sequence: 1,
+      timestamp: now - 15, // 15 seconds old
+      nonce: 'old',
+      signature: 'old',
+    );
+    expect(expiredPacket.isExpired(maxAgeSeconds: 6), isTrue);
+  });
+
   testWidgets('Campus app renders login screen and logs in to home dashboard',
       (WidgetTester tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
@@ -81,5 +121,49 @@ void main() {
     expect(find.text('Academic Enrollment & Progress'), findsOneWidget);
     expect(find.text('Scoped RBAC Authority'), findsOneWidget);
     expect(find.text('Discontinue User'), findsOneWidget);
+  });
+
+  testWidgets('Optical Attendance flow: Faculty creates broadcast session with rolling QR and student scanner opens',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(CampusManagementApp(storage: storage));
+    await tester.pump();
+
+    // Select Faculty persona for optical broadcast capabilities
+    await tester.tap(find.text('Faculty'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // Navigate to Attendance Tab
+    await tester.tap(find.text('Attendance').first);
+    await tester.pumpAndSettle();
+
+    // Verify Anti-Proxy Optical Attendance UI elements
+    expect(find.text('Anti-Proxy Optical Data Transfer Attendance'), findsOneWidget);
+    expect(find.text('Broadcast Optical QR'), findsOneWidget);
+
+    // Start Optical Broadcast session
+    await tester.tap(find.text('Broadcast Optical QR'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Verify Broadcast screen with QrImageView, countdown ring, sequence frame
+    expect(find.text('Optical QR Broadcast • Live Session'), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.textContaining('Frame #'), findsOneWidget);
+    expect(find.text('Live Verified Attendance Roster'), findsOneWidget);
+    expect(find.textContaining('Screenshot & Replay Protected'), findsOneWidget);
+
+    // Conclude broadcast
+    await tester.ensureVisible(find.text('Conclude & Save'));
+    await tester.tap(find.text('Conclude & Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Verify returning to Classroom Attendance overview
+    expect(find.text('Classroom Attendance'), findsOneWidget);
   });
 }

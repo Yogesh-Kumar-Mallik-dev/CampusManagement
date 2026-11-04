@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import '../models/academic.dart';
 import '../models/user.dart';
 import 'api_service.dart';
@@ -12,6 +14,13 @@ class OfflineStorageService {
   final List<NoticeModel> _cachedNotices = [];
   final List<AttendanceSummaryModel> _cachedSummaries = [];
   final List<UserModel> _cachedUsers = [];
+
+  // Optical Attendance active session & live verified roster
+  OpticalSessionModel? _activeOpticalSession;
+  final List<AttendanceRecordModel> _opticalRoster = [];
+
+  OpticalSessionModel? get activeOpticalSession => _activeOpticalSession;
+  List<AttendanceRecordModel> get opticalRoster => List.unmodifiable(_opticalRoster);
 
   // Offline Outbox: Sessions recorded locally waiting to sync with Go backend
   final List<AttendanceSessionModel> _attendanceOutbox = [];
@@ -507,5 +516,187 @@ class OfflineStorageService {
       } catch (_) {}
     }
     return _cachedSummaries;
+  }
+
+  // ----------------------------------------------------
+  // OPTICAL DATA TRANSFER ATTENDANCE (RAPIDLY CHANGING QR)
+  // ----------------------------------------------------
+
+  Future<OpticalSessionModel> startOpticalSession({
+    required String courseId,
+    required String courseCode,
+    required String courseName,
+    required String scopeCode,
+    required String roomNumber,
+    required String markedByUserId,
+    required String markedByName,
+    int refreshIntervalMs = 1500,
+  }) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final sess = await api.startOpticalSession({
+          'course_id': courseId,
+          'course_code': courseCode,
+          'course_name': courseName,
+          'scope_code': scopeCode,
+          'room_number': roomNumber,
+          'marked_by_user_id': markedByUserId,
+          'marked_by_name': markedByName,
+          'refresh_interval_ms': refreshIntervalMs,
+        });
+        _activeOpticalSession = sess;
+        _opticalRoster.clear();
+        return sess;
+      } catch (_) {}
+    }
+
+    // Local / Offline fallback session
+    final now = DateTime.now();
+    final localSecret = 'loc_secret_${now.millisecondsSinceEpoch}';
+    final sessionId = 'opt-sess-${now.millisecondsSinceEpoch}';
+
+    final session = OpticalSessionModel(
+      id: sessionId,
+      courseId: courseId,
+      courseCode: courseCode,
+      courseName: courseName,
+      scopeCode: scopeCode,
+      roomNumber: roomNumber,
+      markedByUserId: markedByUserId,
+      markedByName: markedByName,
+      sessionSecret: localSecret,
+      refreshIntervalMs: refreshIntervalMs,
+      startedAt: now,
+      expiresAt: now.add(const Duration(hours: 2)),
+      isActive: true,
+      verifiedRecords: [],
+    );
+
+    _activeOpticalSession = session;
+    _opticalRoster.clear();
+    return session;
+  }
+
+  Future<OpticalVerificationResult> verifyOpticalAttendance({
+    required OpticalFramePacket packet,
+    required UserModel student,
+  }) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final res = await api.verifyOpticalAttendance({
+          'session_id': packet.sessionId,
+          'student_id': student.id,
+          'student_name': student.fullName,
+          'campus_handle': student.campusHandle,
+          'sequence': packet.sequence,
+          'timestamp': packet.timestamp,
+          'nonce': packet.nonce,
+          'signature': packet.signature,
+        });
+
+        // Add to local optical roster cache
+        final rec = AttendanceRecordModel(
+          id: 'rec-${packet.sessionId}-${student.id}',
+          sessionId: packet.sessionId,
+          studentId: student.id,
+          studentName: student.fullName,
+          campusHandle: student.campusHandle,
+          status: 'present',
+        );
+        if (!_opticalRoster.any((r) => r.studentId == student.id)) {
+          _opticalRoster.insert(0, rec);
+        }
+
+        return res;
+      } catch (e) {
+        // Re-throw specific errors (e.g., expired or duplicate)
+        rethrow;
+      }
+    }
+
+    // Offline optical verification
+    if (packet.isExpired(maxAgeSeconds: 8)) {
+      throw Exception('Expired optical frame (#${packet.sequence}). Scan live broadcast.');
+    }
+
+    // If local active session matches secret, verify HMAC
+    if (_activeOpticalSession != null && _activeOpticalSession!.id == packet.sessionId) {
+      final key = utf8.encode(_activeOpticalSession!.sessionSecret);
+      final bytes = utf8.encode('${packet.sessionId}:${packet.sequence}:${packet.timestamp}:${packet.nonce}');
+      final hmacSha256 = Hmac(sha256, key);
+      final digest = hmacSha256.convert(bytes).toString();
+      final expectedSig = digest.length > 16 ? digest.substring(0, 16) : digest;
+
+      if (packet.signature != expectedSig && !packet.signature.startsWith(expectedSig)) {
+        throw Exception('Invalid optical packet cryptographic signature');
+      }
+    }
+
+    if (_opticalRoster.any((r) => r.studentId == student.id)) {
+      throw Exception('Attendance already verified for ${student.fullName} in this session');
+    }
+
+    final now = DateTime.now();
+    final rec = AttendanceRecordModel(
+      id: 'rec-${packet.sessionId}-${student.id}',
+      sessionId: packet.sessionId,
+      studentId: student.id,
+      studentName: student.fullName,
+      campusHandle: student.campusHandle,
+      status: 'present',
+    );
+    _opticalRoster.insert(0, rec);
+
+    // Queue session to attendance outbox for delta sync
+    final localSession = AttendanceSessionModel(
+      id: packet.sessionId,
+      courseId: packet.courseCode,
+      courseCode: packet.courseCode,
+      courseName: packet.courseName,
+      scopeCode: 'sec:cse-3a',
+      sessionDate: '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      topic: 'Lecture in ${packet.room} (Optical Stream)',
+      records: List.from(_opticalRoster),
+    );
+    _attendanceOutbox.removeWhere((s) => s.id == packet.sessionId);
+    _attendanceOutbox.add(localSession);
+
+    return OpticalVerificationResult(
+      verified: true,
+      message: 'Verified via Optical Packet #${packet.sequence}',
+      sessionId: packet.sessionId,
+      courseCode: packet.courseCode,
+      courseName: packet.courseName,
+      studentName: student.fullName,
+      handle: student.campusHandle,
+      sequence: packet.sequence,
+      recordedAt: now,
+    );
+  }
+
+  Future<List<AttendanceRecordModel>> getOpticalRoster(String sessionId) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final list = await api.fetchOpticalSessionRoster(sessionId);
+        _opticalRoster
+          ..clear()
+          ..addAll(list);
+        return _opticalRoster;
+      } catch (_) {}
+    }
+    return _opticalRoster;
+  }
+
+  Future<void> endOpticalSession(String sessionId) async {
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        await api.endOpticalSession(sessionId);
+      } catch (_) {}
+    }
+    _activeOpticalSession = null;
   }
 }

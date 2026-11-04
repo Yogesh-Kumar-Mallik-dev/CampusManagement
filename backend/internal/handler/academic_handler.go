@@ -142,6 +142,105 @@ func (h *AcademicHandler) GetAttendanceSummary(w http.ResponseWriter, r *http.Re
 }
 
 // ----------------------------------------------------
+// OPTICAL DATA TRANSFER ATTENDANCE HANDLERS
+// ----------------------------------------------------
+
+func (h *AcademicHandler) StartOpticalSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var sess model.OpticalAttendanceSession
+	if err := json.NewDecoder(r.Body).Decode(&sess); err != nil {
+		http.Error(w, "Invalid payload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	started, err := h.academicService.StartOpticalSession(r.Context(), sess)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(started)
+}
+
+func (h *AcademicHandler) VerifyOpticalAttendance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.OpticalVerificationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid payload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	resp, err := h.academicService.VerifyOpticalAttendance(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (h *AcademicHandler) GetOpticalSessionRoster(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	sessionID := r.URL.Query().Get("session_id")
+	if sessionID == "" {
+		http.Error(w, "session_id is required", http.StatusBadRequest)
+		return
+	}
+
+	roster, err := h.academicService.GetOpticalSessionRoster(r.Context(), sessionID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(roster)
+}
+
+func (h *AcademicHandler) EndOpticalSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.SessionID == "" {
+		http.Error(w, "session_id required", http.StatusBadRequest)
+		return
+	}
+
+	finalized, err := h.academicService.EndOpticalSession(r.Context(), payload.SessionID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "concluded",
+		"session":   finalized,
+		"timestamp": time.Now().UTC(),
+	})
+}
+
+// ----------------------------------------------------
 // NOTICES
 // ----------------------------------------------------
 

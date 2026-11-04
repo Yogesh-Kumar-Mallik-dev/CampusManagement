@@ -38,6 +38,8 @@ dependencies:
   intl: ^0.20.3
   flutter_svg: ^2.3.2
   animated_theme_switcher: ^2.0.10
+  qr_flutter: ^4.1.0
+  crypto: ^3.0.8
 
 dev_dependencies:
   flutter_test:
