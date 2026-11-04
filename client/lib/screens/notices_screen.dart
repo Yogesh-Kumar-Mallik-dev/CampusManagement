@@ -82,30 +82,14 @@ class _NoticesScreenState extends State<NoticesScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _categories.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
                 final cat = _categories[i];
                 final isSelected = _selectedCategory == cat;
-                return ChoiceChip(
-                  label: Text(cat.toUpperCase()),
-                  selected: isSelected,
-                  selectedColor: isDark ? AppColors.wineRedDark : AppColors.wineRedSubtle,
-                  labelStyle: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600, // Fixed weight ensures zero layout shift on selection
-                    color: isSelected
-                        ? (isDark ? Colors.white : AppColors.wineRed)
-                        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
-                  ),
-                  side: BorderSide(
-                    color: isSelected
-                        ? AppColors.wineRed
-                        : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                    width: 1,
-                  ),
-                  onSelected: (selected) {
-                    if (selected) setState(() => _selectedCategory = cat);
-                  },
+                return _CategoryFilterPill(
+                  label: cat.toUpperCase(),
+                  isSelected: isSelected,
+                  onTap: () => setState(() => _selectedCategory = cat),
                 );
               },
             ),
@@ -248,6 +232,80 @@ class _NoticesScreenState extends State<NoticesScreen> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CategoryFilterPill extends StatefulWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CategoryFilterPill({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_CategoryFilterPill> createState() => _CategoryFilterPillState();
+}
+
+class _CategoryFilterPillState extends State<_CategoryFilterPill> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bgColor = widget.isSelected
+        ? AppColors.wineRed
+        : (_isHovered
+            ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
+            : (isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9)));
+
+    final borderColor = widget.isSelected
+        ? AppColors.wineRed
+        : (_isHovered
+            ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+            : (isDark ? AppColors.darkBorder : AppColors.lightBorder));
+
+    final textColor = widget.isSelected
+        ? Colors.white
+        : (_isHovered
+            ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
+            : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary));
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppTheme.themeAnimationDuration,
+          curve: AppTheme.themeAnimationCurve,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: borderColor,
+              width: 1, // Constant 1px width
+            ),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: textColor, // Pure bright white in active wine overlay!
+            ),
+          ),
+        ),
       ),
     );
   }

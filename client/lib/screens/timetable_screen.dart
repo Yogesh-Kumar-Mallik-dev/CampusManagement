@@ -60,7 +60,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       ),
       body: Column(
         children: [
-          // Day selector chips
+          // Fixed-slot Day Selector Bar (Pre-allocated geometry eliminates layout shifts)
           AnimatedContainer(
             duration: AppTheme.themeAnimationDuration,
             curve: AppTheme.themeAnimationCurve,
@@ -75,29 +75,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(_days.length, (idx) {
                 final dayNum = idx + 1;
                 final isSelected = _selectedDay == dayNum;
-                return ChoiceChip(
-                  label: Text(_days[idx]),
-                  selected: isSelected,
-                  selectedColor: isDark ? AppColors.wineRedDark : AppColors.wineRedSubtle,
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w600, // Uniform weight prevents layout jitter on active
-                    color: isSelected
-                        ? (isDark ? Colors.white : AppColors.wineRed)
-                        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: _DaySelectorPill(
+                      label: _days[idx],
+                      isSelected: isSelected,
+                      onTap: () => setState(() => _selectedDay = dayNum),
+                    ),
                   ),
-                  side: BorderSide(
-                    color: isSelected
-                        ? AppColors.wineRed
-                        : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                    width: 1,
-                  ),
-                  onSelected: (selected) {
-                    if (selected) setState(() => _selectedDay = dayNum);
-                  },
                 );
               }),
             ),
@@ -281,6 +270,79 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DaySelectorPill extends StatefulWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _DaySelectorPill({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_DaySelectorPill> createState() => _DaySelectorPillState();
+}
+
+class _DaySelectorPillState extends State<_DaySelectorPill> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bgColor = widget.isSelected
+        ? AppColors.wineRed
+        : (_isHovered
+            ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
+            : (isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9)));
+
+    final borderColor = widget.isSelected
+        ? AppColors.wineRed
+        : (_isHovered
+            ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+            : (isDark ? AppColors.darkBorder : AppColors.lightBorder));
+
+    final textColor = widget.isSelected
+        ? Colors.white
+        : (_isHovered
+            ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
+            : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary));
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AppTheme.themeAnimationDuration,
+          curve: AppTheme.themeAnimationCurve,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: borderColor,
+              width: 1, // Constant 1px width
+            ),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: textColor, // Pure bright white in active wine overlay!
+            ),
+          ),
+        ),
       ),
     );
   }

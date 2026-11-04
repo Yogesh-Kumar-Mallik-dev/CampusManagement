@@ -237,35 +237,10 @@ class _HomeScreenState extends State<HomeScreen> {
       body: isDesktopOrWeb
           ? Row(
               children: [
-                NavigationRail(
+                _CampusSidebar(
                   selectedIndex: _currentIndex,
                   onDestinationSelected: (i) => setState(() => _currentIndex = i),
-                  labelType: NavigationRailLabelType.all,
-                  minWidth: 76,
-                  destinations: const [
-                    NavigationRailDestination(
-                      icon: AppSvgIcon(svgString: AppSvgIcon.dashboard),
-                      selectedIcon: AppSvgIcon(svgString: AppSvgIcon.dashboard, color: AppColors.wineRed),
-                      label: Text('Dashboard'),
-                    ),
-                    NavigationRailDestination(
-                      icon: AppSvgIcon(svgString: AppSvgIcon.calendar),
-                      selectedIcon: AppSvgIcon(svgString: AppSvgIcon.calendar, color: AppColors.wineRed),
-                      label: Text('Timetable'),
-                    ),
-                    NavigationRailDestination(
-                      icon: AppSvgIcon(svgString: AppSvgIcon.attendance),
-                      selectedIcon: AppSvgIcon(svgString: AppSvgIcon.attendance, color: AppColors.wineRed),
-                      label: Text('Attendance'),
-                    ),
-                    NavigationRailDestination(
-                      icon: AppSvgIcon(svgString: AppSvgIcon.bell),
-                      selectedIcon: AppSvgIcon(svgString: AppSvgIcon.bell, color: AppColors.wineRed),
-                      label: Text('Notices'),
-                    ),
-                  ],
                 ),
-                const VerticalDivider(width: 1),
                 Expanded(child: pages[_currentIndex]),
               ],
             )
@@ -276,25 +251,37 @@ class _HomeScreenState extends State<HomeScreen> {
               currentIndex: _currentIndex,
               onTap: (i) => setState(() => _currentIndex = i),
               type: BottomNavigationBarType.fixed,
-              items: const [
+              items: [
                 BottomNavigationBarItem(
-                  icon: AppSvgIcon(svgString: AppSvgIcon.dashboard),
-                  activeIcon: AppSvgIcon(svgString: AppSvgIcon.dashboard, color: AppColors.wineRed),
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.dashboard),
+                  activeIcon: AppSvgIcon(
+                    svgString: AppSvgIcon.dashboard,
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                  ),
                   label: 'Dashboard',
                 ),
                 BottomNavigationBarItem(
-                  icon: AppSvgIcon(svgString: AppSvgIcon.calendar),
-                  activeIcon: AppSvgIcon(svgString: AppSvgIcon.calendar, color: AppColors.wineRed),
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.calendar),
+                  activeIcon: AppSvgIcon(
+                    svgString: AppSvgIcon.calendar,
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                  ),
                   label: 'Timetable',
                 ),
                 BottomNavigationBarItem(
-                  icon: AppSvgIcon(svgString: AppSvgIcon.attendance),
-                  activeIcon: AppSvgIcon(svgString: AppSvgIcon.attendance, color: AppColors.wineRed),
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.attendance),
+                  activeIcon: AppSvgIcon(
+                    svgString: AppSvgIcon.attendance,
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                  ),
                   label: 'Attendance',
                 ),
                 BottomNavigationBarItem(
-                  icon: AppSvgIcon(svgString: AppSvgIcon.bell),
-                  activeIcon: AppSvgIcon(svgString: AppSvgIcon.bell, color: AppColors.wineRed),
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.bell),
+                  activeIcon: AppSvgIcon(
+                    svgString: AppSvgIcon.bell,
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                  ),
                   label: 'Notices',
                 ),
               ],
@@ -567,6 +554,155 @@ class _HomeScreenState extends State<HomeScreen> {
       iconSvg: iconSvg,
       color: color,
       onTap: onTap,
+    );
+  }
+}
+
+class _CampusSidebar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  const _CampusSidebar({
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final items = const [
+      (svg: AppSvgIcon.dashboard, label: 'Dashboard'),
+      (svg: AppSvgIcon.calendar, label: 'Timetable'),
+      (svg: AppSvgIcon.attendance, label: 'Attendance'),
+      (svg: AppSvgIcon.bell, label: 'Notices'),
+    ];
+
+    return Container(
+      width: 78,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        border: Border(
+          right: BorderSide(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          ...List.generate(items.length, (idx) {
+            final isSelected = selectedIndex == idx;
+            final item = items[idx];
+
+            return _SidebarDestinationItem(
+              svg: item.svg,
+              label: item.label,
+              isSelected: isSelected,
+              onTap: () => onDestinationSelected(idx),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _SidebarDestinationItem extends StatefulWidget {
+  final String svg;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SidebarDestinationItem({
+    required this.svg,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_SidebarDestinationItem> createState() => _SidebarDestinationItemState();
+}
+
+class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Fixed outer container for this destination item (78px wide x 66px high)
+    // Pre-allocated so active or hover states NEVER push neighboring items!
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 78,
+          height: 66,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Pill overlay container with rigidly fixed dimensions: 54px x 32px
+              AnimatedContainer(
+                duration: AppTheme.themeAnimationDuration,
+                curve: AppTheme.themeAnimationCurve,
+                width: 54,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: widget.isSelected
+                      ? AppColors.wineRed
+                      : (_isHovered
+                          ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
+                          : Colors.transparent),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: widget.isSelected
+                        ? AppColors.wineRed
+                        : (_isHovered
+                            ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+                            : Colors.transparent),
+                    width: 1,
+                  ),
+                ),
+                child: AppSvgIcon(
+                  svgString: widget.svg,
+                  size: 18,
+                  // Within the wine overlay, the icon is PURE BRIGHT WHITE!
+                  // When unselected: crisp secondary/muted color
+                  color: widget.isSelected
+                      ? Colors.white
+                      : (_isHovered
+                          ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
+                          : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Fixed-height label text
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: widget.isSelected
+                      ? (isDark ? Colors.white : AppColors.wineRed)
+                      : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
