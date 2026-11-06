@@ -25,12 +25,13 @@ class AppColors {
   static const Color wineRedDarkBorder = Color(0xFF5C1B28);
   static const Color wineRedDarkText = Color(0xFFFF94A6);
 
-  // Accent: GitHub Green
+  // Accent: GitHub Green & Blue
   static const Color githubGreen = Color(0xFF238636);
   static const Color githubGreenHover = Color(0xFF2EA44F);
   static const Color githubGreenSubtle = Color(0xFFE6F7EC);
   static const Color githubGreenText = Color(0xFF1A7F37);
   static const Color githubGreenBorder = Color(0xFFBCE7C6);
+  static const Color githubBlue = Color(0xFF0969DA);
 
   // Dark mode specific green badge colors
   static const Color githubGreenDarkSubtle = Color(0xFF112A1A);
@@ -38,6 +39,7 @@ class AppColors {
   static const Color githubGreenDarkText = Color(0xFF4AC26B);
 
   // Enterprise Status Colors
+  static const Color statusAmber = Color(0xFFD29922);
   static const Color statusYellow = Color(0xFF9A6700);
   static const Color statusYellowSubtle = Color(0xFFFFF8C5);
   static const Color statusYellowBorder = Color(0xFFF6E05E);
@@ -58,6 +60,7 @@ class AppColors {
 
   // Light Mode Neutrals (Clean ERP Surfaces)
   static const Color lightBg = Color(0xFFF8FAFC);
+  static const Color lightBackground = lightBg;
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightSurfaceHover = Color(0xFFF1F5F9);
   static const Color lightBorder = Color(0xFFE2E8F0);
@@ -69,6 +72,7 @@ class AppColors {
 
   // Dark Mode Neutrals (GitHub Dark Dimmed)
   static const Color darkBg = Color(0xFF0D1117);
+  static const Color darkBackground = darkBg;
   static const Color darkSurface = Color(0xFF161B22);
   static const Color darkSurfaceHover = Color(0xFF1C2128);
   static const Color darkBorder = Color(0xFF30363D);

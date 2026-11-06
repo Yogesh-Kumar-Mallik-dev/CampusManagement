@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -34,6 +35,43 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   bool _loading = false;
   List<AttendanceSummaryModel> _summaries = [];
   AttendanceViewMode _mode = AttendanceViewMode.summary;
+
+  // Student Attendance Analytics State
+  String _courseFilter = 'all'; // 'all', 'at_risk', 'safe'
+  String? _selectedHeatmapDayInfo;
+
+  static final List<Map<String, dynamic>> _heatmapDays = [
+    {'day': 1, 'date': 'Oct 01', 'status': 'full', 'desc': 'Oct 01 (Wed): Attended 4/4 sessions (100%) - CS301, CS302, CS304, CS303'},
+    {'day': 2, 'date': 'Oct 02', 'status': 'full', 'desc': 'Oct 02 (Thu): Attended 4/4 sessions (100%) - Operating Systems Lab & Lecture'},
+    {'day': 3, 'date': 'Oct 03', 'status': 'partial', 'desc': 'Oct 03 (Fri): Attended 3/4 sessions (75%) - Missed MA101 Discrete Math'},
+    {'day': 4, 'date': 'Oct 06', 'status': 'full', 'desc': 'Oct 06 (Mon): Attended 4/4 sessions (100%) - Neural Networks Lab & Theory'},
+    {'day': 5, 'date': 'Oct 07', 'status': 'full', 'desc': 'Oct 07 (Tue): Attended 4/4 sessions (100%) - DBMS Transactions & Concurrency'},
+    {'day': 6, 'date': 'Oct 08', 'status': 'full', 'desc': 'Oct 08 (Wed): Attended 4/4 sessions (100%) - Full attendance verified'},
+    {'day': 7, 'date': 'Oct 09', 'status': 'absent', 'desc': 'Oct 09 (Thu): Attended 0/4 sessions (0%) - Absence on Academic Leave'},
+    {'day': 8, 'date': 'Oct 10', 'status': 'full', 'desc': 'Oct 10 (Fri): Attended 4/4 sessions (100%) - Algorithms Dynamic Programming'},
+    {'day': 9, 'date': 'Oct 13', 'status': 'full', 'desc': 'Oct 13 (Mon): Attended 4/4 sessions (100%) - Operating Systems Virtual Memory'},
+    {'day': 10, 'date': 'Oct 14', 'status': 'full', 'desc': 'Oct 14 (Tue): Attended 4/4 sessions (100%) - All lectures verified'},
+    {'day': 11, 'date': 'Oct 15', 'status': 'full', 'desc': 'Oct 15 (Wed): Attended 4/4 sessions (100%) - Full attendance verified'},
+    {'day': 12, 'date': 'Oct 16', 'status': 'partial', 'desc': 'Oct 16 (Thu): Attended 2/4 sessions (50%) - Lab Attended, Missed Theory'},
+    {'day': 13, 'date': 'Oct 17', 'status': 'full', 'desc': 'Oct 17 (Fri): Attended 4/4 sessions (100%) - Discrete Math Graph Theory'},
+    {'day': 14, 'date': 'Oct 20', 'status': 'full', 'desc': 'Oct 20 (Mon): Attended 4/4 sessions (100%) - Deep Learning Backprop'},
+    {'day': 15, 'date': 'Oct 21', 'status': 'full', 'desc': 'Oct 21 (Tue): Attended 4/4 sessions (100%) - Full attendance verified'},
+    {'day': 16, 'date': 'Oct 22', 'status': 'full', 'desc': 'Oct 22 (Wed): Attended 4/4 sessions (100%) - Full attendance verified'},
+    {'day': 17, 'date': 'Oct 23', 'status': 'full', 'desc': 'Oct 23 (Thu): Attended 4/4 sessions (100%) - OS File Systems'},
+    {'day': 18, 'date': 'Oct 24', 'status': 'absent', 'desc': 'Oct 24 (Fri): Attended 0/4 sessions (0%) - Personal Medical Leave'},
+    {'day': 19, 'date': 'Oct 27', 'status': 'full', 'desc': 'Oct 27 (Mon): Attended 4/4 sessions (100%) - DBMS Indexing B+ Trees'},
+    {'day': 20, 'date': 'Oct 28', 'status': 'full', 'desc': 'Oct 28 (Tue): Attended 4/4 sessions (100%) - Algorithms Greedy Heuristics'},
+    {'day': 21, 'date': 'Oct 29', 'status': 'full', 'desc': 'Oct 29 (Wed): Attended 4/4 sessions (100%) - Full attendance verified'},
+    {'day': 22, 'date': 'Oct 30', 'status': 'full', 'desc': 'Oct 30 (Thu): Attended 4/4 sessions (100%) - Deep Learning CNN Architectures'},
+    {'day': 23, 'date': 'Oct 31', 'status': 'partial', 'desc': 'Oct 31 (Fri): Attended 3/4 sessions (75%) - Missed Algorithms Lab'},
+    {'day': 24, 'date': 'Nov 03', 'status': 'full', 'desc': 'Nov 03 (Mon): Attended 4/4 sessions (100%) - Operating Systems Deadlocks'},
+    {'day': 25, 'date': 'Nov 04', 'status': 'full', 'desc': 'Nov 04 (Tue): Attended 4/4 sessions (100%) - DBMS Normalization 3NF/BCNF'},
+    {'day': 26, 'date': 'Nov 05', 'status': 'full', 'desc': 'Nov 05 (Wed): Attended 4/4 sessions (100%) - Continuous 12-day streak active'},
+    {'day': 27, 'date': 'Nov 06', 'status': 'full', 'desc': 'Nov 06 (Thu): Attended 4/4 sessions (100%) - Full attendance verified'},
+    {'day': 28, 'date': 'Nov 07', 'status': 'full', 'desc': 'Nov 07 (Fri): Attended 4/4 sessions (100%) - Discrete Math Combinatorics'},
+    {'day': 29, 'date': 'Nov 10', 'status': 'full', 'desc': 'Nov 10 (Mon): Attended 4/4 sessions (100%) - Deep Learning Transformers'},
+    {'day': 30, 'date': 'Nov 11', 'status': 'full', 'desc': 'Nov 11 (Tue): Attended 4/4 sessions (100%) - Today: All classes verified'},
+  ];
 
   // Selected Lecture Details
   final String _selectedCourseId = 'CS301';
@@ -504,6 +542,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isFacultyOrAdmin = widget.currentUser.archetype == 'employee';
 
+    if (!isFacultyOrAdmin) {
+      return _buildStudentAttendanceDashboard(isDark);
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Center(
@@ -718,6 +760,1257 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               minHeight: 6,
               backgroundColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               color: meetsThreshold ? AppColors.githubGreen : AppColors.statusRed,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ----------------------------------------------------
+  // VIEW 1-B: STUDENT ATTENDANCE ANALYTICS DASHBOARD
+  // ----------------------------------------------------
+
+  Widget _buildStudentAttendanceDashboard(bool isDark) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final totalHeld = _summaries.fold<int>(0, (sum, item) => sum + item.totalSessions);
+    final totalAttended = _summaries.fold<int>(0, (sum, item) => sum + item.attended);
+    final overallPct = totalHeld > 0 ? (totalAttended / totalHeld) * 100.0 : 0.0;
+    final atRiskList = _summaries.where((s) => s.percentage < 75.0).toList();
+    final safeList = _summaries.where((s) => s.percentage >= 75.0).toList();
+
+    // 75% Statutory Rule:
+    // Safe margin: floor((4*A - 3*T) / 3)
+    final safeMargin = totalHeld > 0 && overallPct >= 75.0
+        ? math.max(0, ((4 * totalAttended - 3 * totalHeld) / 3).floor())
+        : 0;
+    // Recovery required: 3*T - 4*A
+    final recoveryReq = totalHeld > 0 && overallPct < 75.0
+        ? math.max(0, 3 * totalHeld - 4 * totalAttended)
+        : 0;
+
+    List<AttendanceSummaryModel> displayedSummaries = _summaries;
+    if (_courseFilter == 'at_risk') {
+      displayedSummaries = atRiskList;
+    } else if (_courseFilter == 'safe') {
+      displayedSummaries = safeList;
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 860),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Top Action & Status Bar
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.githubGreen.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const AppSvgIcon(
+                        svgString: AppSvgIcon.attendance,
+                        size: 24,
+                        color: AppColors.githubGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Student Attendance Analytics',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Statutory 75% regulatory compliance engine, safe bunk margins, and optical scanner.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.githubGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        elevation: 0,
+                      ),
+                      icon: const AppSvgIcon(svgString: AppSvgIcon.qrCode, size: 16, color: Colors.white),
+                      label: const Text('Scan Rolling QR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      onPressed: _openOpticalScanner,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // 1. Overall Dual-Ring Radial Compliance Gauge
+              _buildOverallAttendanceVisual(
+                isDark,
+                totalHeld,
+                totalAttended,
+                overallPct,
+                atRiskList.length,
+                safeMargin,
+                recoveryReq,
+              ),
+              const SizedBox(height: 18),
+
+              // 2. 30-Day Classroom Activity Matrix
+              _buildAttendanceHeatmap(isDark),
+              const SizedBox(height: 18),
+
+              // 3. Course-by-Course Comparative Benchmark Visual
+              _buildCourseComparisonChart(isDark),
+              const SizedBox(height: 18),
+
+              // 4. Enrolled Course Standing & Margins
+              _buildDetailedCourseList(
+                isDark,
+                displayedSummaries,
+                atRiskList.length,
+                safeList.length,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverallAttendanceVisual(
+    bool isDark,
+    int totalHeld,
+    int totalAttended,
+    double overallPct,
+    int atRiskCount,
+    int safeMargin,
+    int recoveryReq,
+  ) {
+    final meetsRegulatory = overallPct >= 75.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: (meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: AppSvgIcon(
+                        svgString: meetsRegulatory ? AppSvgIcon.shield : AppSvgIcon.alertTriangle,
+                        size: 16,
+                        color: meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Statutory 75% Regulatory Compliance Gauge',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Dual-ring radial measurement against official university threshold',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: (meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  meetsRegulatory ? 'EXAM ELIGIBLE' : 'DEBARMENT SHORTFALL RISK',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 580;
+
+              final gaugeWidget = SizedBox(
+                width: 150,
+                height: 150,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: const Size(150, 150),
+                      painter: _AttendanceRadialPainter(
+                        percentage: overallPct,
+                        isDark: isDark,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${overallPct.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed,
+                          ),
+                        ),
+                        Text(
+                          'OVERALL',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            meetsRegulatory ? '>= 75% PASS' : '< 75% RISK',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+
+              final metricsWidget = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Regulatory Policy Rule Card
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: (meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppSvgIcon(
+                          svgString: meetsRegulatory ? AppSvgIcon.check : AppSvgIcon.alertTriangle,
+                          size: 16,
+                          color: meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                meetsRegulatory
+                                    ? 'Safe Bunk Margin: $safeMargin Class${safeMargin == 1 ? '' : 'es'}'
+                                    : 'Recovery Needed: $recoveryReq Consecutive Class${recoveryReq == 1 ? '' : 'es'}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: meetsRegulatory ? AppColors.githubGreen : AppColors.statusRed,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                meetsRegulatory
+                                    ? 'You can safely miss up to $safeMargin more lecture${safeMargin == 1 ? '' : 's'} across enrolled courses while staying above the statutory 75% boundary.'
+                                    : 'You are below statutory threshold. Attend the next $recoveryReq consecutive class${recoveryReq == 1 ? '' : 'es'} without absence to clear examination eligibility.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Tally Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('AGGREGATE ATTENDED', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+                              const SizedBox(height: 2),
+                              Text('$totalAttended / $totalHeld', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('SUBJECTS AT RISK', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+                              const SizedBox(height: 2),
+                              Text('$atRiskCount of ${_summaries.length}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: atRiskCount > 0 ? AppColors.statusRed : AppColors.githubGreen)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+
+              if (isWide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    gaugeWidget,
+                    const SizedBox(width: 20),
+                    Expanded(child: metricsWidget),
+                  ],
+                );
+              } else {
+                return Column(
+                  children: [
+                    gaugeWidget,
+                    const SizedBox(height: 16),
+                    metricsWidget,
+                  ],
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceHeatmap(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: AppColors.statusAmber.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const AppSvgIcon(
+                        svgString: AppSvgIcon.flame,
+                        size: 16,
+                        color: AppColors.statusAmber,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '30-Day Classroom Activity Matrix',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Daily session participation and continuous streak monitoring',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.statusAmber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.statusAmber.withValues(alpha: 0.3), width: 1),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppSvgIcon(svgString: AppSvgIcon.flame, size: 12, color: AppColors.statusAmber),
+                    SizedBox(width: 6),
+                    Text(
+                      '12-Day Active Streak',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.statusAmber,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Heatmap Grid: 5 rows (Mon to Fri) x 6 columns (Weeks 1 to 6)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Day Labels (Mon to Fri)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8, top: 2),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SizedBox(height: 24, child: Text('Mon', style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted))),
+                      const SizedBox(height: 4),
+                      SizedBox(height: 24, child: Text('Tue', style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted))),
+                      const SizedBox(height: 4),
+                      SizedBox(height: 24, child: Text('Wed', style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted))),
+                      const SizedBox(height: 4),
+                      SizedBox(height: 24, child: Text('Thu', style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted))),
+                      const SizedBox(height: 4),
+                      SizedBox(height: 24, child: Text('Fri', style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted))),
+                    ],
+                  ),
+                ),
+
+                // Matrix Weeks
+                ...List.generate(6, (col) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Column(
+                      children: List.generate(5, (row) {
+                        final index = col * 5 + row;
+                        if (index >= _heatmapDays.length) {
+                          return const SizedBox(width: 24, height: 28);
+                        }
+                        final day = _heatmapDays[index];
+                        final status = day['status'] as String;
+                        final color = _getHeatmapColor(status, isDark);
+                        final isSelected = _selectedHeatmapDayInfo == day['desc'];
+
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedHeatmapDayInfo = day['desc'] as String;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            margin: const EdgeInsets.symmetric(vertical: 2),
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isSelected
+                                    ? (isDark ? Colors.white : Colors.black87)
+                                    : (isDark ? Colors.black26 : Colors.white24),
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Selected Day Feedback Pill or Default Banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+            ),
+            child: Row(
+              children: [
+                AppSvgIcon(
+                  svgString: AppSvgIcon.calendar,
+                  size: 14,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _selectedHeatmapDayInfo ?? 'Tap any heatmap day to inspect verified attendance logs.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Less', style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+              const SizedBox(width: 6),
+              _buildLegendSwatch(AppColors.statusRed),
+              const SizedBox(width: 4),
+              _buildLegendSwatch(const Color(0xFFD29922)),
+              const SizedBox(width: 4),
+              _buildLegendSwatch(AppColors.githubGreen),
+              const SizedBox(width: 6),
+              Text('More (100%)', style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getHeatmapColor(String status, bool isDark) {
+    switch (status) {
+      case 'full':
+        return AppColors.githubGreen;
+      case 'partial':
+        return const Color(0xFFD29922);
+      case 'absent':
+        return AppColors.statusRed;
+      default:
+        return isDark ? const Color(0xFF21262D) : const Color(0xFFEAEEF2);
+    }
+  }
+
+  Widget _buildLegendSwatch(Color color) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  Widget _buildCourseComparisonChart(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: AppColors.githubBlue.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const AppSvgIcon(
+                        svgString: AppSvgIcon.chartBar,
+                        size: 16,
+                        color: AppColors.githubBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Course Benchmark vs. 75% Cutoff',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Mandatory statutory cutoff across enrolled subjects',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+                ),
+                child: Text(
+                  'Cutoff: 75.0%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          ..._summaries.map((s) {
+            final meets = s.percentage >= 75.0;
+            final margin = meets
+                ? math.max(0, ((4 * s.attended - 3 * s.totalSessions) / 3).floor())
+                : 0;
+            final recovery = !meets
+                ? math.max(0, 3 * s.totalSessions - 4 * s.attended)
+                : 0;
+
+            return InkWell(
+              onTap: () => _showCourseInspectorDialog(context, s, isDark),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Text(
+                                s.courseCode,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  s.courseName,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${s.attended}/${s.totalSessions} (${s.percentage.toStringAsFixed(1)}%)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: meets ? AppColors.githubGreen : AppColors.statusRed,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final totalWidth = constraints.maxWidth;
+                        final cutoffPosition = totalWidth * 0.75;
+                        final barWidth = totalWidth * (s.percentage / 100.0).clamp(0.0, 1.0);
+
+                        return SizedBox(
+                          height: 14,
+                          child: Stack(
+                            children: [
+                              // Background track
+                              Container(
+                                width: totalWidth,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF21262D) : const Color(0xFFEAEEF2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              // Active bar
+                              Container(
+                                width: barWidth,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: meets ? AppColors.githubGreen : AppColors.statusRed,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              // 75% Cutoff Indicator Line
+                              Positioned(
+                                left: cutoffPosition - 1,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 2,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      meets
+                          ? 'Safe Margin: Can miss $margin class${margin == 1 ? '' : 'es'}'
+                          : 'Shortfall: Must attend next $recovery consecutive class${recovery == 1 ? '' : 'es'}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: meets ? AppColors.githubGreen : AppColors.statusRed,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedCourseList(
+    bool isDark,
+    List<AttendanceSummaryModel> displayedSummaries,
+    int atRiskCount,
+    int safeCount,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            const Text(
+              'Enrolled Course Standing & Margins',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            // Filter Segments
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              style: SegmentedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                visualDensity: VisualDensity.compact,
+                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+              segments: [
+                ButtonSegment(value: 'all', label: Text('All (${_summaries.length})')),
+                ButtonSegment(value: 'at_risk', label: Text('At Risk ($atRiskCount)')),
+                ButtonSegment(value: 'safe', label: Text('Safe ($safeCount)')),
+              ],
+              selected: {_courseFilter},
+              onSelectionChanged: (val) {
+                setState(() => _courseFilter = val.first);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (displayedSummaries.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+            ),
+            child: Text(
+              'No courses match the active filter criteria.',
+              style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+            ),
+          )
+        else
+          Column(
+            children: displayedSummaries.map((s) {
+              final meets = s.percentage >= 75.0;
+              final badgeStyle = meets ? AppColors.greenBadge(isDark) : AppColors.redBadge(isDark);
+              final margin = meets
+                  ? math.max(0, ((4 * s.attended - 3 * s.totalSessions) / 3).floor())
+                  : 0;
+              final recovery = !meets
+                  ? math.max(0, 3 * s.totalSessions - 4 * s.attended)
+                  : 0;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${s.courseCode} — ${s.courseName}',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Attended ${s.attended} of ${s.totalSessions} sessions (${s.totalSessions - s.attended} absent)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: badgeStyle.background,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: badgeStyle.border, width: 1),
+                          ),
+                          child: Text(
+                            '${s.percentage.toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: badgeStyle.text,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: s.totalSessions > 0 ? (s.attended / s.totalSessions).clamp(0.0, 1.0) : 0.0,
+                        minHeight: 6,
+                        backgroundColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                        color: meets ? AppColors.githubGreen : AppColors.statusRed,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Margin Pill
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (meets ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: (meets ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AppSvgIcon(
+                                svgString: meets ? AppSvgIcon.check : AppSvgIcon.alertTriangle,
+                                size: 12,
+                                color: meets ? AppColors.githubGreen : AppColors.statusRed,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                meets
+                                    ? 'Can miss $margin class${margin == 1 ? '' : 'es'}'
+                                    : 'Must attend next $recovery class${recovery == 1 ? '' : 'es'}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: meets ? AppColors.githubGreen : AppColors.statusRed,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Drilldown Action
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            visualDensity: VisualDensity.compact,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          ),
+                          icon: AppSvgIcon(
+                            svgString: AppSvgIcon.academicCap,
+                            size: 13,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                          label: const Text('Inspect Log', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showCourseInspectorDialog(context, s, isDark),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  void _showCourseInspectorDialog(BuildContext context, AttendanceSummaryModel s, bool isDark) {
+    final meetsThreshold = s.percentage >= 75.0;
+    final margin = meetsThreshold
+        ? math.max(0, ((4 * s.attended - 3 * s.totalSessions) / 3).floor())
+        : 0;
+    final recovery = !meetsThreshold
+        ? math.max(0, 3 * s.totalSessions - 4 * s.attended)
+        : 0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (meetsThreshold ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: AppSvgIcon(
+                svgString: meetsThreshold ? AppSvgIcon.check : AppSvgIcon.alertTriangle,
+                size: 20,
+                color: meetsThreshold ? AppColors.githubGreen : AppColors.statusRed,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${s.courseCode} — ${s.courseName}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                  ),
+                  Text(
+                    'Course Attendance Inspector & Regulatory Standing',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+              // Stat Row
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Column(
+                      children: [
+                        Text('ATTENDANCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${s.percentage.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: meetsThreshold ? AppColors.githubGreen : AppColors.statusRed,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(width: 1, height: 36, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    Column(
+                      children: [
+                        Text('SESSIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${s.attended} / ${s.totalSessions}',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+                        ),
+                      ],
+                    ),
+                    Container(width: 1, height: 36, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    Column(
+                      children: [
+                        Text('MISSED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${s.totalSessions - s.attended}',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.statusRed),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Statutory Policy Explanation
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (meetsThreshold ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: (meetsThreshold ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppSvgIcon(
+                      svgString: meetsThreshold ? AppSvgIcon.shield : AppSvgIcon.alertTriangle,
+                      size: 16,
+                      color: meetsThreshold ? AppColors.githubGreen : AppColors.statusRed,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        meetsThreshold
+                            ? 'Statutory Buffer: You are currently compliant with institutional requirements (>=75%). You may miss up to $margin upcoming lecture${margin == 1 ? '' : 's'} while preserving semester exam clearance.'
+                            : 'Debarment Warning: Your attendance has fallen below the mandatory 75% threshold. You must attend the next $recovery consecutive lecture${recovery == 1 ? '' : 's'} without absence to restore eligibility.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Recent Session Audit Log
+              Text(
+                'Recent Session Audit Log',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 180),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    _buildLogItem('Session 32: Nov 05, 2026', 'Practical Lab Verification & Memory Paging', true, isDark),
+                    _buildLogItem('Session 31: Nov 03, 2026', 'Virtual Memory & Page Replacement Algorithms', true, isDark),
+                    _buildLogItem('Session 30: Oct 30, 2026', 'Concurrency, Mutexes & Semaphores', meetsThreshold, isDark),
+                    _buildLogItem('Session 29: Oct 28, 2026', 'Process Synchronization & Race Conditions', true, isDark),
+                    _buildLogItem('Session 28: Oct 24, 2026', 'CPU Scheduling: MLFQ & Real-Time Scheduling', meetsThreshold, isDark),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+      ),
+    );
+  }
+
+  Widget _buildLogItem(String title, String subtitle, bool isPresent, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: (isPresent ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: (isPresent ? AppColors.githubGreen : AppColors.statusRed).withValues(alpha: 0.4),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              isPresent ? 'Present' : 'Absent',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: isPresent ? AppColors.githubGreen : AppColors.statusRed,
+              ),
             ),
           ),
         ],
@@ -1509,5 +2802,77 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         ),
       ),
     );
+  }
+}
+
+class _AttendanceRadialPainter extends CustomPainter {
+  final double percentage;
+  final bool isDark;
+
+  const _AttendanceRadialPainter({
+    required this.percentage,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (math.min(size.width, size.height) - 24) / 2;
+    const strokeWidth = 14.0;
+
+    // 1. Background Ring Track
+    final trackPaint = Paint()
+      ..color = isDark ? const Color(0xFF21262D) : const Color(0xFFE1E4E8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, trackPaint);
+
+    // 2. Active Progress Arc
+    final sweepAngle = (percentage / 100.0).clamp(0.0, 1.0) * 2 * math.pi;
+    final isSafe = percentage >= 75.0;
+
+    final progressPaint = Paint()
+      ..color = isSafe ? AppColors.githubGreen : AppColors.statusRed
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Start at top (-pi / 2)
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+
+    // 3. 75% Statutory Regulatory Benchmark Tick Marker
+    // Starting at -pi/2, 75% is -pi/2 + 0.75 * 2*pi = pi (9 o'clock)
+    const benchmarkAngle = -math.pi / 2 + (0.75 * 2 * math.pi);
+    final innerTickRadius = radius - strokeWidth / 2 - 4;
+    final outerTickRadius = radius + strokeWidth / 2 + 4;
+
+    final tickPaint = Paint()
+      ..color = isDark ? const Color(0xFFF0F6FC) : const Color(0xFF1F2328)
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.square;
+
+    final tickStart = Offset(
+      center.dx + innerTickRadius * math.cos(benchmarkAngle),
+      center.dy + innerTickRadius * math.sin(benchmarkAngle),
+    );
+    final tickEnd = Offset(
+      center.dx + outerTickRadius * math.cos(benchmarkAngle),
+      center.dy + outerTickRadius * math.sin(benchmarkAngle),
+    );
+
+    canvas.drawLine(tickStart, tickEnd, tickPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AttendanceRadialPainter oldDelegate) {
+    return oldDelegate.percentage != percentage || oldDelegate.isDark != isDark;
   }
 }

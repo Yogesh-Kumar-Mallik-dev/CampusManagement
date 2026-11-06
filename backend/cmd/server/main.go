@@ -642,6 +642,44 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		BatchID:       &batchB1ID,
 		WeeklyHours:   2,
 	}, nil)
+
+	// 12. Seed Student Attendance Sessions for Student Harish
+	studentHarishID := "usr-harish_2025_l_btech_1"
+	seedCourseAttendance := func(courseID, courseCode, courseName string, total, attended int) {
+		for i := 1; i <= total; i++ {
+			status := model.StatusPresent
+			if i > attended {
+				status = model.StatusAbsent
+			}
+			dateStr := fmt.Sprintf("2026-10-%02d", (i%28)+1)
+			_, _ = svc.SyncAttendanceBatch(ctx, teacherPriya, model.OfflineAttendanceBatch{
+				Sessions: []model.AttendanceSession{
+					{
+						ID:          fmt.Sprintf("sess-seed-%s-%d", courseID, i),
+						CourseID:    courseID,
+						CourseCode:  courseCode,
+						CourseName:  courseName,
+						ScopeCode:   "sec:cse-3a",
+						SessionDate: dateStr,
+						Topic:       fmt.Sprintf("Session %d: Foundations & Practical Applications", i),
+						IsFinalized: true,
+						Records: []model.AttendanceRecord{
+							{
+								StudentID: studentHarishID,
+								Status:    status,
+							},
+						},
+					},
+				},
+			})
+		}
+	}
+
+	seedCourseAttendance(c1.ID, c1.Code, c1.Name, 32, 28)                                  // 87.5%
+	seedCourseAttendance(c2.ID, c2.Code, c2.Name, 30, 24)                                  // 80.0%
+	seedCourseAttendance(c3.ID, c3.Code, c3.Name, 24, 17)                                  // 70.8%
+	seedCourseAttendance("subj-cs304", "CS304", "Deep Learning & Neural Networks", 30, 29) // 96.7%
+	seedCourseAttendance("subj-ma101", "MA101", "Discrete Mathematics", 20, 12)           // 60.0%
 }
 
 func stringPtr(s string) *string {

@@ -755,4 +755,91 @@ void main() {
     expect(selected, 'opt_2');
     expect(find.text('Option Two (Beta)'), findsOneWidget);
   });
+
+  testWidgets(
+      'Student Attendance Analytics: Dual-ring radial gauge, 75% regulatory margin calculation, 30-day activity heatmap, and course inspector modal',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(CampusManagementApp(storage: storage));
+    await tester.pump();
+
+    // Select Student persona
+    await tester.tap(find.text('Student'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // Navigate to Attendance Tab
+    await tester.tap(find.text('Attendance').first);
+    await tester.pumpAndSettle();
+
+    // 1. Verify Student Attendance Dashboard elements
+    expect(find.text('Student Attendance Analytics'), findsOneWidget);
+    expect(find.text('Statutory 75% Regulatory Compliance Gauge'), findsOneWidget);
+    expect(find.text('Scan Rolling QR'), findsOneWidget);
+    expect(find.text('30-Day Classroom Activity Matrix'), findsOneWidget);
+    expect(find.text('12-Day Active Streak'), findsOneWidget);
+    expect(find.text('Course Benchmark vs. 75% Cutoff'), findsOneWidget);
+    expect(find.text('Cutoff: 75.0%'), findsOneWidget);
+    expect(find.text('Enrolled Course Standing & Margins'), findsOneWidget);
+
+    // 2. Verify filter buttons and subject cards
+    await tester.ensureVisible(find.text('All (5)'));
+    await tester.pumpAndSettle();
+    expect(find.text('All (5)'), findsOneWidget);
+    expect(find.text('At Risk (2)'), findsOneWidget);
+    expect(find.text('Safe (3)'), findsOneWidget);
+
+    // Filter by At Risk
+    await tester.ensureVisible(find.text('At Risk (2)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('At Risk (2)'));
+    await tester.pumpAndSettle();
+
+    // CS303 (70.8%) and MA101 (60.0%) should be visible
+    expect(find.textContaining('CS303'), findsWidgets);
+    expect(find.textContaining('MA101'), findsWidgets);
+
+    // Filter by Safe
+    await tester.ensureVisible(find.text('Safe (3)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Safe (3)'));
+    await tester.pumpAndSettle();
+
+    // CS301 (87.5%), CS302 (80.0%), CS304 (96.7%)
+    expect(find.textContaining('CS301'), findsWidgets);
+    expect(find.textContaining('CS304'), findsWidgets);
+
+    // Switch back to All
+    await tester.ensureVisible(find.text('All (5)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All (5)'));
+    await tester.pumpAndSettle();
+
+    // 3. Inspect Course Inspector Dialog
+    await tester.ensureVisible(find.text('Inspect Log').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Inspect Log').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Course Attendance Inspector & Regulatory Standing'), findsOneWidget);
+    expect(find.text('Recent Session Audit Log'), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
+
+    // Close Dialog
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    // 4. Test Scan Rolling QR button
+    await tester.ensureVisible(find.text('Scan Rolling QR'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Scan Rolling QR'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Scan Rolling Optical QR'), findsOneWidget);
+    expect(find.text('ALIGN RETICLE WITH CLASSROOM DISPLAY'), findsOneWidget);
+  });
 }
