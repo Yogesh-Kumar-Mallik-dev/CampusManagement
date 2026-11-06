@@ -497,4 +497,107 @@ class ApiService {
     }
     throw Exception('Failed to merge section cohorts: ${res.body}');
   }
+
+  // ----------------------------------------------------
+  // LAB BATCHES & PRACTICALS
+  // ----------------------------------------------------
+
+  Future<List<LabBatchModel>> fetchSectionBatches(String sectionId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/sections/batches?section_id=$sectionId'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => LabBatchModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch section batches (${res.statusCode})');
+  }
+
+  Future<LabBatchModel> createLabBatch(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/sections/batches'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      return LabBatchModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create lab batch: ${res.body}');
+  }
+
+  Future<List<LabBatchModel>> autoPartitionBatches(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/sections/batches/auto-partition'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => LabBatchModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to auto-partition batches: ${res.body}');
+  }
+
+  Future<void> assignStudentBatch({
+    required String batchId,
+    required String studentId,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/sections/batches/assign-student'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'batch_id': batchId,
+        'student_id': studentId,
+      }),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to assign student to batch: ${res.body}');
+    }
+  }
+
+  // ----------------------------------------------------
+  // FACULTY SUBJECT ALLOCATIONS & WORKLOAD
+  // ----------------------------------------------------
+
+  Future<List<FacultyAllocationModel>> fetchFacultyAllocations(String sectionId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/allocations?section_id=$sectionId'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => FacultyAllocationModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch faculty allocations (${res.statusCode})');
+  }
+
+  Future<FacultyAllocationModel> assignFacultyAllocation(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/allocations'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      return FacultyAllocationModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to assign faculty allocation: ${res.body}');
+  }
+
+  Future<void> removeFacultyAllocation(String allocationId) async {
+    final res = await http.delete(Uri.parse('$baseUrl/api/v1/academics/allocations?id=$allocationId'));
+    if (res.statusCode != 200) {
+      throw Exception('Failed to remove faculty allocation: ${res.body}');
+    }
+  }
+
+  Future<List<FacultyWorkloadSummaryModel>> fetchFacultyWorkload({String? teacherId}) async {
+    final uri = teacherId != null && teacherId.isNotEmpty
+        ? Uri.parse('$baseUrl/api/v1/academics/faculty/workload?teacher_id=$teacherId')
+        : Uri.parse('$baseUrl/api/v1/academics/faculty/workload');
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final dynamic data = jsonDecode(res.body);
+      if (data is List) {
+        return data.map((e) => FacultyWorkloadSummaryModel.fromJson(e)).toList();
+      } else if (data is Map<String, dynamic>) {
+        return [FacultyWorkloadSummaryModel.fromJson(data)];
+      }
+    }
+    throw Exception('Failed to fetch faculty workload (${res.statusCode})');
+  }
 }

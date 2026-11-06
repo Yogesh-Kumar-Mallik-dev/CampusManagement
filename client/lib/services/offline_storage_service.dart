@@ -23,6 +23,9 @@ class OfflineStorageService {
   final Map<String, String> _studentProgramMap = {};
   final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
   final Map<String, List<SyllabusVersionModel>> _cachedSyllabusVersions = {};
+  final Map<String, List<LabBatchModel>> _cachedSectionBatches = {};
+  final Map<String, List<FacultyAllocationModel>> _cachedSectionAllocations = {};
+  final Map<String, String> _studentBatchMap = {};
 
   // Optical Attendance active session & live verified roster
   OpticalSessionModel? _activeOpticalSession;
@@ -1049,6 +1052,79 @@ class OfflineStorageService {
     // Seed student Harish section & program assignment
     _studentSectionMap['usr-harish_2025_l_btech_1'] = 'sec-sem5-section-a';
     _studentProgramMap['usr-harish_2025_l_btech_1'] = 'prog-btech-cse';
+
+    // Seed Lab Batches for Section B
+    _cachedSectionBatches['sec-sem3-section-b'] = [
+      LabBatchModel(
+        id: 'batch-sec-sem3-section-b-batch-b1',
+        sectionId: 'sec-sem3-section-b',
+        name: 'Batch B1',
+        studentCount: 0,
+      ),
+      LabBatchModel(
+        id: 'batch-sec-sem3-section-b-batch-b2',
+        sectionId: 'sec-sem3-section-b',
+        name: 'Batch B2',
+        studentCount: 0,
+      ),
+    ];
+
+    // Seed Faculty Allocations for Section A and Section B
+    _cachedSectionAllocations['sec-sem5-section-a'] = [
+      FacultyAllocationModel(
+        id: 'alloc-sec-sem5-cs301-theory',
+        sectionId: 'sec-sem5-section-a',
+        sectionName: 'Section A',
+        subjectId: 'subj-cs301',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        teacherId: 'usr-priya_2024_emp_1',
+        teacherName: 'Dr. Priya Nair',
+        componentType: 'theory',
+        weeklyHours: 4,
+      ),
+      FacultyAllocationModel(
+        id: 'alloc-sec-sem5-cs302-theory',
+        sectionId: 'sec-sem5-section-a',
+        sectionName: 'Section A',
+        subjectId: 'subj-cs302',
+        subjectCode: 'CS302',
+        subjectName: 'Database Management Systems',
+        teacherId: 'usr-priya_2024_emp_1',
+        teacherName: 'Dr. Priya Nair',
+        componentType: 'theory',
+        weeklyHours: 3,
+      ),
+    ];
+
+    _cachedSectionAllocations['sec-sem3-section-b'] = [
+      FacultyAllocationModel(
+        id: 'alloc-sec-sem3-bca-theory',
+        sectionId: 'sec-sem3-section-b',
+        sectionName: 'Section B',
+        subjectId: 'subj-bca-102-202',
+        subjectCode: 'BCA-102',
+        subjectName: 'Computer Fundamentals & Problem Solving with C',
+        teacherId: 'usr-priya_2024_emp_1',
+        teacherName: 'Dr. Priya Nair',
+        componentType: 'theory',
+        weeklyHours: 4,
+      ),
+      FacultyAllocationModel(
+        id: 'alloc-sec-sem3-bca-practical-b1',
+        sectionId: 'sec-sem3-section-b',
+        sectionName: 'Section B',
+        subjectId: 'subj-bca-102-202',
+        subjectCode: 'BCA-102',
+        subjectName: 'Computer Fundamentals & Problem Solving with C',
+        teacherId: 'usr-priya_2024_emp_1',
+        teacherName: 'Dr. Priya Nair',
+        componentType: 'practical',
+        batchId: 'batch-sec-sem3-section-b-batch-b1',
+        batchName: 'Batch B1',
+        weeklyHours: 2,
+      ),
+    ];
   }
 
   Future<List<DepartmentModel>> getDepartments({bool forceRefresh = false}) async {
@@ -1479,6 +1555,8 @@ class OfflineStorageService {
       teachers: teachers,
       students: enrolledStudents,
       programBreakdown: breakdown,
+      labBatches: _cachedSectionBatches[sec.id] ?? [],
+      facultyAllocations: _cachedSectionAllocations[sec.id] ?? [],
     );
   }
 
@@ -1616,5 +1694,278 @@ class OfflineStorageService {
     }
 
     return migrated;
+  }
+
+  // ----------------------------------------------------
+  // LAB BATCHES (PRACTICAL SUB-DIVISIONS)
+  // ----------------------------------------------------
+
+  Future<List<LabBatchModel>> getSectionBatches(String sectionId) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final list = await api.fetchSectionBatches(sectionId);
+        _cachedSectionBatches[sectionId] = list;
+        return list;
+      } catch (_) {}
+    }
+    return _cachedSectionBatches[sectionId] ?? [];
+  }
+
+  Future<LabBatchModel> createLabBatch(Map<String, dynamic> payload) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final created = await api.createLabBatch(payload);
+        final list = _cachedSectionBatches[payload['section_id']] ?? [];
+        list.removeWhere((b) => b.id == created.id);
+        list.add(created);
+        _cachedSectionBatches[payload['section_id']] = list;
+        return created;
+      } catch (_) {}
+    }
+
+    final secId = payload['section_id'] as String;
+    final name = payload['name'] as String? ?? 'Lab Batch';
+    final sids = (payload['student_ids'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final id = 'batch-$secId-${name.toLowerCase().replaceAll(' ', '-')}';
+
+    final batch = LabBatchModel(
+      id: id,
+      sectionId: secId,
+      name: name,
+      studentIds: sids,
+      studentCount: sids.length,
+    );
+
+    for (final sid in sids) {
+      _studentBatchMap[sid] = id;
+    }
+
+    final list = _cachedSectionBatches[secId] ?? [];
+    list.removeWhere((b) => b.id == id);
+    list.add(batch);
+    _cachedSectionBatches[secId] = list;
+
+    return batch;
+  }
+
+  Future<List<LabBatchModel>> autoPartitionBatches(Map<String, dynamic> payload) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final list = await api.autoPartitionBatches(payload);
+        _cachedSectionBatches[payload['section_id']] = list;
+        return list;
+      } catch (_) {}
+    }
+
+    final secId = payload['section_id'] as String;
+    final batchCount = payload['batch_count'] as int? ?? 2;
+    final prefix = payload['prefix'] as String? ?? 'Batch';
+
+    // Fetch enrolled students
+    final enrolledStudents = _cachedUsers
+        .where((u) => u.archetype == 'student' && _studentSectionMap[u.id] == secId)
+        .map((u) => u.id)
+        .toList()
+      ..sort();
+
+    final List<LabBatchModel> created = [];
+    final total = enrolledStudents.length;
+
+    for (int i = 0; i < batchCount; i++) {
+      final bNum = i + 1;
+      final bName = '$prefix $bNum';
+      final bId = 'batch-$secId-${bName.toLowerCase().replaceAll(' ', '-')}';
+
+      final start = (i * total) ~/ batchCount;
+      final end = ((i + 1) * total) ~/ batchCount;
+      final assigned = (start < total) ? enrolledStudents.sublist(start, end > total ? total : end) : <String>[];
+
+      for (final sid in assigned) {
+        _studentBatchMap[sid] = bId;
+      }
+
+      created.add(LabBatchModel(
+        id: bId,
+        sectionId: secId,
+        name: bName,
+        studentIds: assigned,
+        studentCount: assigned.length,
+      ));
+    }
+
+    _cachedSectionBatches[secId] = created;
+    return created;
+  }
+
+  Future<void> assignStudentBatch({required String batchId, required String studentId}) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        await api.assignStudentBatch(batchId: batchId, studentId: studentId);
+      } catch (_) {}
+    }
+
+    // Update in local cache
+    for (final secBatches in _cachedSectionBatches.values) {
+      for (int i = 0; i < secBatches.length; i++) {
+        final b = secBatches[i];
+        if (b.studentIds.contains(studentId)) {
+          final updatedSids = b.studentIds.where((id) => id != studentId).toList();
+          secBatches[i] = LabBatchModel(
+            id: b.id,
+            sectionId: b.sectionId,
+            name: b.name,
+            studentIds: updatedSids,
+            studentCount: updatedSids.length,
+          );
+        }
+        if (b.id == batchId) {
+          final updatedSids = [...b.studentIds, studentId];
+          secBatches[i] = LabBatchModel(
+            id: b.id,
+            sectionId: b.sectionId,
+            name: b.name,
+            studentIds: updatedSids,
+            studentCount: updatedSids.length,
+          );
+        }
+      }
+    }
+    _studentBatchMap[studentId] = batchId;
+  }
+
+  // ----------------------------------------------------
+  // FACULTY ALLOCATIONS & WORKLOAD
+  // ----------------------------------------------------
+
+  Future<List<FacultyAllocationModel>> getSectionFacultyAllocations(String sectionId) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final list = await api.fetchFacultyAllocations(sectionId);
+        _cachedSectionAllocations[sectionId] = list;
+        return list;
+      } catch (_) {}
+    }
+    return _cachedSectionAllocations[sectionId] ?? [];
+  }
+
+  Future<FacultyAllocationModel> assignFacultyAllocation(Map<String, dynamic> payload) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        final created = await api.assignFacultyAllocation(payload);
+        final list = _cachedSectionAllocations[payload['section_id']] ?? [];
+        list.removeWhere((a) => a.id == created.id);
+        list.add(created);
+        _cachedSectionAllocations[payload['section_id']] = list;
+        return created;
+      } catch (_) {}
+    }
+
+    final secId = payload['section_id'] as String;
+    final subId = payload['subject_id'] as String;
+    final teacherId = payload['teacher_id'] as String;
+    final compType = payload['component_type'] as String? ?? 'theory';
+    final batchId = payload['batch_id'] as String?;
+    final weeklyHours = payload['weekly_hours'] as int? ?? (compType == 'theory' ? 3 : 2);
+
+    final sec = _cachedSections.cast<SectionModel?>().firstWhere((s) => s?.id == secId, orElse: () => null);
+    final sub = _cachedSubjects.cast<SubjectModel?>().firstWhere((s) => s?.id == subId, orElse: () => null);
+    final teacher = _cachedUsers.cast<UserModel?>().firstWhere((u) => u?.id == teacherId, orElse: () => null);
+
+    String? bName;
+    if (batchId != null) {
+      final batches = _cachedSectionBatches[secId] ?? [];
+      final b = batches.cast<LabBatchModel?>().firstWhere((item) => item?.id == batchId, orElse: () => null);
+      bName = b?.name;
+    }
+
+    final allocId = 'alloc-$secId-$subId-$compType-${batchId ?? "all"}-$teacherId';
+    final alloc = FacultyAllocationModel(
+      id: allocId,
+      sectionId: secId,
+      sectionName: sec?.name,
+      subjectId: subId,
+      subjectCode: sub != null ? sub.resolveCode(sec?.semesterNumber ?? 1) : subId,
+      subjectName: sub?.name,
+      teacherId: teacherId,
+      teacherName: teacher?.fullName ?? teacherId,
+      componentType: compType,
+      batchId: batchId,
+      batchName: bName,
+      weeklyHours: weeklyHours,
+    );
+
+    final list = _cachedSectionAllocations[secId] ?? [];
+    list.removeWhere((a) => a.id == allocId);
+    list.add(alloc);
+    _cachedSectionAllocations[secId] = list;
+
+    return alloc;
+  }
+
+  Future<void> removeFacultyAllocation(String allocationId, String sectionId) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        await api.removeFacultyAllocation(allocationId);
+      } catch (_) {}
+    }
+
+    final list = _cachedSectionAllocations[sectionId] ?? [];
+    list.removeWhere((a) => a.id == allocationId);
+    _cachedSectionAllocations[sectionId] = list;
+  }
+
+  Future<List<FacultyWorkloadSummaryModel>> getFacultyWorkloadSummaries({String? teacherId}) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    isOnline = await api.checkHealth();
+    if (isOnline) {
+      try {
+        return await api.fetchFacultyWorkload(teacherId: teacherId);
+      } catch (_) {}
+    }
+
+    final faculty = _cachedUsers.where((u) => u.archetype == 'employee').toList();
+    final List<FacultyWorkloadSummaryModel> result = [];
+
+    for (final teacher in faculty) {
+      if (teacherId != null && teacher.id != teacherId) continue;
+
+      final teacherAllocs = <FacultyAllocationModel>[];
+      int totalHours = 0;
+
+      for (final allocList in _cachedSectionAllocations.values) {
+        for (final a in allocList) {
+          if (a.teacherId == teacher.id) {
+            teacherAllocs.add(a);
+            totalHours += a.weeklyHours;
+          }
+        }
+      }
+
+      result.add(FacultyWorkloadSummaryModel(
+        teacherId: teacher.id,
+        teacherName: teacher.fullName,
+        totalWeeklyHours: totalHours,
+        maxRecommendedHours: 16,
+        isOverloaded: totalHours > 16,
+        allocations: teacherAllocs,
+      ));
+    }
+
+    result.sort((a, b) => b.totalWeeklyHours.compareTo(a.totalWeeklyHours));
+    return result;
   }
 }

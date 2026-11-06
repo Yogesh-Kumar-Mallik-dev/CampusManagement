@@ -361,7 +361,8 @@ void main() {
     // Verify cross-program banner and allocations
     expect(find.textContaining('Shared Cross-Program Cohort'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Curriculum (3)'), findsOneWidget);
-    expect(find.widgetWithText(Tab, 'Faculty (1)'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Allocations (2)'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Lab Batches (2)'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Enrolled Cohort (0)'), findsOneWidget);
 
     // Close Section inspector dialog
@@ -401,7 +402,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // Switch to Enrolled Cohort tab
-    await tester.tap(find.widgetWithText(Tab, 'Enrolled Cohort (1)'));
+    final cohortTab = find.widgetWithText(Tab, 'Enrolled Cohort (1)');
+    await tester.ensureVisible(cohortTab);
+    await tester.tap(cohortTab);
     await tester.pumpAndSettle();
 
     expect(find.text('Harish Kumar'), findsOneWidget);
@@ -551,5 +554,142 @@ void main() {
     // Verify newly created subject is listed with derived canonical code OOD-101 / OOD-201
     expect(find.text('OOD-101 / OOD-201'), findsWidgets);
     expect(find.text('Object Oriented Software Design'), findsWidgets);
+  });
+
+  testWidgets('Faculty subject allocations, practical lab batches auto-partitioning, and workload overview',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(CampusManagementApp(storage: storage));
+    await tester.pump();
+
+    // Login as Faculty / Admin
+    await tester.tap(find.text('Faculty'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // 1. Navigate to Departments tab via sidebar
+    await tester.tap(find.text('Depts').first);
+    await tester.pumpAndSettle();
+
+    // 2. Switch to Cross-Program Sections view
+    final sectionsToggle = find.textContaining('Cross-Program Sections');
+    expect(sectionsToggle, findsOneWidget);
+    await tester.tap(sectionsToggle);
+    await tester.pumpAndSettle();
+
+    // 4. Test Top-level Faculty Workload Inspector
+    final workloadBtn = find.byKey(const Key('btn-faculty-workload-header'));
+    expect(workloadBtn, findsOneWidget);
+    await tester.tap(workloadBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Faculty Teaching Workload & Contact Hours'), findsOneWidget);
+    expect(find.textContaining('Standard recommended workload limit: 16 contact hours/week'), findsOneWidget);
+    expect(find.text('Dr. Priya Nair'), findsWidgets);
+    expect(find.textContaining('hrs/wk'), findsWidgets);
+
+    // Close workload dialog
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    // 5. Inspect Section B details
+    final inspectBtn = find.text('Inspect Section Cohort').first;
+    await tester.ensureVisible(inspectBtn);
+    await tester.tap(inspectBtn);
+    await tester.pumpAndSettle();
+
+    // Verify TabBar with Allocations and Lab Batches
+    expect(find.widgetWithText(Tab, 'Curriculum (3)'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Allocations (2)'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Lab Batches (2)'), findsOneWidget);
+
+    // 6. Switch to Allocations tab and assign faculty
+    final allocTab = find.widgetWithText(Tab, 'Allocations (2)');
+    await tester.tap(allocTab);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Faculty Subject Allocations (2)'), findsOneWidget);
+    expect(find.text('BCA-102'), findsWidgets);
+    expect(find.textContaining('Theory (Cohort)'), findsOneWidget);
+    expect(find.textContaining('Practical [Batch B1]'), findsOneWidget);
+
+    // Tap Assign Faculty button
+    final assignFacultyBtn = find.byKey(const Key('btn-assign-faculty-allocation'));
+    await tester.tap(assignFacultyBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Assign Faculty to Section'), findsOneWidget);
+
+    // Submit new faculty allocation
+    final submitAllocBtn = find.byKey(const Key('btn-submit-allocation'));
+    await tester.tap(submitAllocBtn);
+    await tester.pumpAndSettle();
+
+    // Verify allocation count updated to 3
+    expect(find.textContaining('Faculty Subject Allocations (3)'), findsOneWidget);
+
+    // 7. Switch to Lab Batches tab
+    final labTab = find.widgetWithText(Tab, 'Lab Batches (2)');
+    await tester.tap(labTab);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Practical Lab Batches (2)'), findsOneWidget);
+    expect(find.text('Batch B1'), findsOneWidget);
+    expect(find.text('Batch B2'), findsOneWidget);
+
+    // Tap Add Batch
+    final addBatchBtn = find.byKey(const Key('btn-create-lab-batch'));
+    await tester.tap(addBatchBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create Lab Batch'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('input-batch-name')), 'Batch B3');
+    final submitBatchBtn = find.byKey(const Key('btn-submit-create-batch'));
+    await tester.tap(submitBatchBtn);
+    await tester.pumpAndSettle();
+
+    // Verify Batch B3 created
+    expect(find.textContaining('Practical Lab Batches (3)'), findsOneWidget);
+    expect(find.text('Batch B3'), findsOneWidget);
+
+    // Close Section B inspector dialog
+    await tester.tap(find.byType(IconButton).last);
+    await tester.pumpAndSettle();
+
+    // 8. Inspect Section A and Auto-Partition its enrolled students
+    final inspectSecABtn = find.widgetWithText(OutlinedButton, 'Inspect Section Cohort').last;
+    await tester.ensureVisible(inspectSecABtn);
+    await tester.tap(inspectSecABtn);
+    await tester.pumpAndSettle();
+
+    // Switch to Lab Batches tab (starts empty for Section A)
+    final secALabTab = find.widgetWithText(Tab, 'Lab Batches (0)');
+    await tester.tap(secALabTab);
+    await tester.pumpAndSettle();
+
+    // Tap Auto-Partition
+    final autoPartitionBtn = find.byKey(const Key('btn-auto-partition-batches'));
+    await tester.tap(autoPartitionBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Auto-Partition Practical Batches'), findsOneWidget);
+    expect(find.textContaining('Evenly distributes all 1 enrolled students across 2 practical batches'), findsOneWidget);
+
+    final submitPartitionBtn = find.byKey(const Key('btn-submit-auto-partition'));
+    await tester.tap(submitPartitionBtn);
+    await tester.pumpAndSettle();
+
+    // Verify 2 batches generated and student Harish Kumar is in Batch 1
+    expect(find.textContaining('Practical Lab Batches (2)'), findsOneWidget);
+    expect(find.text('Batch 1'), findsOneWidget);
+    expect(find.text('Batch 2'), findsOneWidget);
+    expect(find.textContaining('Harish Kumar'), findsOneWidget);
+
+    // Close Section A inspector
+    await tester.tap(find.byType(IconButton).last);
+    await tester.pumpAndSettle();
   });
 }

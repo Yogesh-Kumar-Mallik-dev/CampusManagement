@@ -411,3 +411,194 @@ func (h *DepartmentHandler) HandleMergeSectionCohorts(w http.ResponseWriter, r *
 	})
 }
 
+// HandleLabBatches handles GET and POST for /api/v1/academics/sections/batches
+func (h *DepartmentHandler) HandleLabBatches(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		sectionID := r.URL.Query().Get("section_id")
+		if sectionID == "" {
+			http.Error(w, "section_id query param is required", http.StatusBadRequest)
+			return
+		}
+
+		batches, err := h.academicService.GetSectionLabBatches(r.Context(), sectionID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(batches)
+
+	case http.MethodPost:
+		var req model.CreateLabBatchRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		if req.SectionID == "" || strings.TrimSpace(req.Name) == "" {
+			http.Error(w, "section_id and name are required", http.StatusBadRequest)
+			return
+		}
+
+		batch, err := h.academicService.CreateLabBatch(r.Context(), req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(batch)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// HandleAutoPartitionBatches handles POST /api/v1/academics/sections/batches/auto-partition
+func (h *DepartmentHandler) HandleAutoPartitionBatches(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.AutoPartitionBatchesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+	if req.SectionID == "" {
+		http.Error(w, "section_id is required", http.StatusBadRequest)
+		return
+	}
+
+	batches, err := h.academicService.AutoPartitionLabBatches(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(batches)
+}
+
+// HandleAssignStudentBatch handles POST /api/v1/academics/sections/batches/assign-student
+func (h *DepartmentHandler) HandleAssignStudentBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload struct {
+		BatchID   string `json:"batch_id"`
+		StudentID string `json:"student_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+	if payload.BatchID == "" || payload.StudentID == "" {
+		http.Error(w, "batch_id and student_id are required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.academicService.AssignStudentToLabBatch(r.Context(), payload.BatchID, payload.StudentID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"batch_id":   payload.BatchID,
+		"student_id": payload.StudentID,
+	})
+}
+
+// HandleFacultyAllocations handles GET, POST, and DELETE for /api/v1/academics/allocations
+func (h *DepartmentHandler) HandleFacultyAllocations(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		sectionID := r.URL.Query().Get("section_id")
+		if sectionID == "" {
+			http.Error(w, "section_id query param is required", http.StatusBadRequest)
+			return
+		}
+
+		allocs, err := h.academicService.GetSectionFacultyAllocations(r.Context(), sectionID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(allocs)
+
+	case http.MethodPost:
+		var req model.AssignFacultyAllocationRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		if req.SectionID == "" || req.SubjectID == "" || req.TeacherID == "" {
+			http.Error(w, "section_id, subject_id, and teacher_id are required", http.StatusBadRequest)
+			return
+		}
+
+		alloc, err := h.academicService.AssignFacultyAllocation(r.Context(), req, h.userResolver)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(alloc)
+
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "id query param is required", http.StatusBadRequest)
+			return
+		}
+		if err := h.academicService.RemoveFacultyAllocation(r.Context(), id); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"id":      id,
+		})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// HandleFacultyWorkload handles GET /api/v1/academics/faculty/workload
+func (h *DepartmentHandler) HandleFacultyWorkload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	teacherID := r.URL.Query().Get("teacher_id")
+	if teacherID != "" {
+		summary, err := h.academicService.GetFacultyWorkloadSummary(r.Context(), teacherID, h.userResolver)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(summary)
+		return
+	}
+
+	summaries, err := h.academicService.GetAllFacultyWorkloadSummaries(r.Context(), h.userResolver, h.teacherProvider)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(summaries)
+}
+

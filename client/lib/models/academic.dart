@@ -887,6 +887,8 @@ class SectionDetailModel {
   final List<UserModel> teachers;
   final List<UserModel> students;
   final Map<String, int> programBreakdown;
+  final List<LabBatchModel> labBatches;
+  final List<FacultyAllocationModel> facultyAllocations;
 
   SectionDetailModel({
     required this.section,
@@ -896,6 +898,8 @@ class SectionDetailModel {
     required this.teachers,
     required this.students,
     required this.programBreakdown,
+    this.labBatches = const [],
+    this.facultyAllocations = const [],
   });
 
   factory SectionDetailModel.fromJson(Map<String, dynamic> json) {
@@ -916,7 +920,157 @@ class SectionDetailModel {
       teachers: (json['teachers'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? [],
       students: (json['students'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? [],
       programBreakdown: breakdown,
+      labBatches: (json['lab_batches'] as List?)?.map((e) => LabBatchModel.fromJson(e)).toList() ?? [],
+      facultyAllocations: (json['faculty_allocations'] as List?)
+              ?.map((e) => FacultyAllocationModel.fromJson(e))
+              .toList() ??
+          [],
     );
   }
+}
+
+class LabBatchModel {
+  final String id;
+  final String sectionId;
+  final String name;
+  final List<String> studentIds;
+  final int studentCount;
+
+  LabBatchModel({
+    required this.id,
+    required this.sectionId,
+    required this.name,
+    this.studentIds = const [],
+    this.studentCount = 0,
+  });
+
+  factory LabBatchModel.fromJson(Map<String, dynamic> json) {
+    return LabBatchModel(
+      id: json['id'] ?? '',
+      sectionId: json['section_id'] ?? '',
+      name: json['name'] ?? '',
+      studentIds: (json['student_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      studentCount: json['student_count'] ?? ((json['student_ids'] as List?)?.length ?? 0),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'section_id': sectionId,
+        'name': name,
+        'student_ids': studentIds,
+        'student_count': studentCount,
+      };
+}
+
+class FacultyAllocationModel {
+  final String id;
+  final String sectionId;
+  final String? sectionName;
+  final String subjectId;
+  final String? subjectCode;
+  final String? subjectName;
+  final String teacherId;
+  final String? teacherName;
+  final String componentType; // 'theory', 'practical', 'tutorial'
+  final String? batchId;
+  final String? batchName;
+  final int weeklyHours;
+
+  FacultyAllocationModel({
+    required this.id,
+    required this.sectionId,
+    this.sectionName,
+    required this.subjectId,
+    this.subjectCode,
+    this.subjectName,
+    required this.teacherId,
+    this.teacherName,
+    required this.componentType,
+    this.batchId,
+    this.batchName,
+    this.weeklyHours = 3,
+  });
+
+  factory FacultyAllocationModel.fromJson(Map<String, dynamic> json) {
+    return FacultyAllocationModel(
+      id: json['id'] ?? '',
+      sectionId: json['section_id'] ?? '',
+      sectionName: json['section_name'],
+      subjectId: json['subject_id'] ?? '',
+      subjectCode: json['subject_code'],
+      subjectName: json['subject_name'],
+      teacherId: json['teacher_id'] ?? '',
+      teacherName: json['teacher_name'],
+      componentType: json['component_type'] ?? 'theory',
+      batchId: json['batch_id'],
+      batchName: json['batch_name'],
+      weeklyHours: json['weekly_hours'] ?? 3,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'section_id': sectionId,
+        'section_name': sectionName,
+        'subject_id': subjectId,
+        'subject_code': subjectCode,
+        'subject_name': subjectName,
+        'teacher_id': teacherId,
+        'teacher_name': teacherName,
+        'component_type': componentType,
+        'batch_id': batchId,
+        'batch_name': batchName,
+        'weekly_hours': weeklyHours,
+      };
+}
+
+class FacultyWorkloadSummaryModel {
+  final String teacherId;
+  final String teacherName;
+  final String? departmentId;
+  final String? departmentCode;
+  final int totalWeeklyHours;
+  final int maxRecommendedHours;
+  final bool isOverloaded;
+  final List<FacultyAllocationModel> allocations;
+
+  FacultyWorkloadSummaryModel({
+    required this.teacherId,
+    required this.teacherName,
+    this.departmentId,
+    this.departmentCode,
+    required this.totalWeeklyHours,
+    this.maxRecommendedHours = 16,
+    required this.isOverloaded,
+    this.allocations = const [],
+  });
+
+  factory FacultyWorkloadSummaryModel.fromJson(Map<String, dynamic> json) {
+    return FacultyWorkloadSummaryModel(
+      teacherId: json['teacher_id'] ?? '',
+      teacherName: json['teacher_name'] ?? '',
+      departmentId: json['department_id'],
+      departmentCode: json['department_code'],
+      totalWeeklyHours: json['total_weekly_hours'] ?? 0,
+      maxRecommendedHours: json['max_recommended_hours'] ?? 16,
+      isOverloaded: json['is_overloaded'] ?? false,
+      allocations: (json['allocations'] as List?)
+              ?.map((e) => FacultyAllocationModel.fromJson(e))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'teacher_id': teacherId,
+        'teacher_name': teacherName,
+        'department_id': departmentId,
+        'department_code': departmentCode,
+        'total_weekly_hours': totalWeeklyHours,
+        'max_recommended_hours': maxRecommendedHours,
+        'is_overloaded': isOverloaded,
+        'allocations': allocations.map((e) => e.toJson()).toList(),
+      };
 }
 

@@ -56,6 +56,15 @@ type AcademicService struct {
 
 	// Immutable Syllabus Audit Trail & Versions
 	syllabusVersions map[string][]model.SyllabusVersion // subjectID -> versions
+
+	// Lab Batches & Practical sub-divisions
+	labBatches     map[string]model.LabBatch          // batchID -> LabBatch
+	secBatches     map[string][]string                // sectionID -> []batchID
+	studentBatches map[string]string                  // studentID -> batchID
+
+	// Faculty Subject Allocations
+	facultyAllocations map[string]model.FacultyAllocation // allocID -> FacultyAllocation
+	secAllocations     map[string][]string                // sectionID -> []allocID
 }
 
 func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permService *PermissionService) *AcademicService {
@@ -87,6 +96,11 @@ func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permSer
 		secStudents:        make(map[string]map[string]bool),
 		studentPrograms:    make(map[string]string),
 		syllabusVersions:   make(map[string][]model.SyllabusVersion),
+		labBatches:         make(map[string]model.LabBatch),
+		secBatches:         make(map[string][]string),
+		studentBatches:     make(map[string]string),
+		facultyAllocations: make(map[string]model.FacultyAllocation),
+		secAllocations:     make(map[string][]string),
 	}
 }
 
@@ -1175,6 +1189,25 @@ func (s *AcademicService) GetSectionDetail(ctx context.Context, secID string, us
 
 	sec.StudentCount = len(students)
 
+	// Lab Batches
+	var batches []model.LabBatch
+	for _, bid := range s.secBatches[secID] {
+		if b, ok := s.labBatches[bid]; ok && !b.IsDeleted {
+			b.StudentCount = len(b.StudentIDs)
+			batches = append(batches, b)
+		}
+	}
+	sort.Slice(batches, func(i, j int) bool { return batches[i].Name < batches[j].Name })
+
+	// Faculty Allocations
+	var facultyAllocs []model.FacultyAllocation
+	for _, aid := range s.secAllocations[secID] {
+		if a, ok := s.facultyAllocations[aid]; ok && !a.IsDeleted {
+			facultyAllocs = append(facultyAllocs, a)
+		}
+	}
+	sort.Slice(facultyAllocs, func(i, j int) bool { return facultyAllocs[i].CreatedAt.Before(facultyAllocs[j].CreatedAt) })
+
 	return model.SectionDetail{
 		Section:            sec,
 		Programs:           programs,
@@ -1183,6 +1216,8 @@ func (s *AcademicService) GetSectionDetail(ctx context.Context, secID string, us
 		Teachers:           teachers,
 		Students:           students,
 		ProgramBreakdown:   programBreakdown,
+		LabBatches:         batches,
+		FacultyAllocations: facultyAllocs,
 	}, nil
 }
 
@@ -1282,5 +1317,439 @@ func (s *AcademicService) AllocateSubjectToSection(ctx context.Context, secID st
 		s.secSubjects[secID] = append(s.secSubjects[secID], alloc)
 	}
 	return nil
+}
+
+// ----------------------------------------------------
+// LAB BATCHES (SECTION SUB-DIVISIONS)
+// ----------------------------------------------------
+
+func (s *AcademicService) CreateLabBatch(ctx context.Context, req model.CreateLabBatchRequest) (model.LabBatch, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	sec, ok := s.sections[req.SectionID]
+	if !ok || sec.IsDeleted {
+		return model.LabBatch{}, fmt.Errorf("section not found")
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return model.LabBatch{}, fmt.Errorf("batch name is required")
+	}
+
+	now := time.Now().UTC()
+	cleanKey := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+	batchID := fmt.Sprintf("batch-%s-%s", sec.ID, cleanKey)
+
+	// Validate students belong to section
+	var validStudents []string
+	secStudentsMap := s.secStudents[req.SectionID]
+	for _, sid := range req.StudentIDs {
+		if secStudentsMap[sid] {
+			validStudents = append(validStudents, sid)
+			s.studentBatches[sid] = batchID
+		}
+	}
+
+	batch := model.LabBatch{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        batchID,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		SectionID:    req.SectionID,
+		Name:         name,
+		StudentIDs:   validStudents,
+		StudentCount: len(validStudents),
+	}
+
+	s.labBatches[batchID] = batch
+	s.secBatches[req.SectionID] = append(s.secBatches[req.SectionID], batchID)
+
+	return batch, nil
+}
+
+func (s *AcademicService) AutoPartitionLabBatches(ctx context.Context, req model.AutoPartitionBatchesRequest) ([]model.LabBatch, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	sec, ok := s.sections[req.SectionID]
+	if !ok || sec.IsDeleted {
+		return nil, fmt.Errorf("section not found")
+	}
+
+	if req.BatchCount <= 1 {
+		req.BatchCount = 2
+	}
+	prefix := strings.TrimSpace(req.Prefix)
+	if prefix == "" {
+		prefix = "Batch"
+	}
+
+	// Fetch all students in this section in deterministic order
+	secStudentsMap := s.secStudents[req.SectionID]
+	var studentIDs []string
+	for sid := range secStudentsMap {
+		studentIDs = append(studentIDs, sid)
+	}
+	sort.Strings(studentIDs)
+
+	now := time.Now().UTC()
+	// Clear any existing batches for this section
+	for _, oldBID := range s.secBatches[req.SectionID] {
+		if b, exists := s.labBatches[oldBID]; exists {
+			b.IsDeleted = true
+			s.labBatches[oldBID] = b
+		}
+	}
+	s.secBatches[req.SectionID] = nil
+
+	var createdBatches []model.LabBatch
+	totalStudents := len(studentIDs)
+
+	for bIdx := 0; bIdx < req.BatchCount; bIdx++ {
+		batchNum := bIdx + 1
+		batchName := fmt.Sprintf("%s %d", prefix, batchNum)
+		cleanKey := strings.ToLower(strings.ReplaceAll(batchName, " ", "-"))
+		batchID := fmt.Sprintf("batch-%s-%s", sec.ID, cleanKey)
+
+		// Slice students evenly across batches
+		startIdx := (bIdx * totalStudents) / req.BatchCount
+		endIdx := ((bIdx + 1) * totalStudents) / req.BatchCount
+		var assigned []string
+		if startIdx < totalStudents {
+			if endIdx > totalStudents {
+				endIdx = totalStudents
+			}
+			assigned = studentIDs[startIdx:endIdx]
+		}
+
+		for _, sid := range assigned {
+			s.studentBatches[sid] = batchID
+		}
+
+		batch := model.LabBatch{
+			BaseSyncModel: model.BaseSyncModel{
+				ID:        batchID,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			SectionID:    req.SectionID,
+			Name:         batchName,
+			StudentIDs:   assigned,
+			StudentCount: len(assigned),
+		}
+
+		s.labBatches[batchID] = batch
+		s.secBatches[req.SectionID] = append(s.secBatches[req.SectionID], batchID)
+		createdBatches = append(createdBatches, batch)
+	}
+
+	return createdBatches, nil
+}
+
+func (s *AcademicService) AssignStudentToLabBatch(ctx context.Context, batchID, studentID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	batch, ok := s.labBatches[batchID]
+	if !ok || batch.IsDeleted {
+		return fmt.Errorf("lab batch not found")
+	}
+
+	secStudentsMap := s.secStudents[batch.SectionID]
+	if !secStudentsMap[studentID] {
+		return fmt.Errorf("student is not enrolled in section %s", batch.SectionID)
+	}
+
+	// Remove from other batches in the same section
+	for _, bid := range s.secBatches[batch.SectionID] {
+		if ob, exists := s.labBatches[bid]; exists {
+			newSids := make([]string, 0, len(ob.StudentIDs))
+			for _, sid := range ob.StudentIDs {
+				if sid != studentID {
+					newSids = append(newSids, sid)
+				}
+			}
+			ob.StudentIDs = newSids
+			ob.StudentCount = len(newSids)
+			s.labBatches[bid] = ob
+		}
+	}
+
+	// Add to target batch
+	batch.StudentIDs = append(batch.StudentIDs, studentID)
+	batch.StudentCount = len(batch.StudentIDs)
+	batch.UpdatedAt = time.Now().UTC()
+	s.labBatches[batchID] = batch
+	s.studentBatches[studentID] = batchID
+
+	return nil
+}
+
+func (s *AcademicService) GetSectionLabBatches(ctx context.Context, sectionID string) ([]model.LabBatch, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var batches []model.LabBatch
+	for _, bid := range s.secBatches[sectionID] {
+		if b, ok := s.labBatches[bid]; ok && !b.IsDeleted {
+			b.StudentCount = len(b.StudentIDs)
+			batches = append(batches, b)
+		}
+	}
+	sort.Slice(batches, func(i, j int) bool { return batches[i].Name < batches[j].Name })
+	return batches, nil
+}
+
+// ----------------------------------------------------
+// FACULTY SUBJECT ALLOCATIONS & WORKLOAD
+// ----------------------------------------------------
+
+func (s *AcademicService) AssignFacultyAllocation(ctx context.Context, req model.AssignFacultyAllocationRequest, userResolver func(id string) (model.User, bool)) (model.FacultyAllocation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	sec, ok := s.sections[req.SectionID]
+	if !ok || sec.IsDeleted {
+		return model.FacultyAllocation{}, fmt.Errorf("section not found")
+	}
+
+	sub, ok := s.subjects[req.SubjectID]
+	if !ok || sub.IsDeleted {
+		return model.FacultyAllocation{}, fmt.Errorf("subject not found")
+	}
+
+	compType := strings.ToLower(strings.TrimSpace(req.ComponentType))
+	if compType == "" {
+		compType = "theory"
+	}
+	if compType != "theory" && compType != "practical" && compType != "tutorial" {
+		return model.FacultyAllocation{}, fmt.Errorf("component type must be 'theory', 'practical', or 'tutorial'")
+	}
+
+	// Resolve Teacher
+	teacherName := req.TeacherID
+	if userResolver != nil {
+		if t, found := userResolver(req.TeacherID); found {
+			teacherName = t.FullName()
+		}
+	}
+
+	// Resolve Batch Name if practical
+	var batchName *string
+	if req.BatchID != nil && *req.BatchID != "" {
+		if b, ok := s.labBatches[*req.BatchID]; ok {
+			bName := b.Name
+			batchName = &bName
+		} else {
+			return model.FacultyAllocation{}, fmt.Errorf("lab batch not found")
+		}
+	}
+
+	weeklyHours := req.WeeklyHours
+	if weeklyHours <= 0 {
+		if compType == "theory" {
+			weeklyHours = 3
+		} else {
+			weeklyHours = 2
+		}
+	}
+
+	now := time.Now().UTC()
+	cleanKey := fmt.Sprintf("%s-%s-%s", sec.ID, sub.ID, compType)
+	if req.BatchID != nil && *req.BatchID != "" {
+		cleanKey += "-" + *req.BatchID
+	}
+	cleanKey += "-" + req.TeacherID
+	allocID := fmt.Sprintf("alloc-%s", strings.ToLower(strings.ReplaceAll(cleanKey, " ", "-")))
+
+	alloc := model.FacultyAllocation{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        allocID,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		SectionID:     req.SectionID,
+		SectionName:   sec.Name,
+		SubjectID:     req.SubjectID,
+		SubjectCode:   sub.ResolveCodeForSemester(sec.SemesterNumber),
+		SubjectName:   sub.Name,
+		TeacherID:     req.TeacherID,
+		TeacherName:   teacherName,
+		ComponentType: compType,
+		BatchID:       req.BatchID,
+		BatchName:     batchName,
+		WeeklyHours:   weeklyHours,
+	}
+
+	// Check if matching allocation already exists; update it or append
+	updated := false
+	for i, existingAID := range s.secAllocations[req.SectionID] {
+		if existing, ok := s.facultyAllocations[existingAID]; ok {
+			if existing.SubjectID == req.SubjectID &&
+				existing.ComponentType == compType &&
+				((existing.BatchID == nil && req.BatchID == nil) || (existing.BatchID != nil && req.BatchID != nil && *existing.BatchID == *req.BatchID)) {
+				// Replace
+				alloc.ID = existing.ID
+				alloc.CreatedAt = existing.CreatedAt
+				s.facultyAllocations[existing.ID] = alloc
+				s.secAllocations[req.SectionID][i] = alloc.ID
+				updated = true
+				break
+			}
+		}
+	}
+
+	if !updated {
+		s.facultyAllocations[allocID] = alloc
+		s.secAllocations[req.SectionID] = append(s.secAllocations[req.SectionID], allocID)
+	}
+
+	// Automatically ensure section includes this teacher
+	if s.secTeachers[req.SectionID] == nil {
+		s.secTeachers[req.SectionID] = make(map[string]bool)
+	}
+	s.secTeachers[req.SectionID][req.TeacherID] = true
+
+	return alloc, nil
+}
+
+func (s *AcademicService) RemoveFacultyAllocation(ctx context.Context, allocationID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	alloc, ok := s.facultyAllocations[allocationID]
+	if !ok || alloc.IsDeleted {
+		return fmt.Errorf("allocation not found")
+	}
+
+	alloc.IsDeleted = true
+	alloc.UpdatedAt = time.Now().UTC()
+	s.facultyAllocations[allocationID] = alloc
+
+	// Remove from secAllocations
+	var updatedAIDs []string
+	for _, aid := range s.secAllocations[alloc.SectionID] {
+		if aid != allocationID {
+			updatedAIDs = append(updatedAIDs, aid)
+		}
+	}
+	s.secAllocations[alloc.SectionID] = updatedAIDs
+
+	return nil
+}
+
+func (s *AcademicService) GetSectionFacultyAllocations(ctx context.Context, sectionID string) ([]model.FacultyAllocation, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []model.FacultyAllocation
+	for _, aid := range s.secAllocations[sectionID] {
+		if a, ok := s.facultyAllocations[aid]; ok && !a.IsDeleted {
+			result = append(result, a)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt.Before(result[j].CreatedAt) })
+	return result, nil
+}
+
+func (s *AcademicService) GetFacultyWorkloadSummary(ctx context.Context, teacherID string, userResolver func(id string) (model.User, bool)) (model.FacultyWorkloadSummary, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	teacherName := teacherID
+	if userResolver != nil {
+		if u, found := userResolver(teacherID); found {
+			teacherName = u.FullName()
+		}
+	}
+
+	var allocations []model.FacultyAllocation
+	totalHours := 0
+
+	for _, a := range s.facultyAllocations {
+		if !a.IsDeleted && a.TeacherID == teacherID {
+			allocations = append(allocations, a)
+			totalHours += a.WeeklyHours
+		}
+	}
+
+	sort.Slice(allocations, func(i, j int) bool { return allocations[i].SectionName < allocations[j].SectionName })
+
+	maxRecommended := 16
+	return model.FacultyWorkloadSummary{
+		TeacherID:           teacherID,
+		TeacherName:         teacherName,
+		TotalWeeklyHours:    totalHours,
+		MaxRecommendedHours: maxRecommended,
+		IsOverloaded:        totalHours > maxRecommended,
+		Allocations:         allocations,
+	}, nil
+}
+
+func (s *AcademicService) GetAllFacultyWorkloadSummaries(ctx context.Context, userResolver func(id string) (model.User, bool), teacherProvider func() []model.User) ([]model.FacultyWorkloadSummary, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var teachers []model.User
+	if teacherProvider != nil {
+		teachers = teacherProvider()
+	}
+
+	var summaries []model.FacultyWorkloadSummary
+	seen := make(map[string]bool)
+
+	for _, t := range teachers {
+		seen[t.ID] = true
+		var allocations []model.FacultyAllocation
+		totalHours := 0
+		for _, a := range s.facultyAllocations {
+			if !a.IsDeleted && a.TeacherID == t.ID {
+				allocations = append(allocations, a)
+				totalHours += a.WeeklyHours
+			}
+		}
+		sort.Slice(allocations, func(i, j int) bool { return allocations[i].SectionName < allocations[j].SectionName })
+		maxRec := 16
+		summaries = append(summaries, model.FacultyWorkloadSummary{
+			TeacherID:           t.ID,
+			TeacherName:         t.FullName(),
+			TotalWeeklyHours:    totalHours,
+			MaxRecommendedHours: maxRec,
+			IsOverloaded:        totalHours > maxRec,
+			Allocations:         allocations,
+		})
+	}
+
+	// Also catch any teacher in allocations not in teacherProvider
+	for _, a := range s.facultyAllocations {
+		if !a.IsDeleted && !seen[a.TeacherID] {
+			seen[a.TeacherID] = true
+			tName := a.TeacherName
+			if tName == "" {
+				tName = a.TeacherID
+			}
+			var allocations []model.FacultyAllocation
+			totalHours := 0
+			for _, subA := range s.facultyAllocations {
+				if !subA.IsDeleted && subA.TeacherID == a.TeacherID {
+					allocations = append(allocations, subA)
+					totalHours += subA.WeeklyHours
+				}
+			}
+			summaries = append(summaries, model.FacultyWorkloadSummary{
+				TeacherID:           a.TeacherID,
+				TeacherName:         tName,
+				TotalWeeklyHours:    totalHours,
+				MaxRecommendedHours: 16,
+				IsOverloaded:        totalHours > 16,
+				Allocations:         allocations,
+			})
+		}
+	}
+
+	sort.Slice(summaries, func(i, j int) bool { return summaries[i].TotalWeeklyHours > summaries[j].TotalWeeklyHours })
+	return summaries, nil
 }
 

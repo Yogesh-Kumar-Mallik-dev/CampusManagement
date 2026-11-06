@@ -424,4 +424,35 @@ CREATE TABLE IF NOT EXISTS syllabus_versions (
 CREATE INDEX IF NOT EXISTS idx_syllabus_subject ON syllabus_versions(subject_id);
 CREATE INDEX IF NOT EXISTS idx_syllabus_active ON syllabus_versions(subject_id, is_active);
 
+-- 29. Lab Batches (Sub-division of a section cohort for practical lab sessions e.g. Batch B1, Batch B2)
+CREATE TABLE IF NOT EXISTS lab_batches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    section_id UUID REFERENCES sections(id) ON DELETE CASCADE,
+    name VARCHAR(64) NOT NULL,
+    student_ids UUID[] DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_lab_batches_section ON lab_batches(section_id);
+
+-- 30. Faculty Subject Allocations (Instructor assignment to Theory, Practical/Lab Batches, Tutorials with Weekly Contact Hours)
+CREATE TABLE IF NOT EXISTS faculty_subject_allocations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    section_id UUID REFERENCES sections(id) ON DELETE CASCADE,
+    subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE,
+    teacher_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    component_type VARCHAR(32) NOT NULL DEFAULT 'theory', -- 'theory', 'practical', 'tutorial'
+    batch_id UUID REFERENCES lab_batches(id) ON DELETE CASCADE, -- NULL = whole section (theory); non-NULL = specific lab batch
+    weekly_hours INT NOT NULL DEFAULT 3,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_faculty_alloc_sec ON faculty_subject_allocations(section_id);
+CREATE INDEX IF NOT EXISTS idx_faculty_alloc_teacher ON faculty_subject_allocations(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_faculty_alloc_subject ON faculty_subject_allocations(subject_id);
+
 

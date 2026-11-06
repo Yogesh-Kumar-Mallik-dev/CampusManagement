@@ -523,3 +523,149 @@ func TestSubjectOddEvenCodesAndSyllabusAuditTrail(t *testing.T) {
 	}
 }
 
+func TestFacultySubjectAllocationAndLabBatches(t *testing.T) {
+	acadSvc, _, deptHandler := setupTestAcademicEnv(t)
+	ctx := context.Background()
+
+	// 1. Create a section with 3 enrolled students
+	secPayload := model.CreateSectionRequest{
+		Name:           "Section B",
+		SemesterNumber: 3,
+		AcademicYear:   "2025-2026",
+		ProgramIDs:     []string{"prog-btech-cse"},
+		SubjectIDs:     []string{"subj-cs301", "subj-cs302"},
+	}
+	body, _ := json.Marshal(secPayload)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	deptHandler.HandleSections(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("failed to create section: %d", w.Code)
+	}
+	var sec model.Section
+	_ = json.Unmarshal(w.Body.Bytes(), &sec)
+
+	// Enroll 3 students
+	_ = acadSvc.AssignStudentToSection(ctx, "usr-stud-1", sec.ID, "prog-btech-cse")
+	_ = acadSvc.AssignStudentToSection(ctx, "usr-stud-2", sec.ID, "prog-btech-cse")
+	_ = acadSvc.AssignStudentToSection(ctx, "usr-stud-3", sec.ID, "prog-btech-cse")
+
+	// 2. Test AutoPartitionLabBatches into 2 batches (Batch B1 & Batch B2)
+	autoPartPayload := model.AutoPartitionBatchesRequest{
+		SectionID:  sec.ID,
+		BatchCount: 2,
+		Prefix:     "Batch B",
+	}
+	apBody, _ := json.Marshal(autoPartPayload)
+	apReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections/batches/auto-partition", bytes.NewReader(apBody))
+	apW := httptest.NewRecorder()
+	deptHandler.HandleAutoPartitionBatches(apW, apReq)
+	if apW.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for auto-partition, got %d: %s", apW.Code, apW.Body.String())
+	}
+
+	var createdBatches []model.LabBatch
+	_ = json.Unmarshal(apW.Body.Bytes(), &createdBatches)
+	if len(createdBatches) != 2 {
+		t.Fatalf("expected 2 batches, got %d", len(createdBatches))
+	}
+	if createdBatches[0].Name != "Batch B 1" || createdBatches[1].Name != "Batch B 2" {
+		t.Errorf("unexpected batch names: %s, %s", createdBatches[0].Name, createdBatches[1].Name)
+	}
+	// Total students partitioned must be 3 (2 in B1, 1 in B2 or vice-versa)
+	totalPartitioned := createdBatches[0].StudentCount + createdBatches[1].StudentCount
+	if totalPartitioned != 3 {
+		t.Errorf("expected 3 students partitioned across batches, got %d", totalPartitioned)
+	}
+
+	// 3. Test Student Batch Movement
+	batchB2ID := createdBatches[1].ID
+	moveReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/sections/batches/assign-student", bytes.NewReader([]byte(`{
+		"batch_id": "`+batchB2ID+`",
+		"student_id": "usr-stud-1"
+	}`)))
+	moveW := httptest.NewRecorder()
+	deptHandler.HandleAssignStudentBatch(moveW, moveReq)
+	if moveW.Code != http.StatusOK {
+		t.Fatalf("expected 200 for moving student, got %d: %s", moveW.Code, moveW.Body.String())
+	}
+
+	// 4. Test Faculty Allocations
+	teacherPriya := "usr-priya_2024_emp_1"
+	// Theory Allocation: Prof. Priya -> Section B, CS301 (Theory, 4 hours/week)
+	theoryAllocPayload := model.AssignFacultyAllocationRequest{
+		SectionID:     sec.ID,
+		SubjectID:     "subj-cs301",
+		TeacherID:     teacherPriya,
+		ComponentType: "theory",
+		WeeklyHours:   4,
+	}
+	tAllocBody, _ := json.Marshal(theoryAllocPayload)
+	tAllocReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/allocations", bytes.NewReader(tAllocBody))
+	tAllocW := httptest.NewRecorder()
+	deptHandler.HandleFacultyAllocations(tAllocW, tAllocReq)
+	if tAllocW.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for theory allocation, got %d: %s", tAllocW.Code, tAllocW.Body.String())
+	}
+
+	// Lab Practical Allocation: Prof. Priya -> Section B, CS301 Lab for Batch B1 (2 hours/week)
+	batchB1ID := createdBatches[0].ID
+	labAllocPayload := model.AssignFacultyAllocationRequest{
+		SectionID:     sec.ID,
+		SubjectID:     "subj-cs301",
+		TeacherID:     teacherPriya,
+		ComponentType: "practical",
+		BatchID:       &batchB1ID,
+		WeeklyHours:   2,
+	}
+	lAllocBody, _ := json.Marshal(labAllocPayload)
+	lAllocReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/allocations", bytes.NewReader(lAllocBody))
+	lAllocW := httptest.NewRecorder()
+	deptHandler.HandleFacultyAllocations(lAllocW, lAllocReq)
+	if lAllocW.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for lab allocation, got %d: %s", lAllocW.Code, lAllocW.Body.String())
+	}
+
+	// 5. Query Section Faculty Allocations
+	secAllocReq := httptest.NewRequest(http.MethodGet, "/api/v1/academics/allocations?section_id="+sec.ID, nil)
+	secAllocW := httptest.NewRecorder()
+	deptHandler.HandleFacultyAllocations(secAllocW, secAllocReq)
+	if secAllocW.Code != http.StatusOK {
+		t.Fatalf("expected 200 for section allocations, got %d: %s", secAllocW.Code, secAllocW.Body.String())
+	}
+	var secAllocs []model.FacultyAllocation
+	_ = json.Unmarshal(secAllocW.Body.Bytes(), &secAllocs)
+	if len(secAllocs) != 2 {
+		t.Fatalf("expected 2 faculty allocations for section, got %d", len(secAllocs))
+	}
+
+	// 6. Test Faculty Workload Summary
+	workloadReq := httptest.NewRequest(http.MethodGet, "/api/v1/academics/faculty/workload?teacher_id="+teacherPriya, nil)
+	workloadW := httptest.NewRecorder()
+	deptHandler.HandleFacultyWorkload(workloadW, workloadReq)
+	if workloadW.Code != http.StatusOK {
+		t.Fatalf("expected 200 for workload, got %d: %s", workloadW.Code, workloadW.Body.String())
+	}
+	var workload model.FacultyWorkloadSummary
+	_ = json.Unmarshal(workloadW.Body.Bytes(), &workload)
+	if workload.TotalWeeklyHours != 6 { // 4 theory + 2 lab = 6
+		t.Errorf("expected 6 total weekly hours for teacher Priya, got %d", workload.TotalWeeklyHours)
+	}
+	if workload.IsOverloaded {
+		t.Errorf("expected teacher Priya not to be overloaded with 6 hrs")
+	}
+
+	// 7. Verify SectionDetail includes hydrated LabBatches & FacultyAllocations
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/v1/academics/sections?id="+sec.ID, nil)
+	detailW := httptest.NewRecorder()
+	deptHandler.HandleSections(detailW, detailReq)
+	var secDetail model.SectionDetail
+	_ = json.Unmarshal(detailW.Body.Bytes(), &secDetail)
+	if len(secDetail.LabBatches) != 2 {
+		t.Errorf("expected 2 hydrated lab batches in section detail, got %d", len(secDetail.LabBatches))
+	}
+	if len(secDetail.FacultyAllocations) != 2 {
+		t.Errorf("expected 2 hydrated faculty allocations in section detail, got %d", len(secDetail.FacultyAllocations))
+	}
+}
+

@@ -139,6 +139,11 @@ func main() {
 	mux.HandleFunc("/api/v1/academics/sections/assign-student", departmentHandler.HandleAssignStudentToSection)
 	mux.HandleFunc("/api/v1/academics/sections/transfer-student", departmentHandler.HandleTransferStudentSection)
 	mux.HandleFunc("/api/v1/academics/sections/merge", departmentHandler.HandleMergeSectionCohorts)
+	mux.HandleFunc("/api/v1/academics/sections/batches", departmentHandler.HandleLabBatches)
+	mux.HandleFunc("/api/v1/academics/sections/batches/auto-partition", departmentHandler.HandleAutoPartitionBatches)
+	mux.HandleFunc("/api/v1/academics/sections/batches/assign-student", departmentHandler.HandleAssignStudentBatch)
+	mux.HandleFunc("/api/v1/academics/allocations", departmentHandler.HandleFacultyAllocations)
+	mux.HandleFunc("/api/v1/academics/faculty/workload", departmentHandler.HandleFacultyWorkload)
 	mux.HandleFunc("/api/v1/academics/teachers", departmentHandler.HandleTeachers)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
@@ -586,6 +591,57 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 	// 9. Enroll Student Harish into Semester 5 & Section A (Degree: BTECH-CSE)
 	_ = svc.AssignStudentToSemester(ctx, "usr-harish_2025_l_btech_1", "sem-btech-cse-5-3a")
 	_ = svc.AssignStudentToSection(ctx, "usr-harish_2025_l_btech_1", secA.ID, "prog-btech-cse")
+
+	// 10. Seed Lab Batches for Section B (Practical sub-divisions)
+	batchB1, _ := svc.CreateLabBatch(ctx, model.CreateLabBatchRequest{
+		SectionID: secB.ID,
+		Name:      "Batch B1",
+	})
+	batchB2, _ := svc.CreateLabBatch(ctx, model.CreateLabBatchRequest{
+		SectionID: secB.ID,
+		Name:      "Batch B2",
+	})
+	_ = batchB2
+
+	// 11. Seed Faculty Subject Allocations
+	teacherPriya := "usr-priya_2024_emp_1"
+	// Prof. Priya Nair -> Section A: CS301 (Theory, 4 hrs)
+	_, _ = svc.AssignFacultyAllocation(ctx, model.AssignFacultyAllocationRequest{
+		SectionID:     secA.ID,
+		SubjectID:     "subj-cs301",
+		TeacherID:     teacherPriya,
+		ComponentType: "theory",
+		WeeklyHours:   4,
+	}, nil)
+
+	// Prof. Priya Nair -> Section A: CS302 (Theory, 3 hrs)
+	_, _ = svc.AssignFacultyAllocation(ctx, model.AssignFacultyAllocationRequest{
+		SectionID:     secA.ID,
+		SubjectID:     "subj-cs302",
+		TeacherID:     teacherPriya,
+		ComponentType: "theory",
+		WeeklyHours:   3,
+	}, nil)
+
+	// Prof. Priya Nair -> Section B: BCA 102/202 (Theory, 4 hrs)
+	_, _ = svc.AssignFacultyAllocation(ctx, model.AssignFacultyAllocationRequest{
+		SectionID:     secB.ID,
+		SubjectID:     bcaSub.ID,
+		TeacherID:     teacherPriya,
+		ComponentType: "theory",
+		WeeklyHours:   4,
+	}, nil)
+
+	// Prof. Priya Nair -> Section B: BCA 102/202 Lab (Practical for Batch B1, 2 hrs)
+	batchB1ID := batchB1.ID
+	_, _ = svc.AssignFacultyAllocation(ctx, model.AssignFacultyAllocationRequest{
+		SectionID:     secB.ID,
+		SubjectID:     bcaSub.ID,
+		TeacherID:     teacherPriya,
+		ComponentType: "practical",
+		BatchID:       &batchB1ID,
+		WeeklyHours:   2,
+	}, nil)
 }
 
 func stringPtr(s string) *string {

@@ -167,6 +167,69 @@ type SectionDetail struct {
 	Teachers           []User                     `json:"teachers"`
 	Students           []User                     `json:"students"`
 	ProgramBreakdown   map[string]int             `json:"program_breakdown,omitempty"` // programCode -> student count
+	LabBatches         []LabBatch                 `json:"lab_batches,omitempty"`
+	FacultyAllocations []FacultyAllocation        `json:"faculty_allocations,omitempty"`
+}
+
+// LabBatch represents a practical/lab sub-division of a section cohort (e.g. Batch B1, Batch B2)
+type LabBatch struct {
+	BaseSyncModel
+	SectionID    string   `json:"section_id"`
+	Name         string   `json:"name"`                   // e.g. 'Batch B1'
+	StudentIDs   []string `json:"student_ids,omitempty"`
+	StudentCount int      `json:"student_count"`
+}
+
+// FacultyAllocation represents an instructor assignment to teach a specific subject component
+type FacultyAllocation struct {
+	BaseSyncModel
+	SectionID     string  `json:"section_id"`
+	SectionName   string  `json:"section_name,omitempty"`
+	SubjectID     string  `json:"subject_id"`
+	SubjectCode   string  `json:"subject_code,omitempty"`
+	SubjectName   string  `json:"subject_name,omitempty"`
+	TeacherID     string  `json:"teacher_id"`
+	TeacherName   string  `json:"teacher_name,omitempty"`
+	ComponentType string  `json:"component_type"` // 'theory', 'practical', 'tutorial'
+	BatchID       *string `json:"batch_id,omitempty"` // nil = entire section (theory); non-nil = specific lab batch
+	BatchName     *string `json:"batch_name,omitempty"`
+	WeeklyHours   int     `json:"weekly_hours"` // Contact teaching hours per week (e.g. 3 hrs theory, 2 hrs lab)
+}
+
+// FacultyWorkloadSummary aggregates teaching load across sections and batches
+type FacultyWorkloadSummary struct {
+	TeacherID           string              `json:"teacher_id"`
+	TeacherName         string              `json:"teacher_name"`
+	DepartmentID        *string             `json:"department_id,omitempty"`
+	DepartmentCode      *string             `json:"department_code,omitempty"`
+	TotalWeeklyHours    int                 `json:"total_weekly_hours"`
+	MaxRecommendedHours int                 `json:"max_recommended_hours"` // standard maximum e.g. 16 hours
+	IsOverloaded        bool                `json:"is_overloaded"`
+	Allocations         []FacultyAllocation `json:"allocations"`
+}
+
+// CreateLabBatchRequest payload
+type CreateLabBatchRequest struct {
+	SectionID  string   `json:"section_id"`
+	Name       string   `json:"name"`
+	StudentIDs []string `json:"student_ids,omitempty"`
+}
+
+// AutoPartitionBatchesRequest auto-divides section students into N batches
+type AutoPartitionBatchesRequest struct {
+	SectionID  string `json:"section_id"`
+	BatchCount int    `json:"batch_count"` // e.g. 2 for B1 and B2
+	Prefix     string `json:"prefix"`      // e.g. "Batch B" -> "Batch B1", "Batch B2"
+}
+
+// AssignFacultyAllocationRequest payload
+type AssignFacultyAllocationRequest struct {
+	SectionID     string  `json:"section_id"`
+	SubjectID     string  `json:"subject_id"`
+	TeacherID     string  `json:"teacher_id"`
+	ComponentType string  `json:"component_type"` // 'theory', 'practical', 'tutorial'
+	BatchID       *string `json:"batch_id,omitempty"`
+	WeeklyHours   int     `json:"weekly_hours"`
 }
 
 // CreateSectionRequest is the payload to create a new section cohort

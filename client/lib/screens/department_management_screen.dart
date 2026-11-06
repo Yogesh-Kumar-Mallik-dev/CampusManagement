@@ -223,6 +223,24 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
           ),
         ),
         const SizedBox(width: 16),
+        if (_selectedTab == 1) ...[
+          OutlinedButton.icon(
+            key: const Key('btn-faculty-workload-header'),
+            onPressed: _openFacultyWorkloadDialog,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: color,
+              side: BorderSide(color: color, width: 1.5),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const AppSvgIcon(svgString: AppSvgIcon.clock, size: 16, color: Color(0xFF8250DF)),
+            label: const Text(
+              'Faculty Workload',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         ElevatedButton.icon(
           onPressed: buttonAction,
           style: ElevatedButton.styleFrom(
@@ -1101,6 +1119,15 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
       builder: (ctx) => _SectionDetailDialog(
         storage: widget.storage,
         section: sec,
+      ),
+    );
+  }
+
+  void _openFacultyWorkloadDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _FacultyWorkloadDialog(
+        storage: widget.storage,
       ),
     );
   }
@@ -2651,7 +2678,7 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadDetail();
   }
 
@@ -2679,7 +2706,7 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 660),
+        constraints: const BoxConstraints(maxWidth: 750, maxHeight: 680),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -2782,7 +2809,8 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
                 indicatorColor: const Color(0xFF8250DF),
                 tabs: [
                   Tab(text: 'Curriculum (${_detail?.subjects.length ?? widget.section.subjectIds.length})'),
-                  Tab(text: 'Faculty (${_detail?.teachers.length ?? widget.section.teacherIds.length})'),
+                  Tab(text: 'Allocations (${_detail?.facultyAllocations.length ?? 0})'),
+                  Tab(text: 'Lab Batches (${_detail?.labBatches.length ?? 0})'),
                   Tab(text: 'Enrolled Cohort (${_detail?.students.length ?? widget.section.studentCount})'),
                 ],
               ),
@@ -2796,7 +2824,8 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
                         controller: _tabController,
                         children: [
                           _buildCurriculumList(isDark),
-                          _buildFacultyList(isDark),
+                          _buildAllocationsTab(isDark),
+                          _buildLabBatchesTab(isDark),
                           _buildStudentsList(isDark),
                         ],
                       ),
@@ -2870,36 +2899,332 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
     );
   }
 
-  Widget _buildFacultyList(bool isDark) {
-    final teachers = _detail?.teachers ?? [];
-    if (teachers.isEmpty) {
-      return const Center(child: Text('No faculty assigned to this section cohort.'));
-    }
+  Widget _buildAllocationsTab(bool isDark) {
+    final allocs = _detail?.facultyAllocations ?? [];
 
-    return ListView.separated(
-      itemCount: teachers.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (ctx, idx) {
-        final t = teachers[idx];
-        return ListTile(
-          dense: true,
-          leading: Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.githubGreen.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(4),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Action Bar for Faculty Allocations
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: Text(
+                'Faculty Subject Allocations (${allocs.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            child: Text(
-              t.firstName.isNotEmpty ? t.firstName[0] : 'T',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.githubGreen),
+            const SizedBox(width: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('btn-view-workload-dialog'),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => _FacultyWorkloadDialog(storage: widget.storage),
+                    );
+                  },
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.clock, size: 12, color: Color(0xFF8250DF)),
+                  label: const Text('Workload Overview', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF8250DF),
+                    side: const BorderSide(color: Color(0xFF8250DF), width: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  key: const Key('btn-assign-faculty-allocation'),
+                  onPressed: _openAssignFacultyDialog,
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 12, color: Colors.white),
+                  label: const Text('Assign Faculty', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8250DF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  ),
+                ),
+              ],
             ),
-          ),
-          title: Text(t.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          subtitle: Text('${t.campusHandle}  |  ${t.email}', style: const TextStyle(fontSize: 11)),
-        );
-      },
+          ],
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: allocs.isEmpty
+              ? const Center(child: Text('No faculty allocations configured for this section.'))
+              : ListView.separated(
+                  itemCount: allocs.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (ctx, idx) {
+                    final a = allocs[idx];
+                    final isPractical = a.componentType.toLowerCase() == 'practical';
+                    final isTheory = a.componentType.toLowerCase() == 'theory';
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isPractical
+                                  ? const Color(0xFF8250DF).withValues(alpha: 0.12)
+                                  : AppColors.githubGreen.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              a.subjectCode ?? a.subjectId,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'monospace',
+                                color: isPractical ? const Color(0xFF8250DF) : AppColors.githubGreen,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  a.subjectName ?? a.subjectCode ?? a.subjectId,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Instructor: ${a.teacherName ?? a.teacherId}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: isPractical
+                                            ? const Color(0xFF8250DF).withValues(alpha: 0.1)
+                                            : AppColors.githubGreen.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(3),
+                                        border: Border.all(
+                                          color: isPractical
+                                              ? const Color(0xFF8250DF).withValues(alpha: 0.3)
+                                              : AppColors.githubGreen.withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isPractical
+                                            ? 'Practical [${a.batchName ?? "All Batches"}]'
+                                            : (isTheory ? 'Theory (Cohort)' : a.componentType.toUpperCase()),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: isPractical ? const Color(0xFF8250DF) : AppColors.githubGreen,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF21262D) : const Color(0xFFF6F8FA),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                            ),
+                            child: Text(
+                              '${a.weeklyHours} hrs/wk',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            key: Key('btn-remove-alloc-${a.id}'),
+                            icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 14, color: AppColors.statusRed),
+                            tooltip: 'Remove Allocation',
+                            onPressed: () async {
+                              await widget.storage.removeFacultyAllocation(a.id, widget.section.id);
+                              _loadDetail();
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLabBatchesTab(bool isDark) {
+    final batches = _detail?.labBatches ?? [];
+    final students = _detail?.students ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: Text(
+                'Practical Lab Batches (${batches.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('btn-create-lab-batch'),
+                  onPressed: _openCreateBatchDialog,
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 12, color: Color(0xFF8250DF)),
+                  label: const Text('Add Batch', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF8250DF),
+                    side: const BorderSide(color: Color(0xFF8250DF), width: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  key: const Key('btn-auto-partition-batches'),
+                  onPressed: _openAutoPartitionDialog,
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.layers, size: 12, color: Colors.white),
+                  label: const Text('Auto-Partition', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8250DF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: batches.isEmpty
+              ? const Center(child: Text('No practical lab batches created for this section.'))
+              : ListView.separated(
+                  itemCount: batches.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (ctx, idx) {
+                    final batch = batches[idx];
+                    final batchStudents = students.where((s) => batch.studentIds.contains(s.id)).toList();
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF8250DF).withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      batch.name,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF8250DF),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${batch.studentIds.length} students assigned',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          if (batchStudents.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Divider(height: 1),
+                            const SizedBox(height: 6),
+                            ...batchStudents.map((st) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  children: [
+                                    const AppSvgIcon(svgString: AppSvgIcon.user, size: 12, color: Color(0xFF8250DF)),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        '${st.fullName} (${st.campusHandle})',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (batches.length > 1)
+                                      InkWell(
+                                        key: Key('btn-reassign-${st.id}'),
+                                        onTap: () => _openReassignBatchDialog(st, batch, batches),
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          child: Text(
+                                            'Move Batch',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF8250DF),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ] else ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'No students currently in this batch.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -3017,6 +3342,64 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
         storage: widget.storage,
         sourceSection: widget.section,
         onMerged: () {
+          _loadDetail();
+        },
+      ),
+    );
+  }
+
+  void _openAssignFacultyDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _AssignFacultyAllocationDialog(
+        storage: widget.storage,
+        section: widget.section,
+        subjects: _detail?.subjects ?? widget.storage.cachedSubjects,
+        teachers: widget.storage.cachedUsers.where((u) => u.archetype == 'employee').toList(),
+        batches: _detail?.labBatches ?? [],
+        onAssigned: () {
+          _loadDetail();
+        },
+      ),
+    );
+  }
+
+  void _openAutoPartitionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _AutoPartitionBatchesDialog(
+        storage: widget.storage,
+        section: widget.section,
+        studentCount: _detail?.students.length ?? widget.section.studentCount,
+        onPartitioned: () {
+          _loadDetail();
+        },
+      ),
+    );
+  }
+
+  void _openCreateBatchDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _CreateLabBatchDialog(
+        storage: widget.storage,
+        section: widget.section,
+        onCreated: () {
+          _loadDetail();
+        },
+      ),
+    );
+  }
+
+  void _openReassignBatchDialog(UserModel student, LabBatchModel currentBatch, List<LabBatchModel> batches) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _ReassignBatchDialog(
+        storage: widget.storage,
+        student: student,
+        currentBatch: currentBatch,
+        batches: batches,
+        onReassigned: () {
           _loadDetail();
         },
       ),
@@ -3339,6 +3722,1055 @@ class _MergeCohortDialogState extends State<_MergeCohortDialog> {
                         : const Text('Confirm Consolidation'),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// ASSIGN FACULTY ALLOCATION DIALOG
+// -----------------------------------------------------------------------------
+
+class _AssignFacultyAllocationDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final SectionModel section;
+  final List<SubjectModel> subjects;
+  final List<UserModel> teachers;
+  final List<LabBatchModel> batches;
+  final VoidCallback onAssigned;
+
+  const _AssignFacultyAllocationDialog({
+    required this.storage,
+    required this.section,
+    required this.subjects,
+    required this.teachers,
+    required this.batches,
+    required this.onAssigned,
+  });
+
+  @override
+  State<_AssignFacultyAllocationDialog> createState() => _AssignFacultyAllocationDialogState();
+}
+
+class _AssignFacultyAllocationDialogState extends State<_AssignFacultyAllocationDialog> {
+  String? _selectedSubjectId;
+  String? _selectedTeacherId;
+  String _componentType = 'theory';
+  String? _selectedBatchId;
+  late TextEditingController _hoursController;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoursController = TextEditingController(text: '3');
+    if (widget.subjects.isNotEmpty) {
+      _selectedSubjectId = widget.subjects.first.id;
+    }
+    if (widget.teachers.isNotEmpty) {
+      _selectedTeacherId = widget.teachers.first.id;
+    }
+  }
+
+  @override
+  void dispose() {
+    _hoursController.dispose();
+    super.dispose();
+  }
+
+  void _onComponentChanged(String? val) {
+    if (val == null) return;
+    setState(() {
+      _componentType = val;
+      if (val == 'practical') {
+        _hoursController.text = '2';
+        if (widget.batches.isNotEmpty && _selectedBatchId == null) {
+          _selectedBatchId = widget.batches.first.id;
+        }
+      } else {
+        _hoursController.text = '3';
+        _selectedBatchId = null;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.book, size: 18, color: Color(0xFF8250DF)),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Assign Faculty to Section',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 10),
+
+              // Subject selection
+              const Text('Select Academic Subject *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                key: const Key('dropdown-allocation-subject'),
+                isExpanded: true,
+                initialValue: _selectedSubjectId,
+                decoration: const InputDecoration(isDense: true),
+                items: widget.subjects.map((sub) {
+                  return DropdownMenuItem(
+                    value: sub.id,
+                    child: Text('${sub.code} - ${sub.name}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _selectedSubjectId = val),
+              ),
+              const SizedBox(height: 14),
+
+              // Teacher selection
+              const Text('Assign Instructor / Teacher *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                key: const Key('dropdown-allocation-teacher'),
+                isExpanded: true,
+                initialValue: _selectedTeacherId,
+                decoration: const InputDecoration(isDense: true),
+                items: widget.teachers.map((t) {
+                  return DropdownMenuItem(
+                    value: t.id,
+                    child: Text('${t.fullName} (${t.campusHandle})', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _selectedTeacherId = val),
+              ),
+              const SizedBox(height: 14),
+
+              // Component type selection
+              const Text('Teaching Component Type *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                key: const Key('dropdown-allocation-component'),
+                isExpanded: true,
+                initialValue: _componentType,
+                decoration: const InputDecoration(isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'theory', child: Text('Theory Lecture (Full Cohort)', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'practical', child: Text('Practical Lab (Batch Sub-division)', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 'tutorial', child: Text('Tutorial Class', style: TextStyle(fontSize: 12))),
+                ],
+                onChanged: _onComponentChanged,
+              ),
+              const SizedBox(height: 14),
+
+              // Batch selection if practical
+              if (_componentType == 'practical') ...[
+                const Text('Assign to Practical Lab Batch *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String?>(
+                  key: const Key('dropdown-allocation-batch'),
+                  isExpanded: true,
+                  initialValue: _selectedBatchId,
+                  decoration: const InputDecoration(isDense: true),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All Batches (Section Cohort)', style: TextStyle(fontSize: 12)),
+                    ),
+                    ...widget.batches.map((b) => DropdownMenuItem<String?>(
+                          value: b.id,
+                          child: Text('${b.name} (${b.studentIds.length} students)', style: const TextStyle(fontSize: 12)),
+                        )),
+                  ],
+                  onChanged: (val) => setState(() => _selectedBatchId = val),
+                ),
+                const SizedBox(height: 14),
+              ],
+
+              // Weekly Hours
+              const Text('Weekly Contact Hours *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              TextFormField(
+                key: const Key('input-allocation-hours'),
+                controller: _hoursController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: 'e.g. 4 (Theory: 3-4 hrs, Practical: 2 hrs)',
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              if (_errorMessage != null) ...[
+                Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                const SizedBox(height: 10),
+              ],
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    key: const Key('btn-submit-allocation'),
+                    onPressed: (_isSubmitting || _selectedSubjectId == null || _selectedTeacherId == null)
+                        ? null
+                        : () async {
+                            final hours = int.tryParse(_hoursController.text.trim()) ?? 3;
+                            setState(() {
+                              _isSubmitting = true;
+                              _errorMessage = null;
+                            });
+                            try {
+                              await widget.storage.assignFacultyAllocation({
+                                'section_id': widget.section.id,
+                                'subject_id': _selectedSubjectId!,
+                                'teacher_id': _selectedTeacherId!,
+                                'component_type': _componentType,
+                                'batch_id': _selectedBatchId,
+                                'weekly_hours': hours,
+                              });
+                              widget.onAssigned();
+                              if (context.mounted) Navigator.of(context).pop();
+                            } catch (e) {
+                              setState(() {
+                                _errorMessage = e.toString().replaceFirst('Exception: ', '');
+                                _isSubmitting = false;
+                              });
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8250DF),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Assign Faculty'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// AUTO-PARTITION PRACTICAL BATCHES DIALOG
+// -----------------------------------------------------------------------------
+
+class _AutoPartitionBatchesDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final SectionModel section;
+  final int studentCount;
+  final VoidCallback onPartitioned;
+
+  const _AutoPartitionBatchesDialog({
+    required this.storage,
+    required this.section,
+    required this.studentCount,
+    required this.onPartitioned,
+  });
+
+  @override
+  State<_AutoPartitionBatchesDialog> createState() => _AutoPartitionBatchesDialogState();
+}
+
+class _AutoPartitionBatchesDialogState extends State<_AutoPartitionBatchesDialog> {
+  int _batchCount = 2;
+  late TextEditingController _prefixController;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefixController = TextEditingController(text: 'Batch');
+  }
+
+  @override
+  void dispose() {
+    _prefixController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.layers, size: 18, color: Color(0xFF8250DF)),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Auto-Partition Practical Batches',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 8),
+
+              Text(
+                'Section: ${widget.section.displayName} (${widget.studentCount} enrolled)',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+
+              const Text('Number of Practical Batches *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<int>(
+                key: const Key('dropdown-batch-count'),
+                isExpanded: true,
+                initialValue: _batchCount,
+                decoration: const InputDecoration(isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 2, child: Text('2 Batches (e.g. Batch 1, Batch 2)', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 3, child: Text('3 Batches (e.g. Batch 1, Batch 2, Batch 3)', style: TextStyle(fontSize: 12))),
+                  DropdownMenuItem(value: 4, child: Text('4 Batches (e.g. Batch 1, Batch 2, Batch 3, Batch 4)', style: TextStyle(fontSize: 12))),
+                ],
+                onChanged: (val) => setState(() => _batchCount = val ?? 2),
+              ),
+              const SizedBox(height: 14),
+
+              const Text('Batch Name Prefix', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              TextFormField(
+                key: const Key('input-batch-prefix'),
+                controller: _prefixController,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: 'e.g. Batch (generates Batch 1, Batch 2)',
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Preview box
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1B2230) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF8250DF).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const AppSvgIcon(svgString: AppSvgIcon.info, size: 14, color: Color(0xFF8250DF)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Evenly distributes all ${widget.studentCount} enrolled students across $_batchCount practical batches with deterministic sorting.',
+                        style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              if (_errorMessage != null) ...[
+                Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                const SizedBox(height: 10),
+              ],
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    key: const Key('btn-submit-auto-partition'),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () async {
+                            setState(() {
+                              _isSubmitting = true;
+                              _errorMessage = null;
+                            });
+                            try {
+                              final prefix = _prefixController.text.trim().isNotEmpty
+                                  ? _prefixController.text.trim()
+                                  : 'Batch';
+                              await widget.storage.autoPartitionBatches({
+                                'section_id': widget.section.id,
+                                'batch_count': _batchCount,
+                                'prefix': prefix,
+                              });
+                              widget.onPartitioned();
+                              if (context.mounted) Navigator.of(context).pop();
+                            } catch (e) {
+                              setState(() {
+                                _errorMessage = e.toString().replaceFirst('Exception: ', '');
+                                _isSubmitting = false;
+                              });
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8250DF),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Auto-Partition'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// CREATE LAB BATCH DIALOG
+// -----------------------------------------------------------------------------
+
+class _CreateLabBatchDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final SectionModel section;
+  final VoidCallback onCreated;
+
+  const _CreateLabBatchDialog({
+    required this.storage,
+    required this.section,
+    required this.onCreated,
+  });
+
+  @override
+  State<_CreateLabBatchDialog> createState() => _CreateLabBatchDialogState();
+}
+
+class _CreateLabBatchDialogState extends State<_CreateLabBatchDialog> {
+  late TextEditingController _nameController;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 450),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.plus, size: 18, color: Color(0xFF8250DF)),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Create Lab Batch',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 10),
+
+              const Text('Batch Name *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              TextFormField(
+                key: const Key('input-batch-name'),
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: 'e.g. Batch B3 or Practical Group A',
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              if (_errorMessage != null) ...[
+                Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                const SizedBox(height: 10),
+              ],
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    key: const Key('btn-submit-create-batch'),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () async {
+                            final name = _nameController.text.trim();
+                            if (name.isEmpty) return;
+                            setState(() {
+                              _isSubmitting = true;
+                              _errorMessage = null;
+                            });
+                            try {
+                              await widget.storage.createLabBatch({
+                                'section_id': widget.section.id,
+                                'name': name,
+                              });
+                              widget.onCreated();
+                              if (context.mounted) Navigator.of(context).pop();
+                            } catch (e) {
+                              setState(() {
+                                _errorMessage = e.toString().replaceFirst('Exception: ', '');
+                                _isSubmitting = false;
+                              });
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8250DF),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Create Batch'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// REASSIGN STUDENT LAB BATCH DIALOG
+// -----------------------------------------------------------------------------
+
+class _ReassignBatchDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final UserModel student;
+  final LabBatchModel currentBatch;
+  final List<LabBatchModel> batches;
+  final VoidCallback onReassigned;
+
+  const _ReassignBatchDialog({
+    required this.storage,
+    required this.student,
+    required this.currentBatch,
+    required this.batches,
+    required this.onReassigned,
+  });
+
+  @override
+  State<_ReassignBatchDialog> createState() => _ReassignBatchDialogState();
+}
+
+class _ReassignBatchDialogState extends State<_ReassignBatchDialog> {
+  String? _targetBatchId;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    final others = widget.batches.where((b) => b.id != widget.currentBatch.id).toList();
+    if (others.isNotEmpty) {
+      _targetBatchId = others.first.id;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final otherBatches = widget.batches.where((b) => b.id != widget.currentBatch.id).toList();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 450),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.layers, size: 18, color: Color(0xFF8250DF)),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Reassign Student Lab Batch',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 8),
+
+              Text(
+                'Student: ${widget.student.fullName} (${widget.student.campusHandle})',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Current Batch: ${widget.currentBatch.name}',
+                style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+              ),
+              const SizedBox(height: 14),
+
+              const Text('Select Target Lab Batch *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                key: const Key('dropdown-target-batch'),
+                isExpanded: true,
+                initialValue: _targetBatchId,
+                decoration: const InputDecoration(isDense: true),
+                items: otherBatches.map((b) {
+                  return DropdownMenuItem(
+                    value: b.id,
+                    child: Text('${b.name} (${b.studentIds.length} students)', style: const TextStyle(fontSize: 12)),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _targetBatchId = val),
+              ),
+              const SizedBox(height: 16),
+
+              if (_errorMessage != null) ...[
+                Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                const SizedBox(height: 10),
+              ],
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    key: const Key('btn-submit-reassign-batch'),
+                    onPressed: (_isSubmitting || _targetBatchId == null)
+                        ? null
+                        : () async {
+                            setState(() {
+                              _isSubmitting = true;
+                              _errorMessage = null;
+                            });
+                            try {
+                              await widget.storage.assignStudentBatch(
+                                batchId: _targetBatchId!,
+                                studentId: widget.student.id,
+                              );
+                              widget.onReassigned();
+                              if (context.mounted) Navigator.of(context).pop();
+                            } catch (e) {
+                              setState(() {
+                                _errorMessage = e.toString().replaceFirst('Exception: ', '');
+                                _isSubmitting = false;
+                              });
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8250DF),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Reassign Batch'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// FACULTY WORKLOAD OVERVIEW DIALOG
+// -----------------------------------------------------------------------------
+
+class _FacultyWorkloadDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+
+  const _FacultyWorkloadDialog({required this.storage});
+
+  @override
+  State<_FacultyWorkloadDialog> createState() => _FacultyWorkloadDialogState();
+}
+
+class _FacultyWorkloadDialogState extends State<_FacultyWorkloadDialog> {
+  List<FacultyWorkloadSummaryModel> _summaries = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSummaries();
+  }
+
+  Future<void> _loadSummaries() async {
+    final list = await widget.storage.getFacultyWorkloadSummaries();
+    if (mounted) {
+      setState(() {
+        _summaries = list;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overloadedCount = _summaries.where((s) => s.isOverloaded).length;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.clock, size: 20, color: Color(0xFF8250DF)),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            'Faculty Teaching Workload & Contact Hours',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 6),
+              // Explanatory Banner
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1B2230) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF8250DF).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const AppSvgIcon(svgString: AppSvgIcon.info, size: 14, color: Color(0xFF8250DF)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Standard recommended workload limit: 16 contact hours/week per faculty. Overload warnings are triggered when allocations exceed 16 hrs.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        ),
+                      ),
+                    ),
+                    if (overloadedCount > 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.statusRed.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.statusRed, width: 1),
+                        ),
+                        child: Text(
+                          '$overloadedCount OVERLOADED',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.statusRed,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF8250DF)))
+                    : _summaries.isEmpty
+                        ? const Center(child: Text('No faculty members found.'))
+                        : ListView.separated(
+                            itemCount: _summaries.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 12),
+                            itemBuilder: (ctx, idx) {
+                              final item = _summaries[idx];
+                              final ratio = (item.totalWeeklyHours / item.maxRecommendedHours).clamp(0.0, 1.0);
+                              final isOver = item.isOverloaded;
+
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isOver
+                                        ? AppColors.statusRed.withValues(alpha: 0.5)
+                                        : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 28,
+                                              height: 28,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                color: (isOver ? AppColors.statusRed : AppColors.githubGreen)
+                                                    .withValues(alpha: 0.12),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                item.teacherName.isNotEmpty ? item.teacherName[0] : 'T',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isOver ? AppColors.statusRed : AppColors.githubGreen,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              item.teacherName,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            if (isOver) ...[
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.statusRed.withValues(alpha: 0.12),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  border: Border.all(color: AppColors.statusRed),
+                                                ),
+                                                child: const Text(
+                                                  'OVERLOAD (> 16 hrs)',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.statusRed,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            Text(
+                                              '${item.totalWeeklyHours} / ${item.maxRecommendedHours} hrs/wk',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: isOver ? AppColors.statusRed : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: ratio,
+                                        minHeight: 6,
+                                        backgroundColor: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          isOver ? AppColors.statusRed : AppColors.githubGreen,
+                                        ),
+                                      ),
+                                    ),
+                                    if (item.allocations.isNotEmpty) ...[
+                                      const SizedBox(height: 10),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: item.allocations.map((a) {
+                                          final isPrac = a.componentType.toLowerCase() == 'practical';
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: isDark ? const Color(0xFF21262D) : Colors.white,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              '${a.sectionName ?? "Section"}: ${a.subjectCode ?? a.subjectId} (${isPrac ? "Lab ${a.batchName ?? ''}" : "Theory"}) - ${a.weeklyHours}h',
+                                              style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
               ),
             ],
           ),
