@@ -107,3 +107,41 @@ In accordance with institutional UI guidelines, **no Unicode emojis are used in 
 | `check` | `AppSvgIcon.check` | Verified attendance badge, completed state |
 | `close` | `AppSvgIcon.close` | Session conclusion, modal dismissal |
 | `sun` / `moon`| `AppSvgIcon.sun` | Smooth light/dark theme switcher |
+
+---
+
+## 6. Academic Management UI Components & Visual Patterns
+
+The academic administration console (`DepartmentManagementScreen`) provides unified oversight of departments, shared sections, course syllabi, lab batches, and faculty teaching workloads.
+
+### 6.1 Multi-Tab Institutional Hub
+The console is structured into four dedicated primary tabs:
+1. **Departments**: Overview of academic divisions, department codes, and appointed HODs with drill-down detail views.
+2. **Programs & Sections**: Degree programs, cross-program shared lecture sections, student rosters, lab batch partitions, and mobility tools.
+3. **Subjects & Syllabus**: Decoupled subject catalog with odd/even term codes, credit weights, and Board of Studies (BoS) syllabus revision histories.
+4. **Faculty Workload**: Teaching hour distributions, weekly load progress meters, and overload ceiling warnings.
+
+### 6.2 Specialized Dialogs & Modals
+All administrative mutations occur through responsive, validated modal dialogs:
+- **Create Department Modal**: Provides reactive search and selection for faculty Head of Department (HOD) appointments.
+- **Create Shared Section Modal**: Dynamic multi-select chip selector to assign one or multiple academic degree programs (`prog_ids`) to a single cohort.
+- **Section Detail Inspector**: Displays enrolled student roster, interactive lab batch manager, student transfer modal, and cohort merge dialog.
+- **Auto-Partition Lab Batches Modal**: Number-stepper selector allowing deterministic round-robin distribution of enrolled students into $N$ balanced practical lab batches.
+- **Syllabus Revision Modal**: Full-featured markdown syllabus editor with mandatory Board of Studies (BoS) revision code, approver identity, and justification change notes.
+- **Faculty Allocation Dialog**: Subject selector, section picker, component toggle (*Theory* / *Practical* / *Tutorial*), optional lab batch selector, and weekly hours input.
+
+### 6.3 Institutional Workload Indicators & Badges
+To prevent faculty burnout and enforce institutional regulations:
+- Each faculty card renders an animated `LinearProgressIndicator` showing assigned weekly contact hours against the standard **16-hour limit**.
+- **Normal Workload ($\le 16$ hrs)**: Visualized using GitHub Green subtle pills (`#238636`) and clear breakdown chips (Theory vs Practical).
+- **Overloaded Workload ($> 16$ hrs)**: Renders a high-contrast danger badge (`#CF222E`) with a warning vector glyph and explicit excess hour counts.
+
+### 6.4 Zero-Emoji Compliance
+All academic management screens adhere strictly to the zero-emoji design rule. Academic navigation and actions utilize vector glyphs exclusively:
+- Department: `AppSvgIcon.school`
+- Subjects / Syllabus: `AppSvgIcon.bookOpen`
+- Student Rosters: `AppSvgIcon.userGroup`
+- Contact Hours: `AppSvgIcon.clock`
+- Student Mobility: `AppSvgIcon.swapHorizontal`
+- Cohort Consolidation: `AppSvgIcon.merge`
+- Add / Action: `AppSvgIcon.plus`

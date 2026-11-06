@@ -105,6 +105,17 @@ Conforming to engineering standards (`./script.sh <command>` or `.\script.ps1 <c
 | `POST` | `/api/v1/users/discontinue` | Discontinue / offboard campus identity |
 | `POST` | `/api/v1/users/reactivate` | Reactivate suspended identity |
 | `GET` | `/api/v1/permissions/check` | Real-time scoped permission evaluation |
+| `GET` / `POST` | `/api/v1/departments` | List academic departments / create department with HOD |
+| `GET` | `/api/v1/academics/programs` | List interdisciplinary degree programs |
+| `GET` / `POST` | `/api/v1/academics/subjects` | Manage subjects with decoupled odd/even semester cycle codes |
+| `POST` / `GET` | `/api/v1/academics/subjects/syllabus` | Ratify BoS syllabus revisions / query immutable audit trail |
+| `GET` / `POST` | `/api/v1/academics/sections` | Cross-program shared cohorts and capacity tracking |
+| `POST` | `/api/v1/academics/sections/transfer-student` | Transfer student between section cohorts |
+| `POST` | `/api/v1/academics/sections/merge` | Atomically consolidate student cohorts from source to target |
+| `GET` / `POST` | `/api/v1/academics/sections/batches` | Query / provision practical lab batches ($B_1, B_2, \dots$) |
+| `POST` | `/api/v1/academics/sections/batches/auto-partition` | Deterministic $O(N)$ round-robin student batch auto-partitioning |
+| `GET` / `POST` / `DELETE` | `/api/v1/academics/allocations` | Assign faculty to theory, practical, or tutorial components |
+| `GET` | `/api/v1/academics/faculty/workload` | Faculty teaching hours summary with 16h overload ceiling |
 | `GET` | `/api/health` | Service health & cache readiness check |
 
 ---

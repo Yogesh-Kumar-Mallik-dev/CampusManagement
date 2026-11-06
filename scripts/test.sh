@@ -19,6 +19,10 @@ go test -v ./...
 
 echo "==> [test] Running Flutter client test suite..."
 cd "$ROOT_DIR/client"
-flutter test
+if [ "$#" -gt 0 ]; then
+  flutter test "$@"
+else
+  flutter test
+fi
 
 echo "✅ [test] All backend and client test suites passed successfully."

@@ -407,3 +407,665 @@ Fetches incremental changes since the client's last sync checkpoint.
   "notices": []
 }
 ```
+
+---
+
+## 5. Academic Departments & Program Hierarchies
+
+Academic structures model Many-to-Many ($M:N$) department affiliations, academic degree programs, and curriculum cycles.
+
+### 5.1 List Academic Departments
+Retrieves all academic departments.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/departments`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "dept_cse",
+    "code": "CSE",
+    "name": "Computer Science & Engineering",
+    "description": "Department of Computer Science & Engineering",
+    "hod_id": "usr_emp_hod_cse",
+    "hod_name": "Dr. Ramesh Sharma",
+    "created_at": "2026-11-01T00:00:00Z",
+    "updated_at": "2026-11-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 5.2 Get Department Detail
+Retrieves comprehensive details of a department including associated programs, faculty members, subjects, and sections.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/departments?id=dept_cse`
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "department": {
+    "id": "dept_cse",
+    "code": "CSE",
+    "name": "Computer Science & Engineering",
+    "hod_id": "usr_emp_hod_cse",
+    "hod_name": "Dr. Ramesh Sharma"
+  },
+  "programs": [
+    {
+      "id": "prog_btech_cse",
+      "code": "BTECH-CSE",
+      "name": "Bachelor of Technology in Computer Science",
+      "department_ids": ["dept_cse"],
+      "total_semesters": 8
+    }
+  ],
+  "teachers": [
+    {
+      "id": "usr_emp_hod_cse",
+      "campus_handle": "ramesh_2020_emp_01",
+      "first_name": "Ramesh",
+      "last_name": "Sharma",
+      "email": "ramesh.sharma@campus.edu"
+    }
+  ],
+  "subjects": [],
+  "sections": []
+}
+```
+
+---
+
+### 5.3 Create Academic Department
+Provisions a new academic department with an optional Head of Department (HOD).
+
+- **Method**: `POST`
+- **Path**: `/api/v1/departments`
+
+**Request Body:**
+```json
+{
+  "code": "AI-DS",
+  "name": "Artificial Intelligence & Data Science",
+  "description": "Department of Artificial Intelligence and Data Science",
+  "hod_id": "usr_emp_hod_cse"
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+{
+  "id": "dept_aids_uuid",
+  "code": "AI-DS",
+  "name": "Artificial Intelligence & Data Science",
+  "description": "Department of Artificial Intelligence and Data Science",
+  "hod_id": "usr_emp_hod_cse",
+  "hod_name": "Dr. Ramesh Sharma",
+  "created_at": "2026-11-06T10:00:00Z",
+  "updated_at": "2026-11-06T10:00:00Z"
+}
+```
+
+---
+
+### 5.4 List Programs
+Lists all degree programs offered across departments.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/programs`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "prog_bca",
+    "code": "BCA",
+    "name": "Bachelor of Computer Applications",
+    "department_ids": ["dept_cse", "dept_it"],
+    "total_semesters": 6,
+    "created_at": "2026-11-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 5.5 List Semesters & Semester Detail
+Lists academic semesters or retrieves detail with subjects and cohorts.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/semesters` (or `/api/v1/academics/semesters?id={semester_id}`)
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "sem_bca_s1",
+    "program_id": "prog_bca",
+    "semester_number": 1,
+    "academic_year": "2026-2027",
+    "term_type": "odd",
+    "created_at": "2026-11-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 5.6 List Faculty Teachers
+Retrieves active faculty teachers available for subject and lab allocations.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/teachers`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "usr_emp_hod_cse",
+    "campus_handle": "ramesh_2020_emp_01",
+    "first_name": "Ramesh",
+    "last_name": "Sharma",
+    "email": "ramesh.sharma@campus.edu",
+    "archetype": "faculty"
+  }
+]
+```
+
+---
+
+## 6. Cross-Program Sections & Cohort Mobility
+
+Supports shared cross-program lecture sections (e.g., BCA and B.Sc. IT attending Calculus together), individual student section transfers, and cohort merges.
+
+### 6.1 List & Inspect Sections
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/sections` (or `?id={section_id}`)
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "sec_bca_1a",
+    "name": "BCA-1A",
+    "semester_id": "sem_bca_s1",
+    "program_ids": ["prog_bca", "prog_bsc_it"],
+    "capacity": 60,
+    "is_shared": true,
+    "enrolled_count": 45,
+    "created_at": "2026-11-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 6.2 Create Cross-Program Section
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/sections`
+
+**Request Body:**
+```json
+{
+  "name": "SHARED-MATH-1",
+  "semester_id": "sem_bca_s1",
+  "program_ids": ["prog_bca", "prog_bsc_it"],
+  "capacity": 100,
+  "is_shared": true
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+{
+  "id": "sec_shared_math_1",
+  "name": "SHARED-MATH-1",
+  "semester_id": "sem_bca_s1",
+  "program_ids": ["prog_bca", "prog_bsc_it"],
+  "capacity": 100,
+  "is_shared": true,
+  "enrolled_count": 0,
+  "created_at": "2026-11-06T10:15:00Z"
+}
+```
+
+---
+
+### 6.3 Assign Student to Section
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/sections/assign-student`
+
+**Request Body:**
+```json
+{
+  "student_id": "usr_stu_001",
+  "section_id": "sec_bca_1a",
+  "program_id": "prog_bca"
+}
+```
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "student_id": "usr_stu_001",
+  "section_id": "sec_bca_1a",
+  "program_id": "prog_bca"
+}
+```
+
+---
+
+### 6.4 Transfer Student Between Sections (Mobility)
+Transfers an individual student from their current section to a destination section.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/sections/transfer-student`
+
+**Request Body:**
+```json
+{
+  "student_id": "usr_stu_001",
+  "target_section_id": "sec_bca_1b"
+}
+```
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "student_id": "usr_stu_001",
+  "target_section_id": "sec_bca_1b"
+}
+```
+
+---
+
+### 6.5 Merge Section Cohorts
+Consolidates all enrolled students from a source section into a target section in a single atomic transaction.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/sections/merge`
+
+**Request Body:**
+```json
+{
+  "source_section_id": "sec_bca_1b",
+  "target_section_id": "sec_bca_1a"
+}
+```
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "students_migrated": 28,
+  "source_section_id": "sec_bca_1b",
+  "target_section_id": "sec_bca_1a"
+}
+```
+
+---
+
+## 7. Subjects with Odd/Even Term Aliasing & Syllabus Audit Archive
+
+Academic subjects model decoupled catalog codes where identical course contents bear different course codes across semester cycles (e.g., `BCA-102` in Odd Term vs. `BCA-202` in Even Term), accompanied by an immutable Board of Studies (BoS) syllabus revision audit trail.
+
+### 7.1 List Subjects with Term Aliases
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/subjects`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "subj_c_prog",
+    "name": "Programming in C & Data Foundations",
+    "description": "Core procedural programming and pointers",
+    "default_code": "CS-101",
+    "odd_semester_code": "BCA-102",
+    "even_semester_code": "BCA-202",
+    "credits": 4,
+    "hours_per_week": 4,
+    "current_syllabus_version_id": "syl_ver_01",
+    "syllabus_content": "Unit 1: C Syntax, Variables, Types...\nUnit 2: Pointers & Dynamic Allocation...",
+    "created_at": "2026-11-01T00:00:00Z",
+    "updated_at": "2026-11-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 7.2 Create Subject with Odd/Even Aliasing & Initial Syllabus
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/subjects`
+
+**Request Body:**
+```json
+{
+  "name": "Database Management Systems",
+  "description": "Relational algebra, SQL, normal forms, and transaction ACID properties",
+  "default_code": "CS-301",
+  "odd_semester_code": "BCA-301",
+  "even_semester_code": "BCA-401",
+  "credits": 4,
+  "hours_per_week": 4,
+  "syllabus_content": "Unit 1: ER Modeling and Relational Calculus..."
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+{
+  "id": "subj_dbms_uuid",
+  "name": "Database Management Systems",
+  "default_code": "CS-301",
+  "odd_semester_code": "BCA-301",
+  "even_semester_code": "BCA-401",
+  "credits": 4,
+  "hours_per_week": 4,
+  "current_syllabus_version_id": "syl_ver_dbms_v1",
+  "syllabus_content": "Unit 1: ER Modeling and Relational Calculus...",
+  "created_at": "2026-11-06T10:30:00Z",
+  "updated_at": "2026-11-06T10:30:00Z"
+}
+```
+
+---
+
+### 7.3 Revise Subject Syllabus
+Commits a new immutable syllabus version to the curriculum audit log.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/subjects/syllabus`
+
+**Request Body:**
+```json
+{
+  "subject_id": "subj_c_prog",
+  "revision_code": "BOS-2026-REV3",
+  "content": "Unit 1: Modern C17 Standards...\nUnit 2: Memory Safety & Address Sanitizers...",
+  "approved_by": "Dr. Ramesh Sharma (BoS Chairperson)",
+  "revision_notes": "Added memory sanitizers and updated standard libraries"
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+{
+  "id": "syl_ver_rev3_uuid",
+  "subject_id": "subj_c_prog",
+  "revision_code": "BOS-2026-REV3",
+  "content": "Unit 1: Modern C17 Standards...\nUnit 2: Memory Safety & Address Sanitizers...",
+  "effective_date": "2026-11-06T10:45:00Z",
+  "approved_by": "Dr. Ramesh Sharma (BoS Chairperson)",
+  "revision_notes": "Added memory sanitizers and updated standard libraries",
+  "created_at": "2026-11-06T10:45:00Z"
+}
+```
+
+---
+
+### 7.4 Query Syllabus Immutable Audit Trail
+Fetches the full historical revision ledger for academic accreditation audits.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/subjects/syllabus?subject_id=subj_c_prog`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "syl_ver_rev3_uuid",
+    "subject_id": "subj_c_prog",
+    "revision_code": "BOS-2026-REV3",
+    "content": "Unit 1: Modern C17 Standards...",
+    "effective_date": "2026-11-06T10:45:00Z",
+    "approved_by": "Dr. Ramesh Sharma (BoS Chairperson)",
+    "revision_notes": "Added memory sanitizers and updated standard libraries",
+    "created_at": "2026-11-06T10:45:00Z"
+  },
+  {
+    "id": "syl_ver_01",
+    "subject_id": "subj_c_prog",
+    "revision_code": "BOS-2024-INITIAL",
+    "content": "Unit 1: C Syntax...",
+    "effective_date": "2024-07-01T00:00:00Z",
+    "approved_by": "Academic Council",
+    "revision_notes": "Initial syllabus ratification",
+    "created_at": "2024-07-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+## 8. Practical Lab Batches & Deterministic Auto-Partitioning
+
+Sections are partitioned into practical lab batches ($B_1, B_2, \dots, B_N$) to accommodate laboratory capacity constraints.
+
+### 8.1 List Lab Batches for Section
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/sections/batches?section_id=sec_bca_1a`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "batch_bca_1a_b1",
+    "section_id": "sec_bca_1a",
+    "name": "B1",
+    "capacity": 30,
+    "student_count": 22,
+    "student_ids": ["usr_stu_001", "usr_stu_002"],
+    "created_at": "2026-11-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 8.2 Create Individual Lab Batch
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/sections/batches`
+
+**Request Body:**
+```json
+{
+  "section_id": "sec_bca_1a",
+  "name": "B3",
+  "capacity": 25
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+{
+  "id": "batch_bca_1a_b3",
+  "section_id": "sec_bca_1a",
+  "name": "B3",
+  "capacity": 25,
+  "student_count": 0,
+  "student_ids": [],
+  "created_at": "2026-11-06T11:00:00Z"
+}
+```
+
+---
+
+### 8.3 Deterministic Auto-Partition Batches
+Evenly partitions all enrolled students in a section across $N$ batches using a deterministic round-robin assignment based on student IDs / handles.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/sections/batches/auto-partition`
+
+**Request Body:**
+```json
+{
+  "section_id": "sec_bca_1a",
+  "batch_count": 2,
+  "batch_names": ["Batch 1 (A-M)", "Batch 2 (N-Z)"]
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+[
+  {
+    "id": "batch_gen_1",
+    "section_id": "sec_bca_1a",
+    "name": "Batch 1 (A-M)",
+    "capacity": 30,
+    "student_count": 23,
+    "student_ids": ["usr_stu_001", "usr_stu_003"],
+    "created_at": "2026-11-06T11:05:00Z"
+  },
+  {
+    "id": "batch_gen_2",
+    "section_id": "sec_bca_1a",
+    "name": "Batch 2 (N-Z)",
+    "capacity": 30,
+    "student_count": 22,
+    "student_ids": ["usr_stu_002", "usr_stu_004"],
+    "created_at": "2026-11-06T11:05:00Z"
+  }
+]
+```
+
+---
+
+### 8.4 Assign Student to Lab Batch
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/sections/batches/assign-student`
+
+**Request Body:**
+```json
+{
+  "batch_id": "batch_gen_1",
+  "student_id": "usr_stu_005"
+}
+```
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "batch_id": "batch_gen_1",
+  "student_id": "usr_stu_005"
+}
+```
+
+---
+
+## 9. Faculty Subject Allocations & Workload Tracking
+
+Assigns instructors to theory lectures, practical labs, and tutorials while enforcing institutional workload policies (standard maximum 16 weekly contact hours).
+
+### 9.1 List Section Allocations
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/allocations?section_id=sec_bca_1a`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "alloc_001",
+    "section_id": "sec_bca_1a",
+    "subject_id": "subj_c_prog",
+    "teacher_id": "usr_emp_hod_cse",
+    "batch_id": null,
+    "component_type": "theory",
+    "weekly_hours": 4,
+    "teacher_name": "Dr. Ramesh Sharma",
+    "subject_name": "Programming in C & Data Foundations",
+    "section_name": "BCA-1A",
+    "batch_name": "",
+    "created_at": "2026-11-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 9.2 Assign Faculty Subject Allocation
+- **Method**: `POST`
+- **Path**: `/api/v1/academics/allocations`
+
+**Request Body:**
+```json
+{
+  "section_id": "sec_bca_1a",
+  "subject_id": "subj_c_prog",
+  "teacher_id": "usr_emp_hod_cse",
+  "batch_id": "batch_gen_1",
+  "component_type": "practical",
+  "weekly_hours": 2
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+{
+  "id": "alloc_002",
+  "section_id": "sec_bca_1a",
+  "subject_id": "subj_c_prog",
+  "teacher_id": "usr_emp_hod_cse",
+  "batch_id": "batch_gen_1",
+  "component_type": "practical",
+  "weekly_hours": 2,
+  "teacher_name": "Dr. Ramesh Sharma",
+  "subject_name": "Programming in C & Data Foundations",
+  "section_name": "BCA-1A",
+  "batch_name": "Batch 1 (A-M)",
+  "created_at": "2026-11-06T11:15:00Z"
+}
+```
+
+---
+
+### 9.3 Remove Faculty Subject Allocation
+- **Method**: `DELETE`
+- **Path**: `/api/v1/academics/allocations?id=alloc_002`
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "id": "alloc_002"
+}
+```
+
+---
+
+### 9.4 Query Faculty Workload Summaries
+Retrieves workload metrics across all faculty or for an individual teacher, flagging overloaded faculty whose commitments exceed 16 weekly hours.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/academics/faculty/workload` (or `?teacher_id={teacher_id}`)
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "teacher_id": "usr_emp_hod_cse",
+    "teacher_name": "Dr. Ramesh Sharma",
+    "email": "ramesh.sharma@campus.edu",
+    "total_weekly_hours": 14,
+    "max_hours_limit": 16,
+    "is_overloaded": false,
+    "allocations": [
+      {
+        "id": "alloc_001",
+        "subject_name": "Programming in C & Data Foundations",
+        "section_name": "BCA-1A",
+        "component_type": "theory",
+        "weekly_hours": 4
+      }
+    ]
+  }
+]
+```

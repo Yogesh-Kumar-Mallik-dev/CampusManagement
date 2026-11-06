@@ -33,6 +33,7 @@ flowchart TD
         AuthHandler["Auth Handler\n(Zero Sign-up, Pre-provisioned)"]
         UserHandler["User & ID Handler\n(idgen Canonical Handles)"]
         AcademicHandler["Academic & Optical Handler\n(HMAC Verification & Rosters)"]
+        DeptHandler["Department & Allocation Handler\n(M:N Academics, Batches, Workload)"]
         CacheMgr["Resilient Cache Manager\n(Cache-Aside + Singleflight)"]
     end
 
@@ -49,9 +50,11 @@ flowchart TD
     Router --> AuthHandler
     Router --> UserHandler
     Router --> AcademicHandler
+    Router --> DeptHandler
 
     UserHandler --> CacheMgr
     AcademicHandler --> CacheMgr
+    DeptHandler --> CacheMgr
     CacheMgr <--> RedisStore
     CacheMgr <--> PG
 ```

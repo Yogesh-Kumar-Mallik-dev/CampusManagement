@@ -122,3 +122,58 @@ When the client transitions from offline to online:
 - **No Self-Registration**: Accounts are provisioned exclusively via institutional onboarding (`/api/v1/users/student` and `/api/v1/users/employee`).
 - **Cryptographic Ephemeral Tokens**: Rapidly rolling optical attendance frames include HMAC-SHA256 signatures with 6-second lifetimes to eliminate remote screenshot proxy fraud.
 - **Scope-Delimited RBAC**: Permissions are evaluated dynamically against scope hierarchies (`inst:*` > `campus:main` > `dept:cse` > `sec:cse-3a`), preventing horizontal privilege escalation across departments.
+
+---
+
+## 6. Academic Hierarchy, Cross-Program Cohorts & Workload Engine
+
+The academic subsystem models complex real-world university organizational structures, cross-listed courses, student mobility, and curriculum accreditation requirements.
+
+```mermaid
+erDiagram
+    DEPARTMENT ||--o{ PROGRAM_DEPARTMENT : "offers"
+    PROGRAM ||--o{ PROGRAM_DEPARTMENT : "belongs to"
+    PROGRAM ||--o{ SEMESTER : "structures into"
+    SEMESTER ||--o{ SECTION : "instantiates cohorts"
+    SECTION ||--o{ LAB_BATCH : "partitions into"
+    SECTION ||--o{ STUDENT_ENROLLMENT : "contains"
+    SUBJECT ||--o{ SYLLABUS_VERSION : "maintains audit history"
+    SECTION ||--o{ FACULTY_ALLOCATION : "schedules"
+    SUBJECT ||--o{ FACULTY_ALLOCATION : "allocated for"
+    USER ||--o{ FACULTY_ALLOCATION : "teaches"
+```
+
+### 6.1 Multi-Department ($M:N$) Interdisciplinary Modeling
+Traditional academic management software restricts programs and teachers to a single departmental silo. In CampusManagement:
+- **Interdisciplinary Programs**: Programs (such as *Artificial Intelligence & Data Science* or *Bioinformatics*) link to multiple departments via join tables (`program_departments`).
+- **Cross-Departmental Teaching**: Faculty members can be affiliated with multiple departments and take courses outside their primary home department.
+- **Hierarchical Scopes**: RBAC evaluations traverse department scopes cleanly (`dept:cse`, `dept:math`).
+
+### 6.2 Cross-Program Shared Sections & Student Cohort Mobility
+Universities frequently pool students from different degree programs into common foundational lecture sections (e.g. Calculus or Environmental Science shared between BCA and B.Sc. IT).
+- **Shared Cohorts**: A `Section` can have `is_shared: true` and associate with multiple `program_ids`.
+- **Individual Student Mobility**: Students can be transferred between sections (`/api/v1/academics/sections/transfer-student`), automatically updating their scoped attendance privileges.
+- **Cohort Consolidation (Merges)**: Low-enrollment sections can be merged into a single consolidated section (`/api/v1/academics/sections/merge`) within a single database transaction.
+
+### 6.3 Subject Catalog & Odd/Even Term Cycle Code Aliasing
+A recurring challenge in university administration is code variation across term cycles: the same subject with identical syllabus and credit weighting may be assigned code `BCA-102` during odd semesters and code `BCA-202` during even semesters or remedial cycles.
+- Subjects exist as independent academic entities decoupled from rigid degree programs.
+- Each subject maintains both `odd_semester_code` and `even_semester_code` alongside a default canonical catalog code.
+- This prevents duplicate subject creation, fragmented grade histories, and disjoint attendance records while honoring registrar coding mandates.
+
+### 6.4 Immutable Syllabus Revision Audit Trail
+Accreditation bodies (NAAC, NBA, ABET) require proof of Board of Studies (BoS) curriculum approvals and historical syllabi.
+- Every revision to a subject's syllabus creates an immutable `syllabus_versions` record containing the approval authority, revision code, change notes, effective timestamp, and full markdown syllabus content.
+- The active subject points to `current_syllabus_version_id`.
+- Historical versions can never be mutated or destroyed, providing a tamper-proof audit trail.
+
+### 6.5 Practical Lab Batches & Deterministic Auto-Partitioning
+Because laboratory facilities have fixed workstation limits (typically 25–30 benches), full lecture sections (60+ students) must be subdivided into practical lab batches ($B_1, B_2, \dots, B_N$).
+- **Deterministic Auto-Partitioning**: Given a section with $M$ enrolled students and a requested partition count $N$, the algorithm deterministically distributes students using a round-robin assignment based on sorted student IDs / handles.
+- **Manual Batch Overrides**: Administrators can selectively reassign students between batches to balance special lab equipment access.
+
+### 6.6 Faculty Subject Allocations & Workload Tracking
+The allocation engine maps faculty members to specific academic components:
+- **Component Types**: `theory` (lectures), `practical` (laboratory sessions with specific batches), and `tutorial` (problem-solving groups).
+- **Workload Ceiling**: Enforces institutional teaching norms with a standard 16 weekly contact hours threshold.
+- **Real-Time Overload Detection**: The system calculates aggregate assigned weekly hours per faculty member (`GET /api/v1/academics/faculty/workload`) and flags overloaded faculty (`is_overloaded: true`) when allocations exceed the ceiling.

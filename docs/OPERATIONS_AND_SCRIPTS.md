@@ -32,7 +32,8 @@ All tasks are executed through the single-entrypoint lifecycle runner:
 # - Shuts down Docker containers and unbinds network ports
 
 ./script.sh flush
-# - Flushes PostgreSQL database tables and clears Redis cache keys
+# - Flushes PostgreSQL database schema and clears Redis cache keys
+# - Re-applies backend/internal/database/schema.sql automatically for clean-slate testing
 
 # ----------------------------------------------------
 # 3. DEVELOPMENT SERVER
@@ -60,7 +61,8 @@ All tasks are executed through the single-entrypoint lifecycle runner:
 ./script.sh test
 # - Executes backend Go test suite ('go test -v ./...')
 # - Executes Flutter client test suite ('flutter test')
-# - Tests widget hierarchy, optical packet math, and anti-proxy freshness logic
+# - Supports argument forwarding (e.g. './script.sh test --plain-name "Department"')
+# - Tests widget hierarchy, optical packet math, academic models, and anti-proxy freshness logic
 
 # ----------------------------------------------------
 # 6. PRODUCTION RELEASE BUILD
@@ -77,23 +79,22 @@ All tasks are executed through the single-entrypoint lifecycle runner:
 The repository includes a turnkey local environment defined in `docker-compose.yml`:
 
 ```yaml
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: campus_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-campus_admin}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-campus_secret_password}
-      POSTGRES_DB: ${DB_NAME:-campus_db}
+      POSTGRES_USER: campus_user
+      POSTGRES_PASSWORD: campus_password
+      POSTGRES_DB: campus_db
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/internal/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-campus_admin} -d ${DB_NAME:-campus_db}"]
+      test: ["CMD-SHELL", "pg_isready -U campus_user -d campus_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -103,18 +104,18 @@ services:
     container_name: campus_redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 5
 
 volumes:
-  postgres_data:
-  redis_data:
+  pgdata:
+  redisdata:
 ```
 
 ---
