@@ -150,6 +150,20 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.lightSurface,
+        elevation: 4,
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AppColors.lightBorder, width: 1),
+        ),
+        textStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.lightTextPrimary,
+        ),
+      ),
     );
   }
 
@@ -288,6 +302,20 @@ class AppTheme {
         color: AppColors.darkBorder,
         thickness: 1,
         space: 1,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.darkSurface,
+        elevation: 4,
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AppColors.darkBorder, width: 1),
+        ),
+        textStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.darkTextPrimary,
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_dropdown.dart';
 import '../widgets/app_logo.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -215,26 +216,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedStatus,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(
-                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                          ),
-                        ),
-                      ),
-                      dropdownColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                    AppDropdown<String>(
+                      value: selectedStatus,
                       items: options.map((opt) {
-                        return DropdownMenuItem(
+                        return AppDropdownItem<String>(
                           value: opt,
-                          child: Text(
-                            opt.toUpperCase(),
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          ),
+                          label: opt.toUpperCase(),
                         );
                       }).toList(),
                       onChanged: (val) {

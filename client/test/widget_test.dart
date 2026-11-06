@@ -7,6 +7,7 @@ import 'package:campus_client/screens/home_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
+import 'package:campus_client/widgets/app_dropdown.dart';
 import 'package:campus_client/widgets/app_logo.dart';
 
 void main() {
@@ -110,6 +111,15 @@ void main() {
     for (int i = 0; i < 25; i++) {
       await tester.pump(const Duration(milliseconds: 20));
     }
+
+    // Verify Persona dropdown opens cleanly
+    final personaSwitcher = find.byTooltip('Switch Active Persona');
+    expect(personaSwitcher, findsOneWidget);
+    await tester.tap(personaSwitcher);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Dr. Priya Nair'), findsWidgets);
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
 
     // 4. Navigate to User Directory tab
     await tester.tap(find.text('Directory & Identities'));
@@ -691,5 +701,58 @@ void main() {
     // Close Section A inspector
     await tester.tap(find.byType(IconButton).last);
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('AppDropdown widget renders, drops down below anchor, and selects item', (WidgetTester tester) async {
+    String? selected = 'opt_1';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return Center(
+                child: SizedBox(
+                  width: 250,
+                  child: AppDropdown<String>(
+                    key: const Key('test-dropdown'),
+                    value: selected,
+                    hint: 'Select an option',
+                    items: const [
+                      AppDropdownItem(value: 'opt_1', label: 'Option One (Alpha)'),
+                      AppDropdownItem(value: 'opt_2', label: 'Option Two (Beta)'),
+                      AppDropdownItem(value: 'opt_3', label: 'Option Three (Gamma)'),
+                    ],
+                    onChanged: (val) {
+                      setState(() => selected = val);
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    // Initial state
+    expect(find.text('Option One (Alpha)'), findsOneWidget);
+    expect(find.text('Option Two (Beta)'), findsNothing);
+
+    // Tap dropdown to open menu
+    await tester.tap(find.byKey(const Key('test-dropdown')));
+    await tester.pumpAndSettle();
+
+    // Menu should drop down showing all options
+    expect(find.text('Option Two (Beta)'), findsOneWidget);
+    expect(find.text('Option Three (Gamma)'), findsOneWidget);
+
+    // Select Option Two
+    await tester.tap(find.text('Option Two (Beta)'));
+    await tester.pumpAndSettle();
+
+    // Should update selected value
+    expect(selected, 'opt_2');
+    expect(find.text('Option Two (Beta)'), findsOneWidget);
   });
 }

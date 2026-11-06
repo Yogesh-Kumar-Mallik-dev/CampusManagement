@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_dropdown.dart';
 
 class DepartmentManagementScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -1666,21 +1667,17 @@ class _AddDepartmentDialogState extends State<_AddDepartmentDialog> {
                         // Head of Department
                         const Text('Head of Department (HOD)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        DropdownButtonFormField<String?>(
-                          isExpanded: true,
-                          initialValue: _selectedHODId,
-                          decoration: const InputDecoration(isDense: true),
+                        AppDropdown<String?>(
+                          value: _selectedHODId,
+                          hint: 'No HOD assigned yet',
                           items: [
-                            const DropdownMenuItem(
+                            const AppDropdownItem<String?>(
                               value: null,
-                              child: Text('No HOD assigned yet', overflow: TextOverflow.ellipsis),
+                              label: 'No HOD assigned yet',
                             ),
-                            ...widget.teachers.map((t) => DropdownMenuItem(
+                            ...widget.teachers.map((t) => AppDropdownItem<String?>(
                                   value: t.id,
-                                  child: Text(
-                                    '${t.fullName} (${t.campusHandle})',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  label: '${t.fullName} (${t.campusHandle})',
                                 )),
                           ],
                           onChanged: (v) => setState(() => _selectedHODId = v),
@@ -2474,12 +2471,10 @@ class _AddSectionDialogState extends State<_AddSectionDialog> {
                                 children: [
                                   const Text('Semester *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 4),
-                                  DropdownButtonFormField<int>(
-                                    isExpanded: true,
-                                    initialValue: _semesterNumber,
-                                    decoration: const InputDecoration(isDense: true),
+                                  AppDropdown<int>(
+                                    value: _semesterNumber,
                                     items: List.generate(8, (i) => i + 1).map((s) {
-                                      return DropdownMenuItem(value: s, child: Text('Sem $s', overflow: TextOverflow.ellipsis));
+                                      return AppDropdownItem<int>(value: s, label: 'Sem $s');
                                     }).toList(),
                                     onChanged: (val) {
                                       if (val != null) setState(() => _semesterNumber = val);
@@ -3498,19 +3493,13 @@ class _TransferStudentDialogState extends State<_TransferStudentDialog> {
               if (otherSections.isEmpty)
                 const Text('No other sections available. Create a new section first.', style: TextStyle(fontSize: 12, color: AppColors.statusRed))
               else
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: _targetSectionId,
-                  decoration: const InputDecoration(isDense: true),
-                  hint: const Text('Choose destination section...'),
+                AppDropdown<String>(
+                  value: _targetSectionId,
+                  hint: 'Choose destination section...',
                   items: otherSections.map((s) {
-                    return DropdownMenuItem(
+                    return AppDropdownItem<String>(
                       value: s.id,
-                      child: Text(
-                        '${s.name} - Sem ${s.semesterNumber} (${s.programNames.join(", ")})',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                      label: '${s.name} - Sem ${s.semesterNumber} (${s.programNames.join(", ")})',
                     );
                   }).toList(),
                   onChanged: (val) => setState(() => _targetSectionId = val),
@@ -3659,19 +3648,13 @@ class _MergeCohortDialogState extends State<_MergeCohortDialog> {
               if (otherSections.isEmpty)
                 const Text('No other sections available to merge into.', style: TextStyle(fontSize: 12, color: AppColors.statusRed))
               else
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: _targetSectionId,
-                  decoration: const InputDecoration(isDense: true),
-                  hint: const Text('Choose destination combined section...'),
+                AppDropdown<String>(
+                  value: _targetSectionId,
+                  hint: 'Choose destination combined section...',
                   items: otherSections.map((s) {
-                    return DropdownMenuItem(
+                    return AppDropdownItem<String>(
                       value: s.id,
-                      child: Text(
-                        '${s.name} - Sem ${s.semesterNumber} (${s.programNames.join(", ")})',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                      label: '${s.name} - Sem ${s.semesterNumber} (${s.programNames.join(", ")})',
                     );
                   }).toList(),
                   onChanged: (val) => setState(() => _targetSectionId = val),
@@ -3848,15 +3831,14 @@ class _AssignFacultyAllocationDialogState extends State<_AssignFacultyAllocation
               // Subject selection
               const Text('Select Academic Subject *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
+              AppDropdown<String>(
                 key: const Key('dropdown-allocation-subject'),
-                isExpanded: true,
-                initialValue: _selectedSubjectId,
-                decoration: const InputDecoration(isDense: true),
+                value: _selectedSubjectId,
+                hint: 'Select subject...',
                 items: widget.subjects.map((sub) {
-                  return DropdownMenuItem(
+                  return AppDropdownItem<String>(
                     value: sub.id,
-                    child: Text('${sub.code} - ${sub.name}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                    label: '${sub.code} - ${sub.name}',
                   );
                 }).toList(),
                 onChanged: (val) => setState(() => _selectedSubjectId = val),
@@ -3866,15 +3848,14 @@ class _AssignFacultyAllocationDialogState extends State<_AssignFacultyAllocation
               // Teacher selection
               const Text('Assign Instructor / Teacher *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
+              AppDropdown<String>(
                 key: const Key('dropdown-allocation-teacher'),
-                isExpanded: true,
-                initialValue: _selectedTeacherId,
-                decoration: const InputDecoration(isDense: true),
+                value: _selectedTeacherId,
+                hint: 'Select teacher...',
                 items: widget.teachers.map((t) {
-                  return DropdownMenuItem(
+                  return AppDropdownItem<String>(
                     value: t.id,
-                    child: Text('${t.fullName} (${t.campusHandle})', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                    label: '${t.fullName} (${t.campusHandle})',
                   );
                 }).toList(),
                 onChanged: (val) => setState(() => _selectedTeacherId = val),
@@ -3884,17 +3865,17 @@ class _AssignFacultyAllocationDialogState extends State<_AssignFacultyAllocation
               // Component type selection
               const Text('Teaching Component Type *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
+              AppDropdown<String>(
                 key: const Key('dropdown-allocation-component'),
-                isExpanded: true,
-                initialValue: _componentType,
-                decoration: const InputDecoration(isDense: true),
+                value: _componentType,
                 items: const [
-                  DropdownMenuItem(value: 'theory', child: Text('Theory Lecture (Full Cohort)', style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 'practical', child: Text('Practical Lab (Batch Sub-division)', style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 'tutorial', child: Text('Tutorial Class', style: TextStyle(fontSize: 12))),
+                  AppDropdownItem(value: 'theory', label: 'Theory Lecture (Full Cohort)'),
+                  AppDropdownItem(value: 'practical', label: 'Practical Lab (Batch Sub-division)'),
+                  AppDropdownItem(value: 'tutorial', label: 'Tutorial Class'),
                 ],
-                onChanged: _onComponentChanged,
+                onChanged: (val) {
+                  if (val != null) _onComponentChanged(val);
+                },
               ),
               const SizedBox(height: 14),
 
@@ -3902,19 +3883,18 @@ class _AssignFacultyAllocationDialogState extends State<_AssignFacultyAllocation
               if (_componentType == 'practical') ...[
                 const Text('Assign to Practical Lab Batch *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
-                DropdownButtonFormField<String?>(
+                AppDropdown<String?>(
                   key: const Key('dropdown-allocation-batch'),
-                  isExpanded: true,
-                  initialValue: _selectedBatchId,
-                  decoration: const InputDecoration(isDense: true),
+                  value: _selectedBatchId,
+                  hint: 'All Batches (Section Cohort)',
                   items: [
-                    const DropdownMenuItem<String?>(
+                    const AppDropdownItem<String?>(
                       value: null,
-                      child: Text('All Batches (Section Cohort)', style: TextStyle(fontSize: 12)),
+                      label: 'All Batches (Section Cohort)',
                     ),
-                    ...widget.batches.map((b) => DropdownMenuItem<String?>(
+                    ...widget.batches.map((b) => AppDropdownItem<String?>(
                           value: b.id,
-                          child: Text('${b.name} (${b.studentIds.length} students)', style: const TextStyle(fontSize: 12)),
+                          label: '${b.name} (${b.studentIds.length} students)',
                         )),
                   ],
                   onChanged: (val) => setState(() => _selectedBatchId = val),
@@ -4088,15 +4068,13 @@ class _AutoPartitionBatchesDialogState extends State<_AutoPartitionBatchesDialog
 
               const Text('Number of Practical Batches *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              DropdownButtonFormField<int>(
+              AppDropdown<int>(
                 key: const Key('dropdown-batch-count'),
-                isExpanded: true,
-                initialValue: _batchCount,
-                decoration: const InputDecoration(isDense: true),
+                value: _batchCount,
                 items: const [
-                  DropdownMenuItem(value: 2, child: Text('2 Batches (e.g. Batch 1, Batch 2)', style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 3, child: Text('3 Batches (e.g. Batch 1, Batch 2, Batch 3)', style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 4, child: Text('4 Batches (e.g. Batch 1, Batch 2, Batch 3, Batch 4)', style: TextStyle(fontSize: 12))),
+                  AppDropdownItem(value: 2, label: '2 Batches (e.g. Batch 1, Batch 2)'),
+                  AppDropdownItem(value: 3, label: '3 Batches (e.g. Batch 1, Batch 2, Batch 3)'),
+                  AppDropdownItem(value: 4, label: '4 Batches (e.g. Batch 1, Batch 2, Batch 3, Batch 4)'),
                 ],
                 onChanged: (val) => setState(() => _batchCount = val ?? 2),
               ),
@@ -4442,15 +4420,14 @@ class _ReassignBatchDialogState extends State<_ReassignBatchDialog> {
 
               const Text('Select Target Lab Batch *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
+              AppDropdown<String>(
                 key: const Key('dropdown-target-batch'),
-                isExpanded: true,
-                initialValue: _targetBatchId,
-                decoration: const InputDecoration(isDense: true),
+                value: _targetBatchId,
+                hint: 'Select target batch...',
                 items: otherBatches.map((b) {
-                  return DropdownMenuItem(
+                  return AppDropdownItem<String>(
                     value: b.id,
-                    child: Text('${b.name} (${b.studentIds.length} students)', style: const TextStyle(fontSize: 12)),
+                    label: '${b.name} (${b.studentIds.length} students)',
                   );
                 }).toList(),
                 onChanged: (val) => setState(() => _targetBatchId = val),

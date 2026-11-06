@@ -177,63 +177,162 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 4),
 
-          // User Persona Switcher
-          DropdownButtonHideUnderline(
-            child: DropdownButton<UserModel>(
-              value: _currentUser,
-              dropdownColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          // User Persona Switcher (Clean Dropdown below anchor)
+          PopupMenuButton<UserModel>(
+            tooltip: 'Switch Active Persona',
+            position: PopupMenuPosition.under,
+            offset: const Offset(0, 8),
+            elevation: 4,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              icon: const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: AppSvgIcon(svgString: AppSvgIcon.chevronDown, size: 14),
+              side: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                width: 1,
               ),
-              items: _personas.map((u) {
+            ),
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
+            onSelected: (UserModel newUser) {
+              setState(() => _currentUser = newUser);
+              _checkServer();
+            },
+            itemBuilder: (BuildContext context) {
+              return _personas.map((u) {
+                final isSelected = u.id == _currentUser.id;
                 final roleBadge = u.archetype == 'student'
                     ? AppColors.primaryBadge(isDark)
                     : AppColors.greenBadge(isDark);
-                return DropdownMenuItem<UserModel>(
+
+                return PopupMenuItem<UserModel>(
                   value: u,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedContainer(
-                        duration: AppTheme.themeAnimationDuration,
-                        curve: AppTheme.themeAnimationCurve,
-                        width: 24,
-                        height: 24,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: roleBadge.background,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: roleBadge.border,
-                            width: 1,
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? (isDark
+                              ? AppColors.wineRedDark.withValues(alpha: 0.25)
+                              : AppColors.wineRedSubtle)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: roleBadge.background,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: roleBadge.border, width: 1),
+                          ),
+                          child: Text(
+                            u.firstName.isNotEmpty ? u.firstName[0] : '?',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: roleBadge.text,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          u.firstName[0],
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: roleBadge.text,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                u.fullName,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                ),
+                              ),
+                              Text(
+                                '@${u.campusHandle} • ${u.archetype.toUpperCase()}',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        u.fullName,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ],
+                        if (isSelected) ...[
+                          const SizedBox(width: 10),
+                          AppSvgIcon(
+                            svgString: AppSvgIcon.check,
+                            size: 14,
+                            color: isDark ? AppColors.wineRedLight : AppColors.wineRed,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 );
-              }).toList(),
-              onChanged: (UserModel? newUser) {
-                if (newUser != null) {
-                  setState(() => _currentUser = newUser);
-                  _checkServer();
-                }
-              },
+              }).toList();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: (_currentUser.archetype == 'student'
+                              ? AppColors.primaryBadge(isDark)
+                              : AppColors.greenBadge(isDark))
+                          .background,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: (_currentUser.archetype == 'student'
+                                ? AppColors.primaryBadge(isDark)
+                                : AppColors.greenBadge(isDark))
+                            .border,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      _currentUser.firstName.isNotEmpty ? _currentUser.firstName[0] : '?',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: (_currentUser.archetype == 'student'
+                                ? AppColors.primaryBadge(isDark)
+                                : AppColors.greenBadge(isDark))
+                            .text,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _currentUser.fullName,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(width: 6),
+                  AppSvgIcon(
+                    svgString: AppSvgIcon.chevronDown,
+                    size: 12,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                  ),
+                ],
+              ),
             ),
           ),
           if (widget.onLogout != null) ...[

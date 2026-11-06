@@ -145,3 +145,18 @@ All academic management screens adhere strictly to the zero-emoji design rule. A
 - Student Mobility: `AppSvgIcon.swapHorizontal`
 - Cohort Consolidation: `AppSvgIcon.merge`
 - Add / Action: `AppSvgIcon.plus`
+
+---
+
+## 7. Desktop-Grade Dropdown Architecture (`AppDropdown`)
+
+Traditional Flutter `DropdownButton` and `DropdownButtonFormField` components use a legacy Android modal design that positions the menu centered directly *over* the anchor trigger, obscuring the clicked button and overflowing screen bounds on desktop and web interfaces.
+
+CampusManagement replaces this with [`AppDropdown<T>`](file:///home/yogesh/Projects/CampusManagement/client/lib/widgets/app_dropdown.dart) and global theme rules:
+
+### 7.1 Dropdown Invariants
+1. **Strict Sub-Anchor Placement**: Dropdown menus strictly open **underneath** the trigger (`PopupMenuPosition.under` with an `Offset(0, 4)` gap). The anchor button or combobox field always remains visible above the opened menu.
+2. **Width Alignment**: The dropdown menu's width is dynamically constrained to match the anchor field's exact layout width via `LayoutBuilder`.
+3. **Bounded Scroll Height**: Menus are capped at `maxHeight: 280` with smooth internal scrollbars to prevent lists from spanning screen borders.
+4. **Theme & Hover States**: Rendered with constant 1.0px borders (`AppColors.lightBorder` / `AppColors.darkBorder`), themed surface fills (`#FFFFFF` / `#161B22`), mouse hover highlights, and active selection checkmarks (`AppSvgIcon.check`).
+5. **AppBar Persona Dropdown**: The header persona switcher drops down underneath the user pill, displaying avatars, campus handles, archetype badges, and checkmarks without obscuring navigation.

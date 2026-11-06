@@ -26,24 +26,24 @@ Comprehensive technical documentation is maintained in the [`docs/`](file:///hom
 ## Architecture Overview
 
 ```
-                               ┌────────────────────────────────────────┐
-                               │           Flutter Client               │
-                               │  (Web, Desktop: 3 OS, Mobile: 2 OS)    │
-                               │   Local SQLite (Drift) Offline Cache   │
-                               └──────────────────┬─────────────────────┘
-                                                  │ HTTPS / WSS
-                                                  ▼
-                               ┌────────────────────────────────────────┐
-                               │               Go Backend               │
-                               │   (Resilient Cache + Singleflight)     │
-                               └─────────┬────────────────────┬─────────┘
-                   Safe Fallback / Miss  │                    │ Non-blocking Set
-                                         ▼                    ▼
-                               ┌──────────────────┐  ┌──────────────────┐
-                               │  PostgreSQL 16   │  │   Redis Cache    │
-                               │ (pgx Connection  │  │ (Safe failure    │
-                               │    Pool Cap)     │  │   tolerance)     │
-                               └──────────────────┘  └──────────────────┘
+                    ┌────────────────────────────────────────┐
+                    │           Flutter Client               │
+                    │  (Web, Desktop: 3 OS, Mobile: 2 OS)    │
+                    │   Local SQLite (Drift) Offline Cache   │
+                    └──────────────────┬─────────────────────┘
+                                       │ HTTPS / WSS
+                                       ▼
+                    ┌────────────────────────────────────────┐
+                    │               Go Backend               │
+                    │   (Resilient Cache + Singleflight)     │
+                    └─────────┬────────────────────┬─────────┘
+        Safe Fallback / Miss  │                    │ Non-blocking Set
+                              ▼                    ▼
+                    ┌──────────────────┐  ┌──────────────────┐
+                    │  PostgreSQL 16   │  │   Redis Cache    │
+                    │ (pgx Connection  │  │ (Safe failure    │
+                    │    Pool Cap)     │  │   tolerance)     │
+                    └──────────────────┘  └──────────────────┘
 ```
 
 ---

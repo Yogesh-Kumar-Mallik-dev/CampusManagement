@@ -4,6 +4,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_dropdown.dart';
 import 'user_profile_screen.dart';
 
 class UserManagementScreen extends StatefulWidget {
@@ -1522,31 +1523,15 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
       children: [
         Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        SizedBox(
-          height: 38,
-          child: DropdownButtonFormField<String>(
-            initialValue: value,
-            isDense: true,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-            ),
-            dropdownColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-              ),
-            ),
-            items: options.map((opt) {
-              return DropdownMenuItem(
-                value: opt,
-                child: Text(opt.toUpperCase()),
-              );
-            }).toList(),
-            onChanged: onChanged,
-          ),
+        AppDropdown<String>(
+          value: value,
+          items: options.map((opt) {
+            return AppDropdownItem<String>(
+              value: opt,
+              label: opt.toUpperCase(),
+            );
+          }).toList(),
+          onChanged: onChanged,
         ),
       ],
     );
