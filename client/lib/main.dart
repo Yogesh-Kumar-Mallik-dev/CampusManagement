@@ -1,3 +1,4 @@
+import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'package:flutter/material.dart';
 import 'models/user.dart';
 import 'screens/home_screen.dart';
@@ -29,45 +30,38 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
   UserModel? _loggedInUser;
 
   @override
-  void initState() {
-    super.initState();
-    AppTheme.themeModeNotifier.addListener(_onThemeChanged);
-  }
-
-  @override
-  void dispose() {
-    AppTheme.themeModeNotifier.removeListener(_onThemeChanged);
-    super.dispose();
-  }
-
-  void _onThemeChanged() {
-    setState(() {});
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CampusOS',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: AppTheme.themeModeNotifier.value,
-      themeAnimationDuration: const Duration(milliseconds: 250),
-      themeAnimationCurve: Curves.easeInOut,
-      home: _loggedInUser == null
-          ? LoginScreen(
-              storage: widget.storage,
-              onLoginSuccess: (user) {
-                setState(() => _loggedInUser = user);
-              },
-            )
-          : HomeScreen(
-              storage: widget.storage,
-              currentUser: _loggedInUser,
-              onLogout: () {
-                setState(() => _loggedInUser = null);
-              },
-            ),
+    return ThemeProvider(
+      initTheme: AppTheme.themeModeNotifier.value == ThemeMode.dark
+          ? AppTheme.darkTheme
+          : AppTheme.lightTheme,
+      duration: const Duration(milliseconds: 350),
+      builder: (context, myTheme) {
+        return MaterialApp(
+          title: 'CampusOS',
+          debugShowCheckedModeBanner: false,
+          theme: myTheme,
+          builder: (context, child) {
+            return ThemeSwitchingArea(
+              child: child ?? const SizedBox(),
+            );
+          },
+          home: _loggedInUser == null
+              ? LoginScreen(
+                  storage: widget.storage,
+                  onLoginSuccess: (user) {
+                    setState(() => _loggedInUser = user);
+                  },
+                )
+              : HomeScreen(
+                  storage: widget.storage,
+                  currentUser: _loggedInUser,
+                  onLogout: () {
+                    setState(() => _loggedInUser = null);
+                  },
+                ),
+        );
+      },
     );
   }
 }
