@@ -3,13 +3,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 
-/// High-performance Telegram-style circular clip reveal theme transition.
+/// Ultra-smooth Telegram-style circular theme reveal transition.
 ///
-/// Captures a zero-delay synchronous raster snapshot [toImageSync] of the
-/// previous theme and animates an expanding circular clip of the new theme
-/// from the exact touch/button coordinates across the entire viewport.
+/// Captures a snapshot of the current theme, mounts it in an isolated overlay
+/// layer, triggers the underlying theme change, and animates an expanding
+/// circular cut-out using [BlendMode.dstOut] originating from the tap coordinates.
 class CircularThemeReveal extends StatefulWidget {
   final Widget child;
 
@@ -25,20 +24,21 @@ class CircularThemeReveal extends StatefulWidget {
 
 class CircularThemeRevealState extends State<CircularThemeReveal>
     with SingleTickerProviderStateMixin {
-  final GlobalKey _repaintBoundaryKey = GlobalKey();
-  ui.Image? _oldImage;
-  Offset _center = Offset.zero;
-  bool _isNextDark = false;
-
+  final GlobalKey _repaintKey = GlobalKey();
   late final AnimationController _controller;
   late final Animation<double> _animation;
+
+  ui.Image? _snapshot;
+  Offset? _center;
+  bool _isAnimating = false;
+  bool _isNextDark = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 380),
     );
     _animation = CurvedAnimation(
       parent: _controller,
@@ -49,144 +49,186 @@ class CircularThemeRevealState extends State<CircularThemeReveal>
   @override
   void dispose() {
     _controller.dispose();
-    _oldImage?.dispose();
+    _snapshot?.dispose();
     super.dispose();
   }
 
-  /// Triggers the zero-lag circular reveal animation from [center].
-  void revealTheme(Offset center, VoidCallback onThemeChange) {
-    if (_controller.isAnimating) return;
+  /// Initiates the circular theme reveal from [center].
+  Future<void> startTransition({
+    required Offset center,
+    required bool isNextDark,
+    required VoidCallback onThemeChange,
+  }) async {
+    if (_isAnimating) return;
 
-    try {
-      final boundary = _repaintBoundaryKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary != null && !boundary.debugNeedsPaint) {
-        _oldImage = boundary.toImageSync();
-        _center = center;
-      }
-    } catch (_) {
-      _oldImage = null;
+    final captured = await _captureSnapshot();
+    if (captured == null) {
+      // Fallback: apply theme switch immediately if snapshot unavailable
+      onThemeChange();
+      return;
     }
 
-    _isNextDark = AppTheme.themeModeNotifier.value != ThemeMode.dark;
+    if (!mounted) {
+      captured.dispose();
+      return;
+    }
 
-    // Toggle theme immediately
+    setState(() {
+      _snapshot = captured;
+      _center = center;
+      _isAnimating = true;
+      _isNextDark = isNextDark;
+    });
+
+    // Wait until the overlay paints the captured snapshot
+    await WidgetsBinding.instance.endOfFrame;
+
+    // Change theme underneath while the old snapshot completely covers the screen
     onThemeChange();
 
-    if (_oldImage != null) {
-      _controller.forward(from: 0.0).then((_) {
-        _oldImage?.dispose();
-        _oldImage = null;
-        if (mounted) setState(() {});
+    // Allow the new theme to lay out underneath the overlay
+    await WidgetsBinding.instance.endOfFrame;
+
+    if (!mounted) return;
+
+    // Animate the expanding circular reveal from the tap coordinates
+    await _controller.forward(from: 0.0);
+
+    if (mounted) {
+      setState(() {
+        _isAnimating = false;
+        _snapshot?.dispose();
+        _snapshot = null;
+        _center = null;
       });
-      setState(() {});
+    }
+
+    _controller.reset();
+  }
+
+  Future<ui.Image?> _captureSnapshot() async {
+    try {
+      final boundary = _repaintKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+
+      if (boundary.debugNeedsPaint) {
+        await WidgetsBinding.instance.endOfFrame;
+      }
+
+      if (!mounted) return null;
+
+      // Capture at 1.0 scale: instantaneous GPU copy with zero frame drops
+      final image = await boundary.toImage(pixelRatio: 1.0);
+      return image;
+    } catch (_) {
+      return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      key: _repaintBoundaryKey,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // If transitioning, display the static snapshot of the previous theme underneath
-          if (_oldImage != null)
-            Positioned.fill(
-              child: RawImage(
-                image: _oldImage,
-                fit: BoxFit.cover,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Underlying application
+        RepaintBoundary(
+          key: _repaintKey,
+          child: widget.child,
+        ),
+
+        // Transition overlay with BlendMode.dstOut circular cutout
+        if (_isAnimating && _snapshot != null && _center != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _animation,
+                builder: (context, _) {
+                  return CustomPaint(
+                    painter: _CircularRevealPainter(
+                      image: _snapshot!,
+                      center: _center!,
+                      progress: _animation.value,
+                      isNextDark: _isNextDark,
+                    ),
+                    size: Size.infinite,
+                  );
+                },
               ),
             ),
-
-          // If transitioning, clip the new theme in an expanding circular mask
-          if (_oldImage != null)
-            AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                final screenSize = MediaQuery.of(context).size;
-                final maxRadius = math.sqrt(
-                  math.pow(math.max(_center.dx, screenSize.width - _center.dx), 2) +
-                      math.pow(math.max(_center.dy, screenSize.height - _center.dy), 2),
-                );
-                final currentRadius = _animation.value * maxRadius;
-                final ringColor = _isNextDark
-                    ? const Color(0xFFF0883E)
-                    : AppColors.wineRed;
-
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipPath(
-                      clipper: _CircularRevealClipper(
-                        center: _center,
-                        radius: currentRadius,
-                      ),
-                      child: child,
-                    ),
-                    // Crisp glowing wavefront ring at leading edge of circular reveal
-                    CustomPaint(
-                      size: screenSize,
-                      painter: _CircularEdgeRingPainter(
-                        center: _center,
-                        radius: currentRadius,
-                        color: ringColor.withValues(
-                          alpha: (1.0 - _animation.value).clamp(0.2, 0.8),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-              child: widget.child,
-            )
-          else
-            widget.child,
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
 
-class _CircularRevealClipper extends CustomClipper<Path> {
+class _CircularRevealPainter extends CustomPainter {
+  final ui.Image image;
   final Offset center;
-  final double radius;
+  final double progress;
+  final bool isNextDark;
 
-  _CircularRevealClipper({required this.center, required this.radius});
-
-  @override
-  Path getClip(Size size) {
-    return Path()
-      ..addOval(Rect.fromCircle(center: center, radius: radius));
-  }
-
-  @override
-  bool shouldReclip(_CircularRevealClipper oldClipper) =>
-      oldClipper.radius != radius || oldClipper.center != center;
-}
-
-class _CircularEdgeRingPainter extends CustomPainter {
-  final Offset center;
-  final double radius;
-  final Color color;
-
-  _CircularEdgeRingPainter({
+  _CircularRevealPainter({
+    required this.image,
     required this.center,
-    required this.radius,
-    required this.color,
+    required this.progress,
+    required this.isNextDark,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (radius <= 0) return;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5;
-    canvas.drawCircle(center, radius, paint);
+    final double maxRadius = _calculateMaxRadius(center, size);
+    final double currentRadius = maxRadius * progress;
+
+    final Rect fullRect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    // Isolated offscreen compositing layer
+    canvas.saveLayer(fullRect, Paint());
+
+    // 1. Paint the previous theme snapshot across the entire viewport
+    final Rect imageRect = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    canvas.drawImageRect(image, imageRect, fullRect, Paint());
+
+    // 2. Erase an expanding circular hole through the snapshot to reveal the new theme underneath
+    final Paint clearPaint = Paint()
+      ..blendMode = BlendMode.dstOut
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, currentRadius, clearPaint);
+
+    // Restore layer to screen canvas
+    canvas.restore();
+
+    // 3. Crisp luminous wavefront ring at the leading boundary
+    if (currentRadius > 0 && currentRadius < maxRadius) {
+      final ringColor = isNextDark
+          ? const Color(0xFFF0883E)
+          : AppColors.wineRed;
+      final ringAlpha = (1.0 - progress).clamp(0.2, 0.85);
+
+      final Paint ringPaint = Paint()
+        ..color = ringColor.withValues(alpha: ringAlpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5;
+
+      canvas.drawCircle(center, currentRadius, ringPaint);
+    }
+  }
+
+  double _calculateMaxRadius(Offset center, Size size) {
+    final double d1 = center.distance;
+    final double d2 = (center - Offset(size.width, 0)).distance;
+    final double d3 = (center - Offset(0, size.height)).distance;
+    final double d4 = (center - Offset(size.width, size.height)).distance;
+    return math.max(math.max(d1, d2), math.max(d3, d4));
   }
 
   @override
-  bool shouldRepaint(_CircularEdgeRingPainter oldDelegate) =>
-      oldDelegate.radius != radius || oldDelegate.color != color;
+  bool shouldRepaint(_CircularRevealPainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
 }

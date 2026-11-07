@@ -3,13 +3,12 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'circular_theme_reveal.dart';
 
-/// Ultra-smooth 60/120fps animated theme toggle button.
+/// Ultra-smooth animated theme toggle button.
 ///
 /// Features:
-/// 1. Instant 0ms response time with zero async screenshot delays.
-/// 2. Rotating and scaling sun/moon icon transition.
-/// 3. Telegram-style circular reveal expanding from button coordinates.
-/// 4. Synchronized with [AppTheme.themeModeNotifier].
+/// 1. Rotating and scaling sun/moon icon transition.
+/// 2. Telegram-style circular reveal expanding from button coordinates.
+/// 3. Synchronized with [AppTheme.themeModeNotifier].
 class SmoothThemeToggle extends StatelessWidget {
   const SmoothThemeToggle({super.key});
 
@@ -34,7 +33,7 @@ class SmoothThemeToggle extends StatelessWidget {
               color: isDark ? const Color(0xFFF0883E) : AppColors.wineRed,
             ),
           ),
-          onPressed: () {
+          onPressed: () async {
             final box = context.findRenderObject() as RenderBox?;
             final Offset center;
             if (box != null && box.hasSize) {
@@ -45,9 +44,13 @@ class SmoothThemeToggle extends StatelessWidget {
 
             final reveal = CircularThemeReveal.of(context);
             if (reveal != null) {
-              reveal.revealTheme(center, () {
-                AppTheme.toggleTheme();
-              });
+              await reveal.startTransition(
+                center: center,
+                isNextDark: !isDark,
+                onThemeChange: () {
+                  AppTheme.toggleTheme();
+                },
+              );
             } else {
               AppTheme.toggleTheme();
             }
