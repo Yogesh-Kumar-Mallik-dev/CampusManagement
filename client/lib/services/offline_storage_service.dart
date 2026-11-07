@@ -1005,13 +1005,13 @@ class OfflineStorageService {
     final List<TimetableConflictModel> conflicts = [];
 
     // Local in-memory validation
-    if (!candidate.isFree && !candidate.isOff) {
+    if (!candidate.isFree && !candidate.isOff && !candidate.isLunch) {
       final cleanRoom = candidate.roomNumber.trim().toLowerCase();
       final cleanInst = candidate.instructorName.trim().toLowerCase();
       final cleanScope = candidate.scopeCode.trim().toLowerCase();
 
       for (final existing in _cachedTimetable) {
-        if (existing.id == candidate.id || existing.isFree || existing.isOff) {
+        if (existing.id == candidate.id || existing.isFree || existing.isOff || existing.isLunch) {
           continue;
         }
         if (existing.dayOfWeek != candidate.dayOfWeek) {
@@ -1149,15 +1149,15 @@ class OfflineStorageService {
       TimetableSlotModel(
         id: 'slot-mon-4',
         courseId: '',
-        courseCode: 'FREE',
-        courseName: 'Midday Recess & Lunch',
+        courseCode: 'LUNCH',
+        courseName: 'Midday Lunch Break',
         scopeCode: 'sec:cse-3a',
         instructorName: '',
         dayOfWeek: 1,
         startTime: '12:00',
         endTime: '13:00',
         roomNumber: 'Campus Cafeteria',
-        slotType: 'free',
+        slotType: 'lunch',
       ),
       TimetableSlotModel(
         id: 'slot-mon-5',
@@ -1270,15 +1270,15 @@ class OfflineStorageService {
       TimetableSlotModel(
         id: 'slot-tue-5',
         courseId: '',
-        courseCode: 'FREE',
-        courseName: 'Midday Recess & Lunch',
+        courseCode: 'LUNCH',
+        courseName: 'Midday Lunch Break',
         scopeCode: 'sec:cse-3a',
         instructorName: '',
         dayOfWeek: 2,
         startTime: '13:00',
         endTime: '14:00',
         roomNumber: 'Campus Cafeteria',
-        slotType: 'free',
+        slotType: 'lunch',
       ),
       TimetableSlotModel(
         id: 'slot-tue-6',
@@ -1365,15 +1365,15 @@ class OfflineStorageService {
       TimetableSlotModel(
         id: 'slot-wed-4',
         courseId: '',
-        courseCode: 'FREE',
-        courseName: 'Midday Recess & Lunch',
+        courseCode: 'LUNCH',
+        courseName: 'Midday Lunch Break',
         scopeCode: 'sec:cse-3a',
         instructorName: '',
         dayOfWeek: 3,
         startTime: '12:00',
         endTime: '13:00',
         roomNumber: 'Campus Cafeteria',
-        slotType: 'free',
+        slotType: 'lunch',
       ),
       TimetableSlotModel(
         id: 'slot-wed-5',
@@ -1473,15 +1473,15 @@ class OfflineStorageService {
       TimetableSlotModel(
         id: 'slot-thu-4',
         courseId: '',
-        courseCode: 'FREE',
-        courseName: 'Midday Recess & Lunch',
+        courseCode: 'LUNCH',
+        courseName: 'Midday Lunch Break',
         scopeCode: 'sec:cse-3a',
         instructorName: '',
         dayOfWeek: 4,
         startTime: '12:00',
         endTime: '13:00',
         roomNumber: 'Campus Cafeteria',
-        slotType: 'free',
+        slotType: 'lunch',
       ),
       TimetableSlotModel(
         id: 'slot-thu-5',
@@ -1581,15 +1581,15 @@ class OfflineStorageService {
       TimetableSlotModel(
         id: 'slot-fri-4',
         courseId: '',
-        courseCode: 'FREE',
-        courseName: 'Midday Recess & Lunch',
+        courseCode: 'LUNCH',
+        courseName: 'Midday Lunch Break',
         scopeCode: 'sec:cse-3a',
         instructorName: '',
         dayOfWeek: 5,
         startTime: '12:00',
         endTime: '13:00',
         roomNumber: 'Campus Cafeteria',
-        slotType: 'free',
+        slotType: 'lunch',
       ),
       TimetableSlotModel(
         id: 'slot-fri-5',

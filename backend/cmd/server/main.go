@@ -450,16 +450,16 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		RoomNumber: "Central Library",
 		SlotType:   "free",
 	})
-	// Monday: 12:00-13:00 Free Period (Midday Recess)
+	// Monday: 12:00-13:00 Lunch Period
 	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
-		CourseCode: "FREE",
-		CourseName: "Midday Recess & Lunch",
+		CourseCode: "LUNCH",
+		CourseName: "Midday Lunch Break",
 		ScopeCode:  "sec:cse-3a",
 		DayOfWeek:  1,
 		StartTime:  "12:00",
 		EndTime:    "13:00",
 		RoomNumber: "Campus Cafeteria",
-		SlotType:   "free",
+		SlotType:   "lunch",
 	})
 	// Monday: 13:00-14:00 Lab, 14:00-15:00 Lab (Consecutive 2-Hour Lab -> Rectangle)
 	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{

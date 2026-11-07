@@ -64,7 +64,8 @@ class TimetableSlotModel {
 
   bool get isFree => slotType.toLowerCase() == 'free';
   bool get isOff => slotType.toLowerCase() == 'off';
-  bool get isOccupied => !isFree && !isOff && (courseCode.isNotEmpty || courseName.isNotEmpty);
+  bool get isLunch => slotType.toLowerCase() == 'lunch';
+  bool get isOccupied => !isFree && !isOff && !isLunch && (courseCode.isNotEmpty || courseName.isNotEmpty);
 
   TimetableSlotModel copyWith({
     String? id,

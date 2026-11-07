@@ -236,7 +236,7 @@ func (s *AcademicService) CheckTimetableConflicts(ctx context.Context, slot mode
 	var conflicts []model.TimetableConflict
 
 	slotType := strings.ToLower(slot.SlotType)
-	if slotType == "free" || slotType == "off" {
+	if slotType == "free" || slotType == "off" || slotType == "lunch" {
 		return conflicts, nil
 	}
 
@@ -249,7 +249,7 @@ func (s *AcademicService) CheckTimetableConflicts(ctx context.Context, slot mode
 			continue
 		}
 		existingType := strings.ToLower(existing.SlotType)
-		if existingType == "free" || existingType == "off" {
+		if existingType == "free" || existingType == "off" || existingType == "lunch" {
 			continue
 		}
 		if existing.DayOfWeek != slot.DayOfWeek {

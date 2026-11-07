@@ -58,6 +58,7 @@ class RenderedTimetableBlock {
   bool get isOccupied => firstSlot.isOccupied;
   bool get isFree => firstSlot.isFree;
   bool get isOff => firstSlot.isOff;
+  bool get isLunch => firstSlot.isLunch;
   bool get isRectangle => geometry == TimetableRenderGeometry.rectangle;
 }
 
@@ -163,15 +164,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
         orElse: () => TimetableSlotModel(
           id: 'temp-slot-$dayNum-$start',
           courseId: '',
-          courseCode: 'FREE',
-          courseName: i == 3 ? 'Midday Recess & Lunch' : 'Open Study Period',
+          courseCode: i == 3 ? 'LUNCH' : 'FREE',
+          courseName: i == 3 ? 'Midday Lunch Break' : 'Open Study Period',
           scopeCode: widget.activeScope,
           instructorName: '',
           dayOfWeek: dayNum,
           startTime: start,
           endTime: end,
-          roomNumber: i == 3 ? 'Cafeteria' : 'Library / Study Hall',
-          slotType: 'free',
+          roomNumber: i == 3 ? 'Campus Cafeteria' : 'Library / Study Hall',
+          slotType: i == 3 ? 'lunch' : 'free',
         ),
       );
     });
@@ -444,11 +445,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            updated.isFree
-                ? 'Allocated Free Period for ${updated.startTime} - ${updated.endTime}'
-                : (updated.isOff
-                    ? 'Declared Off Period for ${updated.startTime} - ${updated.endTime}'
-                    : 'Allocated ${updated.courseCode} (${updated.roomNumber}) for ${updated.startTime} - ${updated.endTime}'),
+            updated.isLunch
+                ? 'Allocated Lunch Break for ${updated.startTime} - ${updated.endTime}'
+                : (updated.isFree
+                    ? 'Allocated Free Period for ${updated.startTime} - ${updated.endTime}'
+                    : (updated.isOff
+                        ? 'Declared Off Period for ${updated.startTime} - ${updated.endTime}'
+                        : 'Allocated ${updated.courseCode} (${updated.roomNumber}) for ${updated.startTime} - ${updated.endTime}')),
           ),
           duration: const Duration(seconds: 2),
         ),
@@ -598,10 +601,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
     int rectCount = 0;
     int freeCount = 0;
     int offCount = 0;
+    int lunchCount = 0;
 
     for (final s in _canonicalDaySlots) {
       if (s.isOccupied) {
         classCount++;
+      } else if (s.isLunch) {
+        lunchCount++;
       } else if (s.isFree) {
         freeCount++;
       } else if (s.isOff) {
@@ -683,6 +689,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
               sublabel: '$rectCount Double Sessions',
               badgeColor: AppColors.wineRed,
             ),
+            if (lunchCount > 0) ...[
+              const SizedBox(width: 8),
+              _buildSummaryChip(
+                isDark: isDark,
+                label: '$lunchCount Lunch Break',
+                sublabel: 'Cafeteria Open',
+                badgeColor: const Color(0xFFD97706),
+              ),
+            ],
             const SizedBox(width: 8),
             _buildSummaryChip(
               isDark: isDark,
@@ -895,17 +910,21 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     final borderColor = isSelected
         ? AppColors.wineRed
-        : (slot.isFree
-            ? (isDark ? const Color(0xFF238636).withValues(alpha: 0.6) : const Color(0xFFA7F3D0))
-            : (slot.isOff
-                ? (isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1))
-                : (isDark ? AppColors.darkBorder : AppColors.lightBorder)));
+        : (slot.isLunch
+            ? (isDark ? const Color(0xFFD97706).withValues(alpha: 0.6) : const Color(0xFFFDE68A))
+            : (slot.isFree
+                ? (isDark ? const Color(0xFF238636).withValues(alpha: 0.6) : const Color(0xFFA7F3D0))
+                : (slot.isOff
+                    ? (isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1))
+                    : (isDark ? AppColors.darkBorder : AppColors.lightBorder))));
 
-    final bgColor = slot.isFree
-        ? (isDark ? const Color(0xFF1B2E24).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
-        : (slot.isOff
-            ? (isDark ? const Color(0xFF161B22).withValues(alpha: 0.8) : const Color(0xFFF1F5F9))
-            : (isDark ? AppColors.darkSurface : AppColors.lightSurface));
+    final bgColor = slot.isLunch
+        ? (isDark ? const Color(0xFF2E2211).withValues(alpha: 0.45) : const Color(0xFFFFFBEB))
+        : (slot.isFree
+            ? (isDark ? const Color(0xFF1B2E24).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
+            : (slot.isOff
+                ? (isDark ? const Color(0xFF161B22).withValues(alpha: 0.8) : const Color(0xFFF1F5F9))
+                : (isDark ? AppColors.darkSurface : AppColors.lightSurface)));
 
     return Container(
       width: 156, // 1 Unit wide
@@ -954,7 +973,47 @@ class _TimetableScreenState extends State<TimetableScreen> {
           const SizedBox(height: 6),
 
           // Status Badge
-          if (slot.isFree) ...[
+          if (slot.isLunch) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD97706),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: const Text(
+                'LUNCH BREAK',
+                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              slot.courseName.isNotEmpty ? slot.courseName : 'Midday Lunch Break',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                const Icon(Icons.restaurant, size: 11, color: Color(0xFFD97706)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    slot.roomNumber.isNotEmpty ? slot.roomNumber : 'Campus Cafeteria',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ] else if (slot.isFree) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
@@ -1337,25 +1396,31 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 decoration: BoxDecoration(
                   color: block.isRectangle
                       ? AppColors.wineRed.withValues(alpha: 0.15)
-                      : (slot.isFree
-                          ? const Color(0xFF238636).withValues(alpha: 0.15)
-                          : (slot.isOff
-                              ? const Color(0xFF64748B).withValues(alpha: 0.15)
-                              : AppColors.wineRed.withValues(alpha: 0.15))),
+                      : (slot.isLunch
+                          ? const Color(0xFFD97706).withValues(alpha: 0.15)
+                          : (slot.isFree
+                              ? const Color(0xFF238636).withValues(alpha: 0.15)
+                              : (slot.isOff
+                                  ? const Color(0xFF64748B).withValues(alpha: 0.15)
+                                  : AppColors.wineRed.withValues(alpha: 0.15)))),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  block.isRectangle ? '2-HOUR EXTENDED SESSION' : '1-HOUR SESSION',
+                  slot.isLunch
+                      ? 'LUNCH BREAK'
+                      : (block.isRectangle ? '2-HOUR EXTENDED SESSION' : '1-HOUR SESSION'),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: block.isRectangle
                         ? AppColors.wineRed
-                        : (slot.isFree
-                            ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
-                            : (slot.isOff
-                                ? (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)
-                                : AppColors.wineRed)),
+                        : (slot.isLunch
+                            ? (isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309))
+                            : (slot.isFree
+                                ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
+                                : (slot.isOff
+                                    ? (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)
+                                    : AppColors.wineRed))),
                   ),
                 ),
               ),
@@ -1422,16 +1487,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
           Text(
             slot.isOccupied
                 ? '${slot.courseCode} — ${slot.courseName}'
-                : (slot.isFree ? 'Free Academic Period' : 'Declared Off Period'),
+                : (slot.isLunch
+                    ? 'Midday Lunch Break'
+                    : (slot.isFree ? 'Free Academic Period' : 'Declared Off Period')),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
             slot.isOccupied
                 ? 'Instructor: ${slot.instructorName.isNotEmpty ? slot.instructorName : "Faculty"} • Room: ${slot.roomNumber} • Type: ${slot.slotType.toUpperCase()}'
-                : (slot.isFree
-                    ? 'Active campus hours. Open for library access, faculty consultation, or recess. Not an off day.'
-                    : 'Schedule is officially dismissed or cancelled. No academic operations scheduled.'),
+                : (slot.isLunch
+                    ? 'Campus-wide dining break. Cafeteria and dining facilities open for students and faculty.'
+                    : (slot.isFree
+                        ? 'Active campus hours. Open for library access, faculty consultation, or recess. Not an off day.'
+                        : 'Schedule is officially dismissed or cancelled. No academic operations scheduled.')),
             style: TextStyle(
               fontSize: 12,
               color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -1556,11 +1625,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   Widget _buildCompactSquareCard(bool isDark, RenderedTimetableBlock block) {
     final slot = block.firstSlot;
-    final bgColor = slot.isFree
-        ? (isDark ? const Color(0xFF1B2E24).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
-        : (slot.isOff
-            ? (isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9))
-            : (isDark ? const Color(0xFF21262D) : Colors.white));
+    final bgColor = slot.isLunch
+        ? (isDark ? const Color(0xFF2E2211).withValues(alpha: 0.45) : const Color(0xFFFFFBEB))
+        : (slot.isFree
+            ? (isDark ? const Color(0xFF1B2E24).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
+            : (slot.isOff
+                ? (isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9))
+                : (isDark ? const Color(0xFF21262D) : Colors.white)));
 
     return Container(
       width: 112,
@@ -1572,9 +1643,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
         border: Border.all(
           color: slot.isOccupied
               ? AppColors.wineRed.withValues(alpha: 0.4)
-              : (slot.isFree
-                  ? const Color(0xFF238636).withValues(alpha: 0.4)
-                  : (isDark ? AppColors.darkBorder : AppColors.lightBorder)),
+              : (slot.isLunch
+                  ? const Color(0xFFD97706).withValues(alpha: 0.4)
+                  : (slot.isFree
+                      ? const Color(0xFF238636).withValues(alpha: 0.4)
+                      : (isDark ? AppColors.darkBorder : AppColors.lightBorder))),
           width: 1,
         ),
       ),
@@ -1589,15 +1662,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
           Text(
             slot.isOccupied
                 ? slot.courseCode
-                : (slot.isFree ? 'FREE' : 'OFF'),
+                : (slot.isLunch ? 'LUNCH' : (slot.isFree ? 'FREE' : 'OFF')),
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
               color: slot.isOccupied
                   ? AppColors.wineRed
-                  : (slot.isFree
-                      ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
-                      : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+                  : (slot.isLunch
+                      ? (isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309))
+                      : (slot.isFree
+                          ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
+                          : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted))),
             ),
           ),
           if (slot.isOccupied)
@@ -1731,7 +1806,7 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
   void initState() {
     super.initState();
     _statusType = widget.slot.slotType.toLowerCase();
-    if (_statusType != 'free' && _statusType != 'off' && _statusType != 'lab' && _statusType != 'tutorial') {
+    if (_statusType != 'free' && _statusType != 'off' && _statusType != 'lunch' && _statusType != 'lab' && _statusType != 'tutorial') {
       _statusType = 'lecture';
     }
     _codeCtrl = TextEditingController(text: widget.slot.courseCode);
@@ -1755,7 +1830,7 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
 
   Future<void> _validateConflicts() async {
     if (!mounted) return;
-    if (_statusType == 'free' || _statusType == 'off') {
+    if (_statusType == 'free' || _statusType == 'off' || _statusType == 'lunch') {
       if (_conflicts.isNotEmpty) {
         setState(() => _conflicts = []);
       }
@@ -1870,6 +1945,8 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
                 const SizedBox(width: 8),
                 _buildModeTab('Lab', 'lab', isDark),
                 const SizedBox(width: 8),
+                _buildModeTab('Lunch', 'lunch', isDark),
+                const SizedBox(width: 8),
                 _buildModeTab('Free Period', 'free', isDark),
                 const SizedBox(width: 8),
                 _buildModeTab('Declared Off', 'off', isDark),
@@ -1940,6 +2017,8 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               _buildFreeGuidance(isDark),
             ] else if (_statusType == 'off') ...[
               _buildOffGuidance(isDark),
+            ] else if (_statusType == 'lunch') ...[
+              _buildLunchGuidance(isDark),
             ] else ...[
               // Quick Course Suggestions
               Text(
@@ -2097,7 +2176,11 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
                   final String code;
                   final String name;
                   final String room;
-                  if (_statusType == 'free') {
+                  if (_statusType == 'lunch') {
+                    code = 'LUNCH';
+                    name = _nameCtrl.text.isNotEmpty ? _nameCtrl.text : 'Midday Lunch Break';
+                    room = _roomCtrl.text.isNotEmpty ? _roomCtrl.text : 'Campus Cafeteria';
+                  } else if (_statusType == 'free') {
                     code = 'FREE';
                     name = _nameCtrl.text.isNotEmpty ? _nameCtrl.text : 'Self-Study & Open Library';
                     room = _roomCtrl.text.isNotEmpty ? _roomCtrl.text : 'Central Library';
@@ -2114,7 +2197,7 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
                   final updated = widget.slot.copyWith(
                     courseCode: code,
                     courseName: name,
-                    instructorName: (_statusType == 'free' || _statusType == 'off') ? '' : _instructorCtrl.text.trim(),
+                    instructorName: (_statusType == 'free' || _statusType == 'off' || _statusType == 'lunch') ? '' : _instructorCtrl.text.trim(),
                     roomNumber: room,
                     slotType: _statusType,
                   );
@@ -2140,7 +2223,12 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
         onTap: () {
           setState(() {
             _statusType = type;
-            if (type == 'free' && _nameCtrl.text.isEmpty) {
+            if (type == 'lunch') {
+              _nameCtrl.text = 'Midday Lunch Break';
+              _roomCtrl.text = 'Campus Cafeteria';
+              _codeCtrl.text = 'LUNCH';
+              _instructorCtrl.text = '';
+            } else if (type == 'free' && _nameCtrl.text.isEmpty) {
               _nameCtrl.text = 'Self-Study & Recess';
               _roomCtrl.text = 'Central Library';
             } else if (type == 'off' && _nameCtrl.text.isEmpty) {
@@ -2175,6 +2263,47 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLunchGuidance(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2E2211) : const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.restaurant, size: 14, color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706)),
+              const SizedBox(width: 6),
+              Text(
+                'Midday Lunch Break (Campus Cafeteria)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Midday recess allocated for student and faculty meals. Campus cafeteria and dining kiosks are open. No academic classes or faculty conflict checks are enforced during this block.',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+            ),
+          ),
+        ],
       ),
     );
   }

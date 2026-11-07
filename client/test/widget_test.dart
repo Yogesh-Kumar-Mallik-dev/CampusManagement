@@ -893,6 +893,7 @@ void main() {
 
     // Verify summary ribbon
     expect(find.textContaining('Classes'), findsWidgets);
+    expect(find.textContaining('Lunch Break'), findsWidgets);
     expect(find.textContaining('Free Periods'), findsWidgets);
     expect(find.textContaining('Declared Off'), findsWidgets);
 
@@ -900,8 +901,9 @@ void main() {
     // Consecutive occupied blocks (09:00 CS301 + 10:00 CS302) are rendered with consecutive periods badge
     expect(find.text('CONSECUTIVE PERIODS'), findsWidgets);
 
-    // 4. Verify Free is distinct from Off:
-    // Both statuses exist simultaneously on the schedule and have distinct branding
+    // 4. Verify Free is distinct from Off and Lunch:
+    // All statuses exist simultaneously on the schedule and have distinct branding
+    expect(find.text('LUNCH BREAK'), findsWidgets);
     expect(find.text('FREE PERIOD'), findsWidgets);
     expect(find.textContaining('Declared Off'), findsWidgets);
     expect(find.text('Operating Systems'), findsWidgets);
@@ -963,6 +965,12 @@ void main() {
     expect(find.textContaining('Configure Schedule Block'), findsOneWidget);
     expect(find.text('BLOCK TYPE'), findsOneWidget);
     expect(find.text('Free Period (Campus Open)'), findsOneWidget);
+
+    // Switch type to Lunch inside editor using key
+    await tester.tap(find.byKey(const Key('tab-block-type-lunch')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Midday Lunch Break (Campus Cafeteria)'), findsOneWidget);
 
     // Switch type to Declared Off inside editor using key
     await tester.tap(find.byKey(const Key('tab-block-type-off')));
