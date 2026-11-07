@@ -119,4 +119,18 @@ func TestPermissionHierarchyAndScopes(t *testing.T) {
 	if !allowed {
 		t.Fatalf("expected campus director with global scope to be allowed anywhere")
 	}
+
+	// 7. Verify RoleName resolution and GetUserPermissions
+	aaravRoles := svc.GetUserRoles(aaravID)
+	if len(aaravRoles) != 2 {
+		t.Fatalf("expected 2 roles for Aarav, got %d", len(aaravRoles))
+	}
+	if aaravRoles[0].RoleName != "Class Representative" {
+		t.Fatalf("expected role name 'Class Representative', got '%s'", aaravRoles[0].RoleName)
+	}
+
+	aaravPerms := svc.GetUserPermissions(aaravID)
+	if len(aaravPerms) < 4 {
+		t.Fatalf("expected at least 4 permissions for Aarav across 2 roles, got %d", len(aaravPerms))
+	}
 }

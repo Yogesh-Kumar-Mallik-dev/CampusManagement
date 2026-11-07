@@ -230,12 +230,52 @@ func (h *UserHandler) seedDefaultUsers() {
 		PermittedScopes:    []string{"gate:main", "building:canteen"},
 	}
 
+	// 5. Campus Administrator
+	adminHandle := "campus_admin"
+	adminID := "usr-" + adminHandle
+	h.users[adminID] = model.User{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        adminID,
+			CreatedAt: now.Add(-365 * 24 * time.Hour),
+			UpdatedAt: now,
+		},
+		CampusHandle:     adminHandle,
+		FirstName:        "Campus",
+		LastName:         "Administrator",
+		Email:            "admin@campus.edu",
+		PersonalEmail:    "director@campus-governance.org",
+		Phone:            "+91 98000 00001",
+		Archetype:        model.ArchetypeEmployee,
+		UniversityRollNo: "ADM-2023-0001",
+		IsActive:         true,
+		Status:           "active",
+	}
+	h.handleToID[adminHandle] = adminID
+	adminJoining := now.Add(-365 * 24 * time.Hour)
+	h.employeeRecords[adminID] = model.EmployeeRecord{
+		UserID:           adminID,
+		JoiningDate:      adminJoining,
+		EmployeeCode:     "ADM-DIR-001",
+		EmploymentType:   "permanent",
+		IsAcademic:       false,
+		IsAdministrative: true,
+	}
+	h.adminProfiles[adminID] = model.AdministrativeProfile{
+		UserID:         adminID,
+		Designation:    "Campus Administrator",
+		PrimaryUnit:    "unit:administration",
+		OfficeLocation: "Central Admin Tower 501",
+	}
+
 	// Seed default roles into permission service if available
 	if h.permService != nil {
 		_ = h.permService.AssignRole(nil, harishID, "student_base", "sec:cse-3a", nil)
 		_ = h.permService.AssignRole(nil, harishID, "club_president", "club:robotics", nil)
+		_ = h.permService.AssignRole(nil, priyaID, "faculty", "dept:cse", nil)
 		_ = h.permService.AssignRole(nil, priyaID, "hod", "dept:cse", nil)
 		_ = h.permService.AssignRole(nil, mukeshID, "vendor_staff", "building:canteen", nil)
+		_ = h.permService.AssignRole(nil, adminID, "campus_director", "global", nil)
+		_ = h.permService.AssignRole(nil, adminID, "admin", "global", nil)
 	}
 }
 
@@ -839,6 +879,59 @@ func (h *UserHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 		"status":  "success",
 		"message": "Role assigned successfully",
 	})
+}
+
+// GetUserRoles returns the assigned roles and permission strings for a user
+func (h *UserHandler) GetUserRoles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	targetID := strings.TrimSpace(r.URL.Query().Get("user_id"))
+	if targetID == "" {
+		targetID = strings.TrimSpace(r.URL.Query().Get("id"))
+	}
+	targetHandle := strings.TrimSpace(r.URL.Query().Get("handle"))
+
+	h.mu.RLock()
+	var user model.User
+	var found bool
+	if targetID != "" {
+		user, found = h.users[targetID]
+	}
+	if !found && targetHandle != "" {
+		if id, exists := h.handleToID[targetHandle]; exists {
+			user, found = h.users[id]
+		}
+	}
+	h.mu.RUnlock()
+
+	if !found && targetID != "" {
+		user.ID = targetID
+		found = true
+	}
+
+	if !found {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	var roles []model.UserRoleAssignment
+	var perms []string
+	if h.permService != nil {
+		roles = h.permService.GetUserRoles(user.ID)
+		perms = h.permService.GetUserPermissions(user.ID)
+	}
+
+	resp := map[string]interface{}{
+		"user_id":     user.ID,
+		"roles":       roles,
+		"permissions": perms,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *UserHandler) CheckPermission(w http.ResponseWriter, r *http.Request) {

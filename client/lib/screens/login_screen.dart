@@ -362,6 +362,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 handle: 'ramesh_2023_emp_1',
                                 badgeStyle: AppColors.neutralBadge(isDark),
                               ),
+                              _buildQuickPersonaChip(
+                                label: 'Admin',
+                                handle: 'campus_admin',
+                                badgeStyle: AppColors.redBadge(isDark),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 14),

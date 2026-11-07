@@ -27,16 +27,18 @@ class ApiService {
               ?.map((e) => e.toString())
               .toList() ??
           ['global'];
+      final permissions = (data['permissions'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
+      final assignedRoles = data['assigned_roles'] ?? [];
 
-      return UserModel(
-        id: userMap['id'] ?? 'usr-$identifier',
-        campusHandle: userMap['campus_handle'] ?? identifier,
-        firstName: userMap['first_name'] ?? 'Campus',
-        lastName: userMap['last_name'] ?? 'User',
-        email: userMap['email'] ?? '$identifier@campus.edu',
-        archetype: userMap['archetype'] ?? 'student',
-        activeScopes: scopes,
-      );
+      return UserModel.fromJson({
+        ...userMap,
+        'active_scopes': scopes,
+        'assigned_roles': assignedRoles,
+        'permissions': permissions,
+      });
     }
     throw Exception('Authentication failed (${res.statusCode})');
   }

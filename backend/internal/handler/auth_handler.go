@@ -26,10 +26,12 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token     string     `json:"token"`
-	User      model.User `json:"user"`
-	Scopes    []string   `json:"scopes"`
-	ExpiresAt time.Time  `json:"expires_at"`
+	Token         string                     `json:"token"`
+	User          model.User                 `json:"user"`
+	Scopes        []string                   `json:"scopes"`
+	AssignedRoles []model.UserRoleAssignment `json:"assigned_roles,omitempty"`
+	Permissions   []string                   `json:"permissions,omitempty"`
+	ExpiresAt     time.Time                  `json:"expires_at"`
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +106,38 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		scopes = []string{"global", "unit:security", "facility:gate-1"}
 
+	case "campus_admin", "admin", "admin@campus.edu", "director", "director@campus.edu":
+		user = model.User{
+			BaseSyncModel: model.BaseSyncModel{
+				ID:        "usr-campus_admin",
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			CampusHandle: "campus_admin",
+			FirstName:    "Campus",
+			LastName:     "Administrator",
+			Email:        "admin@campus.edu",
+			Archetype:    model.ArchetypeEmployee,
+			IsActive:     true,
+		}
+		scopes = []string{"global"}
+
+	case "mukesh_2025_ext_1", "mukesh_2025_ext_1@campus.edu":
+		user = model.User{
+			BaseSyncModel: model.BaseSyncModel{
+				ID:        "usr-mukesh_2025_ext_1",
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			CampusHandle: "mukesh_2025_ext_1",
+			FirstName:    "Mukesh",
+			LastName:     "Verma",
+			Email:        "mukesh_2025_ext_1@campus.edu",
+			Archetype:    model.ArchetypeExternal,
+			IsActive:     true,
+		}
+		scopes = []string{"gate:main", "building:canteen"}
+
 	default:
 		// Generic fallback for any canonical format {name}_{year}_...
 		user = model.User{
@@ -122,11 +156,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		scopes = []string{"global", "sec:cse-3a"}
 	}
 
+	var assignedRoles []model.UserRoleAssignment
+	var permissions []string
+	if h.permService != nil {
+		assignedRoles = h.permService.GetUserRoles(user.ID)
+		permissions = h.permService.GetUserPermissions(user.ID)
+	}
+
 	resp := LoginResponse{
-		Token:     "tok_" + user.CampusHandle + "_" + time.Now().Format("20060102150405"),
-		User:      user,
-		Scopes:    scopes,
-		ExpiresAt: now.Add(24 * time.Hour),
+		Token:         "tok_" + user.CampusHandle + "_" + time.Now().Format("20060102150405"),
+		User:          user,
+		Scopes:        scopes,
+		AssignedRoles: assignedRoles,
+		Permissions:   permissions,
+		ExpiresAt:     now.Add(24 * time.Hour),
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -37,4 +37,25 @@ func TestAuthHandlerLogin(t *testing.T) {
 	if len(resp.Scopes) == 0 {
 		t.Errorf("Expected user scopes, got none")
 	}
+
+	// Test Admin Login
+	adminPayload := LoginRequest{
+		Identifier: "admin@campus.edu",
+		Password:   "admin123",
+	}
+	adminBody, _ := json.Marshal(adminPayload)
+	adminReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(adminBody))
+	adminRec := httptest.NewRecorder()
+	h.Login(adminRec, adminReq)
+
+	if adminRec.Code != http.StatusOK {
+		t.Fatalf("Expected admin login status 200, got %d", adminRec.Code)
+	}
+	var adminResp LoginResponse
+	if err := json.NewDecoder(adminRec.Body).Decode(&adminResp); err != nil {
+		t.Fatalf("Failed decoding admin response: %v", err)
+	}
+	if adminResp.User.CampusHandle != "campus_admin" {
+		t.Errorf("Expected campus_admin handle, got %s", adminResp.User.CampusHandle)
+	}
 }

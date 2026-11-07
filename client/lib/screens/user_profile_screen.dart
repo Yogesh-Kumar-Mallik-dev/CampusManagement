@@ -1050,6 +1050,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Widget _buildScopesCard(bool isDark) {
     final scopes = _user.activeScopes;
+    final roles = _user.assignedRoles;
+    final perms = _user.permissions;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1064,6 +1066,69 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. Assigned Roles
+          if (roles.isNotEmpty) ...[
+            Text(
+              'Institutional Roles (${roles.length})',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: roles.map((r) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: AppColors.wineRed.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const AppSvgIcon(
+                        svgString: AppSvgIcon.shield,
+                        size: 12,
+                        color: AppColors.wineRed,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        r.roleName.isNotEmpty ? r.roleName : r.roleCode,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (r.scopeCode != null && r.scopeCode!.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          '(${r.scopeCode})',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontFamily: 'monospace',
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 14),
+          ],
+
+          // 2. Scopes
           Text(
             scopes.isNotEmpty
                 ? 'Authorized Scope Boundaries (${scopes.length})'
@@ -1114,12 +1179,54 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               }).toList(),
             ),
           ],
+
+          // 3. Permissions list
+          if (perms.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 14),
+            Text(
+              'Granted Authority Rights (${perms.length})',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: perms.map((p) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                  ),
+                  child: Text(
+                    p,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildAdminActionBar(bool isDark) {
+    final canManage = widget.currentAdminUser?.canManageUsers ?? true;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1151,42 +1258,55 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                   ),
                 ),
+                if (!canManage) ...[
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Lifecycle modifications restricted to Campus Administrator.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.wineRed,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 12),
-          if (_user.isActive)
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.statusRed,
-                side: const BorderSide(color: AppColors.statusRed, width: 1),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          if (canManage) ...[
+            if (_user.isActive)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.statusRed,
+                  side: const BorderSide(color: AppColors.statusRed, width: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const AppSvgIcon(
+                  svgString: AppSvgIcon.userX,
+                  size: 14,
+                  color: AppColors.statusRed,
+                ),
+                label: const Text('Discontinue User', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: _showDiscontinueDialog,
+              )
+            else
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.githubGreen,
+                  side: const BorderSide(color: AppColors.githubGreen, width: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const AppSvgIcon(
+                  svgString: AppSvgIcon.userCheck,
+                  size: 14,
+                  color: AppColors.githubGreen,
+                ),
+                label: const Text('Reactivate User', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: _showReactivateDialog,
               ),
-              icon: const AppSvgIcon(
-                svgString: AppSvgIcon.userX,
-                size: 14,
-                color: AppColors.statusRed,
-              ),
-              label: const Text('Discontinue User', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: _showDiscontinueDialog,
-            )
-          else
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.githubGreen,
-                side: const BorderSide(color: AppColors.githubGreen, width: 1),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              ),
-              icon: const AppSvgIcon(
-                svgString: AppSvgIcon.userCheck,
-                size: 14,
-                color: AppColors.githubGreen,
-              ),
-              label: const Text('Reactivate User', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: _showReactivateDialog,
-            ),
+          ],
         ],
       ),
     );

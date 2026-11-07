@@ -1,3 +1,51 @@
+class UserRoleAssignmentModel {
+  final String id;
+  final String userId;
+  final String roleCode;
+  final String roleName;
+  final String? scopeCode;
+  final String? validFrom;
+  final String? validUntil;
+  final bool isActive;
+
+  UserRoleAssignmentModel({
+    required this.id,
+    required this.userId,
+    required this.roleCode,
+    this.roleName = '',
+    this.scopeCode,
+    this.validFrom,
+    this.validUntil,
+    this.isActive = true,
+  });
+
+  factory UserRoleAssignmentModel.fromJson(Map<String, dynamic> json) {
+    return UserRoleAssignmentModel(
+      id: json['id'] ?? '',
+      userId: json['user_id'] ?? '',
+      roleCode: json['role_code'] ?? '',
+      roleName: json['role_name'] ?? json['role_code'] ?? '',
+      scopeCode: json['scope_code'],
+      validFrom: json['valid_from']?.toString(),
+      validUntil: json['valid_until']?.toString(),
+      isActive: json['is_active'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'role_code': roleCode,
+      'role_name': roleName,
+      'scope_code': scopeCode,
+      'valid_from': validFrom,
+      'valid_until': validUntil,
+      'is_active': isActive,
+    };
+  }
+}
+
 class UserModel {
   final String id;
   final String campusHandle;
@@ -15,6 +63,8 @@ class UserModel {
   final String? discontinuedAt;
   final String? discontinuedBy;
   final List<String> activeScopes;
+  final List<UserRoleAssignmentModel> assignedRoles;
+  final List<String> permissions;
 
   // Sub-profile metadata
   final Map<String, dynamic>? studentProfile;
@@ -40,6 +90,8 @@ class UserModel {
     this.discontinuedAt,
     this.discontinuedBy,
     this.activeScopes = const [],
+    this.assignedRoles = const [],
+    this.permissions = const [],
     this.studentProfile,
     this.employeeRecord,
     this.academicProfile,
@@ -49,6 +101,90 @@ class UserModel {
 
   String get fullName => '$firstName $lastName';
   bool get isActive => status.toLowerCase() == 'active';
+
+  // Scoped RBAC Engine
+  bool isScopeCovered(String? grantedScope, String? targetScope) {
+    if (grantedScope == null || grantedScope.isEmpty || grantedScope == 'global') {
+      return true; // Institutional / campus-wide authority
+    }
+    if (targetScope == null || targetScope.isEmpty || targetScope == 'global') {
+      return false; // Scoped role cannot cover global scope
+    }
+    if (grantedScope == targetScope) {
+      return true; // Exact match
+    }
+    if (targetScope.startsWith('$grantedScope:')) {
+      return true; // Hierarchy match (e.g. 'dept:cse' covers 'dept:cse:sec-a')
+    }
+    return false;
+  }
+
+  bool hasRole(String roleCode, [String? targetScope]) {
+    for (final assign in assignedRoles) {
+      if (!assign.isActive) continue;
+      if (assign.roleCode == roleCode) {
+        if (targetScope == null || isScopeCovered(assign.scopeCode, targetScope)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool hasPermission(String permissionCode, [String? targetScope]) {
+    if (permissions.contains('*')) return true;
+
+    // Check wildcard role
+    if (hasRole('admin', targetScope) || hasRole('campus_director', targetScope)) {
+      return true;
+    }
+
+    if (permissions.contains(permissionCode)) {
+      if (targetScope == null || activeScopes.isEmpty) return true;
+      for (final s in activeScopes) {
+        if (isScopeCovered(s, targetScope)) return true;
+      }
+    }
+    return false;
+  }
+
+  // Persona & Role Getters
+  bool get isAdmin =>
+      permissions.contains('*') ||
+      hasRole('admin') ||
+      hasRole('campus_director') ||
+      (archetype == 'employee' && campusHandle.contains('admin'));
+
+  bool get isFaculty =>
+      hasRole('faculty') ||
+      hasRole('hod') ||
+      (isEmployee && isAcademic);
+
+  bool get isHOD => hasRole('hod') || isAdmin;
+
+  bool get canManageUsers => isAdmin;
+
+  bool get canManageDepartments => isAdmin || isHOD;
+
+  bool canEditTimetable([String? targetScope]) =>
+      isAdmin ||
+      isHOD ||
+      hasRole('faculty', targetScope) ||
+      hasPermission('timetable:edit', targetScope);
+
+  bool canDeclareDayOff([String? targetScope]) =>
+      isAdmin ||
+      isHOD ||
+      hasPermission('timetable:declare_off', targetScope);
+
+  bool canBroadcastAttendance([String? targetScope]) =>
+      isAdmin ||
+      isFaculty ||
+      hasPermission('attendance:broadcast', targetScope);
+
+  bool canScanAttendance([String? targetScope]) =>
+      isStudent ||
+      hasPermission('attendance:scan', targetScope);
 
   // Contractor / Vendor convenience getters
   bool get isContractor => archetype == 'external';
@@ -87,6 +223,18 @@ class UserModel {
   String? get officeLocation => administrativeProfile?['office_location'];
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    List<UserRoleAssignmentModel> assignedRoles = [];
+    if (json['assigned_roles'] is List) {
+      assignedRoles = (json['assigned_roles'] as List)
+          .map((item) => UserRoleAssignmentModel.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+
+    List<String> permissions = [];
+    if (json['permissions'] is List) {
+      permissions = List<String>.from(json['permissions']);
+    }
+
     return UserModel(
       id: json['id'] ?? '',
       campusHandle: json['campus_handle'] ?? '',
@@ -106,6 +254,8 @@ class UserModel {
       activeScopes: json['active_scopes'] != null
           ? List<String>.from(json['active_scopes'])
           : [],
+      assignedRoles: assignedRoles,
+      permissions: permissions,
       studentProfile: json['student_profile'] as Map<String, dynamic>?,
       employeeRecord: json['employee_record'] as Map<String, dynamic>?,
       academicProfile: json['academic_profile'] as Map<String, dynamic>?,
@@ -132,6 +282,8 @@ class UserModel {
       'discontinued_at': discontinuedAt,
       'discontinued_by': discontinuedBy,
       'active_scopes': activeScopes,
+      'assigned_roles': assignedRoles.map((r) => r.toJson()).toList(),
+      'permissions': permissions,
       'student_profile': studentProfile,
       'employee_record': employeeRecord,
       'academic_profile': academicProfile,
@@ -157,6 +309,8 @@ class UserModel {
     String? discontinuedAt,
     String? discontinuedBy,
     List<String>? activeScopes,
+    List<UserRoleAssignmentModel>? assignedRoles,
+    List<String>? permissions,
     Map<String, dynamic>? studentProfile,
     Map<String, dynamic>? employeeRecord,
     Map<String, dynamic>? academicProfile,
@@ -180,6 +334,8 @@ class UserModel {
       discontinuedAt: discontinuedAt ?? this.discontinuedAt,
       discontinuedBy: discontinuedBy ?? this.discontinuedBy,
       activeScopes: activeScopes ?? this.activeScopes,
+      assignedRoles: assignedRoles ?? this.assignedRoles,
+      permissions: permissions ?? this.permissions,
       studentProfile: studentProfile ?? this.studentProfile,
       employeeRecord: employeeRecord ?? this.employeeRecord,
       academicProfile: academicProfile ?? this.academicProfile,

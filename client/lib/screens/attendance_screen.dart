@@ -590,7 +590,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
 
   Widget _buildSummaryView() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isFacultyOrAdmin = widget.currentUser.archetype == 'employee';
+    final isFacultyOrAdmin = widget.currentUser.canBroadcastAttendance(widget.currentUser.sectionScope) ||
+        widget.currentUser.isAdmin ||
+        widget.currentUser.isFaculty;
 
     if (!isFacultyOrAdmin) {
       return _buildStudentAttendanceDashboard(isDark);

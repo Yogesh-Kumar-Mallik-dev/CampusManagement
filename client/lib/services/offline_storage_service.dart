@@ -98,15 +98,79 @@ class OfflineStorageService {
   }
 
   static UserModel getMockUserForHandle(String clean) {
-    if (clean.contains('priya') || clean.contains('emp_1') || clean.contains('faculty')) {
+    if (clean.contains('admin') || clean.contains('director')) {
+      return UserModel(
+        id: 'usr-campus_admin',
+        campusHandle: 'campus_admin',
+        firstName: 'Campus',
+        lastName: 'Administrator',
+        email: 'admin@campus.edu',
+        phone: '+91 98000 00001',
+        archetype: 'employee',
+        universityRollNo: 'ADM-2023-0001',
+        status: 'active',
+        activeScopes: ['global'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-admin-1',
+            userId: 'usr-campus_admin',
+            roleCode: 'admin',
+            roleName: 'Campus Administrator',
+            scopeCode: 'global',
+          ),
+          UserRoleAssignmentModel(
+            id: 'assign-admin-2',
+            userId: 'usr-campus_admin',
+            roleCode: 'campus_director',
+            roleName: 'Campus Director',
+            scopeCode: 'global',
+          ),
+        ],
+        permissions: ['*'],
+      );
+    } else if (clean.contains('priya') || clean.contains('emp_1') || clean.contains('faculty') || clean.contains('hod')) {
       return UserModel(
         id: 'usr-priya_2024_emp_1',
         campusHandle: 'priya_2024_emp_1',
         firstName: 'Dr. Priya',
         lastName: 'Nair',
         email: 'priya_2024_emp_1@campus.edu',
+        personalEmail: 'p.nair@academic-research.org',
+        phone: '+91 98111 22334',
         archetype: 'employee',
+        universityRollNo: 'EMP-2024-0012',
+        status: 'active',
         activeScopes: ['global', 'dept:cse', 'sec:cse-3a', 'unit:student_affairs'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-priya-1',
+            userId: 'usr-priya_2024_emp_1',
+            roleCode: 'hod',
+            roleName: 'Head of Department',
+            scopeCode: 'dept:cse',
+          ),
+          UserRoleAssignmentModel(
+            id: 'assign-priya-2',
+            userId: 'usr-priya_2024_emp_1',
+            roleCode: 'faculty',
+            roleName: 'Faculty Member',
+            scopeCode: 'dept:cse',
+          ),
+        ],
+        permissions: [
+          'timetable:view',
+          'timetable:edit',
+          'timetable:declare_off',
+          'attendance:mark',
+          'attendance:broadcast',
+          'attendance:view_roster',
+          'attendance:approve',
+          'syllabus:view',
+          'syllabus:approve',
+          'faculty:assign_workload',
+          'department:manage',
+          'notice:publish',
+        ],
       );
     } else if (clean.contains('ramesh') || clean.contains('security')) {
       return UserModel(
@@ -115,8 +179,44 @@ class OfflineStorageService {
         firstName: 'Ramesh',
         lastName: 'Singh',
         email: 'ramesh_2023_emp_1@campus.edu',
+        phone: '+91 97222 33445',
         archetype: 'employee',
+        universityRollNo: 'EMP-2023-0089',
+        status: 'active',
         activeScopes: ['global', 'unit:security', 'facility:gate-1'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-ramesh-1',
+            userId: 'usr-ramesh_2023_emp_1',
+            roleCode: 'warden',
+            roleName: 'Hostel Warden',
+            scopeCode: 'facility:gate-1',
+          ),
+        ],
+        permissions: ['gatepass:approve', 'room:inspect'],
+      );
+    } else if (clean.contains('mukesh') || clean.contains('ext_1') || clean.contains('canteen')) {
+      return UserModel(
+        id: 'usr-mukesh_2025_ext_1',
+        campusHandle: 'mukesh_2025_ext_1',
+        firstName: 'Mukesh',
+        lastName: 'Verma',
+        email: 'mukesh_2025_ext_1@campus.edu',
+        phone: '+91 98333 44556',
+        archetype: 'external',
+        universityRollNo: 'GP-2025-0891',
+        status: 'active',
+        activeScopes: ['gate:main', 'building:canteen'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-mukesh-1',
+            userId: 'usr-mukesh_2025_ext_1',
+            roleCode: 'vendor_staff',
+            roleName: 'Contractor Staff',
+            scopeCode: 'building:canteen',
+          ),
+        ],
+        permissions: ['gatepass:present', 'profile:view_self', 'canteen:operate'],
       );
     }
     return UserModel(
@@ -126,7 +226,35 @@ class OfflineStorageService {
       lastName: 'Kumar',
       email: 'harish_2025_l_btech_1@campus.edu',
       archetype: 'student',
+      universityRollNo: '2025-CS-042',
+      status: 'active',
       activeScopes: ['global', 'sec:cse-3a', 'club:robotics'],
+      assignedRoles: [
+        UserRoleAssignmentModel(
+          id: 'assign-harish-1',
+          userId: 'usr-harish_2025_l_btech_1',
+          roleCode: 'student_base',
+          roleName: 'Student Base',
+          scopeCode: 'sec:cse-3a',
+        ),
+        UserRoleAssignmentModel(
+          id: 'assign-harish-2',
+          userId: 'usr-harish_2025_l_btech_1',
+          roleCode: 'club_president',
+          roleName: 'Club President',
+          scopeCode: 'club:robotics',
+        ),
+      ],
+      permissions: [
+        'timetable:view',
+        'attendance:view_self',
+        'attendance:scan',
+        'fees:pay',
+        'notices:view',
+        'club:publish_event',
+        'club:spend_budget',
+        'club:manage_members',
+      ],
     );
   }
 
@@ -167,6 +295,48 @@ class OfflineStorageService {
     if (_cachedUsers.isNotEmpty) return;
     _cachedUsers.addAll([
       UserModel(
+        id: 'usr-campus_admin',
+        campusHandle: 'campus_admin',
+        firstName: 'Campus',
+        lastName: 'Administrator',
+        email: 'admin@campus.edu',
+        personalEmail: 'director@campus-governance.org',
+        phone: '+91 98000 00001',
+        archetype: 'employee',
+        universityRollNo: 'ADM-2023-0001',
+        status: 'active',
+        activeScopes: ['global'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-admin-1',
+            userId: 'usr-campus_admin',
+            roleCode: 'admin',
+            roleName: 'Campus Administrator',
+            scopeCode: 'global',
+          ),
+          UserRoleAssignmentModel(
+            id: 'assign-admin-2',
+            userId: 'usr-campus_admin',
+            roleCode: 'campus_director',
+            roleName: 'Campus Director',
+            scopeCode: 'global',
+          ),
+        ],
+        permissions: ['*'],
+        employeeRecord: {
+          'joining_date': '2023-01-01T00:00:00Z',
+          'employee_code': 'ADM-DIR-001',
+          'employment_type': 'permanent',
+          'is_academic': false,
+          'is_administrative': true,
+        },
+        administrativeProfile: {
+          'primary_unit': 'unit:administration',
+          'designation': 'Campus Administrator',
+          'office_location': 'Central Admin Tower 501',
+        },
+      ),
+      UserModel(
         id: 'usr-harish_2025_l_btech_1',
         campusHandle: 'harish_2025_l_btech_1',
         firstName: 'Harish',
@@ -180,12 +350,39 @@ class OfflineStorageService {
         universityRegNo: 'REG-2025-9921',
         status: 'active',
         activeScopes: ['global', 'sec:cse-3a', 'club:robotics'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-harish-1',
+            userId: 'usr-harish_2025_l_btech_1',
+            roleCode: 'student_base',
+            roleName: 'Student Base',
+            scopeCode: 'sec:cse-3a',
+          ),
+          UserRoleAssignmentModel(
+            id: 'assign-harish-2',
+            userId: 'usr-harish_2025_l_btech_1',
+            roleCode: 'club_president',
+            roleName: 'Club President',
+            scopeCode: 'club:robotics',
+          ),
+        ],
+        permissions: [
+          'timetable:view',
+          'attendance:view_self',
+          'attendance:scan',
+          'fees:pay',
+          'notices:view',
+          'club:publish_event',
+          'club:spend_budget',
+          'club:manage_members',
+        ],
         studentProfile: {
           'admission_year': 2025,
           'entry_type': 'lateral',
           'program': 'btech',
           'current_semester': 3,
           'batch_year': 2029,
+          'section_scope': 'sec:cse-3a',
         },
       ),
       UserModel(
@@ -200,6 +397,36 @@ class OfflineStorageService {
         universityRollNo: 'EMP-2024-0012',
         status: 'active',
         activeScopes: ['global', 'dept:cse', 'sec:cse-3a', 'unit:student_affairs'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-priya-1',
+            userId: 'usr-priya_2024_emp_1',
+            roleCode: 'hod',
+            roleName: 'Head of Department',
+            scopeCode: 'dept:cse',
+          ),
+          UserRoleAssignmentModel(
+            id: 'assign-priya-2',
+            userId: 'usr-priya_2024_emp_1',
+            roleCode: 'faculty',
+            roleName: 'Faculty Member',
+            scopeCode: 'dept:cse',
+          ),
+        ],
+        permissions: [
+          'timetable:view',
+          'timetable:edit',
+          'timetable:declare_off',
+          'attendance:mark',
+          'attendance:broadcast',
+          'attendance:view_roster',
+          'attendance:approve',
+          'syllabus:view',
+          'syllabus:approve',
+          'faculty:assign_workload',
+          'department:manage',
+          'notice:publish',
+        ],
         employeeRecord: {
           'joining_date': '2024-01-15T00:00:00Z',
           'employee_code': 'FAC-CS-012',
@@ -230,6 +457,19 @@ class OfflineStorageService {
         universityRollNo: 'EMP-2023-0089',
         status: 'active',
         activeScopes: ['global', 'unit:security', 'facility:gate-1'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-ramesh-1',
+            userId: 'usr-ramesh_2023_emp_1',
+            roleCode: 'warden',
+            roleName: 'Hostel Warden',
+            scopeCode: 'facility:gate-1',
+          ),
+        ],
+        permissions: [
+          'gatepass:approve',
+          'room:inspect',
+        ],
         employeeRecord: {
           'joining_date': '2023-06-01T00:00:00Z',
           'employee_code': 'ADM-SEC-089',
@@ -259,6 +499,8 @@ class OfflineStorageService {
         discontinuedAt: '2025-06-30T10:00:00Z',
         discontinuedBy: 'usr-priya_2024_emp_1',
         activeScopes: [],
+        assignedRoles: [],
+        permissions: [],
         studentProfile: {
           'admission_year': 2021,
           'entry_type': 'regular',
@@ -279,6 +521,20 @@ class OfflineStorageService {
         universityRollNo: 'GP-2025-0891',
         status: 'active',
         activeScopes: ['gate:main', 'building:canteen'],
+        assignedRoles: [
+          UserRoleAssignmentModel(
+            id: 'assign-mukesh-1',
+            userId: 'usr-mukesh_2025_ext_1',
+            roleCode: 'vendor_staff',
+            roleName: 'Contractor Staff',
+            scopeCode: 'building:canteen',
+          ),
+        ],
+        permissions: [
+          'gatepass:present',
+          'profile:view_self',
+          'canteen:operate',
+        ],
         contractorProfile: {
           'onboarding_year': 2025,
           'vendor_organization': 'Sodexo Campus Dining',

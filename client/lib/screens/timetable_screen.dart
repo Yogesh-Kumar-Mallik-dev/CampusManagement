@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/academic.dart';
+import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
@@ -77,11 +78,13 @@ class CanonicalScheduleDef {
 class TimetableScreen extends StatefulWidget {
   final OfflineStorageService storage;
   final String activeScope;
+  final UserModel? currentUser;
 
   const TimetableScreen({
     super.key,
     required this.storage,
     required this.activeScope,
+    this.currentUser,
   });
 
   @override
@@ -402,6 +405,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Future<void> _openEditBlockModal(TimetableSlotModel slot, int blockIndex) async {
+    final canEdit = widget.currentUser?.canEditTimetable(widget.activeScope) ?? true;
+    if (!canEdit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Timetable is read-only for students. Slot allocation requires faculty or administrator authority.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     final updated = await showModalBottomSheet<TimetableSlotModel>(
       context: context,
       isScrollControlled: true,
@@ -534,44 +548,46 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
           const SizedBox(width: 8),
 
-          // Declare Day Off / Restore Day Action Button
-          Tooltip(
-            message: isDayOff
-                ? 'Restore original schedule for ${_days[_selectedDay - 1]}'
-                : 'Declare ${_days[_selectedDay - 1]} as Day Off (All 8 blocks dismissed)',
-            child: OutlinedButton.icon(
-              icon: Icon(
-                isDayOff ? Icons.restart_alt : Icons.event_busy,
-                size: 15,
-                color: isDayOff ? const Color(0xFF238636) : AppColors.wineRed,
-              ),
-              label: Text(
-                isDayOff ? 'Restore Schedule' : 'Declare Day Off',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+          // Declare Day Off / Restore Day Action Button (Gated by RBAC)
+          if (widget.currentUser?.canDeclareDayOff(widget.activeScope) ?? true) ...[
+            Tooltip(
+              message: isDayOff
+                  ? 'Restore original schedule for ${_days[_selectedDay - 1]}'
+                  : 'Declare ${_days[_selectedDay - 1]} as Day Off (All 8 blocks dismissed)',
+              child: OutlinedButton.icon(
+                icon: Icon(
+                  isDayOff ? Icons.restart_alt : Icons.event_busy,
+                  size: 15,
                   color: isDayOff ? const Color(0xFF238636) : AppColors.wineRed,
                 ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                  color: isDayOff
-                      ? const Color(0xFF238636).withValues(alpha: 0.6)
-                      : AppColors.wineRed.withValues(alpha: 0.6),
-                  width: 1.2,
+                label: Text(
+                  isDayOff ? 'Restore Schedule' : 'Declare Day Off',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDayOff ? const Color(0xFF238636) : AppColors.wineRed,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                    color: isDayOff
+                        ? const Color(0xFF238636).withValues(alpha: 0.6)
+                        : AppColors.wineRed.withValues(alpha: 0.6),
+                    width: 1.2,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () {
+                  if (isDayOff) {
+                    _restoreDaySchedule(_selectedDay);
+                  } else {
+                    _showDeclareDayOffDialog(_selectedDay);
+                  }
+                },
               ),
-              onPressed: () {
-                if (isDayOff) {
-                  _restoreDaySchedule(_selectedDay);
-                } else {
-                  _showDeclareDayOffDialog(_selectedDay);
-                }
-              },
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1371,15 +1387,35 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 ),
               ],
               const Spacer(),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.edit, size: 13),
-                label: const Text('Edit Block', style: TextStyle(fontSize: 11)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              if (widget.currentUser?.canEditTimetable(widget.activeScope) ?? true)
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.edit, size: 13),
+                  label: const Text('Edit Block', style: TextStyle(fontSize: 11)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: () => _openEditBlockModal(slot, block.blockIndex),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                  ),
+                  child: Text(
+                    'Read Only View',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
                 ),
-                onPressed: () => _openEditBlockModal(slot, block.blockIndex),
-              ),
             ],
           ),
           const SizedBox(height: 12),

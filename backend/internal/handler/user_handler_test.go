@@ -288,3 +288,48 @@ func TestContractorOnboardingAndProfile(t *testing.T) {
 		t.Fatalf("expected at least 1 contractor in list")
 	}
 }
+
+func TestGetUserRolesEndpoint(t *testing.T) {
+	idSvc := idgen.NewIDService(nil)
+	permSvc := service.NewPermissionService(nil, nil)
+	permSvc.AddMemoryRole(model.Role{
+		Code: "admin",
+		Name: "Campus Administrator",
+		Permissions: []model.Permission{
+			{Code: "*"},
+		},
+	})
+	permSvc.AddMemoryRole(model.Role{
+		Code: "faculty",
+		Name: "Faculty Member",
+		Permissions: []model.Permission{
+			{Code: "timetable:edit"},
+		},
+	})
+
+	h := NewUserHandler(idSvc, permSvc)
+
+	// Query roles for seeded admin
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/roles?handle=campus_admin", nil)
+	h.GetUserRoles(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec.Code)
+	}
+
+	var res map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
+		t.Fatalf("failed decoding json: %v", err)
+	}
+
+	roles, ok := res["roles"].([]interface{})
+	if !ok || len(roles) == 0 {
+		t.Fatalf("expected assigned roles for campus_admin, got %v", res["roles"])
+	}
+
+	perms, ok := res["permissions"].([]interface{})
+	if !ok || len(perms) == 0 {
+		t.Fatalf("expected permissions for campus_admin, got %v", res["permissions"])
+	}
+}

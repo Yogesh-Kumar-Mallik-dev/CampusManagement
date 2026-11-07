@@ -108,6 +108,7 @@ func main() {
 	// User Management, ID Generation & Lifecycle Routes
 	mux.HandleFunc("/api/v1/users", userHandler.HandleUsers)
 	mux.HandleFunc("/api/v1/users/profile", userHandler.GetUserProfile)
+	mux.HandleFunc("/api/v1/users/roles", userHandler.GetUserRoles)
 	mux.HandleFunc("/api/v1/users/student", userHandler.CreateStudent)
 	mux.HandleFunc("/api/v1/users/employee", userHandler.CreateEmployee)
 	mux.HandleFunc("/api/v1/users/contractor", userHandler.CreateContractor)
@@ -247,17 +248,76 @@ func main() {
 }
 
 func seedDefaultRolesAndScopes(svc *service.PermissionService) {
-	// Base Roles
+	// 1. Campus Administrator & Executive Leadership (Unrestricted Scope)
+	svc.AddMemoryRole(model.Role{
+		Code:         "admin",
+		Name:         "Campus Administrator",
+		Description:  "Full institutional and system administrative privileges",
+		IsSystemRole: true,
+		Permissions: []model.Permission{
+			{Code: "*", Description: "Wildcard institutional administrative power", Module: "system"},
+		},
+	})
+
+	svc.AddMemoryRole(model.Role{
+		Code:         "campus_director",
+		Name:         "Campus Director",
+		Description:  "Campus-wide executive director and oversight authority",
+		IsSystemRole: true,
+		Permissions: []model.Permission{
+			{Code: "*", Description: "Campus-wide authority", Module: "executive"},
+		},
+	})
+
+	// 2. Base Student Role
 	svc.AddMemoryRole(model.Role{
 		Code: "student_base",
 		Name: "Student Base",
 		Permissions: []model.Permission{
 			{Code: "timetable:view"},
 			{Code: "attendance:view_self"},
+			{Code: "attendance:scan"},
+			{Code: "notices:view"},
 			{Code: "fees:pay"},
 		},
 	})
 
+	// 3. Faculty Role
+	svc.AddMemoryRole(model.Role{
+		Code: "faculty",
+		Name: "Faculty Member",
+		Permissions: []model.Permission{
+			{Code: "timetable:view"},
+			{Code: "timetable:edit"},
+			{Code: "attendance:mark"},
+			{Code: "attendance:broadcast"},
+			{Code: "attendance:view_roster"},
+			{Code: "syllabus:view"},
+			{Code: "notice:publish"},
+		},
+	})
+
+	// 4. Head of Department (HOD)
+	svc.AddMemoryRole(model.Role{
+		Code: "hod",
+		Name: "Head of Department",
+		Permissions: []model.Permission{
+			{Code: "timetable:view"},
+			{Code: "timetable:edit"},
+			{Code: "timetable:declare_off"},
+			{Code: "attendance:mark"},
+			{Code: "attendance:broadcast"},
+			{Code: "attendance:view_roster"},
+			{Code: "attendance:approve"},
+			{Code: "syllabus:view"},
+			{Code: "syllabus:approve"},
+			{Code: "faculty:assign_workload"},
+			{Code: "department:manage"},
+			{Code: "notice:publish"},
+		},
+	})
+
+	// 5. Class Representative
 	svc.AddMemoryRole(model.Role{
 		Code: "class_rep",
 		Name: "Class Representative",
@@ -267,6 +327,7 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 		},
 	})
 
+	// 6. Club President
 	svc.AddMemoryRole(model.Role{
 		Code: "club_president",
 		Name: "Club President",
@@ -277,17 +338,7 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 		},
 	})
 
-	svc.AddMemoryRole(model.Role{
-		Code: "hod",
-		Name: "Head of Department",
-		Permissions: []model.Permission{
-			{Code: "attendance:mark"},
-			{Code: "attendance:approve"},
-			{Code: "syllabus:approve"},
-			{Code: "faculty:assign_workload"},
-		},
-	})
-
+	// 7. Hostel Warden
 	svc.AddMemoryRole(model.Role{
 		Code: "warden",
 		Name: "Hostel Warden",
@@ -297,6 +348,18 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 		},
 	})
 
+	// 8. Contractor / Vendor Staff
+	svc.AddMemoryRole(model.Role{
+		Code: "vendor_staff",
+		Name: "Contractor Staff",
+		Permissions: []model.Permission{
+			{Code: "gatepass:present"},
+			{Code: "profile:view_self"},
+			{Code: "canteen:operate"},
+		},
+	})
+
+	// 9. Canteen Manager
 	svc.AddMemoryRole(model.Role{
 		Code: "canteen_manager",
 		Name: "Canteen Manager",

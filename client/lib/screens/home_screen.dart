@@ -61,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
             key: ValueKey('tab-timetable-${_currentUser.id}'),
             storage: widget.storage,
             activeScope: _currentUser.activeScopes.contains('sec:cse-3a') ? 'sec:cse-3a' : 'global',
+            currentUser: _currentUser,
           );
         case 2:
           return AttendanceScreen(
@@ -75,12 +76,26 @@ class _HomeScreenState extends State<HomeScreen> {
             userScopes: _currentUser.activeScopes,
           );
         case 4:
+          if (!_currentUser.canManageUsers) {
+            return _buildAccessDeniedView(
+              moduleName: 'Campus Directory & Identity Management',
+              requiredRole: 'Campus Administrator',
+              reason: 'Directory administration, identity onboarding, and credential lifecycle revocation require institutional administrator authority.',
+            );
+          }
           return UserManagementScreen(
             key: ValueKey('tab-users-${_currentUser.id}'),
             storage: widget.storage,
             currentUser: _currentUser,
           );
         case 5:
+          if (!_currentUser.canManageDepartments) {
+            return _buildAccessDeniedView(
+              moduleName: 'Academic Departments & Structure',
+              requiredRole: 'Head of Department or Campus Administrator',
+              reason: 'Academic structuring, department governance, and faculty workload assignment are restricted to Department Chairs and Institutional Administrators.',
+            );
+          }
           return DepartmentManagementScreen(
             key: ValueKey('tab-depts-${_currentUser.id}'),
             storage: widget.storage,
@@ -92,39 +107,201 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Widget _buildAccessDeniedView({
+    required String moduleName,
+    required String requiredRole,
+    required String reason,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 580),
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.statusRedSubtle,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.statusRed.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: const AppSvgIcon(
+                      svgString: AppSvgIcon.lock,
+                      size: 22,
+                      color: AppColors.statusRed,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Access Restricted',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          moduleName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Current Persona: ',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${_currentUser.fullName} (${_currentUser.campusHandle})',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Required Role: ',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        Expanded(
+                          child: Text(
+                            requiredRole,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.wineRed,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      reason,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: () => _onDestinationSelected(0),
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.dashboard, size: 14),
+                    label: const Text('Back to Dashboard'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    key: const Key('btn-switch-authorized-persona'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.wineRed,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: () {
+                      final target = _personas.firstWhere(
+                        (p) => p.isAdmin || (p.isHOD && requiredRole.contains('Head of Department')),
+                        orElse: () => _personas.firstWhere((p) => p.isAdmin, orElse: () => _personas.first),
+                      );
+                      setState(() {
+                        _currentUser = target;
+                        _tabWidgetCache.clear();
+                        _loadedTabs.addAll([0, 1, 2, 3, 4, 5]);
+                      });
+                      _checkServer();
+                    },
+                    child: const Text('Switch to Authorized Persona'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _personas = [
-      UserModel(
-        id: 'usr-harish_2025_l_btech_1',
-        campusHandle: 'harish_2025_l_btech_1',
-        firstName: 'Harish',
-        lastName: 'Kumar',
-        email: 'harish_2025_l_btech_1@campus.edu',
-        archetype: 'student',
-        activeScopes: ['global', 'sec:cse-3a', 'club:robotics'],
-      ),
-      UserModel(
-        id: 'usr-priya_2024_emp_1',
-        campusHandle: 'priya_2024_emp_1',
-        firstName: 'Dr. Priya',
-        lastName: 'Nair',
-        email: 'priya_2024_emp_1@campus.edu',
-        archetype: 'employee',
-        activeScopes: ['global', 'dept:cse', 'sec:cse-3a', 'unit:student_affairs'],
-      ),
-      UserModel(
-        id: 'usr-ramesh_2023_emp_1',
-        campusHandle: 'ramesh_2023_emp_1',
-        firstName: 'Ramesh',
-        lastName: 'Singh',
-        email: 'ramesh_2023_emp_1@campus.edu',
-        archetype: 'employee',
-        activeScopes: ['global', 'unit:security', 'facility:gate-1'],
-      ),
+      OfflineStorageService.getMockUserForHandle('campus_admin'),
+      OfflineStorageService.getMockUserForHandle('priya_2024_emp_1'),
+      OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1'),
+      OfflineStorageService.getMockUserForHandle('ramesh_2023_emp_1'),
+      OfflineStorageService.getMockUserForHandle('mukesh_2025_ext_1'),
     ];
-    final initial = widget.currentUser ?? _personas.first;
+    final initial = widget.currentUser ??
+        _personas.firstWhere(
+          (p) => p.campusHandle == 'harish_2025_l_btech_1',
+          orElse: () => _personas.first,
+        );
     if (!_personas.contains(initial)) {
       _personas.insert(0, initial);
     }
@@ -387,6 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _CampusSidebar(
                   selectedIndex: _currentIndex,
                   onDestinationSelected: _onDestinationSelected,
+                  currentUser: _currentUser,
                 ),
                 Expanded(child: tabStack),
               ],
@@ -495,13 +673,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
                           Text(
                             _currentUser.fullName,
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(width: 8),
                           Builder(
                             builder: (context) {
                               final roleBadge = _currentUser.archetype == 'student'
@@ -765,10 +945,12 @@ class _HomeScreenState extends State<HomeScreen> {
 class _CampusSidebar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final UserModel currentUser;
 
   const _CampusSidebar({
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.currentUser,
   });
 
   @override
@@ -801,11 +983,14 @@ class _CampusSidebar extends StatelessWidget {
           ...List.generate(items.length, (idx) {
             final isSelected = selectedIndex == idx;
             final item = items[idx];
+            final isLocked = (idx == 4 && !currentUser.canManageUsers) ||
+                (idx == 5 && !currentUser.canManageDepartments);
 
             return _SidebarDestinationItem(
               svg: item.svg,
               label: item.label,
               isSelected: isSelected,
+              isLocked: isLocked,
               onTap: () => onDestinationSelected(idx),
             );
           }),
@@ -819,12 +1004,14 @@ class _SidebarDestinationItem extends StatefulWidget {
   final String svg;
   final String label;
   final bool isSelected;
+  final bool isLocked;
   final VoidCallback onTap;
 
   const _SidebarDestinationItem({
     required this.svg,
     required this.label,
     required this.isSelected,
+    this.isLocked = false,
     required this.onTap,
   });
 
@@ -857,37 +1044,64 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Pill overlay container with rigidly fixed dimensions: 54px x 32px
-              Container(
-                width: 54,
-                height: 32,
+              Stack(
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: widget.isSelected
-                      ? AppColors.wineRed
-                      : (_isHovered
-                          ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
-                          : Colors.transparent),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: widget.isSelected
-                        ? AppColors.wineRed
-                        : (_isHovered
-                            ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
-                            : Colors.transparent),
-                    width: 1,
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 54,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: widget.isSelected
+                          ? AppColors.wineRed
+                          : (_isHovered
+                              ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
+                              : Colors.transparent),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: widget.isSelected
+                            ? AppColors.wineRed
+                            : (_isHovered
+                                ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+                                : Colors.transparent),
+                        width: 1,
+                      ),
+                    ),
+                    child: AppSvgIcon(
+                      svgString: widget.svg,
+                      size: 18,
+                      // Within the wine overlay, the icon is PURE BRIGHT WHITE!
+                      // When unselected: crisp secondary/muted color
+                      color: widget.isSelected
+                          ? Colors.white
+                          : (_isHovered
+                              ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
+                              : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
+                    ),
                   ),
-                ),
-                child: AppSvgIcon(
-                  svgString: widget.svg,
-                  size: 18,
-                  // Within the wine overlay, the icon is PURE BRIGHT WHITE!
-                  // When unselected: crisp secondary/muted color
-                  color: widget.isSelected
-                      ? Colors.white
-                      : (_isHovered
-                          ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
-                          : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
-                ),
+                  if (widget.isLocked)
+                    Positioned(
+                      top: -3,
+                      right: -3,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSurface : Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.statusRed.withValues(alpha: 0.6),
+                            width: 1,
+                          ),
+                        ),
+                        child: const AppSvgIcon(
+                          svgString: AppSvgIcon.lock,
+                          size: 9,
+                          color: AppColors.statusRed,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 4),
               // Fixed-height label text

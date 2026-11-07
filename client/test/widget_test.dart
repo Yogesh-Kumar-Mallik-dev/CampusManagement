@@ -122,8 +122,16 @@ void main() {
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();
 
-    // 4. Navigate to User Directory tab
+    // 4. Navigate to User Directory tab as Student (Harish) -> Access Denied!
     await tester.tap(find.text('Directory & Identities'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Access Restricted'), findsOneWidget);
+    expect(find.text('Campus Directory & Identity Management'), findsOneWidget);
+    expect(find.textContaining('Campus Administrator'), findsWidgets);
+
+    // Switch to authorized administrator persona
+    await tester.tap(find.byKey(const Key('btn-switch-authorized-persona')));
     await tester.pumpAndSettle();
 
     expect(find.text('Campus Directory & Identity Management'), findsOneWidget);
@@ -184,13 +192,31 @@ void main() {
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
 
-    // Tap "View Profile" on dashboard banner
+    // Tap "View Profile" on dashboard banner as Student
     await tester.tap(find.text('View Profile'));
     await tester.pumpAndSettle();
 
     expect(find.text('Official Identity & Verification'), findsOneWidget);
     expect(find.text('Academic Enrollment & Progress'), findsOneWidget);
     expect(find.text('Scoped RBAC Authority'), findsOneWidget);
+    expect(find.text('Institutional Roles (2)'), findsOneWidget);
+    // Student persona has no termination actions in profile
+    expect(find.text('Lifecycle modifications restricted to Campus Administrator.'), findsOneWidget);
+    expect(find.text('Discontinue User'), findsNothing);
+
+    // Return to dashboard and switch persona to Campus Administrator
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    final personaSwitcher = find.byTooltip('Switch Active Persona');
+    await tester.tap(personaSwitcher);
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Campus Administrator').last);
+    await tester.pumpAndSettle();
+
+    // Reopen profile as Administrator -> Discontinue User is available
+    await tester.tap(find.text('View Profile'));
+    await tester.pumpAndSettle();
     expect(find.text('Discontinue User'), findsOneWidget);
   });
 
@@ -991,5 +1017,33 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('CS303'), findsWidgets);
+  });
+
+  testWidgets('Timetable RBAC: Student view is strictly read-only and prevents schedule mutations',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimetableScreen(
+          storage: storage,
+          activeScope: 'sec:cse-3a',
+          currentUser: student,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Declare Day Off button must NOT be present for students
+    expect(find.text('Declare Day Off'), findsNothing);
+    expect(find.text('Read Only View'), findsWidgets);
+
+    // Tapping a block shows read-only snackbar instead of opening editor sheet
+    await tester.tap(find.text('FREE PERIOD').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('read-only for students'), findsOneWidget);
+    expect(find.text('Configure Schedule Block'), findsNothing);
   });
 }

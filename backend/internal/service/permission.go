@@ -50,6 +50,11 @@ func (s *PermissionService) AssignRole(ctx context.Context, userID, roleCode, sc
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	roleName := roleCode
+	if r, exists := s.memRoles[roleCode]; exists && r.Name != "" {
+		roleName = r.Name
+	}
+
 	assign := model.UserRoleAssignment{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        fmt.Sprintf("assign-%d", time.Now().UnixNano()),
@@ -58,6 +63,7 @@ func (s *PermissionService) AssignRole(ctx context.Context, userID, roleCode, sc
 		},
 		UserID:     userID,
 		RoleCode:   roleCode,
+		RoleName:   roleName,
 		ScopeCode:  scopeCode,
 		ValidFrom:  time.Now().UTC(),
 		ValidUntil: validUntil,
@@ -110,6 +116,42 @@ func (s *PermissionService) GetUserRoles(userID string) []model.UserRoleAssignme
 	}
 	res := make([]model.UserRoleAssignment, len(assignments))
 	copy(res, assignments)
+	return res
+}
+
+// GetUserPermissions returns all deduplicated permission codes granted to the user across their active roles
+func (s *PermissionService) GetUserPermissions(userID string) []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	assignments, exists := s.memAssigns[userID]
+	if !exists || len(assignments) == 0 {
+		return []string{}
+	}
+
+	now := time.Now().UTC()
+	permMap := make(map[string]bool)
+
+	for _, assign := range assignments {
+		if !assign.IsActive {
+			continue
+		}
+		if assign.ValidUntil != nil && now.After(*assign.ValidUntil) {
+			continue
+		}
+		role, roleExists := s.memRoles[assign.RoleCode]
+		if !roleExists {
+			continue
+		}
+		for _, perm := range role.Permissions {
+			permMap[perm.Code] = true
+		}
+	}
+
+	res := make([]string, 0, len(permMap))
+	for code := range permMap {
+		res = append(res, code)
+	}
 	return res
 }
 
