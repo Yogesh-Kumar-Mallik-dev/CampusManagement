@@ -884,21 +884,22 @@ void main() {
     expect(find.textContaining('Declared Off'), findsWidgets);
     expect(find.text('Operating Systems'), findsWidgets);
 
-    // 5. Test Week Matrix Toggle
-    final switchModeBtn = find.byTooltip('Switch to Week Matrix View');
+    // 5. Test All Days Rows Toggle
+    final switchModeBtn = find.byTooltip('Switch to All Days Rows View');
     expect(switchModeBtn, findsOneWidget);
     await tester.tap(switchModeBtn);
     await tester.pumpAndSettle();
 
-    expect(find.text('TIME'), findsOneWidget);
-    expect(find.text('09:00'), findsWidgets);
-    expect(find.text('16:00'), findsWidgets);
+    expect(find.text('Mon'), findsWidgets);
+    expect(find.text('Tue'), findsWidgets);
 
-    // Toggle back to Day Timeline View
-    final switchTimelineBtn = find.byTooltip('Switch to Day Timeline View');
-    expect(switchTimelineBtn, findsOneWidget);
-    await tester.tap(switchTimelineBtn);
+    // Toggle back to Single Day Row View
+    final switchRowBtn = find.byTooltip('Switch to Single Day Row View');
+    expect(switchRowBtn, findsOneWidget);
+    await tester.tap(switchRowBtn);
     await tester.pumpAndSettle();
+
+    expect(find.textContaining('Horizontal Row Format'), findsOneWidget);
 
     // 6. Test Saturday half-day behavior (classes in morning, free period, afternoon declared off)
     await tester.tap(find.text('Sat'));
@@ -908,7 +909,31 @@ void main() {
     expect(find.text('FREE PERIOD'), findsWidgets);
     expect(find.text('DECLARED OFF'), findsWidgets);
 
-    // 7. Test Block Configuration Sheet
+    // 7. Test Power to Declare Day Off and Restore Schedule
+    await tester.tap(find.text('Mon'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Declare Day Off'), findsOneWidget);
+    await tester.tap(find.text('Declare Day Off'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Declare Mon Off'), findsOneWidget);
+    expect(find.text('Confirm Day Off'), findsOneWidget);
+    await tester.tap(find.text('Confirm Day Off'));
+    await tester.pumpAndSettle();
+
+    // Verify Mon is now declared off
+    expect(find.textContaining('Mon is Declared Off'), findsOneWidget);
+    expect(find.text('Restore Schedule'), findsOneWidget);
+
+    // Restore Mon schedule
+    await tester.tap(find.text('Restore Schedule'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Declare Day Off'), findsOneWidget);
+    expect(find.text('Operating Systems'), findsWidgets);
+
+    // 8. Test Block Configuration Sheet
     // Tap a block to open configuration
     await tester.tap(find.text('FREE PERIOD').first);
     await tester.pumpAndSettle();

@@ -660,6 +660,73 @@ class OfflineStorageService {
     return true;
   }
 
+  final Map<int, List<TimetableSlotModel>> _backupDaySchedules = {};
+
+  /// Declares an entire academic day (all 8 one-hour blocks from 9 AM to 5 PM) as Off.
+  Future<void> declareDayOff({
+    required int dayOfWeek,
+    required String reason,
+    required String scopeCode,
+  }) async {
+    _seedDefaultTimetableIfEmpty();
+
+    // 1. Backup current non-off slots for restoration
+    final currentDaySlots = _cachedTimetable
+        .where((s) => s.dayOfWeek == dayOfWeek)
+        .map((s) => s.copyWith())
+        .toList();
+    if (currentDaySlots.any((s) => !s.isOff)) {
+      _backupDaySchedules[dayOfWeek] = currentDaySlots;
+    }
+
+    // 2. Mark all 8 canonical blocks as declared off
+    for (int i = 0; i < 8; i++) {
+      final start = '${(9 + i).toString().padLeft(2, '0')}:00';
+      final end = '${(10 + i).toString().padLeft(2, '0')}:00';
+      final offSlot = TimetableSlotModel(
+        id: 'slot-off-day-$dayOfWeek-$start',
+        courseId: '',
+        courseCode: 'OFF',
+        courseName: reason.isNotEmpty ? reason : 'Declared Day Off',
+        scopeCode: scopeCode,
+        instructorName: '',
+        dayOfWeek: dayOfWeek,
+        startTime: start,
+        endTime: end,
+        roomNumber: '-',
+        slotType: 'off',
+      );
+      await saveTimetableSlot(offSlot);
+    }
+  }
+
+  /// Restores the academic schedule for a day that was previously declared Off.
+  Future<void> restoreDaySchedule({
+    required int dayOfWeek,
+    required String scopeCode,
+  }) async {
+    _seedDefaultTimetableIfEmpty();
+    final backup = _backupDaySchedules[dayOfWeek];
+    if (backup != null && backup.isNotEmpty) {
+      for (final slot in backup) {
+        await saveTimetableSlot(slot);
+      }
+      _backupDaySchedules.remove(dayOfWeek);
+    } else {
+      // Re-seed default slots for this day from canonical defaults
+      final defaults = _getDefaultDaySlots(dayOfWeek, scopeCode);
+      for (final slot in defaults) {
+        await saveTimetableSlot(slot);
+      }
+    }
+  }
+
+  List<TimetableSlotModel> _getDefaultDaySlots(int dayOfWeek, String scopeCode) {
+    return _buildCanonicalDefaultSlots()
+        .where((s) => s.dayOfWeek == dayOfWeek)
+        .toList();
+  }
+
   // Load and cache notices
   Future<List<NoticeModel>> getNotices(List<String> scopes) async {
     _seedDefaultNoticesIfEmpty();
@@ -680,7 +747,11 @@ class OfflineStorageService {
 
   void _seedDefaultTimetableIfEmpty() {
     if (_cachedTimetable.isNotEmpty) return;
-    _cachedTimetable.addAll([
+    _cachedTimetable.addAll(_buildCanonicalDefaultSlots());
+  }
+
+  List<TimetableSlotModel> _buildCanonicalDefaultSlots() {
+    return [
       // ==========================================
       // MONDAY (Day 1): 9:00 AM - 5:00 PM (8 Blocks)
       // ==========================================
@@ -1328,7 +1399,7 @@ class OfflineStorageService {
         roomNumber: '-',
         slotType: 'off',
       ),
-    ]);
+    ];
   }
 
   void _seedDefaultNoticesIfEmpty() {

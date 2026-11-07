@@ -7,17 +7,20 @@ import '../widgets/app_skeleton.dart';
 
 /// Geometry categorization for timetable visual rendering.
 enum TimetableRenderGeometry {
-  /// 1-unit block representing a single 1-hour slot (9-10, 10-11, etc.)
+  /// 1-unit block representing a single 1-hour slot (aspect ratio ~1:1 Square)
   square,
 
-  /// 2-unit block representing two consecutive occupied slots
+  /// 2-unit block representing two consecutive occupied slots (horizontal Rectangle)
   rectangle,
 }
 
 /// View modes supported by the timetable screen.
 enum TimetableViewMode {
-  dayTimeline,
-  weekMatrix,
+  /// Selected single day rendered in horizontal row format
+  dayRow,
+
+  /// Full week with each day (Mon-Sat) rendered as a horizontal row
+  weekRows,
 }
 
 /// A rendered timetable block in the daily schedule.
@@ -87,20 +90,20 @@ class TimetableScreen extends StatefulWidget {
 
 class _TimetableScreenState extends State<TimetableScreen> {
   int _selectedDay = 1; // 1 = Monday ... 6 = Saturday
-  TimetableViewMode _viewMode = TimetableViewMode.dayTimeline;
+  TimetableViewMode _viewMode = TimetableViewMode.dayRow;
   PageLoadState _loadState = PageLoadState.pending;
   String? _errorMessage;
 
   List<TimetableSlotModel> _allSlots = [];
   List<TimetableSlotModel> _canonicalDaySlots = [];
   List<RenderedTimetableBlock> _renderedBlocks = [];
+  int _selectedBlockIndex = 0;
 
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   @override
   void initState() {
     super.initState();
-    // Default to current weekday if Mon-Sat, else Monday
     final currentWeekday = DateTime.now().weekday;
     if (currentWeekday >= 1 && currentWeekday <= 6) {
       _selectedDay = currentWeekday;
@@ -116,42 +119,50 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   void _recomputeDaySchedule() {
-    // 1. Build the canonical 8 1-hour slots for the selected day
-    _canonicalDaySlots = List.generate(8, (i) {
+    _canonicalDaySlots = _computeCanonicalDaySlotsForDay(_selectedDay);
+    _renderedBlocks = _computeGroupedBlocks(_canonicalDaySlots);
+    if (_selectedBlockIndex >= _renderedBlocks.length) {
+      _selectedBlockIndex = 0;
+    }
+  }
+
+  List<TimetableSlotModel> _computeCanonicalDaySlotsForDay(int dayNum) {
+    return List.generate(8, (i) {
       final def = CanonicalScheduleDef.blocks[i];
       final start = def['start']!;
       final end = def['end']!;
 
-      final match = _allSlots.firstWhere(
-        (s) => s.dayOfWeek == _selectedDay && s.startTime == start,
+      return _allSlots.firstWhere(
+        (s) => s.dayOfWeek == dayNum && s.startTime == start,
         orElse: () => TimetableSlotModel(
-          id: 'temp-slot-$_selectedDay-$start',
+          id: 'temp-slot-$dayNum-$start',
           courseId: '',
           courseCode: 'FREE',
           courseName: i == 3 ? 'Midday Recess & Lunch' : 'Open Study Period',
           scopeCode: widget.activeScope,
           instructorName: '',
-          dayOfWeek: _selectedDay,
+          dayOfWeek: dayNum,
           startTime: start,
           endTime: end,
           roomNumber: i == 3 ? 'Cafeteria' : 'Library / Study Hall',
           slotType: 'free',
         ),
       );
-      return match;
     });
+  }
 
-    // 2. Greedy grouping: consecutive occupied blocks -> Rectangle (2 units), otherwise Square (1 unit)
+  List<RenderedTimetableBlock> _computeGroupedBlocks(List<TimetableSlotModel> daySlots) {
     final List<RenderedTimetableBlock> grouped = [];
     int i = 0;
-    while (i < _canonicalDaySlots.length) {
-      final current = _canonicalDaySlots[i];
+    while (i < daySlots.length) {
+      final current = daySlots[i];
       final currentDef = CanonicalScheduleDef.blocks[i];
 
+      // Two consecutive occupied blocks render as a horizontal Rectangle
       if (current.isOccupied &&
-          i + 1 < _canonicalDaySlots.length &&
-          _canonicalDaySlots[i + 1].isOccupied) {
-        final next = _canonicalDaySlots[i + 1];
+          i + 1 < daySlots.length &&
+          daySlots[i + 1].isOccupied) {
+        final next = daySlots[i + 1];
         final nextDef = CanonicalScheduleDef.blocks[i + 1];
 
         grouped.add(RenderedTimetableBlock.rectangle(
@@ -174,7 +185,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
         i += 1;
       }
     }
-    _renderedBlocks = grouped;
+    return grouped;
+  }
+
+  bool _isDayDeclaredOff(int dayNum) {
+    final daySlots = _allSlots.where((s) => s.dayOfWeek == dayNum).toList();
+    if (daySlots.isEmpty) return false;
+    // If all canonical blocks for that day are marked off, the day is declared off
+    final dayCanonical = _computeCanonicalDaySlotsForDay(dayNum);
+    return dayCanonical.every((s) => s.isOff);
   }
 
   Future<void> _loadData() async {
@@ -203,6 +222,159 @@ class _TimetableScreenState extends State<TimetableScreen> {
           }
         });
       }
+    }
+  }
+
+  /// Action: Power to declare the selected day off.
+  Future<void> _showDeclareDayOffDialog(int dayNum) async {
+    final dayName = _days[dayNum - 1];
+    String selectedReason = 'National Holiday / Festival';
+    final customCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.event_busy, color: AppColors.wineRed, size: 22),
+                const SizedBox(width: 8),
+                Text('Declare $dayName Off'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Mark all 8 one-hour blocks (09:00 - 17:00) as Declared Off for $dayName.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2229) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      'Note: Free periods are distinct from Declared Off. Declaring the day off marks the schedule as closed/dismissed with zero academic operations.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'REASON FOR CLOSURE',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  ...[
+                    'National Holiday / Festival',
+                    'Institutional Recess / Semester Break',
+                    'Campus Closure / Maintenance',
+                    'Examinations / Study Leave',
+                    'Saturday Half-Day Recess',
+                    'Other / Custom Reason',
+                  ].map((r) {
+                    final isChecked = selectedReason == r;
+                    return InkWell(
+                      onTap: () => setDlgState(() => selectedReason = r),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isChecked ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                              size: 16,
+                              color: isChecked ? AppColors.wineRed : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(r, style: const TextStyle(fontSize: 12))),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                  if (selectedReason == 'Other / Custom Reason')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: TextField(
+                        controller: customCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter custom reason for closure',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Confirm Day Off'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final reason = selectedReason == 'Other / Custom Reason' && customCtrl.text.isNotEmpty
+          ? customCtrl.text.trim()
+          : selectedReason;
+
+      await widget.storage.declareDayOff(
+        dayOfWeek: dayNum,
+        reason: reason,
+        scopeCode: widget.activeScope,
+      );
+
+      final fresh = await widget.storage.getTimetable(widget.activeScope);
+      if (mounted) {
+        setState(() {
+          _allSlots = fresh;
+          _recomputeDaySchedule();
+        });
+      }
+    }
+  }
+
+  /// Action: Reopen / Restore a day that was declared off.
+  Future<void> _restoreDaySchedule(int dayNum) async {
+    await widget.storage.restoreDaySchedule(
+      dayOfWeek: dayNum,
+      scopeCode: widget.activeScope,
+    );
+    final fresh = await widget.storage.getTimetable(widget.activeScope);
+    if (mounted) {
+      setState(() {
+        _allSlots = fresh;
+        _recomputeDaySchedule();
+      });
     }
   }
 
@@ -241,22 +413,21 @@ class _TimetableScreenState extends State<TimetableScreen> {
       appBar: AppBar(
         title: const Text('Academic Timetable (9 AM - 5 PM)'),
         actions: [
-          // View Mode Toggle (Day Timeline vs Week Matrix)
           IconButton(
             icon: Icon(
-              _viewMode == TimetableViewMode.dayTimeline
+              _viewMode == TimetableViewMode.dayRow
                   ? Icons.calendar_view_week
                   : Icons.view_agenda_outlined,
               size: 20,
             ),
-            tooltip: _viewMode == TimetableViewMode.dayTimeline
-                ? 'Switch to Week Matrix View'
-                : 'Switch to Day Timeline View',
+            tooltip: _viewMode == TimetableViewMode.dayRow
+                ? 'Switch to All Days Rows View'
+                : 'Switch to Single Day Row View',
             onPressed: () {
               setState(() {
-                _viewMode = _viewMode == TimetableViewMode.dayTimeline
-                    ? TimetableViewMode.weekMatrix
-                    : TimetableViewMode.dayTimeline;
+                _viewMode = _viewMode == TimetableViewMode.dayRow
+                    ? TimetableViewMode.weekRows
+                    : TimetableViewMode.dayRow;
               });
             },
           ),
@@ -270,47 +441,99 @@ class _TimetableScreenState extends State<TimetableScreen> {
       ),
       body: Column(
         children: [
-          // Fixed Day Selector Bar
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-              border: Border(
-                bottom: BorderSide(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: List.generate(_days.length, (idx) {
-                final dayNum = idx + 1;
-                final isSelected = _selectedDay == dayNum;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: _DaySelectorPill(
-                      label: _days[idx],
-                      isSelected: isSelected,
-                      onTap: () {
-                        setState(() {
-                          _selectedDay = dayNum;
-                          _recomputeDaySchedule();
-                        });
-                      },
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
+          // Day Selector Bar + Declare Day Off Action
+          _buildDaySelectorBar(isDark),
 
           // Operational Status Summary Ribbon
           _buildMetricsRibbon(isDark),
 
-          // Main View Content
+          // Main View Content in Row Format
           Expanded(
             child: _buildContent(isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDaySelectorBar(bool isDark) {
+    final isDayOff = _isDayDeclaredOff(_selectedDay);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Day Pills Mon-Sat
+          ...List.generate(_days.length, (idx) {
+            final dayNum = idx + 1;
+            final isSelected = _selectedDay == dayNum;
+            final dayOff = _isDayDeclaredOff(dayNum);
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: _DaySelectorPill(
+                  label: _days[idx],
+                  isOff: dayOff,
+                  isSelected: isSelected,
+                  onTap: () {
+                    setState(() {
+                      _selectedDay = dayNum;
+                      _recomputeDaySchedule();
+                    });
+                  },
+                ),
+              ),
+            );
+          }),
+
+          const SizedBox(width: 8),
+
+          // Declare Day Off / Restore Day Action Button
+          Tooltip(
+            message: isDayOff
+                ? 'Restore original schedule for ${_days[_selectedDay - 1]}'
+                : 'Declare ${_days[_selectedDay - 1]} as Day Off (All 8 blocks dismissed)',
+            child: OutlinedButton.icon(
+              icon: Icon(
+                isDayOff ? Icons.restart_alt : Icons.event_busy,
+                size: 15,
+                color: isDayOff ? const Color(0xFF238636) : AppColors.wineRed,
+              ),
+              label: Text(
+                isDayOff ? 'Restore Schedule' : 'Declare Day Off',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isDayOff ? const Color(0xFF238636) : AppColors.wineRed,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: isDayOff
+                      ? const Color(0xFF238636).withValues(alpha: 0.6)
+                      : AppColors.wineRed.withValues(alpha: 0.6),
+                  width: 1.2,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              onPressed: () {
+                if (isDayOff) {
+                  _restoreDaySchedule(_selectedDay);
+                } else {
+                  _showDeclareDayOffDialog(_selectedDay);
+                }
+              },
+            ),
           ),
         ],
       ),
@@ -339,6 +562,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
       }
     }
 
+    final isDayOff = _isDayDeclaredOff(_selectedDay);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -352,26 +577,74 @@ class _TimetableScreenState extends State<TimetableScreen> {
       ),
       child: Row(
         children: [
-          _buildSummaryChip(
-            isDark: isDark,
-            label: '$classCount Classes',
-            sublabel: '$rectCount Rectangles',
-            badgeColor: AppColors.wineRed,
-          ),
-          const SizedBox(width: 8),
-          _buildSummaryChip(
-            isDark: isDark,
-            label: '$freeCount Free Periods',
-            sublabel: 'Campus Open',
-            badgeColor: const Color(0xFF238636),
-          ),
-          const SizedBox(width: 8),
-          _buildSummaryChip(
-            isDark: isDark,
-            label: '$offCount Declared Off',
-            sublabel: 'Dismissed',
-            badgeColor: const Color(0xFF64748B),
-          ),
+          if (isDayOff)
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF381A22).withValues(alpha: 0.5)
+                      : const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isDark
+                        ? AppColors.wineRed.withValues(alpha: 0.6)
+                        : const Color(0xFFFCA5A5),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.event_busy, color: AppColors.wineRed, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${_days[_selectedDay - 1]} is Declared Off — No academic operations scheduled for today.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFFFF7B72) : const Color(0xFF991B1B),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(60, 24),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () => _restoreDaySchedule(_selectedDay),
+                      child: const Text(
+                        'Restore',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.wineRed),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else ...[
+            _buildSummaryChip(
+              isDark: isDark,
+              label: '$classCount Classes',
+              sublabel: '$rectCount Rectangles',
+              badgeColor: AppColors.wineRed,
+            ),
+            const SizedBox(width: 8),
+            _buildSummaryChip(
+              isDark: isDark,
+              label: '$freeCount Free Periods',
+              sublabel: 'Campus Open',
+              badgeColor: const Color(0xFF238636),
+            ),
+            const SizedBox(width: 8),
+            _buildSummaryChip(
+              isDark: isDark,
+              label: '$offCount Declared Off',
+              sublabel: 'Dismissed',
+              badgeColor: const Color(0xFF64748B),
+            ),
+          ],
         ],
       ),
     );
@@ -442,7 +715,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Widget _buildContent(bool isDark) {
     switch (_loadState) {
       case PageLoadState.pending:
-        return _buildSkeletonList(isDark);
+        return _buildSkeletonRow(isDark);
       case PageLoadState.failed:
         return Center(
           child: Padding(
@@ -454,1189 +727,849 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
         );
       case PageLoadState.success:
-        if (_viewMode == TimetableViewMode.weekMatrix) {
-          return _buildWeekMatrixView(isDark);
+        if (_viewMode == TimetableViewMode.weekRows) {
+          return _buildWeekRowsView(isDark);
         }
-        return _buildDayTimelineView(isDark);
+        return _buildDayRowView(isDark);
     }
   }
 
-  Widget _buildDayTimelineView(bool isDark) {
-    return ListView.builder(
+  /// Primary View: The selected day's 8 blocks laid out in horizontal ROW format.
+  Widget _buildDayRowView(bool isDark) {
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      itemCount: _renderedBlocks.length,
-      itemBuilder: (context, idx) {
-        final block = _renderedBlocks[idx];
-        if (block.isRectangle) {
-          return _buildRectangleBlock(isDark, block);
-        }
-        return _buildSquareBlock(isDark, block);
-      },
-    );
-  }
-
-  /// Builds a 2-unit continuous RECTANGLE block formed by two consecutive occupied blocks.
-  Widget _buildRectangleBlock(bool isDark, RenderedTimetableBlock block) {
-    final first = block.firstSlot;
-    final second = block.secondSlot!;
-    final isLab = first.slotType.toLowerCase() == 'lab' ||
-        second.slotType.toLowerCase() == 'lab';
-    final isSameCourse = first.courseCode == second.courseCode &&
-        first.courseCode.isNotEmpty;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      height: 228, // Exactly 2 units high (2 x 108 + gap)
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161B22) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.wineRed.withValues(alpha: isDark ? 0.6 : 0.4),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Continuous 2-Hour Time Ruler on Left
-          Container(
-            width: 86,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF1F5F9),
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(8.5)),
-              border: Border(
-                right: BorderSide(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                  width: 1,
+          // Row Header: Day & Operational Track
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${_days[_selectedDay - 1]} Operational Track (09:00 - 17:00)',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  children: [
-                    Text(
-                      block.startTime,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      block.periodLabel,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.wineRed,
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 8),
+              Text(
+                'Horizontal Row Format • 1-Hr Blocks',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                 ),
-                // Visual continuous connector indicator
-                Container(
-                  width: 3,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.wineRed,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.wineRed.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'RECTANGLE',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                          color: AppColors.wineRed,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      block.endTime,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
 
-          // Main 2-Unit Card Body
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: const BorderRadius.horizontal(right: Radius.circular(8.5)),
-                onTap: () => _openEditBlockModal(first, block.blockIndex),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: isSameCourse
-                      ? _buildUnifiedRectangleContent(isDark, first, isLab, block)
-                      : _buildSplitRectangleContent(isDark, first, second, block),
-                ),
+          // Horizontal Time Ruler Header
+          _buildHorizontalTimeRuler(isDark),
+          const SizedBox(height: 6),
+
+          // Horizontal Track of Blocks (Squares and Rectangles)
+          SizedBox(
+            height: 172,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: List.generate(_renderedBlocks.length, (idx) {
+                  final block = _renderedBlocks[idx];
+                  final isSelected = _selectedBlockIndex == idx;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedBlockIndex = idx);
+                        _openEditBlockModal(block.firstSlot, block.blockIndex);
+                      },
+                      child: block.isRectangle
+                          ? _buildHorizontalRectangleCard(isDark, block, isSelected)
+                          : _buildHorizontalSquareCard(isDark, block, isSelected),
+                    ),
+                  );
+                }),
               ),
             ),
           ),
+          const SizedBox(height: 20),
+
+          // Block Inspector Panel
+          if (_renderedBlocks.isNotEmpty) ...[
+            _buildBlockInspectorCard(
+              isDark,
+              _renderedBlocks[_selectedBlockIndex.clamp(0, _renderedBlocks.length - 1)],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildUnifiedRectangleContent(
-    bool isDark,
-    TimetableSlotModel slot,
-    bool isLab,
-    RenderedTimetableBlock block,
-  ) {
-    final typeBadge = isLab
-        ? AppColors.primaryBadge(isDark)
-        : AppColors.greenBadge(isDark);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: typeBadge.background,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: typeBadge.border, width: 1),
-              ),
-              child: Text(
-                isLab ? '2-HOUR LAB SESSION' : 'DOUBLE LECTURE BLOCK',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: typeBadge.text,
-                ),
-              ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'RECTANGLE',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Text(
-          slot.courseCode,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          slot.courseName,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const Spacer(),
-        const Divider(height: 16),
-        Row(
-          children: [
-            const AppSvgIcon(svgString: AppSvgIcon.user, size: 14),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                slot.instructorName.isNotEmpty ? slot.instructorName : 'Faculty Lead',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const AppSvgIcon(svgString: AppSvgIcon.mapPin, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              slot.roomNumber,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
-                color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSplitRectangleContent(
-    bool isDark,
-    TimetableSlotModel first,
-    TimetableSlotModel second,
-    RenderedTimetableBlock block,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.wineRed.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'CONSECUTIVE PERIODS',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.wineRed,
-                ),
-              ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'RECTANGLE',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        // Sub-block 1
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    first.courseCode,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: AppColors.wineRed.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      first.slotType.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.wineRed,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    first.roomNumber,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                first.courseName,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                first.instructorName,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Connecting Divider
-        Row(
-          children: [
-            Expanded(
-              child: Divider(
-                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                height: 1,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                'CONSECUTIVE OCCUPIED',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Divider(
-                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                height: 1,
-              ),
-            ),
-          ],
-        ),
-        // Sub-block 2
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    second.courseCode,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: AppColors.wineRed.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      second.slotType.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.wineRed,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    second.roomNumber,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                second.courseName,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                second.instructorName,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Builds a 1-unit SQUARE block (Standard 1-hour unit: standalone occupied, free, or off).
-  Widget _buildSquareBlock(bool isDark, RenderedTimetableBlock block) {
-    final slot = block.firstSlot;
-
-    if (slot.isFree) {
-      return _buildFreeSquareBlock(isDark, block);
-    } else if (slot.isOff) {
-      return _buildOffSquareBlock(isDark, block);
-    }
-    return _buildOccupiedSquareBlock(isDark, block);
-  }
-
-  Widget _buildOccupiedSquareBlock(bool isDark, RenderedTimetableBlock block) {
-    final slot = block.firstSlot;
-    final isLab = slot.slotType.toLowerCase() == 'lab';
-    final typeBadge = isLab
-        ? AppColors.primaryBadge(isDark)
-        : AppColors.greenBadge(isDark);
-
+  /// Builds a horizontal time ruler for row alignment.
+  Widget _buildHorizontalTimeRuler(bool isDark) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      height: 108, // Standard 1-unit height ("Square")
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(8),
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           width: 1,
         ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => _openEditBlockModal(slot, block.blockIndex),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // 1-Hour Time Box
-                Container(
-                  width: 72,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0D1117) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        block.startTime,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                        ),
-                      ),
-                      Text(
-                        block.endTime,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        block.periodLabel,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.wineRed,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Course Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            slot.courseCode,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: typeBadge.background,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: typeBadge.border, width: 1),
-                            ),
-                            child: Text(
-                              slot.slotType.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: typeBadge.text,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: const Text(
-                              'SQUARE',
-                              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        slot.courseName,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const AppSvgIcon(svgString: AppSvgIcon.user, size: 12),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              slot.instructorName.isNotEmpty ? slot.instructorName : 'Faculty',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const AppSvgIcon(svgString: AppSvgIcon.mapPin, size: 12),
-                          const SizedBox(width: 3),
-                          Text(
-                            slot.roomNumber,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'monospace',
-                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: const [
+          Text('09:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold)),
+          Text('10:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          Text('11:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          Text('12:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          Text('13:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          Text('14:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          Text('15:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          Text('16:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          Text('17:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
 
-  /// Distinct FREE PERIOD styling (Campus is open, self-study/recess, NOT OFF).
-  Widget _buildFreeSquareBlock(bool isDark, RenderedTimetableBlock block) {
+  /// Horizontal SQUARE card (1 Unit = 156 x 156 px).
+  Widget _buildHorizontalSquareCard(bool isDark, RenderedTimetableBlock block, bool isSelected) {
     final slot = block.firstSlot;
 
+    final borderColor = isSelected
+        ? AppColors.wineRed
+        : (slot.isFree
+            ? (isDark ? const Color(0xFF238636).withValues(alpha: 0.6) : const Color(0xFFA7F3D0))
+            : (slot.isOff
+                ? (isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1))
+                : (isDark ? AppColors.darkBorder : AppColors.lightBorder)));
+
+    final bgColor = slot.isFree
+        ? (isDark ? const Color(0xFF1B2E24).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
+        : (slot.isOff
+            ? (isDark ? const Color(0xFF161B22).withValues(alpha: 0.8) : const Color(0xFFF1F5F9))
+            : (isDark ? AppColors.darkSurface : AppColors.lightSurface));
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      height: 108,
+      width: 156, // 1 Unit wide
+      height: 156, // 1 Unit high -> Literally a SQUARE!
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1B2E24).withValues(alpha: 0.35)
-            : const Color(0xFFECFDF5),
+        color: bgColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDark
-              ? const Color(0xFF238636).withValues(alpha: 0.6)
-              : const Color(0xFFA7F3D0),
-          width: 1.2,
+          color: borderColor,
+          width: isSelected ? 2.0 : 1.2,
         ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => _openEditBlockModal(slot, block.blockIndex),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // Time box with emerald accent
-                Container(
-                  width: 72,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF0F2017)
-                        : const Color(0xFFD1FAE5),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isDark
-                          ? const Color(0xFF238636).withValues(alpha: 0.4)
-                          : const Color(0xFF6EE7B7),
-                      width: 1,
-                    ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Time Header + Period
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${block.startTime} - ${block.endTime}',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        block.startTime,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          color: isDark ? const Color(0xFF7EE787) : const Color(0xFF065F46),
-                        ),
-                      ),
-                      Text(
-                        block.endTime,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          color: isDark ? const Color(0xFF7EE787).withValues(alpha: 0.7) : const Color(0xFF047857),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        block.periodLabel,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? const Color(0xFF7EE787) : const Color(0xFF065F46),
-                        ),
-                      ),
-                    ],
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  block.periodLabel,
+                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // Status Badge
+          if (slot.isFree) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF238636) : const Color(0xFF10B981),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: const Text(
+                'FREE PERIOD',
+                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              slot.courseName.isNotEmpty ? slot.courseName : 'Self-Study & Open Library',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                const AppSvgIcon(svgString: AppSvgIcon.book, size: 11),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    slot.roomNumber.isNotEmpty ? slot.roomNumber : 'Library',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isDark ? const Color(0xFF7EE787) : const Color(0xFF047857),
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 12),
-
-                // Free Period Details
+                const Text('SQUARE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ] else if (slot.isOff) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF484F58) : const Color(0xFF64748B),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: const Text(
+                'DECLARED OFF',
+                style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              slot.courseName.isNotEmpty ? slot.courseName : 'Campus Concluded',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                const AppSvgIcon(svgString: AppSvgIcon.clock, size: 11),
+                const SizedBox(width: 4),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF238636) : const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'FREE PERIOD',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            slot.courseName.isNotEmpty ? slot.courseName : 'Self-Study & Research',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: const Text(
-                              'SQUARE',
-                              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Active academic hours - open for library, recess, or faculty sync',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? const Color(0xFF7EE787) : const Color(0xFF047857),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const AppSvgIcon(svgString: AppSvgIcon.book, size: 12),
-                          const SizedBox(width: 4),
-                          Text(
-                            slot.roomNumber.isNotEmpty ? slot.roomNumber : 'Open Campus / Library',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  child: Text(
+                    'No Class',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Text('SQUARE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    slot.courseCode,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: AppColors.wineRed.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    slot.slotType.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.wineRed,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ),
+            const SizedBox(height: 4),
+            Text(
+              slot.courseName,
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                const AppSvgIcon(svgString: AppSvgIcon.mapPin, size: 11),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(
+                    slot.roomNumber,
+                    style: const TextStyle(fontSize: 10, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Text('SQUARE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
 
-  /// Distinct DECLARED OFF styling (Session dismissed / cancelled / closed, NOT FREE).
-  Widget _buildOffSquareBlock(bool isDark, RenderedTimetableBlock block) {
+  /// Horizontal RECTANGLE card (2 Consecutive Units = 324 x 156 px).
+  Widget _buildHorizontalRectangleCard(bool isDark, RenderedTimetableBlock block, bool isSelected) {
+    final first = block.firstSlot;
+    final second = block.secondSlot!;
+    final isSameCourse = first.courseCode == second.courseCode && first.courseCode.isNotEmpty;
+
+    return Container(
+      width: 324, // Exactly 2 units wide (2 x 156 + 12 = 324) -> Literally a RECTANGLE!
+      height: 156,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161B22) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isSelected ? AppColors.wineRed : AppColors.wineRed.withValues(alpha: 0.6),
+          width: isSelected ? 2.0 : 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top Rectangle Ribbon
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: AppColors.wineRed.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'CONSECUTIVE PERIODS',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.wineRed,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '${block.startTime} - ${block.endTime}',
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Text(
+                  'RECTANGLE',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          if (isSameCourse) ...[
+            Row(
+              children: [
+                Text(
+                  first.courseCode,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.wineRed,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    first.slotType.toLowerCase() == 'lab' ? '2-HR LAB PRACTICAL' : 'DOUBLE LECTURE',
+                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              first.courseName,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                const AppSvgIcon(svgString: AppSvgIcon.user, size: 12),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    first.instructorName.isNotEmpty ? first.instructorName : 'Faculty Lead',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const AppSvgIcon(svgString: AppSvgIcon.mapPin, size: 12),
+                const SizedBox(width: 4),
+                Text(
+                  first.roomNumber,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            // Side-by-side sub-blocks in horizontal rectangle
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          first.courseCode,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          first.courseName,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          first.roomNumber,
+                          style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  VerticalDivider(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    width: 16,
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          second.courseCode,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          second.courseName,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          second.roomNumber,
+                          style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Detailed Inspection Card below the horizontal track.
+  Widget _buildBlockInspectorCard(bool isDark, RenderedTimetableBlock block) {
     final slot = block.firstSlot;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      height: 108,
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1E2229).withValues(alpha: 0.6)
-            : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(8),
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           width: 1,
         ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => _openEditBlockModal(slot, block.blockIndex),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // Time box with neutral muted styling
-                Container(
-                  width: 72,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF161B22) : const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isDark ? const Color(0xFF30363D) : const Color(0xFFCBD5E1),
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        block.startTime,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                        ),
-                      ),
-                      Text(
-                        block.endTime,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        block.periodLabel,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Declared Off Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF484F58) : const Color(0xFF64748B),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'DECLARED OFF',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            slot.courseName.isNotEmpty ? slot.courseName : 'No Class / Dismissed',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: const Text(
-                              'SQUARE',
-                              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'No academic operations scheduled - campus day concluded or session off',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const AppSvgIcon(svgString: AppSvgIcon.clock, size: 12),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Dismissed / Day Concluded',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Full Weekly Matrix View (Mon-Sat x 8 Hours = 48 Cells with merged rectangles)
-  Widget _buildWeekMatrixView(bool isDark) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        width: 840,
-        child: SingleChildScrollView(
-          child: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              // Matrix Header (Days)
               Container(
-                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                      width: 1,
-                    ),
-                  ),
+                  color: block.isRectangle
+                      ? AppColors.wineRed.withValues(alpha: 0.15)
+                      : (slot.isFree
+                          ? const Color(0xFF238636).withValues(alpha: 0.15)
+                          : (slot.isOff
+                              ? const Color(0xFF64748B).withValues(alpha: 0.15)
+                              : AppColors.wineRed.withValues(alpha: 0.15))),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 90,
-                      alignment: Alignment.center,
-                      child: Text(
-                        'TIME',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                        ),
-                      ),
-                    ),
-                    ...List.generate(_days.length, (idx) {
-                      return Expanded(
-                        child: Center(
-                          child: Text(
-                            _days[idx],
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
+                child: Text(
+                  block.isRectangle ? '2-HOUR EXTENDED RECTANGLE' : '1-HOUR SQUARE UNIT',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: block.isRectangle
+                        ? AppColors.wineRed
+                        : (slot.isFree
+                            ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
+                            : (slot.isOff
+                                ? (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)
+                                : AppColors.wineRed)),
+                  ),
                 ),
               ),
-
-              // Matrix Rows (8 1-Hour Blocks)
-              ...List.generate(8, (hourIdx) {
-                final def = CanonicalScheduleDef.blocks[hourIdx];
-                return Container(
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: hourIdx.isEven
-                        ? (isDark ? const Color(0xFF0D1117) : const Color(0xFFFAFAFA))
-                        : (isDark ? const Color(0xFF161B22) : Colors.white),
-                    border: Border(
-                      bottom: BorderSide(
-                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Time Label
-                      Container(
-                        width: 90,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          border: Border(
-                            right: BorderSide(
-                              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              def['start']!,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              def['end']!,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontFamily: 'monospace',
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Day Cells
-                      ...List.generate(_days.length, (dayIdx) {
-                        final dayNum = dayIdx + 1;
-                        final slot = _allSlots.firstWhere(
-                          (s) => s.dayOfWeek == dayNum && s.startTime == def['start'],
-                          orElse: () => TimetableSlotModel(
-                            id: 'temp-$dayNum-$hourIdx',
-                            courseId: '',
-                            courseCode: 'FREE',
-                            courseName: 'Free',
-                            scopeCode: widget.activeScope,
-                            instructorName: '',
-                            dayOfWeek: dayNum,
-                            startTime: def['start']!,
-                            endTime: def['end']!,
-                            roomNumber: '-',
-                            slotType: 'free',
-                          ),
-                        );
-
-                        return Expanded(
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: slot.isOccupied
-                                  ? AppColors.wineRed.withValues(alpha: isDark ? 0.25 : 0.1)
-                                  : (slot.isFree
-                                      ? (isDark
-                                          ? const Color(0xFF238636).withValues(alpha: 0.2)
-                                          : const Color(0xFFD1FAE5))
-                                      : (isDark
-                                          ? const Color(0xFF30363D).withValues(alpha: 0.3)
-                                          : const Color(0xFFE2E8F0))),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: slot.isOccupied
-                                    ? AppColors.wineRed.withValues(alpha: 0.4)
-                                    : (slot.isFree
-                                        ? const Color(0xFF238636).withValues(alpha: 0.4)
-                                        : Colors.transparent),
-                                width: 1,
-                              ),
-                            ),
-                            child: InkWell(
-                              onTap: () => _openEditBlockModal(slot, hourIdx),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    slot.isOccupied
-                                        ? slot.courseCode
-                                        : (slot.isFree ? 'FREE' : 'OFF'),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: slot.isOccupied
-                                          ? AppColors.wineRed
-                                          : (slot.isFree
-                                              ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
-                                              : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (slot.isOccupied)
-                                    Text(
-                                      slot.roomNumber,
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontFamily: 'monospace',
-                                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                );
-              }),
+              const SizedBox(width: 8),
+              Text(
+                '${block.startTime} - ${block.endTime} (${block.periodLabel})',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.edit, size: 13),
+                label: const Text('Edit Block', style: TextStyle(fontSize: 11)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () => _openEditBlockModal(slot, block.blockIndex),
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          Text(
+            slot.isOccupied
+                ? '${slot.courseCode} — ${slot.courseName}'
+                : (slot.isFree ? 'Free Academic Period' : 'Declared Off Period'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            slot.isOccupied
+                ? 'Instructor: ${slot.instructorName.isNotEmpty ? slot.instructorName : "Faculty"} • Room: ${slot.roomNumber} • Type: ${slot.slotType.toUpperCase()}'
+                : (slot.isFree
+                    ? 'Active campus hours. Open for library access, faculty consultation, or recess. Not an off day.'
+                    : 'Schedule is officially dismissed or cancelled. No academic operations scheduled.'),
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSkeletonList(bool isDark) {
+  /// View Mode: ALL DAYS ROWS (Every day from Mon to Sat is a horizontal row).
+  Widget _buildWeekRowsView(bool isDark) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: 4,
-      itemBuilder: (context, index) {
+      itemCount: _days.length,
+      itemBuilder: (context, dayIdx) {
+        final dayNum = dayIdx + 1;
+        final dayCanonical = _computeCanonicalDaySlotsForDay(dayNum);
+        final dayBlocks = _computeGroupedBlocks(dayCanonical);
+        final isDayOff = _isDayDeclaredOff(dayNum);
+
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               width: 1,
             ),
           ),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppSkeleton(width: 72, height: 60, borderRadius: 6),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    AppSkeleton(width: 80, height: 16, borderRadius: 4),
-                    SizedBox(height: 8),
-                    AppSkeleton(width: 180, height: 13, borderRadius: 4),
-                    SizedBox(height: 12),
-                    AppSkeleton(width: 120, height: 12, borderRadius: 4),
-                  ],
+              // Day Row Header
+              Row(
+                children: [
+                  Text(
+                    _days[dayIdx],
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  if (isDayOff)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF484F58) : const Color(0xFF64748B),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'DECLARED OFF',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
+                  const Spacer(),
+                  TextButton.icon(
+                    icon: Icon(
+                      isDayOff ? Icons.restart_alt : Icons.event_busy,
+                      size: 13,
+                      color: isDayOff ? const Color(0xFF238636) : AppColors.wineRed,
+                    ),
+                    label: Text(
+                      isDayOff ? 'Restore' : 'Declare Off',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDayOff ? const Color(0xFF238636) : AppColors.wineRed,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      if (isDayOff) {
+                        _restoreDaySchedule(dayNum);
+                      } else {
+                        _showDeclareDayOffDialog(dayNum);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // The Day's Horizontal Row of Blocks
+              SizedBox(
+                height: 120,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: List.generate(dayBlocks.length, (bIdx) {
+                      final block = dayBlocks[bIdx];
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedDay = dayNum;
+                              _recomputeDaySchedule();
+                              _selectedBlockIndex = bIdx;
+                              _viewMode = TimetableViewMode.dayRow;
+                            });
+                          },
+                          child: block.isRectangle
+                              ? _buildCompactRectangleCard(isDark, block)
+                              : _buildCompactSquareCard(isDark, block),
+                        ),
+                      );
+                    }),
+                  ),
                 ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCompactSquareCard(bool isDark, RenderedTimetableBlock block) {
+    final slot = block.firstSlot;
+    final bgColor = slot.isFree
+        ? (isDark ? const Color(0xFF1B2E24).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
+        : (slot.isOff
+            ? (isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9))
+            : (isDark ? const Color(0xFF21262D) : Colors.white));
+
+    return Container(
+      width: 112,
+      height: 112,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: slot.isOccupied
+              ? AppColors.wineRed.withValues(alpha: 0.4)
+              : (slot.isFree
+                  ? const Color(0xFF238636).withValues(alpha: 0.4)
+                  : (isDark ? AppColors.darkBorder : AppColors.lightBorder)),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            block.startTime,
+            style: const TextStyle(fontSize: 9, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+          ),
+          const Spacer(),
+          Text(
+            slot.isOccupied
+                ? slot.courseCode
+                : (slot.isFree ? 'FREE' : 'OFF'),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: slot.isOccupied
+                  ? AppColors.wineRed
+                  : (slot.isFree
+                      ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
+                      : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)),
+            ),
+          ),
+          if (slot.isOccupied)
+            Text(
+              slot.roomNumber,
+              style: const TextStyle(fontSize: 9, fontFamily: 'monospace'),
+            ),
+          const Spacer(),
+          const Text('SQUARE', style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactRectangleCard(bool isDark, RenderedTimetableBlock block) {
+    final first = block.firstSlot;
+
+    return Container(
+      width: 232, // Double unit span
+      height: 112,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF21262D) : Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: AppColors.wineRed.withValues(alpha: 0.6),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '${block.startTime} - ${block.endTime}',
+                style: const TextStyle(fontSize: 9, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              const Text('RECTANGLE', style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: AppColors.wineRed)),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            first.courseCode,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.wineRed),
+          ),
+          Text(
+            first.courseName,
+            style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Text(
+            first.roomNumber,
+            style: const TextStyle(fontSize: 9, fontFamily: 'monospace'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkeletonRow(bool isDark) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: List.generate(4, (i) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: AppSkeleton(width: i == 0 ? 300 : 150, height: 160, borderRadius: 8),
+          );
+        }),
+      ),
     );
   }
 }
@@ -1984,11 +1917,13 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
 class _DaySelectorPill extends StatefulWidget {
   final String label;
   final bool isSelected;
+  final bool isOff;
   final VoidCallback onTap;
 
   const _DaySelectorPill({
     required this.label,
     required this.isSelected,
+    this.isOff = false,
     required this.onTap,
   });
 
@@ -2013,13 +1948,17 @@ class _DaySelectorPillState extends State<_DaySelectorPill> {
         ? AppColors.wineRed
         : (_isHovered
             ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
-            : (isDark ? AppColors.darkBorder : AppColors.lightBorder));
+            : (widget.isOff
+                ? (isDark ? const Color(0xFF484F58) : const Color(0xFF94A3B8))
+                : (isDark ? AppColors.darkBorder : AppColors.lightBorder)));
 
     final textColor = widget.isSelected
         ? Colors.white
         : (_isHovered
             ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
-            : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary));
+            : (widget.isOff
+                ? (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)
+                : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)));
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -2038,13 +1977,29 @@ class _DaySelectorPillState extends State<_DaySelectorPill> {
               width: 1,
             ),
           ),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: textColor,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              if (widget.isOff) ...[
+                const SizedBox(width: 3),
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF64748B),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
