@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../models/academic.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 
 class NoticesScreen extends StatefulWidget {
@@ -65,9 +64,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
       body: Column(
         children: [
           // Filter Chips
-          AnimatedContainer(
-            duration: AppTheme.themeAnimationDuration,
-            curve: AppTheme.themeAnimationCurve,
+          Container(
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
@@ -134,9 +131,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                                   : AppColors.neutralBadge(isDark));
                           final scopeBadge = AppColors.neutralBadge(isDark);
 
-                          return AnimatedContainer(
-                            duration: AppTheme.themeAnimationDuration,
-                            curve: AppTheme.themeAnimationCurve,
+                          return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -154,9 +149,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    AnimatedContainer(
-                                      duration: AppTheme.themeAnimationDuration,
-                                      curve: AppTheme.themeAnimationCurve,
+                                    Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: priorityBadge.background,
@@ -176,9 +169,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    AnimatedContainer(
-                                      duration: AppTheme.themeAnimationDuration,
-                                      curve: AppTheme.themeAnimationCurve,
+                                    Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: scopeBadge.background,
@@ -284,8 +275,8 @@ class _CategoryFilterPillState extends State<_CategoryFilterPill> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: AppTheme.themeAnimationDuration,
-          curve: AppTheme.themeAnimationCurve,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           alignment: Alignment.center,

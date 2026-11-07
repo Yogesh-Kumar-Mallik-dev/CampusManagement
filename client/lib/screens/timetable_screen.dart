@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/academic.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 
 class TimetableScreen extends StatefulWidget {
@@ -61,9 +60,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       body: Column(
         children: [
           // Fixed-slot Day Selector Bar (Pre-allocated geometry eliminates layout shifts)
-          AnimatedContainer(
-            duration: AppTheme.themeAnimationDuration,
-            curve: AppTheme.themeAnimationCurve,
+          Container(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -128,9 +125,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               : AppColors.greenBadge(isDark);
                           final timeBadge = AppColors.neutralBadge(isDark);
 
-                          return AnimatedContainer(
-                            duration: AppTheme.themeAnimationDuration,
-                            curve: AppTheme.themeAnimationCurve,
+                          return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -145,9 +140,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Time Column
-                                AnimatedContainer(
-                                  duration: AppTheme.themeAnimationDuration,
-                                  curve: AppTheme.themeAnimationCurve,
+                                Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   decoration: BoxDecoration(
                                     color: timeBadge.background,
@@ -195,9 +188,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                             ),
                                           ),
                                           const SizedBox(width: 8),
-                                          AnimatedContainer(
-                                            duration: AppTheme.themeAnimationDuration,
-                                            curve: AppTheme.themeAnimationCurve,
+                                          Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
                                               color: typeBadge.background,
@@ -322,8 +313,8 @@ class _DaySelectorPillState extends State<_DaySelectorPill> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: AppTheme.themeAnimationDuration,
-          curve: AppTheme.themeAnimationCurve,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
           height: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(

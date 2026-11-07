@@ -39,14 +39,38 @@ class OfflineStorageService {
 
   UserModel? _currentUser;
   bool isOnline = false;
+  DateTime? _lastHealthCheckTime;
+  bool _isCheckingHealth = false;
 
   OfflineStorageService({required this.api});
 
   UserModel? get currentUser => _currentUser;
 
+  Future<bool> checkConnectivity({bool force = false}) async {
+    final now = DateTime.now();
+    if (!force &&
+        _lastHealthCheckTime != null &&
+        now.difference(_lastHealthCheckTime!) < const Duration(seconds: 8)) {
+      return isOnline;
+    }
+    if (_isCheckingHealth) {
+      return isOnline;
+    }
+    _isCheckingHealth = true;
+    try {
+      await checkConnectivity();
+      _lastHealthCheckTime = DateTime.now();
+    } catch (_) {
+      isOnline = false;
+    } finally {
+      _isCheckingHealth = false;
+    }
+    return isOnline;
+  }
+
   Future<UserModel> authenticate(String identifier, String password) async {
     try {
-      isOnline = await api.checkHealth();
+      await checkConnectivity(force: true);
       if (isOnline) {
         final user = await api.login(identifier, password);
         _currentUser = user;
@@ -267,7 +291,7 @@ class OfflineStorageService {
     bool forceRefresh = false,
   }) async {
     _seedDefaultUsersIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final users = await api.fetchUsers(
@@ -308,7 +332,7 @@ class OfflineStorageService {
 
   Future<UserModel> getUserProfile(String idOrHandle) async {
     _seedDefaultUsersIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final profile = await api.fetchUserProfile(idOrHandle);
@@ -339,7 +363,7 @@ class OfflineStorageService {
 
   Future<UserModel> createStudent(Map<String, dynamic> req) async {
     _seedDefaultUsersIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final user = await api.createStudent(req);
@@ -381,7 +405,7 @@ class OfflineStorageService {
 
   Future<UserModel> createEmployee(Map<String, dynamic> req) async {
     _seedDefaultUsersIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final user = await api.createEmployee(req);
@@ -433,7 +457,7 @@ class OfflineStorageService {
 
   Future<UserModel> createContractor(Map<String, dynamic> req) async {
     _seedDefaultUsersIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final user = await api.createContractor(req);
@@ -486,7 +510,7 @@ class OfflineStorageService {
     required String discontinuedBy,
   }) async {
     _seedDefaultUsersIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final updated = await api.discontinueUser(
@@ -522,7 +546,7 @@ class OfflineStorageService {
 
   Future<UserModel> reactivateUser(String userId) async {
     _seedDefaultUsersIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final updated = await api.reactivateUser(userId);
@@ -554,7 +578,7 @@ class OfflineStorageService {
 
   // Check connectivity and sync outbox
   Future<void> refreshConnectivityAndSync(String userId) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity(force: true);
     if (isOnline && _attendanceOutbox.isNotEmpty) {
       await flushOutbox(userId);
     }
@@ -580,7 +604,7 @@ class OfflineStorageService {
 
   // Load and cache fresh timetable from network (or keep cached if offline)
   Future<List<TimetableSlotModel>> getTimetable(String scope) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final slots = await api.fetchTimetable(scope);
@@ -595,7 +619,7 @@ class OfflineStorageService {
 
   // Load and cache notices
   Future<List<NoticeModel>> getNotices(List<String> scopes) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final notices = await api.fetchNotices(scopes);
@@ -611,7 +635,7 @@ class OfflineStorageService {
   // Load and cache student attendance summary
   Future<List<AttendanceSummaryModel>> getAttendanceSummary(
       String studentId) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final summaries = await api.fetchAttendanceSummary(studentId);
@@ -688,7 +712,7 @@ class OfflineStorageService {
     required String markedByName,
     int refreshIntervalMs = 1500,
   }) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final sess = await api.startOpticalSession({
@@ -738,7 +762,7 @@ class OfflineStorageService {
     required OpticalFramePacket packet,
     required UserModel student,
   }) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final res = await api.verifyOpticalAttendance({
@@ -833,7 +857,7 @@ class OfflineStorageService {
   }
 
   Future<List<AttendanceRecordModel>> getOpticalRoster(String sessionId) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final list = await api.fetchOpticalSessionRoster(sessionId);
@@ -847,7 +871,7 @@ class OfflineStorageService {
   }
 
   Future<void> endOpticalSession(String sessionId) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         await api.endOpticalSession(sessionId);
@@ -1179,7 +1203,7 @@ class OfflineStorageService {
 
   Future<List<DepartmentModel>> getDepartments({bool forceRefresh = false}) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline && (forceRefresh || _cachedDepartments.isEmpty)) {
       try {
         final list = await api.fetchDepartments();
@@ -1193,7 +1217,7 @@ class OfflineStorageService {
   }
 
   Future<DepartmentModel> addDepartment(Map<String, dynamic> payload) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final created = await api.createDepartment(payload);
@@ -1240,7 +1264,7 @@ class OfflineStorageService {
 
   Future<DepartmentDetailModel> getDepartmentDetail(String id) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         return await api.fetchDepartmentDetail(id);
@@ -1266,7 +1290,7 @@ class OfflineStorageService {
 
   Future<List<ProgramModel>> getPrograms() async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final list = await api.fetchPrograms();
@@ -1281,7 +1305,7 @@ class OfflineStorageService {
 
   Future<List<SubjectModel>> getSubjects() async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final list = await api.fetchSubjects();
@@ -1296,7 +1320,7 @@ class OfflineStorageService {
 
   Future<SubjectModel> createSubject(Map<String, dynamic> payload) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final created = await api.createSubject(payload);
@@ -1345,7 +1369,7 @@ class OfflineStorageService {
 
   Future<List<SyllabusVersionModel>> getSubjectSyllabusAudit(String subjectId) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final list = await api.fetchSyllabusAudit(subjectId);
@@ -1358,7 +1382,7 @@ class OfflineStorageService {
 
   Future<SyllabusVersionModel> reviseSubjectSyllabus(Map<String, dynamic> payload) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final revised = await api.reviseSyllabus(payload);
@@ -1441,7 +1465,7 @@ class OfflineStorageService {
 
   Future<List<SemesterModel>> getSemesters() async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final list = await api.fetchSemesters();
@@ -1456,7 +1480,7 @@ class OfflineStorageService {
 
   Future<SemesterDetailModel> getSemesterDetail(String id) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         return await api.fetchSemesterDetail(id);
@@ -1490,7 +1514,7 @@ class OfflineStorageService {
 
   Future<List<SectionModel>> getSections({bool forceRefresh = false}) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline && (forceRefresh || _cachedSections.isEmpty)) {
       try {
         final list = await api.fetchSections();
@@ -1504,7 +1528,7 @@ class OfflineStorageService {
   }
 
   Future<SectionModel> addSection(Map<String, dynamic> payload) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final created = await api.createSection(payload);
@@ -1552,7 +1576,7 @@ class OfflineStorageService {
 
   Future<SectionDetailModel> getSectionDetail(String id) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         return await api.fetchSectionDetail(id);
@@ -1615,7 +1639,7 @@ class OfflineStorageService {
     required String sectionId,
     required String programId,
   }) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         await api.assignStudentToSection(
@@ -1633,7 +1657,7 @@ class OfflineStorageService {
     required String studentId,
     required String targetSectionId,
   }) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         await api.transferStudentSection(
@@ -1689,7 +1713,7 @@ class OfflineStorageService {
     required String sourceSectionId,
     required String targetSectionId,
   }) async {
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         return await api.mergeSectionCohorts(
@@ -1752,7 +1776,7 @@ class OfflineStorageService {
 
   Future<List<LabBatchModel>> getSectionBatches(String sectionId) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final list = await api.fetchSectionBatches(sectionId);
@@ -1765,7 +1789,7 @@ class OfflineStorageService {
 
   Future<LabBatchModel> createLabBatch(Map<String, dynamic> payload) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final created = await api.createLabBatch(payload);
@@ -1804,7 +1828,7 @@ class OfflineStorageService {
 
   Future<List<LabBatchModel>> autoPartitionBatches(Map<String, dynamic> payload) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final list = await api.autoPartitionBatches(payload);
@@ -1855,7 +1879,7 @@ class OfflineStorageService {
 
   Future<void> assignStudentBatch({required String batchId, required String studentId}) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         await api.assignStudentBatch(batchId: batchId, studentId: studentId);
@@ -1897,7 +1921,7 @@ class OfflineStorageService {
 
   Future<List<FacultyAllocationModel>> getSectionFacultyAllocations(String sectionId) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final list = await api.fetchFacultyAllocations(sectionId);
@@ -1910,7 +1934,7 @@ class OfflineStorageService {
 
   Future<FacultyAllocationModel> assignFacultyAllocation(Map<String, dynamic> payload) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         final created = await api.assignFacultyAllocation(payload);
@@ -1966,7 +1990,7 @@ class OfflineStorageService {
 
   Future<void> removeFacultyAllocation(String allocationId, String sectionId) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         await api.removeFacultyAllocation(allocationId);
@@ -1980,7 +2004,7 @@ class OfflineStorageService {
 
   Future<List<FacultyWorkloadSummaryModel>> getFacultyWorkloadSummaries({String? teacherId}) async {
     _seedDefaultAcademicHierarchyIfEmpty();
-    isOnline = await api.checkHealth();
+    await checkConnectivity();
     if (isOnline) {
       try {
         return await api.fetchFacultyWorkload(teacherId: teacherId);

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_dropdown.dart';
 import 'user_profile_screen.dart';
@@ -357,8 +356,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               onTap: () => _onFilterChanged(f.$1),
               borderRadius: BorderRadius.circular(6),
               child: AnimatedContainer(
-                duration: AppTheme.themeAnimationDuration,
-                curve: AppTheme.themeAnimationCurve,
+                duration: const Duration(milliseconds: 120),
+                curve: Curves.easeOut,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
@@ -513,8 +512,8 @@ class _UserDirectoryCardState extends State<_UserDirectoryCard> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: AppTheme.themeAnimationDuration,
-          curve: AppTheme.themeAnimationCurve,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: bgColor,

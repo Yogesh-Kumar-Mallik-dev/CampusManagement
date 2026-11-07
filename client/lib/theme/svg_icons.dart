@@ -24,6 +24,33 @@ class AppSvgIcon extends StatelessWidget {
     );
   }
 
+  /// Pre-warms the core application vector SVG strings in the flutter_svg cache
+  /// so that first-time navigation, sidebar hover, and icon rendering is instant.
+  static void prewarmCoreIcons() {
+    const coreIcons = [
+      dashboard,
+      calendar,
+      attendance,
+      bell,
+      user,
+      building,
+      cloudCheck,
+      cloudOff,
+      chevronDown,
+      qrCode,
+      shield,
+      academicCap,
+      book,
+      chartBar,
+      flame,
+      search,
+    ];
+    for (final iconStr in coreIcons) {
+      final loader = SvgStringLoader(iconStr);
+      svg.cache.putIfAbsent(loader.cacheKey(null), () => loader.loadBytes(null));
+    }
+  }
+
   // Modern Vector SVG Icons (Zero Emoji Policy)
   static const String academicCap = '''
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

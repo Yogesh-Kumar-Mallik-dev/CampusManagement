@@ -45,7 +45,7 @@ class ApiService {
     try {
       final res = await http
           .get(Uri.parse('$baseUrl/api/health'))
-          .timeout(const Duration(seconds: 2));
+          .timeout(const Duration(milliseconds: 400));
       return res.statusCode == 200;
     } catch (_) {
       return false;

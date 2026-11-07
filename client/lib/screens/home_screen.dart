@@ -31,9 +31,63 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  final Set<int> _loadedTabs = {0};
 
   late List<UserModel> _personas;
   late UserModel _currentUser;
+
+  void _onDestinationSelected(int index) {
+    if (_currentIndex == index) return;
+    setState(() {
+      _currentIndex = index;
+      _loadedTabs.add(index);
+    });
+  }
+
+  Widget _buildTab(int index) {
+    if (index == _currentIndex) {
+      _loadedTabs.add(index);
+    }
+    if (!_loadedTabs.contains(index)) {
+      return const SizedBox.shrink();
+    }
+    switch (index) {
+      case 0:
+        return _buildDashboardView();
+      case 1:
+        return TimetableScreen(
+          key: ValueKey('tab-timetable-${_currentUser.id}'),
+          storage: widget.storage,
+          activeScope: _currentUser.activeScopes.contains('sec:cse-3a') ? 'sec:cse-3a' : 'global',
+        );
+      case 2:
+        return AttendanceScreen(
+          key: ValueKey('tab-attendance-${_currentUser.id}'),
+          storage: widget.storage,
+          currentUser: _currentUser,
+        );
+      case 3:
+        return NoticesScreen(
+          key: ValueKey('tab-notices-${_currentUser.id}'),
+          storage: widget.storage,
+          userScopes: _currentUser.activeScopes,
+        );
+      case 4:
+        return UserManagementScreen(
+          key: ValueKey('tab-users-${_currentUser.id}'),
+          storage: widget.storage,
+          currentUser: _currentUser,
+        );
+      case 5:
+        return DepartmentManagementScreen(
+          key: ValueKey('tab-depts-${_currentUser.id}'),
+          storage: widget.storage,
+          currentUser: _currentUser,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 
   @override
   void initState() {
@@ -85,29 +139,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDesktopOrWeb = MediaQuery.of(context).size.width >= 800;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final pages = [
-      _buildDashboardView(),
-      TimetableScreen(
-        storage: widget.storage,
-        activeScope: _currentUser.activeScopes.contains('sec:cse-3a') ? 'sec:cse-3a' : 'global',
-      ),
-      AttendanceScreen(
-        storage: widget.storage,
-        currentUser: _currentUser,
-      ),
-      NoticesScreen(
-        storage: widget.storage,
-        userScopes: _currentUser.activeScopes,
-      ),
-      UserManagementScreen(
-        storage: widget.storage,
-        currentUser: _currentUser,
-      ),
-      DepartmentManagementScreen(
-        storage: widget.storage,
-        currentUser: _currentUser,
-      ),
-    ];
+    final tabStack = IndexedStack(
+      index: _currentIndex,
+      children: List.generate(6, _buildTab),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -193,7 +228,11 @@ class _HomeScreenState extends State<HomeScreen> {
             color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
             constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
             onSelected: (UserModel newUser) {
-              setState(() => _currentUser = newUser);
+              setState(() {
+                _currentUser = newUser;
+                _loadedTabs.clear();
+                _loadedTabs.add(_currentIndex);
+              });
               _checkServer();
             },
             itemBuilder: (BuildContext context) {
@@ -354,17 +393,17 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _CampusSidebar(
                   selectedIndex: _currentIndex,
-                  onDestinationSelected: (i) => setState(() => _currentIndex = i),
+                  onDestinationSelected: _onDestinationSelected,
                 ),
-                Expanded(child: pages[_currentIndex]),
+                Expanded(child: tabStack),
               ],
             )
-          : pages[_currentIndex],
+          : tabStack,
       bottomNavigationBar: isDesktopOrWeb
           ? null
           : BottomNavigationBar(
               currentIndex: _currentIndex,
-              onTap: (i) => setState(() => _currentIndex = i),
+              onTap: _onDestinationSelected,
               type: BottomNavigationBarType.fixed,
               items: [
                 BottomNavigationBarItem(
@@ -429,9 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Enterprise User Identity Strip
-          AnimatedContainer(
-            duration: AppTheme.themeAnimationDuration,
-            curve: AppTheme.themeAnimationCurve,
+          Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -477,9 +514,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               final roleBadge = _currentUser.archetype == 'student'
                                   ? AppColors.primaryBadge(isDark)
                                   : AppColors.greenBadge(isDark);
-                              return AnimatedContainer(
-                                duration: AppTheme.themeAnimationDuration,
-                                curve: AppTheme.themeAnimationCurve,
+                              return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: roleBadge.background,
@@ -517,9 +552,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         runSpacing: 4,
                         children: _currentUser.activeScopes.map((scope) {
                           final scopeBadge = AppColors.neutralBadge(isDark);
-                          return AnimatedContainer(
-                            duration: AppTheme.themeAnimationDuration,
-                            curve: AppTheme.themeAnimationCurve,
+                          return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: scopeBadge.background,
@@ -606,35 +639,35 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: 'Daily schedule, lecture slots, and labs',
                   iconSvg: AppSvgIcon.calendar,
                   color: AppColors.wineRed,
-                  onTap: () => setState(() => _currentIndex = 1),
+                  onTap: () => _onDestinationSelected(1),
                 ),
                 _buildOperationCard(
                   title: 'Attendance Ledger',
                   subtitle: 'Offline outbox with idempotent sync',
                   iconSvg: AppSvgIcon.attendance,
                   color: AppColors.githubGreen,
-                  onTap: () => setState(() => _currentIndex = 2),
+                  onTap: () => _onDestinationSelected(2),
                 ),
                 _buildOperationCard(
                   title: 'Targeted Notices',
                   subtitle: 'Scoped department announcements',
                   iconSvg: AppSvgIcon.bell,
                   color: AppColors.statusYellow,
-                  onTap: () => setState(() => _currentIndex = 3),
+                  onTap: () => _onDestinationSelected(3),
                 ),
                 _buildOperationCard(
                   title: 'Directory & Identities',
                   subtitle: 'Onboarding & lifecycle exit control',
                   iconSvg: AppSvgIcon.user,
                   color: AppColors.wineRed,
-                  onTap: () => setState(() => _currentIndex = 4),
+                  onTap: () => _onDestinationSelected(4),
                 ),
                 _buildOperationCard(
                   title: 'Departments & Academics',
                   subtitle: 'M:N subjects, teachers, and semesters',
                   iconSvg: AppSvgIcon.building,
                   color: const Color(0xFF0969DA),
-                  onTap: () => setState(() => _currentIndex = 5),
+                  onTap: () => _onDestinationSelected(5),
                 ),
               ];
 
@@ -665,9 +698,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 24),
 
           // Institutional System Specs
-          AnimatedContainer(
-            duration: AppTheme.themeAnimationDuration,
-            curve: AppTheme.themeAnimationCurve,
+          Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
@@ -830,8 +861,8 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
             children: [
               // Pill overlay container with rigidly fixed dimensions: 54px x 32px
               AnimatedContainer(
-                duration: AppTheme.themeAnimationDuration,
-                curve: AppTheme.themeAnimationCurve,
+                duration: const Duration(milliseconds: 120),
+                curve: Curves.easeOut,
                 width: 54,
                 height: 32,
                 alignment: Alignment.center,
@@ -926,8 +957,8 @@ class _OperationCardState extends State<_OperationCard> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: AppTheme.themeAnimationDuration,
-          curve: AppTheme.themeAnimationCurve,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
           constraints: const BoxConstraints(minHeight: 90),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(

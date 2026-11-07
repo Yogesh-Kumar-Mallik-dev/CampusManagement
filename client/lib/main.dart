@@ -6,9 +6,11 @@ import 'screens/login_screen.dart';
 import 'services/api_service.dart';
 import 'services/offline_storage_service.dart';
 import 'theme/app_theme.dart';
+import 'theme/svg_icons.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  AppSvgIcon.prewarmCoreIcons();
   final api = ApiService(baseUrl: 'http://localhost:8080');
   final storage = OfflineStorageService(api: api);
 
@@ -26,6 +28,12 @@ class CampusManagementApp extends StatefulWidget {
 
 class _CampusManagementAppState extends State<CampusManagementApp> {
   UserModel? _loggedInUser;
+
+  @override
+  void initState() {
+    super.initState();
+    AppSvgIcon.prewarmCoreIcons();
+  }
 
   @override
   Widget build(BuildContext context) {
