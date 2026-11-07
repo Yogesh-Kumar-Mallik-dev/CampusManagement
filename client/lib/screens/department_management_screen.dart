@@ -248,7 +248,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
 
     if (_selectedTab == 0) {
       title = 'Academic Departments & Structure';
-      subtitle = 'Manage departments with many-to-many subjects, teachers, and degree semesters';
+      subtitle = 'Manage departments, associated courses, faculty allocations, and degree cohorts';
       icon = AppSvgIcon.building;
       color = AppColors.wineRed;
       buttonLabel = 'Add Department';
@@ -484,7 +484,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isDark: isDark,
           );
           card2 = _buildMetricCard(
-            title: 'Subjects (M:N)',
+            title: 'Course Subjects',
             count: totalSubjects.toString(),
             subtitle: 'Catalog course modules',
             icon: AppSvgIcon.book,
@@ -492,7 +492,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isDark: isDark,
           );
           card3 = _buildMetricCard(
-            title: 'Faculty (M:N)',
+            title: 'Faculty Members',
             count: totalTeachers.toString(),
             subtitle: 'Teaching affiliations',
             icon: AppSvgIcon.user,
@@ -500,7 +500,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isDark: isDark,
           );
           card4 = _buildMetricCard(
-            title: 'Semesters (M:N)',
+            title: 'Academic Semesters',
             count: totalSemesters.toString(),
             subtitle: 'Active program cohorts',
             icon: AppSvgIcon.layers,
@@ -517,7 +517,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isDark: isDark,
           );
           card2 = _buildMetricCard(
-            title: 'Programs (M:N)',
+            title: 'Degree Programs',
             count: _programs.length.toString(),
             subtitle: 'Degree specializations',
             icon: AppSvgIcon.userCheck,
@@ -525,7 +525,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isDark: isDark,
           );
           card3 = _buildMetricCard(
-            title: 'Faculty (M:N)',
+            title: 'Faculty Members',
             count: totalTeachers.toString(),
             subtitle: 'Cross-disciplinary faculty',
             icon: AppSvgIcon.user,
@@ -1823,8 +1823,8 @@ class _AddDepartmentDialogState extends State<_AddDepartmentDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Many-to-Many Multi-Select: Subjects
-                        _buildSectionHeader('Associated Subjects (Many-to-Many)', AppSvgIcon.book),
+                        // Multi-Select: Subjects
+                        _buildSectionHeader('Associated Subjects', AppSvgIcon.book),
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 6,
@@ -1850,8 +1850,8 @@ class _AddDepartmentDialogState extends State<_AddDepartmentDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Many-to-Many Multi-Select: Faculty / Teachers
-                        _buildSectionHeader('Affiliated Teachers / Faculty (Many-to-Many)', AppSvgIcon.user),
+                        // Multi-Select: Faculty / Teachers
+                        _buildSectionHeader('Affiliated Teachers / Faculty', AppSvgIcon.user),
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 6,
@@ -1877,8 +1877,8 @@ class _AddDepartmentDialogState extends State<_AddDepartmentDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Many-to-Many Multi-Select: Program Semesters
-                        _buildSectionHeader('Program Semesters (Many-to-Many)', AppSvgIcon.layers),
+                        // Multi-Select: Program Semesters
+                        _buildSectionHeader('Program Semesters', AppSvgIcon.layers),
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 6,
@@ -2374,7 +2374,7 @@ class _SemesterRosterDialogState extends State<_SemesterRosterDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Students enroll in their active Semester cohort (Many-to-One). They are not directly related to departments; their department relation is derived through this semester.',
+                        'Students enroll directly in their active Semester cohort. Department affiliation is automatically derived through the semester curriculum.',
                         style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
                       ),
                     ),
@@ -2642,8 +2642,8 @@ class _AddSectionDialogState extends State<_AddSectionDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Cross-Program Selection (Many-to-Many)
-                        _buildSectionHeader('Participating Degree Programs (Many-to-Many)', AppSvgIcon.userCheck, const Color(0xFF8250DF)),
+                        // Cross-Program Selection
+                        _buildSectionHeader('Participating Degree Programs', AppSvgIcon.userCheck, const Color(0xFF8250DF)),
                         const SizedBox(height: 4),
                         Text(
                           'Select all degree programs that attend this shared section classroom division',
@@ -2674,8 +2674,8 @@ class _AddSectionDialogState extends State<_AddSectionDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Associated Subjects (Many-to-Many)
-                        _buildSectionHeader('Curriculum Subjects (Many-to-Many)', AppSvgIcon.book, AppColors.wineRed),
+                        // Associated Subjects
+                        _buildSectionHeader('Curriculum Subjects', AppSvgIcon.book, AppColors.wineRed),
                         const SizedBox(height: 4),
                         Text(
                           'Common core and specialized courses scheduled for this cohort',
@@ -2706,8 +2706,8 @@ class _AddSectionDialogState extends State<_AddSectionDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Associated Faculty (Many-to-Many)
-                        _buildSectionHeader('Affiliated Teachers / Faculty (Many-to-Many)', AppSvgIcon.user, AppColors.githubGreen),
+                        // Associated Faculty
+                        _buildSectionHeader('Affiliated Teachers / Faculty', AppSvgIcon.user, AppColors.githubGreen),
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 6,

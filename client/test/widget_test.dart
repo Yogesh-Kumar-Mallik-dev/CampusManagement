@@ -238,7 +238,7 @@ void main() {
     expect(find.text('Classroom Attendance'), findsOneWidget);
   });
 
-  testWidgets('Department management flow: Admin adds department with M:N subjects, teachers, and program semesters',
+  testWidgets('Department management flow: Admin adds department with subjects, teachers, and program semesters',
       (WidgetTester tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);
@@ -268,9 +268,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add Academic Department'), findsOneWidget);
-    expect(find.text('Associated Subjects (Many-to-Many)'), findsOneWidget);
-    expect(find.text('Affiliated Teachers / Faculty (Many-to-Many)'), findsOneWidget);
-    expect(find.text('Program Semesters (Many-to-Many)'), findsOneWidget);
+    expect(find.text('Associated Subjects'), findsOneWidget);
+    expect(find.text('Affiliated Teachers / Faculty'), findsOneWidget);
+    expect(find.text('Program Semesters'), findsOneWidget);
 
     // Enter department details
     await tester.enterText(find.widgetWithText(TextFormField, 'e.g. CSE'), 'AI');
@@ -319,8 +319,8 @@ void main() {
     await tester.tap(rosterBtn);
     await tester.pumpAndSettle();
 
-    // Verify institutional note on Many-to-One student relationship
-    expect(find.textContaining('Students enroll in their active Semester cohort (Many-to-One)'), findsOneWidget);
+    // Verify institutional note on student enrollment relationship
+    expect(find.textContaining('Students enroll directly in their active Semester cohort'), findsOneWidget);
     expect(find.textContaining('Enrolled Student Roster'), findsOneWidget);
 
     // Close Dialogs
@@ -387,7 +387,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add Shared Section Cohort'), findsOneWidget);
-    expect(find.text('Participating Degree Programs (Many-to-Many)'), findsOneWidget);
+    expect(find.text('Participating Degree Programs'), findsOneWidget);
 
     // Enter name
     await tester.enterText(find.widgetWithText(TextFormField, 'e.g. Section B'), 'Section C');
@@ -844,7 +844,7 @@ void main() {
     expect(find.text('ALIGN RETICLE WITH CLASSROOM DISPLAY'), findsOneWidget);
   });
 
-  testWidgets('Timetable: 9 AM to 5 PM 1-hour blocks, Rectangle consecutive grouping, Square units, and Free vs Off distinction', (tester) async {
+  testWidgets('Timetable: 9 AM to 5 PM 1-hour blocks, consecutive grouping, standard units, and Free vs Off distinction', (tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);
 
@@ -870,13 +870,9 @@ void main() {
     expect(find.textContaining('Free Periods'), findsWidgets);
     expect(find.textContaining('Declared Off'), findsWidgets);
 
-    // 3. Verify Geometry categorization:
-    // Consecutive occupied blocks (09:00 CS301 + 10:00 CS302) are rendered as RECTANGLE
-    expect(find.text('RECTANGLE'), findsWidgets);
+    // 3. Verify Consecutive Grouping:
+    // Consecutive occupied blocks (09:00 CS301 + 10:00 CS302) are rendered with consecutive periods badge
     expect(find.text('CONSECUTIVE PERIODS'), findsWidgets);
-
-    // Standalone occupied, free, and off blocks are rendered as SQUARE
-    expect(find.text('SQUARE'), findsWidgets);
 
     // 4. Verify Free is distinct from Off:
     // Both statuses exist simultaneously on the schedule and have distinct branding

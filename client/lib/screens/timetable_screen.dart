@@ -627,7 +627,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
             _buildSummaryChip(
               isDark: isDark,
               label: '$classCount Classes',
-              sublabel: '$rectCount Rectangles',
+              sublabel: '$rectCount Double Sessions',
               badgeColor: AppColors.wineRed,
             ),
             const SizedBox(width: 8),
@@ -939,7 +939,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Text('SQUARE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
               ],
             ),
           ] else if (slot.isOff) ...[
@@ -980,7 +979,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Text('SQUARE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
               ],
             ),
           ] else ...[
@@ -1033,8 +1031,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 4),
-                const Text('SQUARE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
               ],
             ),
           ],
@@ -1099,22 +1095,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                   overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: const Text(
-                  'RECTANGLE',
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.4,
-                  ),
                 ),
               ),
             ],
@@ -1280,7 +1260,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  block.isRectangle ? '2-HOUR EXTENDED RECTANGLE' : '1-HOUR SQUARE UNIT',
+                  block.isRectangle ? '2-HOUR EXTENDED SESSION' : '1-HOUR SESSION',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -1502,8 +1482,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
               slot.roomNumber,
               style: const TextStyle(fontSize: 9, fontFamily: 'monospace'),
             ),
-          const Spacer(),
-          const Text('SQUARE', style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -1533,8 +1511,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 '${block.startTime} - ${block.endTime}',
                 style: const TextStyle(fontSize: 9, fontFamily: 'monospace', fontWeight: FontWeight.bold),
               ),
-              const Spacer(),
-              const Text('RECTANGLE', style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: AppColors.wineRed)),
             ],
           ),
           const Spacer(),

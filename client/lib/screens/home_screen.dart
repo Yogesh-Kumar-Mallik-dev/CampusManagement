@@ -661,7 +661,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 _buildOperationCard(
                   title: 'Departments & Academics',
-                  subtitle: 'M:N subjects, teachers, and semesters',
+                  subtitle: 'Curriculum, faculty allocations, and semesters',
                   iconSvg: AppSvgIcon.building,
                   color: const Color(0xFF0969DA),
                   onTap: () => _onDestinationSelected(5),
