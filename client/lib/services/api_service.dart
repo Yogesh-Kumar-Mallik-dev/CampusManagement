@@ -90,6 +90,62 @@ class ApiService {
     return res.statusCode == 200 || res.statusCode == 204;
   }
 
+  Future<List<TimetableConflictModel>> checkTimetableConflict(TimetableSlotModel slot) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/api/v1/academics/timetable/check-conflict'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(slot.toJson()),
+      );
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(res.body);
+        final List raw = data['conflicts'] ?? [];
+        return raw.map((e) => TimetableConflictModel.fromJson(e)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<bool> declareDayOffBackend({
+    required int dayOfWeek,
+    required String scopeCode,
+    required String reason,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/api/v1/academics/timetable/day-off'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'day_of_week': dayOfWeek,
+          'scope_code': scopeCode,
+          'reason': reason,
+        }),
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> restoreDayScheduleBackend({
+    required int dayOfWeek,
+    required String scopeCode,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/api/v1/academics/timetable/restore-day'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'day_of_week': dayOfWeek,
+          'scope_code': scopeCode,
+        }),
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<List<NoticeModel>> fetchNotices(List<String> scopes) async {
     final scopeParam = scopes.join(',');
     final res = await http

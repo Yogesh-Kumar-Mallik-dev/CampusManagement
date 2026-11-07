@@ -24,9 +24,10 @@ type AcademicService struct {
 	mu          sync.RWMutex
 
 	// In-memory repositories for offline/test mode and cache fallback
-	courses        map[string]model.Course
-	timetableSlots map[string]model.TimetableSlot
-	sessions       map[string]model.AttendanceSession
+	courses            map[string]model.Course
+	timetableSlots     map[string]model.TimetableSlot
+	backupDaySchedules map[string][]model.TimetableSlot
+	sessions           map[string]model.AttendanceSession
 	records        map[string]model.AttendanceRecord
 	notices        map[string]model.Notice
 
@@ -74,6 +75,7 @@ func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permSer
 		permService:        permService,
 		courses:            make(map[string]model.Course),
 		timetableSlots:     make(map[string]model.TimetableSlot),
+		backupDaySchedules: make(map[string][]model.TimetableSlot),
 		sessions:           make(map[string]model.AttendanceSession),
 		records:            make(map[string]model.AttendanceRecord),
 		notices:            make(map[string]model.Notice),
@@ -225,6 +227,173 @@ func (s *AcademicService) GetTimetableForScope(ctx context.Context, scopeCode st
 		return result[i].DayOfWeek < result[j].DayOfWeek
 	})
 	return result, nil
+}
+
+func (s *AcademicService) CheckTimetableConflicts(ctx context.Context, slot model.TimetableSlot) ([]model.TimetableConflict, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var conflicts []model.TimetableConflict
+
+	slotType := strings.ToLower(slot.SlotType)
+	if slotType == "free" || slotType == "off" {
+		return conflicts, nil
+	}
+
+	cleanRoom := strings.TrimSpace(slot.RoomNumber)
+	cleanInst := strings.TrimSpace(slot.InstructorName)
+	cleanScope := strings.TrimSpace(slot.ScopeCode)
+
+	for _, existing := range s.timetableSlots {
+		if existing.IsDeleted || existing.ID == slot.ID {
+			continue
+		}
+		existingType := strings.ToLower(existing.SlotType)
+		if existingType == "free" || existingType == "off" {
+			continue
+		}
+		if existing.DayOfWeek != slot.DayOfWeek {
+			continue
+		}
+		// Overlapping interval check: existing.StartTime < slot.EndTime && slot.StartTime < existing.EndTime
+		if !(existing.StartTime < slot.EndTime && slot.StartTime < existing.EndTime) {
+			continue
+		}
+
+		// 1. Room Double-Booking Conflict
+		cleanExistingRoom := strings.TrimSpace(existing.RoomNumber)
+		if cleanRoom != "" && cleanRoom != "-" && strings.EqualFold(cleanRoom, cleanExistingRoom) {
+			conflicts = append(conflicts, model.TimetableConflict{
+				Type: "room",
+				Message: fmt.Sprintf("Room %s is already occupied by %s (%s) from %s to %s",
+					cleanRoom, existing.CourseCode, existing.ScopeCode, existing.StartTime, existing.EndTime),
+				ConflictingSlot: existing,
+			})
+		}
+
+		// 2. Instructor Double-Booking Conflict
+		cleanExistingInst := strings.TrimSpace(existing.InstructorName)
+		instMatch := false
+		if slot.InstructorID != nil && existing.InstructorID != nil && *slot.InstructorID != "" && *slot.InstructorID == *existing.InstructorID {
+			instMatch = true
+		} else if cleanInst != "" && strings.EqualFold(cleanInst, cleanExistingInst) {
+			instMatch = true
+		}
+		if instMatch {
+			conflicts = append(conflicts, model.TimetableConflict{
+				Type: "instructor",
+				Message: fmt.Sprintf("Instructor %s is already scheduled to teach %s (%s) from %s to %s",
+					cleanInst, existing.CourseCode, existing.ScopeCode, existing.StartTime, existing.EndTime),
+				ConflictingSlot: existing,
+			})
+		}
+
+		// 3. Section/Scope Double-Booking Conflict
+		cleanExistingScope := strings.TrimSpace(existing.ScopeCode)
+		if cleanScope != "" && strings.EqualFold(cleanScope, cleanExistingScope) {
+			conflicts = append(conflicts, model.TimetableConflict{
+				Type: "section",
+				Message: fmt.Sprintf("Section %s already has %s scheduled in %s from %s to %s",
+					cleanScope, existing.CourseCode, existing.RoomNumber, existing.StartTime, existing.EndTime),
+				ConflictingSlot: existing,
+			})
+		}
+	}
+
+	return conflicts, nil
+}
+
+func (s *AcademicService) DeclareDayOff(ctx context.Context, req model.DayOffRequest) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := fmt.Sprintf("%s-%d", req.ScopeCode, req.DayOfWeek)
+	var currentDaySlots []model.TimetableSlot
+	for _, slot := range s.timetableSlots {
+		if !slot.IsDeleted && slot.DayOfWeek == req.DayOfWeek && slot.ScopeCode == req.ScopeCode {
+			currentDaySlots = append(currentDaySlots, slot)
+		}
+	}
+
+	hasNonOff := false
+	for _, slot := range currentDaySlots {
+		if strings.ToLower(slot.SlotType) != "off" {
+			hasNonOff = true
+			break
+		}
+	}
+	if hasNonOff {
+		s.backupDaySchedules[key] = currentDaySlots
+	}
+
+	now := time.Now().UTC()
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = "Declared Day Off"
+	}
+
+	// Soft-delete current active slots for this day/scope (saved in backup)
+	for id, slot := range s.timetableSlots {
+		if !slot.IsDeleted && slot.DayOfWeek == req.DayOfWeek && slot.ScopeCode == req.ScopeCode {
+			slot.IsDeleted = true
+			slot.UpdatedAt = now
+			s.timetableSlots[id] = slot
+		}
+	}
+
+	for i := 0; i < 8; i++ {
+		start := fmt.Sprintf("%02d:00", 9+i)
+		end := fmt.Sprintf("%02d:00", 10+i)
+		id := fmt.Sprintf("slot-off-%s-%d-%s", req.ScopeCode, req.DayOfWeek, start)
+
+		offSlot := model.TimetableSlot{
+			BaseSyncModel: model.BaseSyncModel{
+				ID:        id,
+				CreatedAt: now,
+				UpdatedAt: now,
+				IsDeleted: false,
+			},
+			CourseCode:     "OFF",
+			CourseName:     reason,
+			ScopeCode:      req.ScopeCode,
+			InstructorName: "",
+			DayOfWeek:      req.DayOfWeek,
+			StartTime:      start,
+			EndTime:        end,
+			RoomNumber:     "-",
+			SlotType:       "off",
+		}
+		s.timetableSlots[id] = offSlot
+	}
+	return nil
+}
+
+func (s *AcademicService) RestoreDaySchedule(ctx context.Context, req model.RestoreDayRequest) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := fmt.Sprintf("%s-%d", req.ScopeCode, req.DayOfWeek)
+	backup, hasBackup := s.backupDaySchedules[key]
+	now := time.Now().UTC()
+
+	// Soft-delete off slots for this day/scope
+	for id, slot := range s.timetableSlots {
+		if slot.DayOfWeek == req.DayOfWeek && slot.ScopeCode == req.ScopeCode && strings.ToLower(slot.SlotType) == "off" {
+			slot.IsDeleted = true
+			slot.UpdatedAt = now
+			s.timetableSlots[id] = slot
+		}
+	}
+
+	if hasBackup && len(backup) > 0 {
+		for _, slot := range backup {
+			slot.UpdatedAt = now
+			slot.IsDeleted = false
+			s.timetableSlots[slot.ID] = slot
+		}
+		delete(s.backupDaySchedules, key)
+	}
+	return nil
 }
 
 // ----------------------------------------------------

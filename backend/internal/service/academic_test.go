@@ -149,3 +149,136 @@ func TestAcademicServiceFlow(t *testing.T) {
 		t.Fatalf("delta sync output mismatch: %+v", syncResp)
 	}
 }
+
+func TestTimetableConflictDetectionAndDayOffSync(t *testing.T) {
+	ctx := context.Background()
+	svc := NewAcademicService(nil, nil, nil)
+
+	// 1. Seed initial slot: Monday 09:00 - 10:00, Section 3A, Dr. Priya Nair, Room LH-101
+	slot1, err := svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseCode:     "CS301",
+		CourseName:     "Operating Systems",
+		ScopeCode:      "sec:cse-3a",
+		InstructorName: "Dr. Priya Nair",
+		DayOfWeek:      1,
+		StartTime:      "09:00",
+		EndTime:        "10:00",
+		RoomNumber:     "LH-101",
+		SlotType:       "lecture",
+	})
+	if err != nil {
+		t.Fatalf("failed to create slot1: %v", err)
+	}
+
+	// 2. Check Room Conflict: Section 3B attempting to book same Room LH-101 at 09:00 on Monday
+	conflictsRoom, err := svc.CheckTimetableConflicts(ctx, model.TimetableSlot{
+		CourseCode:     "CS302",
+		ScopeCode:      "sec:cse-3b",
+		InstructorName: "Prof. Amit Verma",
+		DayOfWeek:      1,
+		StartTime:      "09:00",
+		EndTime:        "10:00",
+		RoomNumber:     "LH-101",
+		SlotType:       "lecture",
+	})
+	if err != nil {
+		t.Fatalf("check conflicts failed: %v", err)
+	}
+	if len(conflictsRoom) == 0 || conflictsRoom[0].Type != "room" {
+		t.Fatalf("expected room conflict, got %v", conflictsRoom)
+	}
+
+	// 3. Check Instructor Conflict: Dr. Priya Nair in Section 3B in a different room (LH-102) at 09:00 on Monday
+	conflictsInst, err := svc.CheckTimetableConflicts(ctx, model.TimetableSlot{
+		CourseCode:     "CS303",
+		ScopeCode:      "sec:cse-3b",
+		InstructorName: "Dr. Priya Nair",
+		DayOfWeek:      1,
+		StartTime:      "09:00",
+		EndTime:        "10:00",
+		RoomNumber:     "LH-102",
+		SlotType:       "lecture",
+	})
+	if err != nil {
+		t.Fatalf("check conflicts failed: %v", err)
+	}
+	if len(conflictsInst) == 0 || conflictsInst[0].Type != "instructor" {
+		t.Fatalf("expected instructor conflict, got %v", conflictsInst)
+	}
+
+	// 4. Check Section Conflict: Same Section 3A scheduled for another class at 09:00 on Monday
+	conflictsSection, err := svc.CheckTimetableConflicts(ctx, model.TimetableSlot{
+		CourseCode:     "MATH301",
+		ScopeCode:      "sec:cse-3a",
+		InstructorName: "Prof. Amit Verma",
+		DayOfWeek:      1,
+		StartTime:      "09:00",
+		EndTime:        "10:00",
+		RoomNumber:     "LH-102",
+		SlotType:       "lecture",
+	})
+	if err != nil {
+		t.Fatalf("check conflicts failed: %v", err)
+	}
+	if len(conflictsSection) == 0 || conflictsSection[0].Type != "section" {
+		t.Fatalf("expected section conflict, got %v", conflictsSection)
+	}
+
+	// 5. Valid slot with no conflicts (different section, room, instructor)
+	conflictsNone, err := svc.CheckTimetableConflicts(ctx, model.TimetableSlot{
+		CourseCode:     "CS304",
+		ScopeCode:      "sec:cse-3b",
+		InstructorName: "Dr. Sandeep Rao",
+		DayOfWeek:      1,
+		StartTime:      "09:00",
+		EndTime:        "10:00",
+		RoomNumber:     "Lab-3",
+		SlotType:       "lab",
+	})
+	if err != nil {
+		t.Fatalf("check conflicts failed: %v", err)
+	}
+	if len(conflictsNone) != 0 {
+		t.Fatalf("expected 0 conflicts, got %v", conflictsNone)
+	}
+
+	// 6. Test Declare Day Off & Restore Day Schedule
+	err = svc.DeclareDayOff(ctx, model.DayOffRequest{
+		DayOfWeek: 1,
+		ScopeCode: "sec:cse-3a",
+		Reason:    "Campus Sports Gala",
+	})
+	if err != nil {
+		t.Fatalf("failed to declare day off: %v", err)
+	}
+
+	slotsOff, err := svc.GetTimetableForScope(ctx, "sec:cse-3a")
+	if err != nil {
+		t.Fatalf("failed to get slots: %v", err)
+	}
+	if len(slotsOff) != 8 {
+		t.Fatalf("expected 8 day-off slots, got %d", len(slotsOff))
+	}
+	for _, s := range slotsOff {
+		if s.SlotType != "off" {
+			t.Fatalf("expected all slots to be off, got %s", s.SlotType)
+		}
+	}
+
+	// Restore Day Schedule
+	err = svc.RestoreDaySchedule(ctx, model.RestoreDayRequest{
+		DayOfWeek: 1,
+		ScopeCode: "sec:cse-3a",
+	})
+	if err != nil {
+		t.Fatalf("failed to restore day schedule: %v", err)
+	}
+
+	slotsRestored, err := svc.GetTimetableForScope(ctx, "sec:cse-3a")
+	if err != nil {
+		t.Fatalf("failed to get restored slots: %v", err)
+	}
+	if len(slotsRestored) != 1 || slotsRestored[0].ID != slot1.ID {
+		t.Fatalf("expected original slot1 to be restored, got %v", slotsRestored)
+	}
+}

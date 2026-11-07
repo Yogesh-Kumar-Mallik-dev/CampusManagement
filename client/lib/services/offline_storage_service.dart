@@ -698,6 +698,17 @@ class OfflineStorageService {
       );
       await saveTimetableSlot(offSlot);
     }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        await api.declareDayOffBackend(
+          dayOfWeek: dayOfWeek,
+          scopeCode: scopeCode,
+          reason: reason,
+        );
+      } catch (_) {}
+    }
   }
 
   /// Restores the academic schedule for a day that was previously declared Off.
@@ -719,6 +730,91 @@ class OfflineStorageService {
         await saveTimetableSlot(slot);
       }
     }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        await api.restoreDayScheduleBackend(
+          dayOfWeek: dayOfWeek,
+          scopeCode: scopeCode,
+        );
+      } catch (_) {}
+    }
+  }
+
+  /// Evaluates scheduling conflicts for an instructor, room, or section.
+  /// Runs both local multi-slot conflict inspection and server cross-section conflict checks.
+  Future<List<TimetableConflictModel>> checkTimetableConflicts(TimetableSlotModel candidate) async {
+    _seedDefaultTimetableIfEmpty();
+    final List<TimetableConflictModel> conflicts = [];
+
+    // Local in-memory validation
+    if (!candidate.isFree && !candidate.isOff) {
+      final cleanRoom = candidate.roomNumber.trim().toLowerCase();
+      final cleanInst = candidate.instructorName.trim().toLowerCase();
+      final cleanScope = candidate.scopeCode.trim().toLowerCase();
+
+      for (final existing in _cachedTimetable) {
+        if (existing.id == candidate.id || existing.isFree || existing.isOff) {
+          continue;
+        }
+        if (existing.dayOfWeek != candidate.dayOfWeek) {
+          continue;
+        }
+
+        // Time overlap: existing.start < candidate.end && candidate.start < existing.end
+        final overlaps = existing.startTime.compareTo(candidate.endTime) < 0 &&
+            candidate.startTime.compareTo(existing.endTime) < 0;
+        if (!overlaps) {
+          continue;
+        }
+
+        // 1. Room conflict
+        final existingRoom = existing.roomNumber.trim().toLowerCase();
+        if (cleanRoom.isNotEmpty && cleanRoom != '-' && cleanRoom == existingRoom) {
+          conflicts.add(TimetableConflictModel(
+            type: 'room',
+            message: 'Room ${candidate.roomNumber} is already occupied by ${existing.courseCode} (${existing.courseName}) from ${existing.startTime} to ${existing.endTime}',
+            conflictingSlot: existing,
+          ));
+        }
+
+        // 2. Instructor conflict
+        final existingInst = existing.instructorName.trim().toLowerCase();
+        if (cleanInst.isNotEmpty && cleanInst == existingInst) {
+          conflicts.add(TimetableConflictModel(
+            type: 'instructor',
+            message: 'Instructor ${candidate.instructorName} is already assigned to ${existing.courseCode} (${existing.scopeCode}) from ${existing.startTime} to ${existing.endTime}',
+            conflictingSlot: existing,
+          ));
+        }
+
+        // 3. Section conflict
+        final existingScope = existing.scopeCode.trim().toLowerCase();
+        if (cleanScope.isNotEmpty && cleanScope == existingScope) {
+          conflicts.add(TimetableConflictModel(
+            type: 'section',
+            message: 'Section ${candidate.scopeCode} already has ${existing.courseCode} scheduled from ${existing.startTime} to ${existing.endTime}',
+            conflictingSlot: existing,
+          ));
+        }
+      }
+    }
+
+    // Query backend for cross-section global conflicts if online
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final serverConflicts = await api.checkTimetableConflict(candidate);
+        for (final sc in serverConflicts) {
+          if (!conflicts.any((c) => c.type == sc.type && c.conflictingSlot.id == sc.conflictingSlot.id)) {
+            conflicts.add(sc);
+          }
+        }
+      } catch (_) {}
+    }
+
+    return conflicts;
   }
 
   List<TimetableSlotModel> _getDefaultDaySlots(int dayOfWeek, String scopeCode) {

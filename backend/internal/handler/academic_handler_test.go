@@ -216,3 +216,50 @@ func TestAcademicHandlerEndpoints(t *testing.T) {
 func bytesToString(n int64) string {
 	return fmt.Sprintf("%d", n)
 }
+
+func TestTimetableConflictAndDayOffEndpoints(t *testing.T) {
+	svc := service.NewAcademicService(nil, nil, nil)
+	h := NewAcademicHandler(svc)
+
+	// Seed slot
+	slotJSON := `{"course_id":"c1","course_code":"CS301","scope_code":"sec:cse-3a","day_of_week":1,"start_time":"09:00","end_time":"10:00","room_number":"LH-101","slot_type":"lecture"}`
+	recSlot := httptest.NewRecorder()
+	reqSlot := httptest.NewRequest(http.MethodPost, "/api/v1/academics/timetable", bytes.NewBufferString(slotJSON))
+	h.HandleTimetable(recSlot, reqSlot)
+	if recSlot.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d", recSlot.Code)
+	}
+
+	// 1. Conflict Check: room conflict
+	conflictPayload := `{"course_id":"c2","scope_code":"sec:cse-3b","day_of_week":1,"start_time":"09:00","end_time":"10:00","room_number":"LH-101","slot_type":"lecture"}`
+	recConflict := httptest.NewRecorder()
+	reqConflict := httptest.NewRequest(http.MethodPost, "/api/v1/academics/timetable/check-conflict", bytes.NewBufferString(conflictPayload))
+	h.HandleTimetableCheckConflict(recConflict, reqConflict)
+
+	if recConflict.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for conflict check, got %d", recConflict.Code)
+	}
+	var conflictResp model.TimetableConflictResponse
+	_ = json.Unmarshal(recConflict.Body.Bytes(), &conflictResp)
+	if !conflictResp.HasConflict || len(conflictResp.Conflicts) == 0 || conflictResp.Conflicts[0].Type != "room" {
+		t.Fatalf("expected room conflict, got %+v", conflictResp)
+	}
+
+	// 2. Day Off Endpoint
+	dayOffPayload := `{"day_of_week":1,"scope_code":"sec:cse-3a","reason":"Founder's Day"}`
+	recDayOff := httptest.NewRecorder()
+	reqDayOff := httptest.NewRequest(http.MethodPost, "/api/v1/academics/timetable/day-off", bytes.NewBufferString(dayOffPayload))
+	h.HandleTimetableDayOff(recDayOff, reqDayOff)
+	if recDayOff.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for day off, got %d", recDayOff.Code)
+	}
+
+	// 3. Restore Day Endpoint
+	restorePayload := `{"day_of_week":1,"scope_code":"sec:cse-3a"}`
+	recRestore := httptest.NewRecorder()
+	reqRestore := httptest.NewRequest(http.MethodPost, "/api/v1/academics/timetable/restore-day", bytes.NewBufferString(restorePayload))
+	h.HandleTimetableRestoreDay(recRestore, reqRestore)
+	if recRestore.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for restore day, got %d", recRestore.Code)
+	}
+}

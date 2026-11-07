@@ -118,8 +118,31 @@ class _TimetableScreenState extends State<TimetableScreen> {
     _loadData();
   }
 
+  final Set<String> _conflictingSlotIds = {};
+
   void _recomputeDaySchedule() {
     _canonicalDaySlots = _computeCanonicalDaySlotsForDay(_selectedDay);
+    _conflictingSlotIds.clear();
+
+    // Detect double-booking conflicts across sections/rooms/instructors
+    for (final s in _canonicalDaySlots) {
+      if (s.isOccupied) {
+        for (final other in _allSlots) {
+          if (other.id != s.id && other.dayOfWeek == s.dayOfWeek && other.isOccupied) {
+            final overlaps = other.startTime.compareTo(s.endTime) < 0 && s.startTime.compareTo(other.endTime) < 0;
+            if (overlaps) {
+              final sameRoom = s.roomNumber.isNotEmpty && s.roomNumber != '-' && s.roomNumber.toLowerCase() == other.roomNumber.toLowerCase();
+              final sameInst = s.instructorName.isNotEmpty && s.instructorName.toLowerCase() == other.instructorName.toLowerCase();
+              final sameScope = s.scopeCode.isNotEmpty && s.scopeCode.toLowerCase() == other.scopeCode.toLowerCase();
+              if (sameRoom || sameInst || sameScope) {
+                _conflictingSlotIds.add(s.id);
+              }
+            }
+          }
+        }
+      }
+    }
+
     _renderedBlocks = _computeGroupedBlocks(_canonicalDaySlots);
     if (_selectedBlockIndex >= _renderedBlocks.length) {
       _selectedBlockIndex = 0;
@@ -384,6 +407,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _BlockEditorSheet(
+        storage: widget.storage,
         slot: slot,
         blockIndex: blockIndex,
         dayOfWeek: _selectedDay,
@@ -393,6 +417,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     if (updated != null && mounted) {
       await widget.storage.saveTimetableSlot(updated);
+      if (!mounted) return;
       setState(() {
         final existingIdx = _allSlots.indexWhere((s) => s.id == updated.id);
         if (existingIdx >= 0) {
@@ -402,6 +427,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
         }
         _recomputeDaySchedule();
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            updated.isFree
+                ? 'Allocated Free Period for ${updated.startTime} - ${updated.endTime}'
+                : (updated.isOff
+                    ? 'Declared Off Period for ${updated.startTime} - ${updated.endTime}'
+                    : 'Allocated ${updated.courseCode} (${updated.roomNumber}) for ${updated.startTime} - ${updated.endTime}'),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -1007,6 +1044,24 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     ),
                   ),
                 ),
+                if (_conflictingSlotIds.contains(slot.id)) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCF222E).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Text(
+                      'CONFLICT',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFCF222E),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 4),
@@ -1097,6 +1152,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (_conflictingSlotIds.contains(first.id) || _conflictingSlotIds.contains(second.id)) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCF222E).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const Text(
+                    'CONFLICT',
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFFCF222E)),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -1283,6 +1352,24 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   fontSize: 12,
                 ),
               ),
+              if (_conflictingSlotIds.contains(slot.id)) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCF222E).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'DOUBLE-BOOKING CONFLICT',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFCF222E),
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
               OutlinedButton.icon(
                 icon: const Icon(Icons.edit, size: 13),
@@ -1550,14 +1637,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 }
 
-/// Interactive Bottom Sheet for Editing / Declaring Block Status (Period, Free, Off).
+/// Interactive Bottom Sheet for Editing, Quick Allocating, and Conflict Checking.
 class _BlockEditorSheet extends StatefulWidget {
+  final OfflineStorageService storage;
   final TimetableSlotModel slot;
   final int blockIndex;
   final int dayOfWeek;
   final String scopeCode;
 
   const _BlockEditorSheet({
+    required this.storage,
     required this.slot,
     required this.blockIndex,
     required this.dayOfWeek,
@@ -1575,6 +1664,33 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
   late TextEditingController _instructorCtrl;
   late TextEditingController _roomCtrl;
 
+  List<TimetableConflictModel> _conflicts = [];
+
+  static const _catalogCourses = [
+    {'code': 'CS301', 'name': 'Operating Systems'},
+    {'code': 'CS302', 'name': 'Design & Analysis of Algorithms'},
+    {'code': 'CS303', 'name': 'Computer Networks'},
+    {'code': 'CS304', 'name': 'Database Management Systems'},
+    {'code': 'CS305', 'name': 'Software Engineering'},
+  ];
+
+  static const _facultyList = [
+    'Dr. Priya Nair',
+    'Prof. Amit Verma',
+    'Dr. Sandeep Rao',
+    'Dr. Ananya Sharma',
+  ];
+
+  static const _roomList = [
+    'LH-101',
+    'LH-102',
+    'LHC-201',
+    'Lab-1',
+    'Lab-2',
+    'Lab-3',
+    'Seminar Hall',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -1586,10 +1702,58 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
     _nameCtrl = TextEditingController(text: widget.slot.courseName);
     _instructorCtrl = TextEditingController(text: widget.slot.instructorName);
     _roomCtrl = TextEditingController(text: widget.slot.roomNumber);
+
+    _codeCtrl.addListener(_onFieldChanged);
+    _nameCtrl.addListener(_onFieldChanged);
+    _instructorCtrl.addListener(_onFieldChanged);
+    _roomCtrl.addListener(_onFieldChanged);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validateConflicts();
+    });
+  }
+
+  void _onFieldChanged() {
+    _validateConflicts();
+  }
+
+  Future<void> _validateConflicts() async {
+    if (!mounted) return;
+    if (_statusType == 'free' || _statusType == 'off') {
+      if (_conflicts.isNotEmpty) {
+        setState(() => _conflicts = []);
+      }
+      return;
+    }
+
+    final def = CanonicalScheduleDef.blocks[widget.blockIndex];
+    final candidate = widget.slot.copyWith(
+      courseCode: _codeCtrl.text.trim(),
+      courseName: _nameCtrl.text.trim(),
+      instructorName: _instructorCtrl.text.trim(),
+      roomNumber: _roomCtrl.text.trim(),
+      slotType: _statusType,
+      dayOfWeek: widget.dayOfWeek,
+      startTime: def['start']!,
+      endTime: def['end']!,
+      scopeCode: widget.scopeCode,
+    );
+
+    final res = await widget.storage.checkTimetableConflicts(candidate);
+    if (mounted) {
+      setState(() {
+        _conflicts = res;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _codeCtrl.removeListener(_onFieldChanged);
+    _nameCtrl.removeListener(_onFieldChanged);
+    _instructorCtrl.removeListener(_onFieldChanged);
+    _roomCtrl.removeListener(_onFieldChanged);
+
     _codeCtrl.dispose();
     _nameCtrl.dispose();
     _instructorCtrl.dispose();
@@ -1637,7 +1801,7 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '1-Hour Slot: assign a class period, declare free, or declare off',
+                        '1-Hour Slot (${def['start']} - ${def['end']}): assign course, faculty, room or declare status',
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -1677,11 +1841,104 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
             ),
             const SizedBox(height: 18),
 
+            // Dynamic Conflict Alert Banner
+            if (_conflicts.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCF222E).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFCF222E), width: 1.2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFCF222E)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Scheduling Conflict Detected',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Color(0xFFCF222E),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ..._conflicts.map((c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFCF222E))),
+                              Expanded(
+                                child: Text(
+                                  c.message,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Double-booking instructors or lecture halls leads to timetable clashes across sections. Choose another room or instructor, or save to force override.',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             if (_statusType == 'free') ...[
               _buildFreeGuidance(isDark),
             ] else if (_statusType == 'off') ...[
               _buildOffGuidance(isDark),
             ] else ...[
+              // Quick Course Suggestions
+              Text(
+                'QUICK SELECT COURSE',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _catalogCourses.map((c) {
+                  final isSelected = _codeCtrl.text.toUpperCase() == c['code'];
+                  return ActionChip(
+                    label: Text(
+                      '${c['code']} - ${c['name']}',
+                      style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                    ),
+                    backgroundColor: isSelected ? AppColors.wineRed.withValues(alpha: 0.18) : null,
+                    side: BorderSide(
+                      color: isSelected ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    ),
+                    onPressed: () {
+                      _codeCtrl.text = c['code']!;
+                      _nameCtrl.text = c['name']!;
+                      _validateConflicts();
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+
               // Period Form
               TextField(
                 controller: _codeCtrl,
@@ -1700,7 +1957,41 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+
+              // Quick Faculty Suggestions
+              Text(
+                'QUICK SELECT FACULTY',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _facultyList.map((f) {
+                  final isSelected = _instructorCtrl.text == f;
+                  return ActionChip(
+                    label: Text(
+                      f,
+                      style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                    ),
+                    backgroundColor: isSelected ? AppColors.wineRed.withValues(alpha: 0.18) : null,
+                    side: BorderSide(
+                      color: isSelected ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    ),
+                    onPressed: () {
+                      _instructorCtrl.text = f;
+                      _validateConflicts();
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+
               TextField(
                 controller: _instructorCtrl,
                 decoration: const InputDecoration(
@@ -1709,7 +2000,41 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+
+              // Quick Room Suggestions
+              Text(
+                'QUICK SELECT ROOM / LAB',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _roomList.map((r) {
+                  final isSelected = _roomCtrl.text == r;
+                  return ActionChip(
+                    label: Text(
+                      r,
+                      style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                    ),
+                    backgroundColor: isSelected ? AppColors.wineRed.withValues(alpha: 0.18) : null,
+                    side: BorderSide(
+                      color: isSelected ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    ),
+                    onPressed: () {
+                      _roomCtrl.text = r;
+                      _validateConflicts();
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+
               TextField(
                 controller: _roomCtrl,
                 decoration: const InputDecoration(
@@ -1726,8 +2051,9 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               width: double.infinity,
               height: 44,
               child: ElevatedButton(
+                key: const Key('btn-save-block-configuration'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.wineRed,
+                  backgroundColor: _conflicts.isNotEmpty ? const Color(0xFFCF222E) : AppColors.wineRed,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
@@ -1758,9 +2084,9 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
                   );
                   Navigator.pop(context, updated);
                 },
-                child: const Text(
-                  'Save Block Configuration',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                child: Text(
+                  _conflicts.isNotEmpty ? 'Override Conflict & Save Slot' : 'Save Block Allocation',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -1774,6 +2100,7 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
     final isSelected = _statusType == type;
     return Expanded(
       child: GestureDetector(
+        key: Key('tab-block-type-$type'),
         onTap: () {
           setState(() {
             _statusType = type;
@@ -1784,6 +2111,7 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               _nameCtrl.text = 'Declared Off / Dismissed';
             }
           });
+          _validateConflicts();
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),

@@ -938,16 +938,58 @@ void main() {
     expect(find.text('BLOCK TYPE'), findsOneWidget);
     expect(find.text('Free Period (Campus Open)'), findsOneWidget);
 
-    // Switch type to Declared Off inside editor
-    await tester.tap(find.text('Declared Off').first);
+    // Switch type to Declared Off inside editor using key
+    await tester.tap(find.byKey(const Key('tab-block-type-off')));
     await tester.pumpAndSettle();
 
     expect(find.text('Declared Off (Campus Hours Closed)'), findsOneWidget);
 
     // Save block
-    await tester.tap(find.text('Save Block Configuration'));
+    final saveBtn1 = find.byKey(const Key('btn-save-block-configuration'));
+    await tester.ensureVisible(saveBtn1);
+    await tester.tap(saveBtn1);
     await tester.pumpAndSettle();
 
     expect(find.text('DECLARED OFF'), findsWidgets);
+
+    // 9. Test Interactive Course Allocation & Quick Selectors
+    // Tap the DECLARED OFF block to allocate it to a course
+    await tester.tap(find.text('DECLARED OFF').first);
+    await tester.pumpAndSettle();
+
+    // Switch to Lecture using key
+    await tester.tap(find.byKey(const Key('tab-block-type-lecture')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('QUICK SELECT COURSE'), findsOneWidget);
+    expect(find.text('QUICK SELECT FACULTY'), findsOneWidget);
+    expect(find.text('QUICK SELECT ROOM / LAB'), findsOneWidget);
+
+    // Select course CS303
+    final courseChip = find.widgetWithText(ActionChip, 'CS303 - Computer Networks');
+    await tester.ensureVisible(courseChip);
+    await tester.tap(courseChip);
+    await tester.pumpAndSettle();
+
+    // Select faculty Dr. Priya Nair
+    final facultyChip = find.widgetWithText(ActionChip, 'Dr. Priya Nair');
+    await tester.ensureVisible(facultyChip);
+    await tester.tap(facultyChip);
+    await tester.pumpAndSettle();
+
+    // Select room LH-101
+    final roomChip = find.widgetWithText(ActionChip, 'LH-101');
+    await tester.ensureVisible(roomChip);
+    await tester.tap(roomChip);
+    await tester.pumpAndSettle();
+
+    // Save block allocation
+    final saveBtn2 = find.byKey(const Key('btn-save-block-configuration'));
+    expect(saveBtn2, findsOneWidget);
+    await tester.ensureVisible(saveBtn2);
+    await tester.tap(saveBtn2);
+    await tester.pumpAndSettle();
+
+    expect(find.text('CS303'), findsWidgets);
   });
 }

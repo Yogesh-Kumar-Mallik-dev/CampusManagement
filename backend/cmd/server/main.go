@@ -121,6 +121,9 @@ func main() {
 	// Phase 1 Academics, Timetable, Attendance & Notices
 	mux.HandleFunc("/api/v1/academics/courses", academicHandler.HandleCourses)
 	mux.HandleFunc("/api/v1/academics/timetable", academicHandler.HandleTimetable)
+	mux.HandleFunc("/api/v1/academics/timetable/check-conflict", academicHandler.HandleTimetableCheckConflict)
+	mux.HandleFunc("/api/v1/academics/timetable/day-off", academicHandler.HandleTimetableDayOff)
+	mux.HandleFunc("/api/v1/academics/timetable/restore-day", academicHandler.HandleTimetableRestoreDay)
 	mux.HandleFunc("/api/v1/attendance/sync", academicHandler.SyncAttendance)
 	mux.HandleFunc("/api/v1/attendance/summary", academicHandler.GetAttendanceSummary)
 	mux.HandleFunc("/api/v1/attendance/optical/start", academicHandler.StartOpticalSession)

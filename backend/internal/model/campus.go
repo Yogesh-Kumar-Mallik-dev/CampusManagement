@@ -38,6 +38,32 @@ type TimetableSlot struct {
 	SlotType       string  `json:"slot_type"`   // 'lecture', 'lab', 'tutorial'
 }
 
+// TimetableConflict represents a scheduling clash (room, instructor, section)
+type TimetableConflict struct {
+	Type            string        `json:"type"` // "room", "instructor", "section"
+	Message         string        `json:"message"`
+	ConflictingSlot TimetableSlot `json:"conflicting_slot"`
+}
+
+// TimetableConflictResponse wraps conflict check results
+type TimetableConflictResponse struct {
+	HasConflict bool                `json:"has_conflict"`
+	Conflicts   []TimetableConflict `json:"conflicts"`
+}
+
+// DayOffRequest represents declaring a day off for a scope
+type DayOffRequest struct {
+	DayOfWeek int    `json:"day_of_week"`
+	ScopeCode string `json:"scope_code"`
+	Reason    string `json:"reason"`
+}
+
+// RestoreDayRequest represents restoring a day's schedule
+type RestoreDayRequest struct {
+	DayOfWeek int    `json:"day_of_week"`
+	ScopeCode string `json:"scope_code"`
+}
+
 // AttendanceStatus represents student attendance status
 type AttendanceStatus string
 

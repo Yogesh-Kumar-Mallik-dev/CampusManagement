@@ -146,6 +146,34 @@ class TimetableSlotModel {
       };
 }
 
+class TimetableConflictModel {
+  final String type; // 'room', 'instructor', 'section'
+  final String message;
+  final TimetableSlotModel conflictingSlot;
+
+  TimetableConflictModel({
+    required this.type,
+    required this.message,
+    required this.conflictingSlot,
+  });
+
+  factory TimetableConflictModel.fromJson(Map<String, dynamic> json) {
+    return TimetableConflictModel(
+      type: json['type'] ?? '',
+      message: json['message'] ?? '',
+      conflictingSlot: TimetableSlotModel.fromJson(
+        Map<String, dynamic>.from(json['conflicting_slot'] ?? {}),
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'message': message,
+        'conflicting_slot': conflictingSlot.toJson(),
+      };
+}
+
 class AttendanceRecordModel {
   final String id;
   final String sessionId;
