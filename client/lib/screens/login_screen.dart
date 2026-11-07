@@ -1,11 +1,10 @@
-import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/smooth_theme_toggle.dart';
 
 class LoginScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -80,27 +79,11 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Theme Toggle in Header with Premade Smooth Open Source Animated Theme Switcher
-          Positioned(
+          // Smooth Animated Theme Toggle
+          const Positioned(
             top: 16,
             right: 16,
-            child: ThemeSwitcher.withTheme(
-              builder: (context, switcher, theme) {
-                final isCurrentDark = theme.brightness == Brightness.dark;
-                return IconButton(
-                  tooltip: isCurrentDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-                  icon: Icon(
-                    isCurrentDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    switcher.changeTheme(
-                      theme: isCurrentDark ? AppTheme.lightTheme : AppTheme.darkTheme,
-                    );
-                  },
-                );
-              },
-            ),
+            child: SmoothThemeToggle(),
           ),
 
           // Strictly Non-Scrollable Centered Login Container

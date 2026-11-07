@@ -5,6 +5,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_dropdown.dart';
+import '../widgets/app_skeleton.dart';
 
 class DepartmentManagementScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -28,37 +29,66 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
   List<SemesterModel> _semesters = [];
   List<UserModel> _teachers = [];
 
-  bool _isLoading = true;
+  PageLoadState _loadState = PageLoadState.pending;
+  String? _errorMessage;
   String _searchQuery = '';
   int _selectedTab = 0; // 0 = Departments, 1 = Cross-Program Sections
 
   @override
   void initState() {
     super.initState();
+    final cachedDepts = widget.storage.cachedDepartments;
+    if (cachedDepts.isNotEmpty) {
+      _departments = List.from(cachedDepts);
+      _sections = List.from(widget.storage.cachedSections);
+      _programs = List.from(widget.storage.cachedPrograms);
+      _subjects = List.from(widget.storage.cachedSubjects);
+      _semesters = List.from(widget.storage.cachedSemesters);
+      final users = widget.storage.cachedUsers;
+      _teachers = users.where((u) => u.archetype == 'employee').toList();
+      _loadState = PageLoadState.success;
+    }
     _loadData();
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final depts = await widget.storage.getDepartments(forceRefresh: true);
-    final secs = await widget.storage.getSections();
-    final progs = await widget.storage.getPrograms();
-    final subs = await widget.storage.getSubjects();
-    final sems = await widget.storage.getSemesters();
-
-    final users = widget.storage.cachedUsers;
-    final faculty = users.where((u) => u.archetype == 'employee').toList();
-
-    if (mounted) {
+    if (_departments.isEmpty) {
       setState(() {
-        _departments = depts;
-        _sections = secs;
-        _programs = progs;
-        _subjects = subs;
-        _semesters = sems;
-        _teachers = faculty;
-        _isLoading = false;
+        _loadState = PageLoadState.pending;
+        _errorMessage = null;
       });
+    }
+    try {
+      final depts = await widget.storage.getDepartments(forceRefresh: true);
+      final secs = await widget.storage.getSections();
+      final progs = await widget.storage.getPrograms();
+      final subs = await widget.storage.getSubjects();
+      final sems = await widget.storage.getSemesters();
+
+      final users = widget.storage.cachedUsers;
+      final faculty = users.where((u) => u.archetype == 'employee').toList();
+
+      if (mounted) {
+        setState(() {
+          _departments = depts;
+          _sections = secs;
+          _programs = progs;
+          _subjects = subs;
+          _semesters = sems;
+          _teachers = faculty;
+          _loadState = PageLoadState.success;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          if (_departments.isEmpty) {
+            _loadState = PageLoadState.failed;
+            _errorMessage = 'Failed to load department structure. Check network connection.';
+          }
+        });
+      }
     }
   }
 
@@ -98,56 +128,61 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.wineRed),
-            )
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              color: AppColors.wineRed,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header Bar with Title and Primary Action
-                    _buildHeader(isDark),
-                    const SizedBox(height: 18),
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        color: AppColors.wineRed,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Bar with Title and Primary Action (Always mounted)
+              _buildHeader(isDark),
+              const SizedBox(height: 18),
 
-                    // View Toggle (Departments vs Cross-Program Sections)
-                    _buildViewToggle(isDark),
-                    const SizedBox(height: 20),
+              // View Toggle (Departments vs Cross-Program Sections)
+              _buildViewToggle(isDark),
+              const SizedBox(height: 20),
 
-                    // Academic Metrics Strip
-                    _buildMetricsRow(isDark),
-                    const SizedBox(height: 24),
+              // Academic Metrics Strip
+              _buildMetricsRow(isDark),
+              const SizedBox(height: 24),
 
-                    // Search Bar
-                    _buildSearchBar(isDark),
-                    const SizedBox(height: 20),
+              // Search Bar
+              _buildSearchBar(isDark),
+              const SizedBox(height: 20),
 
-                    // Active Tab Content
-                    if (_selectedTab == 0) ...[
-                      if (_filteredDepartments.isEmpty)
-                        _buildEmptyState(isDark)
-                      else
-                        _buildDepartmentsGrid(isDark),
-                    ] else if (_selectedTab == 1) ...[
-                      if (_filteredSections.isEmpty)
-                        _buildEmptySectionState(isDark)
-                      else
-                        _buildSectionsGrid(isDark),
-                    ] else ...[
-                      if (_filteredSubjects.isEmpty)
-                        _buildEmptySubjectState(isDark)
-                      else
-                        _buildSubjectsGrid(isDark),
-                    ],
-                  ],
+              // Active Content: Skeleton / Error / Live Data
+              if (_loadState == PageLoadState.pending) ...[
+                _buildDepartmentSkeletons(isDark),
+              ] else if (_loadState == PageLoadState.failed) ...[
+                InlineStateError(
+                  message: _errorMessage ?? 'Failed to load department management records.',
+                  onRetry: _loadData,
                 ),
-              ),
-            ),
+              ] else ...[
+                if (_selectedTab == 0) ...[
+                  if (_filteredDepartments.isEmpty)
+                    _buildEmptyState(isDark)
+                  else
+                    _buildDepartmentsGrid(isDark),
+                ] else if (_selectedTab == 1) ...[
+                  if (_filteredSections.isEmpty)
+                    _buildEmptySectionState(isDark)
+                  else
+                    _buildSectionsGrid(isDark),
+                ] else ...[
+                  if (_filteredSubjects.isEmpty)
+                    _buildEmptySubjectState(isDark)
+                  else
+                    _buildSubjectsGrid(isDark),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -803,6 +838,60 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDepartmentSkeletons(bool isDark) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 900 ? 3 : (constraints.maxWidth > 600 ? 2 : 1);
+        final itemWidth = (constraints.maxWidth - (crossAxisCount - 1) * 16) / crossAxisCount;
+
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: List.generate(crossAxisCount * 2, (index) {
+            return SizedBox(
+              width: itemWidth,
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        AppSkeleton(width: 50, height: 18, borderRadius: 4),
+                        Spacer(),
+                        AppSkeleton(width: 80, height: 14, borderRadius: 4),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const AppSkeleton(width: 160, height: 16, borderRadius: 4),
+                    const SizedBox(height: 8),
+                    const AppSkeleton.rect(height: 12, borderRadius: 4),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: const [
+                        AppSkeleton(width: 70, height: 22, borderRadius: 4),
+                        SizedBox(width: 8),
+                        AppSkeleton(width: 70, height: 22, borderRadius: 4),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 

@@ -1,4 +1,3 @@
-import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
@@ -6,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/smooth_theme_toggle.dart';
 import 'attendance_screen.dart';
 import 'department_management_screen.dart';
 import 'notices_screen.dart';
@@ -192,24 +192,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 8),
 
-          // Theme Toggle with Premade Smooth Open Source Animated Theme Switcher
-          ThemeSwitcher.withTheme(
-            builder: (context, switcher, theme) {
-              final isCurrentDark = theme.brightness == Brightness.dark;
-              return IconButton(
-                tooltip: isCurrentDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-                icon: Icon(
-                  isCurrentDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                  size: 20,
-                ),
-                onPressed: () {
-                  switcher.changeTheme(
-                    theme: isCurrentDark ? AppTheme.lightTheme : AppTheme.darkTheme,
-                  );
-                },
-              );
-            },
-          ),
+          // Smooth Animated Theme Toggle
+          const SmoothThemeToggle(),
           const SizedBox(width: 4),
 
           // User Persona Switcher (Clean Dropdown below anchor)

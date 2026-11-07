@@ -4,6 +4,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_dropdown.dart';
+import '../widgets/app_skeleton.dart';
 import 'user_profile_screen.dart';
 
 class UserManagementScreen extends StatefulWidget {
@@ -22,7 +23,8 @@ class UserManagementScreen extends StatefulWidget {
 
 class _UserManagementScreenState extends State<UserManagementScreen> {
   List<UserModel> _users = [];
-  bool _isLoading = false;
+  PageLoadState _loadState = PageLoadState.pending;
+  String? _errorMessage;
   String _selectedFilter = 'all'; // 'all', 'student', 'employee', 'external', 'inactive'
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -30,6 +32,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   @override
   void initState() {
     super.initState();
+    final cached = widget.storage.cachedUsers;
+    if (cached.isNotEmpty) {
+      _users = List.from(cached);
+      _loadState = PageLoadState.success;
+    }
     _loadUsers();
   }
 
@@ -40,7 +47,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   Future<void> _loadUsers() async {
-    setState(() => _isLoading = true);
+    if (_users.isEmpty) {
+      setState(() {
+        _loadState = PageLoadState.pending;
+        _errorMessage = null;
+      });
+    }
     try {
       final list = await widget.storage.getUsers(
         archetype: _selectedFilter == 'student' || _selectedFilter == 'employee' || _selectedFilter == 'external'
@@ -52,12 +64,18 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       if (mounted) {
         setState(() {
           _users = list;
-          _isLoading = false;
+          _loadState = PageLoadState.success;
+          _errorMessage = null;
         });
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          if (_users.isEmpty) {
+            _loadState = PageLoadState.failed;
+            _errorMessage = 'Failed to load user directory. Check connection.';
+          }
+        });
       }
     }
   }
@@ -170,12 +188,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             const SizedBox(height: 20),
 
             // 4. Users Grid / List
-            if (_isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.wineRed),
-                ),
+            if (_loadState == PageLoadState.pending)
+              _buildUserSkeletons(isDark)
+            else if (_loadState == PageLoadState.failed)
+              InlineStateError(
+                message: _errorMessage ?? 'Failed to load user directory.',
+                onRetry: _loadUsers,
               )
             else if (_users.isEmpty)
               _buildEmptyState(isDark)
@@ -412,6 +430,64 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     filterChips,
                   ],
                 ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUserSkeletons(bool isDark) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 720;
+        final itemWidth = isWide ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
+
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: List.generate(6, (index) {
+            return Container(
+              width: itemWidth,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const AppSkeleton(width: 40, height: 40, borderRadius: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            AppSkeleton(width: 120, height: 14, borderRadius: 4),
+                            SizedBox(height: 6),
+                            AppSkeleton(width: 80, height: 11, borderRadius: 4),
+                          ],
+                        ),
+                      ),
+                      const AppSkeleton(width: 60, height: 20, borderRadius: 4),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: const [
+                      AppSkeleton(width: 140, height: 11, borderRadius: 4),
+                      Spacer(),
+                      AppSkeleton(width: 50, height: 11, borderRadius: 4),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
         );
       },
     );

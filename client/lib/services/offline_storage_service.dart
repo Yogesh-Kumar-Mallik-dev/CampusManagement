@@ -58,7 +58,7 @@ class OfflineStorageService {
     }
     _isCheckingHealth = true;
     try {
-      await checkConnectivity();
+      isOnline = await api.checkHealth();
       _lastHealthCheckTime = DateTime.now();
     } catch (_) {
       isOnline = false;

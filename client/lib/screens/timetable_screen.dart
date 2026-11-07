@@ -3,6 +3,7 @@ import '../models/academic.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_skeleton.dart';
 
 class TimetableScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -20,7 +21,8 @@ class TimetableScreen extends StatefulWidget {
 
 class _TimetableScreenState extends State<TimetableScreen> {
   int _selectedDay = 1; // 1 = Monday ... 6 = Saturday
-  bool _loading = false;
+  PageLoadState _loadState = PageLoadState.pending;
+  String? _errorMessage;
   List<TimetableSlotModel> _slots = [];
 
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -28,16 +30,40 @@ class _TimetableScreenState extends State<TimetableScreen> {
   @override
   void initState() {
     super.initState();
+    final cached = widget.storage.cachedTimetable;
+    if (cached.isNotEmpty) {
+      _slots = List.from(cached);
+      _loadState = PageLoadState.success;
+    }
     _loadData();
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
-    final data = await widget.storage.getTimetable(widget.activeScope);
-    setState(() {
-      _slots = data;
-      _loading = false;
-    });
+    if (_slots.isEmpty) {
+      setState(() {
+        _loadState = PageLoadState.pending;
+        _errorMessage = null;
+      });
+    }
+    try {
+      final data = await widget.storage.getTimetable(widget.activeScope);
+      if (mounted) {
+        setState(() {
+          _slots = data;
+          _loadState = PageLoadState.success;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          if (_slots.isEmpty) {
+            _loadState = PageLoadState.failed;
+            _errorMessage = 'Failed to load timetable schedule. Check network connection.';
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -88,180 +114,250 @@ class _TimetableScreenState extends State<TimetableScreen> {
               }),
             ),
           ),
-          // Slots list
+          // Slots list / Skeleton / Inline Error
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : daySlots.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+            child: _buildContent(isDark, daySlots),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(bool isDark, List<TimetableSlotModel> daySlots) {
+    switch (_loadState) {
+      case PageLoadState.pending:
+        return _buildSkeletonList(isDark);
+      case PageLoadState.failed:
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: InlineStateError(
+              message: _errorMessage ?? 'Failed to load timetable schedule.',
+              onRetry: _loadData,
+            ),
+          ),
+        );
+      case PageLoadState.success:
+        if (daySlots.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppSvgIcon(
+                  svgString: AppSvgIcon.calendar,
+                  size: 48,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No scheduled classes for this day',
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: daySlots.length,
+          itemBuilder: (context, i) {
+            final slot = daySlots[i];
+            final isLab = slot.slotType.toLowerCase() == 'lab';
+            final typeBadge = isLab
+                ? AppColors.primaryBadge(isDark)
+                : AppColors.greenBadge(isDark);
+            final timeBadge = AppColors.neutralBadge(isDark);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Time Column
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: timeBadge.background,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: timeBadge.border,
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          slot.startTime,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            fontFamily: 'monospace',
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                          ),
+                        ),
+                        Text(
+                          slot.endTime,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Subject Details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            AppSvgIcon(
-                              svgString: AppSvgIcon.calendar,
-                              size: 48,
-                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                            ),
-                            const SizedBox(height: 12),
                             Text(
-                              'No scheduled classes for this day',
-                              style: TextStyle(
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                              slot.courseCode,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: typeBadge.background,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: typeBadge.border,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                slot.slotType.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: typeBadge.text,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: daySlots.length,
-                        itemBuilder: (context, i) {
-                          final slot = daySlots[i];
-                          final isLab = slot.slotType.toLowerCase() == 'lab';
-                          final typeBadge = isLab
-                              ? AppColors.primaryBadge(isDark)
-                              : AppColors.greenBadge(isDark);
-                          final timeBadge = AppColors.neutralBadge(isDark);
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                                width: 1,
+                        const SizedBox(height: 4),
+                        Text(
+                          slot.courseName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            AppSvgIcon(
+                              svgString: AppSvgIcon.user,
+                              size: 13,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              slot.instructorName.isNotEmpty ? slot.instructorName : 'Faculty',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                               ),
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Time Column
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: timeBadge.background,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: timeBadge.border,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        slot.startTime,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          fontFamily: 'monospace',
-                                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                                        ),
-                                      ),
-                                      Text(
-                                        slot.endTime,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontFamily: 'monospace',
-                                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                // Subject Details
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            slot.courseCode,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: typeBadge.background,
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(
-                                                color: typeBadge.border,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              slot.slotType.toUpperCase(),
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: typeBadge.text,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        slot.courseName,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          AppSvgIcon(
-                                            svgString: AppSvgIcon.user,
-                                            size: 13,
-                                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Text(
-                                            slot.instructorName.isNotEmpty ? slot.instructorName : 'Faculty',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          AppSvgIcon(
-                                            svgString: AppSvgIcon.mapPin,
-                                            size: 13,
-                                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            slot.roomNumber,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              fontFamily: 'monospace',
-                                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                            const Spacer(),
+                            AppSvgIcon(
+                              svgString: AppSvgIcon.mapPin,
+                              size: 13,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                             ),
-                          );
-                        },
-                      ),
+                            const SizedBox(width: 4),
+                            Text(
+                              slot.roomNumber,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'monospace',
+                                color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+    }
+  }
+
+  Widget _buildSkeletonList(bool isDark) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 4,
+      itemBuilder: (context, index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              width: 1,
+            ),
           ),
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AppSkeleton(width: 60, height: 48, borderRadius: 6),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        AppSkeleton(width: 72, height: 16, borderRadius: 4),
+                        SizedBox(width: 8),
+                        AppSkeleton(width: 48, height: 16, borderRadius: 4),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const AppSkeleton(width: 180, height: 13, borderRadius: 4),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: const [
+                        AppSkeleton(width: 90, height: 12, borderRadius: 4),
+                        Spacer(),
+                        AppSkeleton(width: 50, height: 12, borderRadius: 4),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

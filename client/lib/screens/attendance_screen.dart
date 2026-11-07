@@ -9,6 +9,7 @@ import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_skeleton.dart';
 
 enum AttendanceViewMode {
   summary,
@@ -33,6 +34,8 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerProviderStateMixin {
   bool _loading = false;
+  PageLoadState _loadState = PageLoadState.pending;
+  String? _errorMessage;
   List<AttendanceSummaryModel> _summaries = [];
   AttendanceViewMode _mode = AttendanceViewMode.summary;
 
@@ -134,6 +137,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
+    final cached = widget.storage.cachedSummaries;
+    if (cached.isNotEmpty) {
+      _summaries = List.from(cached);
+      _loadState = PageLoadState.success;
+    }
     _loadSummary();
   }
 
@@ -147,13 +155,30 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   Future<void> _loadSummary() async {
-    setState(() => _loading = true);
-    final data = await widget.storage.getAttendanceSummary(widget.currentUser.id);
-    if (mounted) {
+    if (_summaries.isEmpty) {
       setState(() {
-        _summaries = data;
-        _loading = false;
+        _loadState = PageLoadState.pending;
+        _errorMessage = null;
       });
+    }
+    try {
+      final data = await widget.storage.getAttendanceSummary(widget.currentUser.id);
+      if (mounted) {
+        setState(() {
+          _summaries = data;
+          _loadState = PageLoadState.success;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          if (_summaries.isEmpty) {
+            _loadState = PageLoadState.failed;
+            _errorMessage = 'Failed to load attendance records. Check network.';
+          }
+        });
+      }
     }
   }
 
@@ -502,7 +527,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           const SizedBox(width: 8),
         ],
       ),
-      body: _loading
+      body: (_loading && _mode != AttendanceViewMode.summary)
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.wineRed))
           : _buildCurrentView(),
     );
@@ -674,7 +699,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               ),
               const SizedBox(height: 12),
 
-              if (_summaries.isEmpty)
+              if (_loadState == PageLoadState.pending)
+                _buildSummarySkeletons(isDark)
+              else if (_loadState == PageLoadState.failed)
+                InlineStateError(
+                  message: _errorMessage ?? 'Failed to load course attendance standing.',
+                  onRetry: _loadSummary,
+                )
+              else if (_summaries.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(24),
                   alignment: Alignment.center,
@@ -767,15 +799,43 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     );
   }
 
+  Widget _buildSummarySkeletons(bool isDark) {
+    return Column(
+      children: List.generate(3, (index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  AppSkeleton(width: 180, height: 16, borderRadius: 4),
+                  AppSkeleton(width: 50, height: 22, borderRadius: 4),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const AppSkeleton(width: 120, height: 12, borderRadius: 4),
+              const SizedBox(height: 12),
+              const AppSkeleton.rect(height: 6, borderRadius: 3),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
   // ----------------------------------------------------
   // VIEW 1-B: STUDENT ATTENDANCE ANALYTICS DASHBOARD
   // ----------------------------------------------------
 
   Widget _buildStudentAttendanceDashboard(bool isDark) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     final totalHeld = _summaries.fold<int>(0, (sum, item) => sum + item.totalSessions);
     final totalAttended = _summaries.fold<int>(0, (sum, item) => sum + item.attended);
     final overallPct = totalHeld > 0 ? (totalAttended / totalHeld) * 100.0 : 0.0;
@@ -807,7 +867,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Top Action & Status Bar
+              // Top Action & Status Bar (Always mounted)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -867,37 +927,118 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               ),
               const SizedBox(height: 18),
 
-              // 1. Overall Dual-Ring Radial Compliance Gauge
-              _buildOverallAttendanceVisual(
-                isDark,
-                totalHeld,
-                totalAttended,
-                overallPct,
-                atRiskList.length,
-                safeMargin,
-                recoveryReq,
-              ),
-              const SizedBox(height: 18),
+              if (_loadState == PageLoadState.pending)
+                _buildStudentAttendanceSkeletons(isDark)
+              else if (_loadState == PageLoadState.failed)
+                InlineStateError(
+                  message: _errorMessage ?? 'Failed to load student attendance analytics.',
+                  onRetry: _loadSummary,
+                )
+              else ...[
+                // 1. Overall Dual-Ring Radial Compliance Gauge
+                _buildOverallAttendanceVisual(
+                  isDark,
+                  totalHeld,
+                  totalAttended,
+                  overallPct,
+                  atRiskList.length,
+                  safeMargin,
+                  recoveryReq,
+                ),
+                const SizedBox(height: 18),
 
-              // 2. 30-Day Classroom Activity Matrix
-              _buildAttendanceHeatmap(isDark),
-              const SizedBox(height: 18),
+                // 2. 30-Day Classroom Activity Matrix
+                _buildAttendanceHeatmap(isDark),
+                const SizedBox(height: 18),
 
-              // 3. Course-by-Course Comparative Benchmark Visual
-              _buildCourseComparisonChart(isDark),
-              const SizedBox(height: 18),
+                // 3. Course-by-Course Comparative Benchmark Visual
+                _buildCourseComparisonChart(isDark),
+                const SizedBox(height: 18),
 
-              // 4. Enrolled Course Standing & Margins
-              _buildDetailedCourseList(
-                isDark,
-                displayedSummaries,
-                atRiskList.length,
-                safeList.length,
-              ),
+                // 4. Enrolled Course Standing & Margins
+                _buildDetailedCourseList(
+                  isDark,
+                  displayedSummaries,
+                  atRiskList.length,
+                  safeList.length,
+                ),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStudentAttendanceSkeletons(bool isDark) {
+    return Column(
+      children: [
+        // Compliance Gauge Skeleton
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+          ),
+          child: Row(
+            children: [
+              const AppSkeleton(width: 110, height: 110, borderRadius: 55),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    AppSkeleton(width: 180, height: 18, borderRadius: 4),
+                    SizedBox(height: 10),
+                    AppSkeleton(width: double.infinity, height: 12, borderRadius: 4),
+                    SizedBox(height: 6),
+                    AppSkeleton(width: 140, height: 12, borderRadius: 4),
+                    SizedBox(height: 14),
+                    AppSkeleton(width: 220, height: 26, borderRadius: 6),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        // 30-Day Matrix Skeleton
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              AppSkeleton(width: 200, height: 16, borderRadius: 4),
+              SizedBox(height: 16),
+              AppSkeleton.rect(height: 60, borderRadius: 6),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        // Course Benchmark Skeleton
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              AppSkeleton(width: 160, height: 16, borderRadius: 4),
+              SizedBox(height: 16),
+              AppSkeleton.rect(height: 120, borderRadius: 6),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
