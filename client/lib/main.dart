@@ -31,7 +31,6 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
   @override
   void initState() {
     super.initState();
-    AppSvgIcon.prewarmCoreIcons();
     AppTheme.themeModeNotifier.addListener(_onThemeChanged);
   }
 

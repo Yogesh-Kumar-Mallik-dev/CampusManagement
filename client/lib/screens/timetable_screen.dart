@@ -24,8 +24,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
   PageLoadState _loadState = PageLoadState.pending;
   String? _errorMessage;
   List<TimetableSlotModel> _slots = [];
+  List<TimetableSlotModel> _daySlots = [];
 
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  void _recomputeDaySlots() {
+    _daySlots = _slots.where((s) => s.dayOfWeek == _selectedDay).toList();
+  }
 
   @override
   void initState() {
@@ -33,6 +38,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final cached = widget.storage.cachedTimetable;
     if (cached.isNotEmpty) {
       _slots = List.from(cached);
+      _recomputeDaySlots();
       _loadState = PageLoadState.success;
     }
     _loadData();
@@ -50,6 +56,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (mounted) {
         setState(() {
           _slots = data;
+          _recomputeDaySlots();
           _loadState = PageLoadState.success;
           _errorMessage = null;
         });
@@ -69,7 +76,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final daySlots = _slots.where((s) => s.dayOfWeek == _selectedDay).toList();
+    final daySlots = _daySlots;
 
     return Scaffold(
       appBar: AppBar(
@@ -107,7 +114,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     child: _DaySelectorPill(
                       label: _days[idx],
                       isSelected: isSelected,
-                      onTap: () => setState(() => _selectedDay = dayNum),
+                      onTap: () {
+                        setState(() {
+                          _selectedDay = dayNum;
+                          _recomputeDaySlots();
+                        });
+                      },
                     ),
                   ),
                 );

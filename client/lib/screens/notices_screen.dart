@@ -21,12 +21,24 @@ class NoticesScreen extends StatefulWidget {
 }
 
 class _NoticesScreenState extends State<NoticesScreen> {
+  static final DateFormat _noticeDateFormat = DateFormat('dd MMM, hh:mm a');
+
   PageLoadState _loadState = PageLoadState.pending;
   String? _errorMessage;
   List<NoticeModel> _notices = [];
+  List<NoticeModel> _filteredNotices = [];
   String _selectedCategory = 'all';
 
   final List<String> _categories = ['all', 'academic', 'exam', 'urgent', 'hostel', 'general'];
+
+  void _recomputeFilteredNotices() {
+    if (_selectedCategory == 'all') {
+      _filteredNotices = _notices;
+      return;
+    }
+    final catLower = _selectedCategory.toLowerCase();
+    _filteredNotices = _notices.where((n) => n.category.toLowerCase() == catLower).toList();
+  }
 
   @override
   void initState() {
@@ -34,6 +46,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
     final cached = widget.storage.cachedNotices;
     if (cached.isNotEmpty) {
       _notices = List.from(cached);
+      _recomputeFilteredNotices();
       _loadState = PageLoadState.success;
     }
     _loadNotices();
@@ -51,6 +64,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
       if (mounted) {
         setState(() {
           _notices = data;
+          _recomputeFilteredNotices();
           _loadState = PageLoadState.success;
           _errorMessage = null;
         });
@@ -70,10 +84,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final filtered = _notices.where((n) {
-      if (_selectedCategory == 'all') return true;
-      return n.category.toLowerCase() == _selectedCategory.toLowerCase();
-    }).toList();
+    final filtered = _filteredNotices;
 
     return Scaffold(
       appBar: AppBar(
@@ -112,7 +123,12 @@ class _NoticesScreenState extends State<NoticesScreen> {
                 return _CategoryFilterPill(
                   label: cat.toUpperCase(),
                   isSelected: isSelected,
-                  onTap: () => setState(() => _selectedCategory = cat),
+                  onTap: () {
+                    setState(() {
+                      _selectedCategory = cat;
+                      _recomputeFilteredNotices();
+                    });
+                  },
                 );
               },
             ),
@@ -237,7 +253,7 @@ class _NoticesScreenState extends State<NoticesScreen> {
                       ),
                       const Spacer(),
                       Text(
-                        DateFormat('dd MMM, hh:mm a').format(notice.publishedAt),
+                        _noticeDateFormat.format(notice.publishedAt),
                         style: TextStyle(
                           fontSize: 11,
                           fontFamily: 'monospace',

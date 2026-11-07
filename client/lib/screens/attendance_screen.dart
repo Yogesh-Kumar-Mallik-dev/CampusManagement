@@ -89,12 +89,38 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   Timer? _progressTicker;
   int _sequence = 1;
   final int _refreshIntervalMs = 1500; // 1.5 seconds high-frequency optical rotation
-  double _frameProgress = 1.0;
+  final ValueNotifier<double> _frameProgressNotifier = ValueNotifier<double>(1.0);
   String _currentPayload = '';
   String _currentNonce = '';
   String _currentSig = '';
   bool _isStreamPaused = false;
   List<AttendanceRecordModel> _opticalRoster = [];
+
+  // Precomputed Summary Stats
+  int _totalHeld = 0;
+  int _totalAttended = 0;
+  double _overallPct = 0.0;
+  int _safeMargin = 0;
+  int _recoveryReq = 0;
+  List<AttendanceSummaryModel> _atRiskList = [];
+  List<AttendanceSummaryModel> _safeList = [];
+
+  void _recomputeSummaryStats() {
+    final held = _summaries.fold<int>(0, (sum, item) => sum + item.totalSessions);
+    final attended = _summaries.fold<int>(0, (sum, item) => sum + item.attended);
+    final pct = held > 0 ? (attended / held) * 100.0 : 0.0;
+    _totalHeld = held;
+    _totalAttended = attended;
+    _overallPct = pct;
+    _atRiskList = _summaries.where((s) => s.percentage < 75.0).toList();
+    _safeList = _summaries.where((s) => s.percentage >= 75.0).toList();
+    _safeMargin = held > 0 && pct >= 75.0
+        ? math.max(0, ((4 * attended - 3 * held) / 3).floor())
+        : 0;
+    _recoveryReq = held > 0 && pct < 75.0
+        ? math.max(0, 3 * held - 4 * attended)
+        : 0;
+  }
 
   // Optical Receiver Scanner State
   final TextEditingController _scanInputController = TextEditingController();
@@ -140,6 +166,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     final cached = widget.storage.cachedSummaries;
     if (cached.isNotEmpty) {
       _summaries = List.from(cached);
+      _recomputeSummaryStats();
       _loadState = PageLoadState.success;
     }
     _loadSummary();
@@ -150,6 +177,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     _frameTimer?.cancel();
     _progressTicker?.cancel();
     _sweepAnimController.dispose();
+    _frameProgressNotifier.dispose();
     _scanInputController.dispose();
     super.dispose();
   }
@@ -166,6 +194,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       if (mounted) {
         setState(() {
           _summaries = data;
+          _recomputeSummaryStats();
           _loadState = PageLoadState.success;
           _errorMessage = null;
         });
@@ -238,11 +267,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       if (currentStep <= 0) {
         currentStep = totalSteps;
       }
-      if (mounted) {
-        setState(() {
-          _frameProgress = currentStep / totalSteps;
-        });
-      }
+      _frameProgressNotifier.value = currentStep / totalSteps;
     });
 
     _frameTimer = Timer.periodic(Duration(milliseconds: _refreshIntervalMs), (timer) {
@@ -836,21 +861,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   // ----------------------------------------------------
 
   Widget _buildStudentAttendanceDashboard(bool isDark) {
-    final totalHeld = _summaries.fold<int>(0, (sum, item) => sum + item.totalSessions);
-    final totalAttended = _summaries.fold<int>(0, (sum, item) => sum + item.attended);
-    final overallPct = totalHeld > 0 ? (totalAttended / totalHeld) * 100.0 : 0.0;
-    final atRiskList = _summaries.where((s) => s.percentage < 75.0).toList();
-    final safeList = _summaries.where((s) => s.percentage >= 75.0).toList();
-
-    // 75% Statutory Rule:
-    // Safe margin: floor((4*A - 3*T) / 3)
-    final safeMargin = totalHeld > 0 && overallPct >= 75.0
-        ? math.max(0, ((4 * totalAttended - 3 * totalHeld) / 3).floor())
-        : 0;
-    // Recovery required: 3*T - 4*A
-    final recoveryReq = totalHeld > 0 && overallPct < 75.0
-        ? math.max(0, 3 * totalHeld - 4 * totalAttended)
-        : 0;
+    final totalHeld = _totalHeld;
+    final totalAttended = _totalAttended;
+    final overallPct = _overallPct;
+    final atRiskList = _atRiskList;
+    final safeList = _safeList;
+    final safeMargin = _safeMargin;
+    final recoveryReq = _recoveryReq;
 
     List<AttendanceSummaryModel> displayedSummaries = _summaries;
     if (_courseFilter == 'at_risk') {
@@ -1312,13 +1329,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   Widget _buildAttendanceHeatmap(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
-      ),
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+        ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1510,6 +1528,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -1538,13 +1557,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   Widget _buildCourseComparisonChart(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
-      ),
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+        ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1723,6 +1743,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           }),
         ],
       ),
+    ),
     );
   }
 
@@ -2302,24 +2323,29 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    value: _frameProgress,
-                                    strokeWidth: 2.5,
-                                    backgroundColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                                    color: AppColors.wineRed,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Next Frame in ${(_frameProgress * (_refreshIntervalMs / 1000)).toStringAsFixed(1)}s',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                ),
-                              ],
+                            ValueListenableBuilder<double>(
+                              valueListenable: _frameProgressNotifier,
+                              builder: (context, progress, _) {
+                                return Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        value: progress,
+                                        strokeWidth: 2.5,
+                                        backgroundColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                        color: AppColors.wineRed,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Next Frame in ${(progress * (_refreshIntervalMs / 1000)).toStringAsFixed(1)}s',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
@@ -2627,19 +2653,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       ),
                       child: Stack(
                         children: [
-                          // Animated Laser Sweep Line
-                          AnimatedBuilder(
-                            animation: _sweepAnimController,
-                            builder: (context, child) {
-                              return Align(
-                                alignment: Alignment(0, (_sweepAnimController.value * 2) - 1),
-                                child: Container(
-                                  height: 2,
-                                  width: double.infinity,
-                                  color: AppColors.githubGreen,
-                                ),
-                              );
-                            },
+                          // Animated Laser Sweep Line (Isolated Repaint)
+                          RepaintBoundary(
+                            child: AnimatedBuilder(
+                              animation: _sweepAnimController,
+                              builder: (context, child) {
+                                return Align(
+                                  alignment: Alignment(0, (_sweepAnimController.value * 2) - 1),
+                                  child: Container(
+                                    height: 2,
+                                    width: double.infinity,
+                                    color: AppColors.githubGreen,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
@@ -28,6 +29,30 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   String _selectedFilter = 'all'; // 'all', 'student', 'employee', 'external', 'inactive'
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  int _loadGeneration = 0; // stale-response guard
+  int _activeCount = 0;
+  int _contractorCount = 0;
+  int _discontinuedCount = 0;
+
+  void _recomputeCounts() {
+    int active = 0;
+    int contractor = 0;
+    int discontinued = 0;
+    for (final u in _users) {
+      if (u.isActive) {
+        active++;
+      } else {
+        discontinued++;
+      }
+      if (u.isContractor) {
+        contractor++;
+      }
+    }
+    _activeCount = active;
+    _contractorCount = contractor;
+    _discontinuedCount = discontinued;
+  }
 
   @override
   void initState() {
@@ -35,6 +60,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final cached = widget.storage.cachedUsers;
     if (cached.isNotEmpty) {
       _users = List.from(cached);
+      _recomputeCounts();
       _loadState = PageLoadState.success;
     }
     _loadUsers();
@@ -42,11 +68,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _loadUsers() async {
+    final gen = ++_loadGeneration;
     if (_users.isEmpty) {
       setState(() {
         _loadState = PageLoadState.pending;
@@ -61,15 +89,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         status: _selectedFilter == 'inactive' ? 'inactive' : null,
         search: _searchQuery,
       );
-      if (mounted) {
+      if (mounted && gen == _loadGeneration) {
         setState(() {
           _users = list;
+          _recomputeCounts();
           _loadState = PageLoadState.success;
           _errorMessage = null;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && gen == _loadGeneration) {
         setState(() {
           if (_users.isEmpty) {
             _loadState = PageLoadState.failed;
@@ -87,7 +116,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   void _onSearchChanged(String query) {
     setState(() => _searchQuery = query);
-    _loadUsers();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), _loadUsers);
   }
 
   void _openCreateUserDialog() {
@@ -128,9 +158,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final totalCount = _users.length;
-    final activeCount = _users.where((u) => u.isActive).length;
-    final contractorCount = _users.where((u) => u.isContractor).length;
-    final discontinuedCount = _users.where((u) => !u.isActive).length;
+    final activeCount = _activeCount;
+    final contractorCount = _contractorCount;
+    final discontinuedCount = _discontinuedCount;
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -810,9 +840,6 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   @override
   void initState() {
     super.initState();
-    _stuFirst.addListener(() => setState(() {}));
-    _empFirst.addListener(() => setState(() {}));
-    _extFirst.addListener(() => setState(() {}));
   }
 
   @override
@@ -1193,15 +1220,18 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                       ),
                     ),
                     Flexible(
-                      child: Text(
-                        _getCurrentHandlePreview(),
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                      child: ListenableBuilder(
+                        listenable: Listenable.merge([_stuFirst, _empFirst, _extFirst]),
+                        builder: (context, _) => Text(
+                          _getCurrentHandlePreview(),
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

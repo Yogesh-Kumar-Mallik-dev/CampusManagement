@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/academic.dart';
 import '../models/user.dart';
@@ -29,10 +30,78 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
   List<SemesterModel> _semesters = [];
   List<UserModel> _teachers = [];
 
+  List<DepartmentModel> _cachedFilteredDepts = [];
+  List<SectionModel> _cachedFilteredSecs = [];
+  List<SubjectModel> _cachedFilteredSubs = [];
+  int _aliasedSubjectsCount = 0;
+  int _activeSyllabusCount = 0;
+  Timer? _searchDebounce;
+
   PageLoadState _loadState = PageLoadState.pending;
   String? _errorMessage;
   String _searchQuery = '';
   int _selectedTab = 0; // 0 = Departments, 1 = Cross-Program Sections
+
+  void _recomputeMetrics() {
+    int aliased = 0;
+    int syllabus = 0;
+    for (final s in _subjects) {
+      if ((s.oddSemCode != null && s.oddSemCode!.isNotEmpty) || (s.evenSemCode != null && s.evenSemCode!.isNotEmpty)) {
+        aliased++;
+      }
+      if (s.activeSyllabus != null) {
+        syllabus++;
+      }
+    }
+    _aliasedSubjectsCount = aliased;
+    _activeSyllabusCount = syllabus;
+  }
+
+  void _recomputeFilteredLists() {
+    if (_searchQuery.trim().isEmpty) {
+      _cachedFilteredDepts = _departments;
+      _cachedFilteredSecs = _sections;
+      _cachedFilteredSubs = _subjects;
+      return;
+    }
+    final q = _searchQuery.toLowerCase().trim();
+    _cachedFilteredDepts = _departments.where((d) {
+      return d.name.toLowerCase().contains(q) ||
+          d.code.toLowerCase().contains(q) ||
+          (d.hodName != null && d.hodName!.toLowerCase().contains(q));
+    }).toList();
+    _cachedFilteredSecs = _sections.where((s) {
+      return s.name.toLowerCase().contains(q) ||
+          s.displayName.toLowerCase().contains(q) ||
+          s.programNames.any((p) => p.toLowerCase().contains(q));
+    }).toList();
+    _cachedFilteredSubs = _subjects.where((s) {
+      return s.name.toLowerCase().contains(q) ||
+          s.code.toLowerCase().contains(q) ||
+          (s.oddSemCode != null && s.oddSemCode!.toLowerCase().contains(q)) ||
+          (s.evenSemCode != null && s.evenSemCode!.toLowerCase().contains(q));
+    }).toList();
+  }
+
+  void _onSearchChanged(String val) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = val;
+          _recomputeFilteredLists();
+        });
+      }
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchQuery = '';
+      _recomputeFilteredLists();
+    });
+  }
 
   @override
   void initState() {
@@ -46,9 +115,17 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
       _semesters = List.from(widget.storage.cachedSemesters);
       final users = widget.storage.cachedUsers;
       _teachers = users.where((u) => u.archetype == 'employee').toList();
+      _recomputeMetrics();
+      _recomputeFilteredLists();
       _loadState = PageLoadState.success;
     }
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -76,6 +153,8 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
           _subjects = subs;
           _semesters = sems;
           _teachers = faculty;
+          _recomputeMetrics();
+          _recomputeFilteredLists();
           _loadState = PageLoadState.success;
           _errorMessage = null;
         });
@@ -92,36 +171,9 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
     }
   }
 
-  List<DepartmentModel> get _filteredDepartments {
-    if (_searchQuery.trim().isEmpty) return _departments;
-    final q = _searchQuery.toLowerCase().trim();
-    return _departments.where((d) {
-      return d.name.toLowerCase().contains(q) ||
-          d.code.toLowerCase().contains(q) ||
-          (d.hodName != null && d.hodName!.toLowerCase().contains(q));
-    }).toList();
-  }
-
-  List<SectionModel> get _filteredSections {
-    if (_searchQuery.trim().isEmpty) return _sections;
-    final q = _searchQuery.toLowerCase().trim();
-    return _sections.where((s) {
-      return s.name.toLowerCase().contains(q) ||
-          s.displayName.toLowerCase().contains(q) ||
-          s.programNames.any((p) => p.toLowerCase().contains(q));
-    }).toList();
-  }
-
-  List<SubjectModel> get _filteredSubjects {
-    if (_searchQuery.trim().isEmpty) return _subjects;
-    final q = _searchQuery.toLowerCase().trim();
-    return _subjects.where((s) {
-      return s.name.toLowerCase().contains(q) ||
-          s.code.toLowerCase().contains(q) ||
-          (s.oddSemCode != null && s.oddSemCode!.toLowerCase().contains(q)) ||
-          (s.evenSemCode != null && s.evenSemCode!.toLowerCase().contains(q));
-    }).toList();
-  }
+  List<DepartmentModel> get _filteredDepartments => _cachedFilteredDepts;
+  List<SectionModel> get _filteredSections => _cachedFilteredSecs;
+  List<SubjectModel> get _filteredSubjects => _cachedFilteredSubs;
 
   @override
   Widget build(BuildContext context) {
@@ -316,10 +368,10 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isSelected: _selectedTab == 0,
             activeColor: AppColors.wineRed,
             isDark: isDark,
-            onTap: () => setState(() {
-              _selectedTab = 0;
-              _searchQuery = '';
-            }),
+            onTap: () {
+              setState(() => _selectedTab = 0);
+              _clearSearch();
+            },
           ),
           _buildToggleButton(
             title: 'Cross-Program Sections (${_sections.length})',
@@ -327,10 +379,10 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isSelected: _selectedTab == 1,
             activeColor: const Color(0xFF8250DF),
             isDark: isDark,
-            onTap: () => setState(() {
-              _selectedTab = 1;
-              _searchQuery = '';
-            }),
+            onTap: () {
+              setState(() => _selectedTab = 1);
+              _clearSearch();
+            },
           ),
           _buildToggleButton(
             title: 'Subjects & Syllabi (${_subjects.length})',
@@ -338,10 +390,10 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isSelected: _selectedTab == 2,
             activeColor: AppColors.githubGreen,
             isDark: isDark,
-            onTap: () => setState(() {
-              _selectedTab = 2;
-              _searchQuery = '';
-            }),
+            onTap: () {
+              setState(() => _selectedTab = 2);
+              _clearSearch();
+            },
           ),
         ],
       ),
@@ -411,10 +463,8 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
     final totalTeachers = _teachers.length;
     final totalSemesters = _semesters.length;
     final totalSections = _sections.length;
-    final aliasedSubjectsCount = _subjects
-        .where((s) => (s.oddSemCode != null && s.oddSemCode!.isNotEmpty) || (s.evenSemCode != null && s.evenSemCode!.isNotEmpty))
-        .length;
-    final activeSyllabusCount = _subjects.where((s) => s.activeSyllabus != null).length;
+    final aliasedSubjectsCount = _aliasedSubjectsCount;
+    final activeSyllabusCount = _activeSyllabusCount;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -638,7 +688,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
         ),
       ),
       child: TextField(
-        onChanged: (val) => setState(() => _searchQuery = val),
+        onChanged: _onSearchChanged,
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: hintText,
@@ -657,7 +707,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 16),
-                  onPressed: () => setState(() => _searchQuery = ''),
+                  onPressed: _clearSearch,
                 )
               : null,
           border: InputBorder.none,
@@ -3209,7 +3259,8 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (ctx, idx) {
                     final batch = batches[idx];
-                    final batchStudents = students.where((s) => batch.studentIds.contains(s.id)).toList();
+                    final batchIdSet = batch.studentIds.toSet();
+                    final batchStudents = students.where((s) => batchIdSet.contains(s.id)).toList();
 
                     return Container(
                       decoration: BoxDecoration(
@@ -3516,13 +3567,20 @@ class _TransferStudentDialogState extends State<_TransferStudentDialog> {
   String? _targetSectionId;
   bool _isSubmitting = false;
   String? _errorMessage;
+  late final List<SectionModel> _otherSections;
+
+  @override
+  void initState() {
+    super.initState();
+    _otherSections = widget.storage.cachedSections
+        .where((s) => s.id != widget.currentSection.id)
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final otherSections = widget.storage.cachedSections
-        .where((s) => s.id != widget.currentSection.id)
-        .toList();
+    final otherSections = _otherSections;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -3671,13 +3729,20 @@ class _MergeCohortDialogState extends State<_MergeCohortDialog> {
   String? _targetSectionId;
   bool _isSubmitting = false;
   String? _errorMessage;
+  late final List<SectionModel> _otherSections;
+
+  @override
+  void initState() {
+    super.initState();
+    _otherSections = widget.storage.cachedSections
+        .where((s) => s.id != widget.sourceSection.id)
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final otherSections = widget.storage.cachedSections
-        .where((s) => s.id != widget.sourceSection.id)
-        .toList();
+    final otherSections = _otherSections;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -4439,20 +4504,21 @@ class _ReassignBatchDialogState extends State<_ReassignBatchDialog> {
   String? _targetBatchId;
   bool _isSubmitting = false;
   String? _errorMessage;
+  late final List<LabBatchModel> _otherBatches;
 
   @override
   void initState() {
     super.initState();
-    final others = widget.batches.where((b) => b.id != widget.currentBatch.id).toList();
-    if (others.isNotEmpty) {
-      _targetBatchId = others.first.id;
+    _otherBatches = widget.batches.where((b) => b.id != widget.currentBatch.id).toList();
+    if (_otherBatches.isNotEmpty) {
+      _targetBatchId = _otherBatches.first.id;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final otherBatches = widget.batches.where((b) => b.id != widget.currentBatch.id).toList();
+    final otherBatches = _otherBatches;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -4593,6 +4659,7 @@ class _FacultyWorkloadDialog extends StatefulWidget {
 class _FacultyWorkloadDialogState extends State<_FacultyWorkloadDialog> {
   List<FacultyWorkloadSummaryModel> _summaries = [];
   bool _isLoading = true;
+  int _overloadedCount = 0;
 
   @override
   void initState() {
@@ -4605,6 +4672,7 @@ class _FacultyWorkloadDialogState extends State<_FacultyWorkloadDialog> {
     if (mounted) {
       setState(() {
         _summaries = list;
+        _overloadedCount = list.where((s) => s.isOverloaded).length;
         _isLoading = false;
       });
     }
@@ -4613,7 +4681,7 @@ class _FacultyWorkloadDialogState extends State<_FacultyWorkloadDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overloadedCount = _summaries.where((s) => s.isOverloaded).length;
+    final overloadedCount = _overloadedCount;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

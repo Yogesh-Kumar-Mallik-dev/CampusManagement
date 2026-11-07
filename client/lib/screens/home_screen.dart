@@ -51,10 +51,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_loadedTabs.contains(index)) {
       return const SizedBox.shrink();
     }
+    if (index == 0) {
+      return _buildDashboardView();
+    }
     return _tabWidgetCache.putIfAbsent(index, () {
       switch (index) {
-        case 0:
-          return _buildDashboardView();
         case 1:
           return TimetableScreen(
             key: ValueKey('tab-timetable-${_currentUser.id}'),
@@ -584,7 +585,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           currentAdminUser: _currentUser,
                           onUserUpdated: () async {
                             final fresh = await widget.storage.getUserProfile(_currentUser.id);
-                            setState(() => _currentUser = fresh);
+                            setState(() {
+                              _currentUser = fresh;
+                              _tabWidgetCache.clear();
+                            });
                           },
                         ),
                       ),
