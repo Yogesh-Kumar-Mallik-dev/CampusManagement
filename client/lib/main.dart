@@ -32,37 +32,43 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
   void initState() {
     super.initState();
     AppSvgIcon.prewarmCoreIcons();
+    AppTheme.themeModeNotifier.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    AppTheme.themeModeNotifier.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() {
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: AppTheme.themeModeNotifier,
-      builder: (context, themeMode, _) {
-        return MaterialApp(
-          title: 'CampusOS',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: themeMode,
-          themeAnimationDuration: const Duration(milliseconds: 300),
-          themeAnimationCurve: Curves.easeInOut,
-          home: _loggedInUser == null
-              ? LoginScreen(
-                  storage: widget.storage,
-                  onLoginSuccess: (user) {
-                    setState(() => _loggedInUser = user);
-                  },
-                )
-              : HomeScreen(
-                  storage: widget.storage,
-                  currentUser: _loggedInUser,
-                  onLogout: () {
-                    setState(() => _loggedInUser = null);
-                  },
-                ),
-        );
-      },
+    return MaterialApp(
+      title: 'CampusOS',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: AppTheme.themeModeNotifier.value,
+      themeAnimationDuration: const Duration(milliseconds: 250),
+      themeAnimationCurve: Curves.easeInOut,
+      home: _loggedInUser == null
+          ? LoginScreen(
+              storage: widget.storage,
+              onLoginSuccess: (user) {
+                setState(() => _loggedInUser = user);
+              },
+            )
+          : HomeScreen(
+              storage: widget.storage,
+              currentUser: _loggedInUser,
+              onLogout: () {
+                setState(() => _loggedInUser = null);
+              },
+            ),
     );
   }
 }

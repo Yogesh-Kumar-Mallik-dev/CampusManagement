@@ -16,11 +16,13 @@ class AppSvgIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveColor = color ?? IconTheme.of(context).color ?? Colors.black;
-    return SvgPicture.string(
-      svgString,
-      width: size,
-      height: size,
-      colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
+    return RepaintBoundary(
+      child: SvgPicture.string(
+        svgString,
+        width: size,
+        height: size,
+        colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
+      ),
     );
   }
 

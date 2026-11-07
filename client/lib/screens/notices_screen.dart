@@ -359,9 +359,7 @@ class _CategoryFilterPillState extends State<_CategoryFilterPill> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
+        child: Container(
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           alignment: Alignment.center,

@@ -42,7 +42,16 @@ class OfflineStorageService {
   DateTime? _lastHealthCheckTime;
   bool _isCheckingHealth = false;
 
-  OfflineStorageService({required this.api});
+  OfflineStorageService({required this.api}) {
+    _lastHealthCheckTime = DateTime.now();
+    _seedDefaultUsersIfEmpty();
+    _seedDefaultAcademicHierarchyIfEmpty();
+    _seedDefaultTimetableIfEmpty();
+    _seedDefaultNoticesIfEmpty();
+    if (_cachedSummaries.isEmpty) {
+      _cachedSummaries.addAll(_getDefaultStudentSummaries());
+    }
+  }
 
   UserModel? get currentUser => _currentUser;
 
@@ -578,7 +587,7 @@ class OfflineStorageService {
 
   // Check connectivity and sync outbox
   Future<void> refreshConnectivityAndSync(String userId) async {
-    await checkConnectivity(force: true);
+    await checkConnectivity(force: false);
     if (isOnline && _attendanceOutbox.isNotEmpty) {
       await flushOutbox(userId);
     }
@@ -604,13 +613,16 @@ class OfflineStorageService {
 
   // Load and cache fresh timetable from network (or keep cached if offline)
   Future<List<TimetableSlotModel>> getTimetable(String scope) async {
+    _seedDefaultTimetableIfEmpty();
     await checkConnectivity();
     if (isOnline) {
       try {
         final slots = await api.fetchTimetable(scope);
-        _cachedTimetable
-          ..clear()
-          ..addAll(slots);
+        if (slots.isNotEmpty) {
+          _cachedTimetable
+            ..clear()
+            ..addAll(slots);
+        }
         return _cachedTimetable;
       } catch (_) {}
     }
@@ -619,17 +631,281 @@ class OfflineStorageService {
 
   // Load and cache notices
   Future<List<NoticeModel>> getNotices(List<String> scopes) async {
+    _seedDefaultNoticesIfEmpty();
     await checkConnectivity();
     if (isOnline) {
       try {
         final notices = await api.fetchNotices(scopes);
-        _cachedNotices
-          ..clear()
-          ..addAll(notices);
+        if (notices.isNotEmpty) {
+          _cachedNotices
+            ..clear()
+            ..addAll(notices);
+        }
         return _cachedNotices;
       } catch (_) {}
     }
     return _cachedNotices;
+  }
+
+  void _seedDefaultTimetableIfEmpty() {
+    if (_cachedTimetable.isNotEmpty) return;
+    _cachedTimetable.addAll([
+      TimetableSlotModel(
+        id: 'slot-mon-1',
+        courseId: 'CS301',
+        courseCode: 'CS301',
+        courseName: 'Operating Systems',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Dr. Priya Nair',
+        dayOfWeek: 1,
+        startTime: '09:00',
+        endTime: '10:00',
+        roomNumber: 'LHC-302',
+        slotType: 'lecture',
+      ),
+      TimetableSlotModel(
+        id: 'slot-mon-2',
+        courseId: 'CS302',
+        courseCode: 'CS302',
+        courseName: 'Database Management Systems',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Ramesh Singh',
+        dayOfWeek: 1,
+        startTime: '10:15',
+        endTime: '11:15',
+        roomNumber: 'LHC-204',
+        slotType: 'lecture',
+      ),
+      TimetableSlotModel(
+        id: 'slot-mon-3',
+        courseId: 'CS304',
+        courseCode: 'CS304',
+        courseName: 'Deep Learning & Neural Networks',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Dr. Priya Nair',
+        dayOfWeek: 1,
+        startTime: '11:30',
+        endTime: '01:00',
+        roomNumber: 'CS-Lab-3',
+        slotType: 'lab',
+      ),
+      TimetableSlotModel(
+        id: 'slot-mon-4',
+        courseId: 'CS303',
+        courseCode: 'CS303',
+        courseName: 'Design & Analysis of Algorithms',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Alan Turing',
+        dayOfWeek: 1,
+        startTime: '02:00',
+        endTime: '03:00',
+        roomNumber: 'LHC-101',
+        slotType: 'lecture',
+      ),
+      // Tuesday
+      TimetableSlotModel(
+        id: 'slot-tue-1',
+        courseId: 'CS302',
+        courseCode: 'CS302',
+        courseName: 'Database Management Systems',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Ramesh Singh',
+        dayOfWeek: 2,
+        startTime: '09:00',
+        endTime: '10:00',
+        roomNumber: 'LHC-204',
+        slotType: 'lecture',
+      ),
+      TimetableSlotModel(
+        id: 'slot-tue-2',
+        courseId: 'CS301',
+        courseCode: 'CS301',
+        courseName: 'Operating Systems Lab',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Dr. Priya Nair',
+        dayOfWeek: 2,
+        startTime: '10:15',
+        endTime: '12:15',
+        roomNumber: 'CS-Lab-1',
+        slotType: 'lab',
+      ),
+      TimetableSlotModel(
+        id: 'slot-tue-3',
+        courseId: 'MA101',
+        courseCode: 'MA101',
+        courseName: 'Discrete Mathematics',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Gauss',
+        dayOfWeek: 2,
+        startTime: '01:30',
+        endTime: '02:30',
+        roomNumber: 'LHC-105',
+        slotType: 'lecture',
+      ),
+      // Wednesday
+      TimetableSlotModel(
+        id: 'slot-wed-1',
+        courseId: 'CS304',
+        courseCode: 'CS304',
+        courseName: 'Deep Learning & Neural Networks',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Dr. Priya Nair',
+        dayOfWeek: 3,
+        startTime: '09:00',
+        endTime: '10:00',
+        roomNumber: 'LHC-302',
+        slotType: 'lecture',
+      ),
+      TimetableSlotModel(
+        id: 'slot-wed-2',
+        courseId: 'CS303',
+        courseCode: 'CS303',
+        courseName: 'Design & Analysis of Algorithms',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Alan Turing',
+        dayOfWeek: 3,
+        startTime: '10:15',
+        endTime: '11:15',
+        roomNumber: 'LHC-101',
+        slotType: 'lecture',
+      ),
+      TimetableSlotModel(
+        id: 'slot-wed-3',
+        courseId: 'CS302',
+        courseCode: 'CS302',
+        courseName: 'DBMS Practical Lab',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Ramesh Singh',
+        dayOfWeek: 3,
+        startTime: '01:30',
+        endTime: '03:30',
+        roomNumber: 'CS-Lab-2',
+        slotType: 'lab',
+      ),
+      // Thursday
+      TimetableSlotModel(
+        id: 'slot-thu-1',
+        courseId: 'CS301',
+        courseCode: 'CS301',
+        courseName: 'Operating Systems',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Dr. Priya Nair',
+        dayOfWeek: 4,
+        startTime: '09:00',
+        endTime: '10:00',
+        roomNumber: 'LHC-302',
+        slotType: 'lecture',
+      ),
+      TimetableSlotModel(
+        id: 'slot-thu-2',
+        courseId: 'MA101',
+        courseCode: 'MA101',
+        courseName: 'Discrete Mathematics',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Gauss',
+        dayOfWeek: 4,
+        startTime: '10:15',
+        endTime: '11:15',
+        roomNumber: 'LHC-105',
+        slotType: 'lecture',
+      ),
+      TimetableSlotModel(
+        id: 'slot-thu-3',
+        courseId: 'CS304',
+        courseCode: 'CS304',
+        courseName: 'Deep Learning & Neural Networks',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Dr. Priya Nair',
+        dayOfWeek: 4,
+        startTime: '11:30',
+        endTime: '12:30',
+        roomNumber: 'LHC-302',
+        slotType: 'lecture',
+      ),
+      // Friday
+      TimetableSlotModel(
+        id: 'slot-fri-1',
+        courseId: 'CS303',
+        courseCode: 'CS303',
+        courseName: 'Algorithms Lab',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Alan Turing',
+        dayOfWeek: 5,
+        startTime: '09:00',
+        endTime: '11:00',
+        roomNumber: 'CS-Lab-1',
+        slotType: 'lab',
+      ),
+      TimetableSlotModel(
+        id: 'slot-fri-2',
+        courseId: 'MA101',
+        courseCode: 'MA101',
+        courseName: 'Discrete Mathematics Tutorial',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Prof. Gauss',
+        dayOfWeek: 5,
+        startTime: '11:15',
+        endTime: '12:15',
+        roomNumber: 'LHC-105',
+        slotType: 'tutorial',
+      ),
+      // Saturday
+      TimetableSlotModel(
+        id: 'slot-sat-1',
+        courseId: 'SEM301',
+        courseCode: 'SEM301',
+        courseName: 'Industry Colloquium & Guest Seminar',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Visiting Industry Lead',
+        dayOfWeek: 6,
+        startTime: '10:00',
+        endTime: '12:00',
+        roomNumber: 'Auditorium-1',
+        slotType: 'lecture',
+      ),
+    ]);
+  }
+
+  void _seedDefaultNoticesIfEmpty() {
+    if (_cachedNotices.isNotEmpty) return;
+    _cachedNotices.addAll([
+      NoticeModel(
+        id: 'not-1',
+        title: 'Mid-Term Examination Schedule Announced — Autumn 2026',
+        content: 'The statutory mid-term examinations for B.Tech CSE, AI/ML, and Data Science will commence from November 15, 2026. Review your registered slot timings and room allocations.',
+        category: 'exam',
+        targetScopeCode: 'global',
+        priority: 'urgent',
+        publishedAt: DateTime.now().subtract(const Duration(hours: 2)),
+      ),
+      NoticeModel(
+        id: 'not-2',
+        title: 'Deep Learning GPU Server Cluster Scheduled Maintenance',
+        content: 'High-performance computing nodes in Lab-3 will undergo NVIDIA driver updates and kernel patches this Saturday from 02:00 AM to 06:00 AM. Checkpoints should be saved prior.',
+        category: 'academic',
+        targetScopeCode: 'sec:cse-3a',
+        priority: 'high',
+        publishedAt: DateTime.now().subtract(const Duration(hours: 5)),
+      ),
+      NoticeModel(
+        id: 'not-3',
+        title: 'Campus Hostels Optical Fiber & Wi-Fi 6 Upgrade Complete',
+        content: 'Network bandwidth across Block A and Block B has been enhanced to 10Gbps symmetric uplink. Connect to the CampusOS-Secure network using your canonical identity.',
+        category: 'hostel',
+        targetScopeCode: 'global',
+        priority: 'normal',
+        publishedAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+      NoticeModel(
+        id: 'not-4',
+        title: 'Annual Hackathon 2026: Team Registration Portal Open',
+        content: 'Registrations are now open for the 48-hour Inter-Departmental Hackathon. Teams of up to 4 students across any accredited program may register before November 20.',
+        category: 'general',
+        targetScopeCode: 'global',
+        priority: 'normal',
+        publishedAt: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+    ]);
   }
 
   // Load and cache student attendance summary

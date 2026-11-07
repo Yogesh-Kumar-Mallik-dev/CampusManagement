@@ -373,9 +373,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             return InkWell(
               onTap: () => _onFilterChanged(f.$1),
               borderRadius: BorderRadius.circular(6),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                curve: Curves.easeOut,
+              child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
@@ -587,9 +585,7 @@ class _UserDirectoryCardState extends State<_UserDirectoryCard> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
+        child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: bgColor,

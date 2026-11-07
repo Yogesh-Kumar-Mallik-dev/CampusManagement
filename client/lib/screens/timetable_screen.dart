@@ -408,9 +408,7 @@ class _DaySelectorPillState extends State<_DaySelectorPill> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
+        child: Container(
           height: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(

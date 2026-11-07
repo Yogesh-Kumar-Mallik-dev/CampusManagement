@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/smooth_theme_toggle.dart';
@@ -32,6 +31,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final Set<int> _loadedTabs = {0};
+  final Map<int, Widget> _tabWidgetCache = {};
 
   late List<UserModel> _personas;
   late UserModel _currentUser;
@@ -51,42 +51,44 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_loadedTabs.contains(index)) {
       return const SizedBox.shrink();
     }
-    switch (index) {
-      case 0:
-        return _buildDashboardView();
-      case 1:
-        return TimetableScreen(
-          key: ValueKey('tab-timetable-${_currentUser.id}'),
-          storage: widget.storage,
-          activeScope: _currentUser.activeScopes.contains('sec:cse-3a') ? 'sec:cse-3a' : 'global',
-        );
-      case 2:
-        return AttendanceScreen(
-          key: ValueKey('tab-attendance-${_currentUser.id}'),
-          storage: widget.storage,
-          currentUser: _currentUser,
-        );
-      case 3:
-        return NoticesScreen(
-          key: ValueKey('tab-notices-${_currentUser.id}'),
-          storage: widget.storage,
-          userScopes: _currentUser.activeScopes,
-        );
-      case 4:
-        return UserManagementScreen(
-          key: ValueKey('tab-users-${_currentUser.id}'),
-          storage: widget.storage,
-          currentUser: _currentUser,
-        );
-      case 5:
-        return DepartmentManagementScreen(
-          key: ValueKey('tab-depts-${_currentUser.id}'),
-          storage: widget.storage,
-          currentUser: _currentUser,
-        );
-      default:
-        return const SizedBox.shrink();
-    }
+    return _tabWidgetCache.putIfAbsent(index, () {
+      switch (index) {
+        case 0:
+          return _buildDashboardView();
+        case 1:
+          return TimetableScreen(
+            key: ValueKey('tab-timetable-${_currentUser.id}'),
+            storage: widget.storage,
+            activeScope: _currentUser.activeScopes.contains('sec:cse-3a') ? 'sec:cse-3a' : 'global',
+          );
+        case 2:
+          return AttendanceScreen(
+            key: ValueKey('tab-attendance-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
+          );
+        case 3:
+          return NoticesScreen(
+            key: ValueKey('tab-notices-${_currentUser.id}'),
+            storage: widget.storage,
+            userScopes: _currentUser.activeScopes,
+          );
+        case 4:
+          return UserManagementScreen(
+            key: ValueKey('tab-users-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
+          );
+        case 5:
+          return DepartmentManagementScreen(
+            key: ValueKey('tab-depts-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
+          );
+        default:
+          return const SizedBox.shrink();
+      }
+    });
   }
 
   @override
@@ -129,9 +131,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _checkServer();
   }
 
-  Future<void> _checkServer() async {
-    await widget.storage.refreshConnectivityAndSync(_currentUser.id);
-    if (mounted) setState(() {});
+  void _checkServer() {
+    widget.storage.refreshConnectivityAndSync(_currentUser.id).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -155,9 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final statusBadge = widget.storage.isOnline
                   ? AppColors.greenBadge(isDark)
                   : AppColors.yellowBadge(isDark);
-              return AnimatedContainer(
-                duration: AppTheme.themeAnimationDuration,
-                curve: AppTheme.themeAnimationCurve,
+              return Container(
                 margin: const EdgeInsets.symmetric(vertical: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -214,6 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelected: (UserModel newUser) {
               setState(() {
                 _currentUser = newUser;
+                _tabWidgetCache.clear();
                 _loadedTabs.clear();
                 _loadedTabs.add(_currentIndex);
               });
@@ -844,9 +846,7 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Pill overlay container with rigidly fixed dimensions: 54px x 32px
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                curve: Curves.easeOut,
+              Container(
                 width: 54,
                 height: 32,
                 alignment: Alignment.center,
@@ -940,9 +940,7 @@ class _OperationCardState extends State<_OperationCard> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
+        child: Container(
           constraints: const BoxConstraints(minHeight: 90),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
