@@ -6,6 +6,7 @@ import 'services/api_service.dart';
 import 'services/offline_storage_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/svg_icons.dart';
+import 'widgets/circular_theme_reveal.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,8 +40,12 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
-          themeAnimationDuration: const Duration(milliseconds: 350),
-          themeAnimationCurve: Curves.easeInOutCubic,
+          themeAnimationDuration: Duration.zero,
+          builder: (context, child) {
+            return CircularThemeReveal(
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: _loggedInUser == null
               ? LoginScreen(
                   storage: widget.storage,
