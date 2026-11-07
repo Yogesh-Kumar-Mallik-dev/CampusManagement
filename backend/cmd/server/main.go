@@ -347,7 +347,8 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		Semester: 3,
 	})
 
-	// 2. Seed Timetable Slots for CSE Section 3A
+	// 2. Seed Timetable Slots for CSE Section 3A (9 AM to 5 PM Blocks)
+	// Monday: 09:00-10:00 Lecture, 10:00-11:00 Lecture (Consecutive -> Rectangle)
 	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
 		CourseID:       c1.ID,
 		CourseCode:     c1.Code,
@@ -369,9 +370,82 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		DayOfWeek:      1, // Monday
 		StartTime:      "10:00",
 		EndTime:        "11:00",
+		RoomNumber:     "LH-101",
+		SlotType:       "lecture",
+	})
+	// Monday: 11:00-12:00 Free Period
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseCode: "FREE",
+		CourseName: "Library & Self-Study",
+		ScopeCode:  "sec:cse-3a",
+		DayOfWeek:  1,
+		StartTime:  "11:00",
+		EndTime:    "12:00",
+		RoomNumber: "Central Library",
+		SlotType:   "free",
+	})
+	// Monday: 12:00-13:00 Free Period (Midday Recess)
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseCode: "FREE",
+		CourseName: "Midday Recess & Lunch",
+		ScopeCode:  "sec:cse-3a",
+		DayOfWeek:  1,
+		StartTime:  "12:00",
+		EndTime:    "13:00",
+		RoomNumber: "Campus Cafeteria",
+		SlotType:   "free",
+	})
+	// Monday: 13:00-14:00 Lab, 14:00-15:00 Lab (Consecutive 2-Hour Lab -> Rectangle)
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseID:       c3.ID,
+		CourseCode:     c3.Code,
+		CourseName:     c3.Name + " Practical Lab",
+		ScopeCode:      "sec:cse-3a",
+		InstructorName: "Dr. Sandeep Rao",
+		DayOfWeek:      1,
+		StartTime:      "13:00",
+		EndTime:        "14:00",
 		RoomNumber:     "Lab-3",
 		SlotType:       "lab",
 	})
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseID:       c3.ID,
+		CourseCode:     c3.Code,
+		CourseName:     c3.Name + " Practical Lab",
+		ScopeCode:      "sec:cse-3a",
+		InstructorName: "Dr. Sandeep Rao",
+		DayOfWeek:      1,
+		StartTime:      "14:00",
+		EndTime:        "15:00",
+		RoomNumber:     "Lab-3",
+		SlotType:       "lab",
+	})
+	// Monday: 15:00-16:00 Lecture (Standalone -> Square)
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseID:       c1.ID,
+		CourseCode:     c1.Code,
+		CourseName:     c1.Name + " Tutorial",
+		ScopeCode:      "sec:cse-3a",
+		InstructorName: "Dr. Priya Nair",
+		DayOfWeek:      1,
+		StartTime:      "15:00",
+		EndTime:        "16:00",
+		RoomNumber:     "LH-101",
+		SlotType:       "tutorial",
+	})
+	// Monday: 16:00-17:00 Declared Off (Off -> Square)
+	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
+		CourseCode: "OFF",
+		CourseName: "Evening Dismissal",
+		ScopeCode:  "sec:cse-3a",
+		DayOfWeek:  1,
+		StartTime:  "16:00",
+		EndTime:    "17:00",
+		RoomNumber: "-",
+		SlotType:   "off",
+	})
+
+	// Tuesday: 11:00-12:00 Lecture
 	_, _ = svc.CreateTimetableSlot(ctx, model.TimetableSlot{
 		CourseID:       c3.ID,
 		CourseCode:     c3.Code,
@@ -379,8 +453,8 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		ScopeCode:      "sec:cse-3a",
 		InstructorName: "Dr. Sandeep Rao",
 		DayOfWeek:      2, // Tuesday
-		StartTime:      "11:15",
-		EndTime:        "12:15",
+		StartTime:      "11:00",
+		EndTime:        "12:00",
 		RoomNumber:     "LH-101",
 		SlotType:       "lecture",
 	})

@@ -71,6 +71,25 @@ class ApiService {
     throw Exception('Failed to load timetable (${res.statusCode})');
   }
 
+  Future<TimetableSlotModel> saveTimetableSlot(TimetableSlotModel slot) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/timetable'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(slot.toJson()),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return TimetableSlotModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to save timetable slot (${res.statusCode})');
+  }
+
+  Future<bool> deleteTimetableSlot(String id) async {
+    final res = await http.delete(
+      Uri.parse('$baseUrl/api/v1/academics/timetable?id=$id'),
+    );
+    return res.statusCode == 200 || res.statusCode == 204;
+  }
+
   Future<List<NoticeModel>> fetchNotices(List<String> scopes) async {
     final scopeParam = scopes.join(',');
     final res = await http

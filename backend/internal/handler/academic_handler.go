@@ -84,6 +84,32 @@ func (h *AcademicHandler) HandleTimetable(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(created)
 
+	case http.MethodPut:
+		var slot model.TimetableSlot
+		if err := json.NewDecoder(r.Body).Decode(&slot); err != nil {
+			http.Error(w, "Invalid payload", http.StatusBadRequest)
+			return
+		}
+		updated, err := h.academicService.UpdateTimetableSlot(r.Context(), slot)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(updated)
+
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "Missing slot ID", http.StatusBadRequest)
+			return
+		}
+		if err := h.academicService.DeleteTimetableSlot(r.Context(), id); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}

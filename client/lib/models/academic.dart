@@ -46,7 +46,7 @@ class TimetableSlotModel {
   final String startTime;
   final String endTime;
   final String roomNumber;
-  final String slotType; // 'lecture', 'lab', 'tutorial'
+  final String slotType; // 'lecture', 'lab', 'tutorial', 'free', 'off'
 
   TimetableSlotModel({
     required this.id,
@@ -61,6 +61,38 @@ class TimetableSlotModel {
     required this.roomNumber,
     required this.slotType,
   });
+
+  bool get isFree => slotType.toLowerCase() == 'free';
+  bool get isOff => slotType.toLowerCase() == 'off';
+  bool get isOccupied => !isFree && !isOff && (courseCode.isNotEmpty || courseName.isNotEmpty);
+
+  TimetableSlotModel copyWith({
+    String? id,
+    String? courseId,
+    String? courseCode,
+    String? courseName,
+    String? scopeCode,
+    String? instructorName,
+    int? dayOfWeek,
+    String? startTime,
+    String? endTime,
+    String? roomNumber,
+    String? slotType,
+  }) {
+    return TimetableSlotModel(
+      id: id ?? this.id,
+      courseId: courseId ?? this.courseId,
+      courseCode: courseCode ?? this.courseCode,
+      courseName: courseName ?? this.courseName,
+      scopeCode: scopeCode ?? this.scopeCode,
+      instructorName: instructorName ?? this.instructorName,
+      dayOfWeek: dayOfWeek ?? this.dayOfWeek,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      roomNumber: roomNumber ?? this.roomNumber,
+      slotType: slotType ?? this.slotType,
+    );
+  }
 
   String get dayName {
     switch (dayOfWeek) {

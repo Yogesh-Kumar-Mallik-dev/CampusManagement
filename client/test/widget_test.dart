@@ -9,6 +9,7 @@ import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
 import 'package:campus_client/widgets/app_dropdown.dart';
 import 'package:campus_client/widgets/app_logo.dart';
+import 'package:campus_client/screens/timetable_screen.dart';
 
 void main() {
   test('OpticalFramePacket encoding, decoding, and expiration logic', () {
@@ -841,5 +842,91 @@ void main() {
 
     expect(find.text('Scan Rolling Optical QR'), findsOneWidget);
     expect(find.text('ALIGN RETICLE WITH CLASSROOM DISPLAY'), findsOneWidget);
+  });
+
+  testWidgets('Timetable: 9 AM to 5 PM 1-hour blocks, Rectangle consecutive grouping, Square units, and Free vs Off distinction', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimetableScreen(
+          storage: storage,
+          activeScope: 'sec:cse-3a',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Verify Title & 9 AM to 5 PM Operational Window
+    expect(find.text('Academic Timetable (9 AM - 5 PM)'), findsOneWidget);
+
+    // 2. Select Monday (Day 1)
+    await tester.tap(find.text('Mon'));
+    await tester.pumpAndSettle();
+
+    // Verify summary ribbon
+    expect(find.textContaining('Classes'), findsWidgets);
+    expect(find.textContaining('Free Periods'), findsWidgets);
+    expect(find.textContaining('Declared Off'), findsWidgets);
+
+    // 3. Verify Geometry categorization:
+    // Consecutive occupied blocks (09:00 CS301 + 10:00 CS302) are rendered as RECTANGLE
+    expect(find.text('RECTANGLE'), findsWidgets);
+    expect(find.text('CONSECUTIVE PERIODS'), findsWidgets);
+
+    // Standalone occupied, free, and off blocks are rendered as SQUARE
+    expect(find.text('SQUARE'), findsWidgets);
+
+    // 4. Verify Free is distinct from Off:
+    // Both statuses exist simultaneously on the schedule and have distinct branding
+    expect(find.text('FREE PERIOD'), findsWidgets);
+    expect(find.textContaining('Declared Off'), findsWidgets);
+    expect(find.text('Operating Systems'), findsWidgets);
+
+    // 5. Test Week Matrix Toggle
+    final switchModeBtn = find.byTooltip('Switch to Week Matrix View');
+    expect(switchModeBtn, findsOneWidget);
+    await tester.tap(switchModeBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('TIME'), findsOneWidget);
+    expect(find.text('09:00'), findsWidgets);
+    expect(find.text('16:00'), findsWidgets);
+
+    // Toggle back to Day Timeline View
+    final switchTimelineBtn = find.byTooltip('Switch to Day Timeline View');
+    expect(switchTimelineBtn, findsOneWidget);
+    await tester.tap(switchTimelineBtn);
+    await tester.pumpAndSettle();
+
+    // 6. Test Saturday half-day behavior (classes in morning, free period, afternoon declared off)
+    await tester.tap(find.text('Sat'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('SEM301'), findsWidgets);
+    expect(find.text('FREE PERIOD'), findsWidgets);
+    expect(find.text('DECLARED OFF'), findsWidgets);
+
+    // 7. Test Block Configuration Sheet
+    // Tap a block to open configuration
+    await tester.tap(find.text('FREE PERIOD').first);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Configure Schedule Block'), findsOneWidget);
+    expect(find.text('BLOCK TYPE'), findsOneWidget);
+    expect(find.text('Free Period (Campus Open)'), findsOneWidget);
+
+    // Switch type to Declared Off inside editor
+    await tester.tap(find.text('Declared Off').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Declared Off (Campus Hours Closed)'), findsOneWidget);
+
+    // Save block
+    await tester.tap(find.text('Save Block Configuration'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('DECLARED OFF'), findsWidgets);
   });
 }

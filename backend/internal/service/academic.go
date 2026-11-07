@@ -164,6 +164,50 @@ func (s *AcademicService) CreateTimetableSlot(ctx context.Context, slot model.Ti
 	return slot, nil
 }
 
+func (s *AcademicService) UpdateTimetableSlot(ctx context.Context, slot model.TimetableSlot) (model.TimetableSlot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	existing, exists := s.timetableSlots[slot.ID]
+	if !exists {
+		now := time.Now().UTC()
+		if slot.ID == "" {
+			slot.ID = fmt.Sprintf("slot-%d", time.Now().UnixNano())
+		}
+		slot.CreatedAt = now
+		slot.UpdatedAt = now
+		if c, ok := s.courses[slot.CourseID]; ok {
+			slot.CourseCode = c.Code
+			slot.CourseName = c.Name
+		}
+		s.timetableSlots[slot.ID] = slot
+		return slot, nil
+	}
+
+	slot.CreatedAt = existing.CreatedAt
+	slot.UpdatedAt = time.Now().UTC()
+	if c, ok := s.courses[slot.CourseID]; ok {
+		slot.CourseCode = c.Code
+		slot.CourseName = c.Name
+	}
+	s.timetableSlots[slot.ID] = slot
+	return slot, nil
+}
+
+func (s *AcademicService) DeleteTimetableSlot(ctx context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	slot, exists := s.timetableSlots[id]
+	if !exists {
+		return fmt.Errorf("timetable slot not found: %s", id)
+	}
+	slot.IsDeleted = true
+	slot.UpdatedAt = time.Now().UTC()
+	s.timetableSlots[id] = slot
+	return nil
+}
+
 func (s *AcademicService) GetTimetableForScope(ctx context.Context, scopeCode string) ([]model.TimetableSlot, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
