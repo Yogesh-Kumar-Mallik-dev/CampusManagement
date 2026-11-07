@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../models/academic.dart';
+import '../models/hostel.dart';
 import '../models/user.dart';
 import 'api_service.dart';
 
@@ -19,6 +20,7 @@ class OfflineStorageService {
   final List<SubjectModel> _cachedSubjects = [];
   final List<SemesterModel> _cachedSemesters = [];
   final List<SectionModel> _cachedSections = [];
+  final List<HostelRoomModel> _cachedHostelRooms = [];
   final Map<String, String> _studentSectionMap = {};
   final Map<String, String> _studentProgramMap = {};
   final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
@@ -48,6 +50,7 @@ class OfflineStorageService {
     _seedDefaultAcademicHierarchyIfEmpty();
     _seedDefaultTimetableIfEmpty();
     _seedDefaultNoticesIfEmpty();
+    _seedDefaultHostelRoomsIfEmpty();
     if (_cachedSummaries.isEmpty) {
       _cachedSummaries.addAll(_getDefaultStudentSummaries());
     }
@@ -289,6 +292,10 @@ class OfflineStorageService {
   List<SectionModel> get cachedSections {
     _seedDefaultAcademicHierarchyIfEmpty();
     return List.unmodifiable(_cachedSections);
+  }
+  List<HostelRoomModel> get cachedHostelRooms {
+    _seedDefaultHostelRoomsIfEmpty();
+    return List.unmodifiable(_cachedHostelRooms);
   }
 
   void _seedDefaultUsersIfEmpty() {
@@ -3205,5 +3212,311 @@ class OfflineStorageService {
 
     result.sort((a, b) => b.totalWeeklyHours.compareTo(a.totalWeeklyHours));
     return result;
+  }
+
+  // ----------------------------------------------------
+  // HOSTEL ROOM SYSTEM (100 - 999)
+  // ----------------------------------------------------
+
+  void _seedDefaultHostelRoomsIfEmpty() {
+    if (_cachedHostelRooms.isNotEmpty) return;
+
+    final now = DateTime.now();
+
+    // Room 101: 1st floor, fully furnished, 2 occupants
+    _cachedHostelRooms.add(HostelRoomModel(
+      id: 'room-101',
+      roomNumber: 101,
+      blockName: 'Aryabhatta Block',
+      floor: 1,
+      createdAt: now.subtract(const Duration(days: 30)),
+      updatedAt: now,
+      assets: [
+        HostelAssetModel(id: 'asset-101-bed-1', roomNumber: 101, assetType: 'bed', serialNumber: 'BED-101-01', installedAt: now),
+        HostelAssetModel(id: 'asset-101-bed-2', roomNumber: 101, assetType: 'bed', serialNumber: 'BED-101-02', installedAt: now),
+        HostelAssetModel(id: 'asset-101-bed-3', roomNumber: 101, assetType: 'bed', serialNumber: 'BED-101-03', installedAt: now),
+        HostelAssetModel(id: 'asset-101-table-1', roomNumber: 101, assetType: 'table', serialNumber: 'TAB-101-01', installedAt: now),
+        HostelAssetModel(id: 'asset-101-table-2', roomNumber: 101, assetType: 'table', serialNumber: 'TAB-101-02', installedAt: now),
+        HostelAssetModel(id: 'asset-101-table-3', roomNumber: 101, assetType: 'table', serialNumber: 'TAB-101-03', installedAt: now),
+        HostelAssetModel(id: 'asset-101-tl-1', roomNumber: 101, assetType: 'tubelight', serialNumber: 'TL-101-01', installedAt: now),
+        HostelAssetModel(id: 'asset-101-tl-2', roomNumber: 101, assetType: 'tubelight', serialNumber: 'TL-101-02', installedAt: now),
+        HostelAssetModel(id: 'asset-101-fan-1', roomNumber: 101, assetType: 'fan', serialNumber: 'FAN-101-01', installedAt: now),
+        HostelAssetModel(id: 'asset-101-fan-2', roomNumber: 101, assetType: 'fan', serialNumber: 'FAN-101-02', installedAt: now),
+        HostelAssetModel(id: 'asset-101-lck-1', roomNumber: 101, assetType: 'locker', serialNumber: 'LCK-101-01', installedAt: now),
+        HostelAssetModel(id: 'asset-101-lck-2', roomNumber: 101, assetType: 'locker', serialNumber: 'LCK-101-02', installedAt: now),
+        HostelAssetModel(id: 'asset-101-lck-3', roomNumber: 101, assetType: 'locker', serialNumber: 'LCK-101-03', installedAt: now),
+      ],
+      occupants: [
+        HostelOccupantModel(userId: 'u-student-harish', campusHandle: 'harish_2025_l_btech_1', name: 'Harish Kumar', allottedAt: now.subtract(const Duration(days: 20))),
+        HostelOccupantModel(userId: 'u-student-rohit', campusHandle: 'rohit_2025_btech_2', name: 'Rohit Verma', allottedAt: now.subtract(const Duration(days: 15))),
+      ],
+    ));
+
+    // Room 102: 1st floor, partially furnished, 1 occupant
+    _cachedHostelRooms.add(HostelRoomModel(
+      id: 'room-102',
+      roomNumber: 102,
+      blockName: 'Aryabhatta Block',
+      floor: 1,
+      createdAt: now.subtract(const Duration(days: 30)),
+      updatedAt: now,
+      assets: [
+        HostelAssetModel(id: 'asset-102-bed-1', roomNumber: 102, assetType: 'bed', serialNumber: 'BED-102-01', installedAt: now),
+        HostelAssetModel(id: 'asset-102-bed-2', roomNumber: 102, assetType: 'bed', serialNumber: 'BED-102-02', installedAt: now),
+        HostelAssetModel(id: 'asset-102-table-1', roomNumber: 102, assetType: 'table', serialNumber: 'TAB-102-01', installedAt: now),
+        HostelAssetModel(id: 'asset-102-table-2', roomNumber: 102, assetType: 'table', serialNumber: 'TAB-102-02', installedAt: now),
+        HostelAssetModel(id: 'asset-102-tl-1', roomNumber: 102, assetType: 'tubelight', serialNumber: 'TL-102-01', installedAt: now),
+        HostelAssetModel(id: 'asset-102-tl-2', roomNumber: 102, assetType: 'tubelight', serialNumber: 'TL-102-02', installedAt: now),
+        HostelAssetModel(id: 'asset-102-fan-1', roomNumber: 102, assetType: 'fan', serialNumber: 'FAN-102-01', installedAt: now),
+        HostelAssetModel(id: 'asset-102-lck-1', roomNumber: 102, assetType: 'locker', serialNumber: 'LCK-102-01', installedAt: now),
+        HostelAssetModel(id: 'asset-102-lck-2', roomNumber: 102, assetType: 'locker', serialNumber: 'LCK-102-02', installedAt: now),
+      ],
+      occupants: [
+        HostelOccupantModel(userId: 'u-student-amit', campusHandle: 'amit_2025_btech_3', name: 'Amit Shah', allottedAt: now.subtract(const Duration(days: 10))),
+      ],
+    ));
+
+    // Room 204: 2nd floor, fully furnished, vacant (0 occupants)
+    _cachedHostelRooms.add(HostelRoomModel(
+      id: 'room-204',
+      roomNumber: 204,
+      blockName: 'Aryabhatta Block',
+      floor: 2,
+      createdAt: now.subtract(const Duration(days: 20)),
+      updatedAt: now,
+      assets: [
+        HostelAssetModel(id: 'asset-204-bed-1', roomNumber: 204, assetType: 'bed', serialNumber: 'BED-204-01', installedAt: now),
+        HostelAssetModel(id: 'asset-204-bed-2', roomNumber: 204, assetType: 'bed', serialNumber: 'BED-204-02', installedAt: now),
+        HostelAssetModel(id: 'asset-204-bed-3', roomNumber: 204, assetType: 'bed', serialNumber: 'BED-204-03', installedAt: now),
+        HostelAssetModel(id: 'asset-204-table-1', roomNumber: 204, assetType: 'table', serialNumber: 'TAB-204-01', installedAt: now),
+        HostelAssetModel(id: 'asset-204-table-2', roomNumber: 204, assetType: 'table', serialNumber: 'TAB-204-02', installedAt: now),
+        HostelAssetModel(id: 'asset-204-table-3', roomNumber: 204, assetType: 'table', serialNumber: 'TAB-204-03', installedAt: now),
+        HostelAssetModel(id: 'asset-204-tl-1', roomNumber: 204, assetType: 'tubelight', serialNumber: 'TL-204-01', installedAt: now),
+        HostelAssetModel(id: 'asset-204-tl-2', roomNumber: 204, assetType: 'tubelight', serialNumber: 'TL-204-02', installedAt: now),
+        HostelAssetModel(id: 'asset-204-fan-1', roomNumber: 204, assetType: 'fan', serialNumber: 'FAN-204-01', installedAt: now),
+        HostelAssetModel(id: 'asset-204-fan-2', roomNumber: 204, assetType: 'fan', serialNumber: 'FAN-204-02', installedAt: now),
+        HostelAssetModel(id: 'asset-204-lck-1', roomNumber: 204, assetType: 'locker', serialNumber: 'LCK-204-01', installedAt: now),
+        HostelAssetModel(id: 'asset-204-lck-2', roomNumber: 204, assetType: 'locker', serialNumber: 'LCK-204-02', installedAt: now),
+        HostelAssetModel(id: 'asset-204-lck-3', roomNumber: 204, assetType: 'locker', serialNumber: 'LCK-204-03', installedAt: now),
+      ],
+      occupants: const [],
+    ));
+
+    // Room 305: 3rd floor, starter fixtures
+    _cachedHostelRooms.add(HostelRoomModel(
+      id: 'room-305',
+      roomNumber: 305,
+      blockName: 'Aryabhatta Block',
+      floor: 3,
+      createdAt: now.subtract(const Duration(days: 10)),
+      updatedAt: now,
+      assets: [
+        HostelAssetModel(id: 'asset-305-bed-1', roomNumber: 305, assetType: 'bed', serialNumber: 'BED-305-01', installedAt: now),
+        HostelAssetModel(id: 'asset-305-table-1', roomNumber: 305, assetType: 'table', serialNumber: 'TAB-305-01', installedAt: now),
+        HostelAssetModel(id: 'asset-305-tl-1', roomNumber: 305, assetType: 'tubelight', serialNumber: 'TL-305-01', installedAt: now),
+        HostelAssetModel(id: 'asset-305-fan-1', roomNumber: 305, assetType: 'fan', serialNumber: 'FAN-305-01', installedAt: now),
+        HostelAssetModel(id: 'asset-305-lck-1', roomNumber: 305, assetType: 'locker', serialNumber: 'LCK-305-01', installedAt: now),
+      ],
+      occupants: const [],
+    ));
+  }
+
+  Future<List<HostelRoomModel>> getHostelRooms({int? floor}) async {
+    _seedDefaultHostelRoomsIfEmpty();
+    await checkConnectivity();
+
+    if (isOnline) {
+      try {
+        final serverRooms = await api.fetchHostelRooms(floor: floor);
+        if (serverRooms.isNotEmpty) {
+          _cachedHostelRooms.clear();
+          _cachedHostelRooms.addAll(serverRooms);
+        }
+      } catch (_) {}
+    }
+
+    final rooms = floor != null
+        ? _cachedHostelRooms.where((r) => r.floor == floor).toList()
+        : List<HostelRoomModel>.from(_cachedHostelRooms);
+
+    rooms.sort((a, b) => a.roomNumber.compareTo(b.roomNumber));
+    return rooms;
+  }
+
+  Future<HostelRoomModel> createHostelRoom(int roomNumber, String blockName) async {
+    _seedDefaultHostelRoomsIfEmpty();
+    final err = HostelRoomModel.validateRoomNumber(roomNumber);
+    if (err != null) {
+      throw Exception(err);
+    }
+
+    if (_cachedHostelRooms.any((r) => r.roomNumber == roomNumber)) {
+      throw Exception('Hostel room $roomNumber already exists');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final created = await api.createHostelRoom(roomNumber, blockName);
+        _cachedHostelRooms.add(created);
+        return created;
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
+    final room = HostelRoomModel(
+      id: 'room-$roomNumber',
+      roomNumber: roomNumber,
+      blockName: blockName.trim().isNotEmpty ? blockName.trim() : 'Aryabhatta Block',
+      floor: roomNumber ~/ 100,
+      assets: const [],
+      occupants: const [],
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _cachedHostelRooms.add(room);
+    return room;
+  }
+
+  Future<HostelAssetModel> addHostelAsset(int roomNumber, String assetType, String serialNumber, String condition) async {
+    _seedDefaultHostelRoomsIfEmpty();
+
+    final roomIdx = _cachedHostelRooms.indexWhere((r) => r.roomNumber == roomNumber);
+    if (roomIdx == -1) {
+      throw Exception('Hostel room $roomNumber not found');
+    }
+
+    final room = _cachedHostelRooms[roomIdx];
+    final normalizedType = assetType.trim().toLowerCase();
+
+    if (!room.canAddAsset(normalizedType)) {
+      final maxCap = room.maxCapacityForAssetType(normalizedType);
+      final current = room.countForAssetType(normalizedType);
+      throw Exception('Room $roomNumber already has $current/$maxCap ${normalizedType}s (capacity reached)');
+    }
+
+    final serialErr = HostelRoomModel.validateSerialNumber(serialNumber);
+    if (serialErr != null) {
+      throw Exception(serialErr);
+    }
+
+    final trimmedSerial = serialNumber.trim();
+    for (final r in _cachedHostelRooms) {
+      for (final a in r.assets) {
+        if (a.serialNumber.toLowerCase() == trimmedSerial.toLowerCase()) {
+          throw Exception('Serial number \'$trimmedSerial\' is already assigned to room ${r.roomNumber}');
+        }
+      }
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final asset = await api.addHostelAsset(roomNumber, normalizedType, trimmedSerial, condition);
+        final updatedAssets = List<HostelAssetModel>.from(room.assets)..add(asset);
+        _cachedHostelRooms[roomIdx] = room.copyWith(assets: updatedAssets, updatedAt: DateTime.now());
+        return asset;
+      } catch (_) {}
+    }
+
+    final asset = HostelAssetModel(
+      id: 'asset-$roomNumber-$normalizedType-${DateTime.now().millisecondsSinceEpoch}',
+      roomNumber: roomNumber,
+      assetType: normalizedType,
+      serialNumber: trimmedSerial,
+      condition: condition.isNotEmpty ? condition : 'operational',
+      installedAt: DateTime.now(),
+    );
+
+    final updatedAssets = List<HostelAssetModel>.from(room.assets)..add(asset);
+    _cachedHostelRooms[roomIdx] = room.copyWith(assets: updatedAssets, updatedAt: DateTime.now());
+    return asset;
+  }
+
+  Future<void> removeHostelAsset(int roomNumber, String assetId) async {
+    _seedDefaultHostelRoomsIfEmpty();
+
+    final roomIdx = _cachedHostelRooms.indexWhere((r) => r.roomNumber == roomNumber);
+    if (roomIdx == -1) {
+      throw Exception('Hostel room $roomNumber not found');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        await api.removeHostelAsset(roomNumber, assetId);
+      } catch (_) {}
+    }
+
+    final room = _cachedHostelRooms[roomIdx];
+    final updatedAssets = room.assets.where((a) => a.id != assetId && a.serialNumber != assetId).toList();
+    _cachedHostelRooms[roomIdx] = room.copyWith(assets: updatedAssets, updatedAt: DateTime.now());
+  }
+
+  Future<HostelOccupantModel> assignHostelOccupant(int roomNumber, String userId, String handle, String name) async {
+    _seedDefaultHostelRoomsIfEmpty();
+
+    final roomIdx = _cachedHostelRooms.indexWhere((r) => r.roomNumber == roomNumber);
+    if (roomIdx == -1) {
+      throw Exception('Hostel room $roomNumber not found');
+    }
+
+    final room = _cachedHostelRooms[roomIdx];
+    if (!room.canAddOccupant) {
+      throw Exception('Room $roomNumber is at maximum occupant capacity (${HostelRoomModel.maxOccupants}/${HostelRoomModel.maxOccupants})');
+    }
+
+    final trimmedHandle = handle.trim();
+    final trimmedUserId = userId.trim();
+    for (final r in _cachedHostelRooms) {
+      for (final occ in r.occupants) {
+        if ((trimmedUserId.isNotEmpty && occ.userId == trimmedUserId) ||
+            (trimmedHandle.isNotEmpty && occ.campusHandle == trimmedHandle)) {
+          throw Exception('Resident ${occ.name} is already allocated to room ${r.roomNumber}');
+        }
+      }
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final occ = await api.assignHostelOccupant(roomNumber, trimmedUserId, trimmedHandle, name);
+        final updatedOccupants = List<HostelOccupantModel>.from(room.occupants)..add(occ);
+        _cachedHostelRooms[roomIdx] = room.copyWith(occupants: updatedOccupants, updatedAt: DateTime.now());
+        return occ;
+      } catch (_) {}
+    }
+
+    final occ = HostelOccupantModel(
+      userId: trimmedUserId,
+      campusHandle: trimmedHandle,
+      name: name.trim(),
+      allottedAt: DateTime.now(),
+    );
+
+    final updatedOccupants = List<HostelOccupantModel>.from(room.occupants)..add(occ);
+    _cachedHostelRooms[roomIdx] = room.copyWith(occupants: updatedOccupants, updatedAt: DateTime.now());
+    return occ;
+  }
+
+  Future<void> removeHostelOccupant(int roomNumber, String userId) async {
+    _seedDefaultHostelRoomsIfEmpty();
+
+    final roomIdx = _cachedHostelRooms.indexWhere((r) => r.roomNumber == roomNumber);
+    if (roomIdx == -1) {
+      throw Exception('Hostel room $roomNumber not found');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        await api.removeHostelOccupant(roomNumber, userId);
+      } catch (_) {}
+    }
+
+    final room = _cachedHostelRooms[roomIdx];
+    final updatedOccupants = room.occupants.where((o) => o.userId != userId && o.campusHandle != userId).toList();
+    _cachedHostelRooms[roomIdx] = room.copyWith(occupants: updatedOccupants, updatedAt: DateTime.now());
   }
 }

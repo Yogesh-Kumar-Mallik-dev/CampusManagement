@@ -7,6 +7,7 @@ import '../widgets/app_logo.dart';
 import '../widgets/smooth_theme_toggle.dart';
 import 'attendance_screen.dart';
 import 'department_management_screen.dart';
+import 'hostel_screen.dart';
 import 'notices_screen.dart';
 import 'timetable_screen.dart';
 import 'user_management_screen.dart';
@@ -98,6 +99,12 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           return DepartmentManagementScreen(
             key: ValueKey('tab-depts-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
+          );
+        case 6:
+          return HostelScreen(
+            key: ValueKey('tab-hostel-${_currentUser.id}'),
             storage: widget.storage,
             currentUser: _currentUser,
           );
@@ -272,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       setState(() {
                         _currentUser = target;
                         _tabWidgetCache.clear();
-                        _loadedTabs.addAll([0, 1, 2, 3, 4, 5]);
+                        _loadedTabs.addAll([0, 1, 2, 3, 4, 5, 6]);
                       });
                       _checkServer();
                     },
@@ -310,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
-          _loadedTabs.addAll([1, 2, 3, 4, 5]);
+          _loadedTabs.addAll([1, 2, 3, 4, 5, 6]);
         });
       }
     });
@@ -329,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final tabStack = IndexedStack(
       index: _currentIndex,
-      children: List.generate(6, _buildTab),
+      children: List.generate(7, _buildTab),
     );
 
     return Scaffold(
@@ -625,6 +632,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   label: 'Departments',
                 ),
+                BottomNavigationBarItem(
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.bed),
+                  activeIcon: AppSvgIcon(
+                    svgString: AppSvgIcon.bed,
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                  ),
+                  label: 'Hostel',
+                ),
               ],
             ),
     );
@@ -846,6 +861,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: const Color(0xFF0969DA),
                   onTap: () => _onDestinationSelected(5),
                 ),
+                _buildOperationCard(
+                  title: 'Hostel Rooms',
+                  subtitle: 'Rooms 100-999, fixture inventory & allotments',
+                  iconSvg: AppSvgIcon.bed,
+                  color: const Color(0xFFD97706),
+                  onTap: () => _onDestinationSelected(6),
+                ),
               ];
 
               if (isWide) {
@@ -860,13 +882,10 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               return Column(
                 children: [
-                  cards[0],
-                  const SizedBox(height: 10),
-                  cards[1],
-                  const SizedBox(height: 10),
-                  cards[2],
-                  const SizedBox(height: 10),
-                  cards[3],
+                  for (int i = 0; i < cards.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    cards[i],
+                  ],
                 ],
               );
             },
@@ -964,6 +983,7 @@ class _CampusSidebar extends StatelessWidget {
       (svg: AppSvgIcon.bell, label: 'Notices'),
       (svg: AppSvgIcon.user, label: 'Directory'),
       (svg: AppSvgIcon.building, label: 'Depts'),
+      (svg: AppSvgIcon.bed, label: 'Hostel'),
     ];
 
     return Container(

@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:campus_client/main.dart';
 import 'package:campus_client/models/academic.dart';
+import 'package:campus_client/models/hostel.dart';
 import 'package:campus_client/screens/home_screen.dart';
+import 'package:campus_client/screens/hostel_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
@@ -1053,5 +1055,127 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('read-only for students'), findsOneWidget);
     expect(find.text('Configure Schedule Block'), findsNothing);
+  });
+
+  testWidgets('Hostel Room System: Room number boundaries [100-999], fixture capacities (3 beds, 3 tables, 2 tubelights, 2 fans, 3 lockers), 3 occupants max, and 14-char serial validation',
+      (WidgetTester tester) async {
+    // 1. Verify Model Validation Constraints
+    expect(HostelRoomModel.validateRoomNumber(99), isNotNull);
+    expect(HostelRoomModel.validateRoomNumber(100), isNull);
+    expect(HostelRoomModel.validateRoomNumber(505), isNull);
+    expect(HostelRoomModel.validateRoomNumber(999), isNull);
+    expect(HostelRoomModel.validateRoomNumber(1000), isNotNull);
+
+    expect(HostelRoomModel.validateSerialNumber(''), isNotNull);
+    expect(HostelRoomModel.validateSerialNumber('12345678901234'), isNull); // 14 chars
+    expect(HostelRoomModel.validateSerialNumber('123456789012345'), isNotNull); // 15 chars exceeds max
+    expect(HostelRoomModel.validateSerialNumber('BED-101-01'), isNull);
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final admin = OfflineStorageService.getMockUserForHandle('campus_admin');
+
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostelScreen(
+            storage: storage,
+            currentUser: admin,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 2. Verify Screen Title & Seeded Rooms
+    expect(find.text('Hostel Room System & Asset Inventory'), findsOneWidget);
+    expect(find.text('ROOM 101'), findsOneWidget);
+    expect(find.text('ROOM 102'), findsOneWidget);
+    expect(find.text('ROOM 204'), findsOneWidget);
+    expect(find.text('ROOM 305'), findsOneWidget);
+
+    // 3. Verify Capacity Pills on Room 101 (Fully Furnished: 3 beds, 3 tables, 2 tubelights, 2 fans, 3 lockers)
+    expect(find.text('Beds 3/3'), findsWidgets);
+    expect(find.text('Tables 3/3'), findsWidgets);
+    expect(find.text('Tubelights 2/2'), findsWidgets);
+    expect(find.text('Fans 2/2'), findsWidgets);
+    expect(find.text('Lockers 3/3'), findsWidgets);
+
+    // 4. Test Registering a New Room with [100-999] Range Validation
+    final addRoomBtn = find.byKey(const Key('btn-add-hostel-room'));
+    expect(addRoomBtn, findsOneWidget);
+    await tester.tap(addRoomBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-create-hostel-room')), findsOneWidget);
+
+    // Enter invalid room number 99
+    await tester.enterText(find.byKey(const Key('input-hostel-room-number')), '99');
+    await tester.pumpAndSettle();
+    expect(find.text('Room number must be between 100 and 999'), findsOneWidget);
+
+    // Enter valid room number 405
+    await tester.enterText(find.byKey(const Key('input-hostel-room-number')), '405');
+    await tester.pumpAndSettle();
+    expect(find.text('Room number must be between 100 and 999'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('btn-confirm-create-room')));
+    await tester.pumpAndSettle();
+
+    // Verify Room 405 is now in the list
+    expect(find.text('ROOM 405'), findsOneWidget);
+
+    // 5. Test Inspecting Room 405 & Adding Fixture with 14-char Alphanumeric Serial
+    final inspect405 = find.byKey(const Key('btn-inspect-room-405'));
+    await tester.ensureVisible(inspect405);
+    await tester.tap(inspect405);
+    await tester.pumpAndSettle();
+
+    expect(find.text('No fixtures registered in this room yet.'), findsOneWidget);
+    expect(find.text('No residents currently allocated (Room is vacant).'), findsOneWidget);
+
+    // Tap Add Fixture inside bottom sheet
+    await tester.tap(find.byKey(const Key('btn-modal-add-fixture')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-add-hostel-asset')), findsOneWidget);
+
+    // Enter a valid 14-char alphanumeric serial
+    await tester.enterText(find.byKey(const Key('input-hostel-asset-serial')), 'BED-405-01');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('btn-confirm-add-asset')));
+    await tester.pumpAndSettle();
+
+    // Reopen inspection to verify asset is registered
+    await tester.ensureVisible(inspect405);
+    await tester.tap(inspect405);
+    await tester.pumpAndSettle();
+
+    expect(find.text('SN: BED-405-01'), findsOneWidget);
+
+    // Close bottom sheet
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+
+    // 6. Test Allotting a Resident to Room 405 (Max 3 Occupants)
+    final assignResBtn = find.byKey(const Key('btn-assign-occupant-405'));
+    await tester.ensureVisible(assignResBtn);
+    await tester.tap(assignResBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-assign-hostel-occupant')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-confirm-assign-occupant')));
+    await tester.pumpAndSettle();
+
+    // Verify resident appears on card
+    expect(find.text('1/3 RESIDENTS'), findsWidgets);
   });
 }

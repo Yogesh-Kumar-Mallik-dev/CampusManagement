@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/academic.dart';
+import '../models/hostel.dart';
 import '../models/user.dart';
 
 class ApiService {
@@ -676,5 +677,88 @@ class ApiService {
       }
     }
     throw Exception('Failed to fetch faculty workload (${res.statusCode})');
+  }
+
+  // ----------------------------------------------------
+  // HOSTEL ROOM SYSTEM (100 - 999)
+  // ----------------------------------------------------
+
+  Future<List<HostelRoomModel>> fetchHostelRooms({int? floor}) async {
+    final uri = floor != null
+        ? Uri.parse('$baseUrl/api/v1/hostel/rooms?floor=$floor')
+        : Uri.parse('$baseUrl/api/v1/hostel/rooms');
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => HostelRoomModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch hostel rooms (${res.statusCode})');
+  }
+
+  Future<HostelRoomModel> createHostelRoom(int roomNumber, String blockName) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/hostel/rooms'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'room_number': roomNumber,
+        'block_name': blockName,
+      }),
+    );
+    if (res.statusCode == 201) {
+      return HostelRoomModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create hostel room: ${res.body}');
+  }
+
+  Future<HostelAssetModel> addHostelAsset(int roomNumber, String assetType, String serialNumber, String condition) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/hostel/rooms/assets'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'room_number': roomNumber,
+        'asset_type': assetType,
+        'serial_number': serialNumber,
+        'condition': condition,
+      }),
+    );
+    if (res.statusCode == 201) {
+      return HostelAssetModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to add asset: ${res.body}');
+  }
+
+  Future<void> removeHostelAsset(int roomNumber, String assetId) async {
+    final res = await http.delete(
+      Uri.parse('$baseUrl/api/v1/hostel/rooms/assets?room_number=$roomNumber&asset_id=$assetId'),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to remove asset: ${res.body}');
+    }
+  }
+
+  Future<HostelOccupantModel> assignHostelOccupant(int roomNumber, String userId, String handle, String name) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/hostel/rooms/occupants'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'room_number': roomNumber,
+        'user_id': userId,
+        'campus_handle': handle,
+        'name': name,
+      }),
+    );
+    if (res.statusCode == 201) {
+      return HostelOccupantModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to assign occupant: ${res.body}');
+  }
+
+  Future<void> removeHostelOccupant(int roomNumber, String userId) async {
+    final res = await http.delete(
+      Uri.parse('$baseUrl/api/v1/hostel/rooms/occupants?room_number=$roomNumber&user_id=$userId'),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to remove occupant: ${res.body}');
+    }
   }
 }

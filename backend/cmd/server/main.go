@@ -78,6 +78,7 @@ func main() {
 	idService := idgen.NewIDService(dbPool)
 	permService := service.NewPermissionService(dbPool, cacheManager)
 	academicService := service.NewAcademicService(dbPool, cacheManager, permService)
+	hostelService := service.NewHostelService(dbPool, permService)
 
 	// Seed Standard Campus Roles into Permission Service & Sample Academic Data
 	seedDefaultRolesAndScopes(permService)
@@ -87,6 +88,7 @@ func main() {
 	academicHandler := handler.NewAcademicHandler(academicService)
 	departmentHandler := handler.NewDepartmentHandler(academicService, userHandler.FindUser, userHandler.ListTeachers)
 	authHandler := handler.NewAuthHandler(permService)
+	hostelHandler := handler.NewHostelHandler(hostelService)
 
 	// 4. Define HTTP Routes
 	mux := http.NewServeMux()
@@ -149,6 +151,11 @@ func main() {
 	mux.HandleFunc("/api/v1/academics/allocations", departmentHandler.HandleFacultyAllocations)
 	mux.HandleFunc("/api/v1/academics/faculty/workload", departmentHandler.HandleFacultyWorkload)
 	mux.HandleFunc("/api/v1/academics/teachers", departmentHandler.HandleTeachers)
+
+	// Hostel Room System (100 - 999 with 3 beds, 3 tables, 2 tubelights, 2 fans, 3 lockers, and 3 occupants max)
+	mux.HandleFunc("/api/v1/hostel/rooms", hostelHandler.HandleRooms)
+	mux.HandleFunc("/api/v1/hostel/rooms/assets", hostelHandler.HandleAssets)
+	mux.HandleFunc("/api/v1/hostel/rooms/occupants", hostelHandler.HandleOccupants)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
 	mux.HandleFunc("/api/v1/sync", academicHandler.DeltaSync)
