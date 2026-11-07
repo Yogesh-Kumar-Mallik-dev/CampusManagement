@@ -130,6 +130,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _currentUser = _personas.firstWhere((p) => p == initial);
     _checkServer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _loadedTabs.addAll([1, 2, 3, 4, 5]);
+        });
+      }
+    });
   }
 
   void _checkServer() {
@@ -217,8 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() {
                 _currentUser = newUser;
                 _tabWidgetCache.clear();
-                _loadedTabs.clear();
-                _loadedTabs.add(_currentIndex);
+                _loadedTabs.addAll([0, 1, 2, 3, 4, 5]);
               });
               _checkServer();
             },
@@ -588,6 +594,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             setState(() {
                               _currentUser = fresh;
                               _tabWidgetCache.clear();
+                              _loadedTabs.addAll([0, 1, 2, 3, 4, 5]);
                             });
                           },
                         ),
