@@ -32,6 +32,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  int _slot3PageIndex = 1; // Default to Timetable in dock division 3
   final Set<int> _loadedTabs = {0};
   final Map<int, Widget> _tabWidgetCache = {};
 
@@ -39,6 +40,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late UserModel _currentUser;
 
   void _onDestinationSelected(int index) {
+    if (index >= 1 && index <= 7) {
+      _slot3PageIndex = index;
+    }
     if (_currentIndex == index) return;
     setState(() {
       _currentIndex = index;
@@ -114,6 +118,23 @@ class _HomeScreenState extends State<HomeScreen> {
             key: ValueKey('tab-mess-${_currentUser.id}'),
             storage: widget.storage,
             currentUser: _currentUser,
+          );
+        case 8:
+          return UserProfileScreen(
+            key: ValueKey('tab-profile-${_currentUser.id}'),
+            storage: widget.storage,
+            userIdentifier: _currentUser.id,
+            initialUser: _currentUser,
+            currentAdminUser: _currentUser,
+            showAppBar: false,
+            onUserUpdated: () async {
+              final updated = await widget.storage.getUserProfile(_currentUser.id);
+              if (mounted) {
+                setState(() {
+                  _currentUser = updated;
+                });
+              }
+            },
           );
         default:
           return const SizedBox.shrink();
@@ -324,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
-          _loadedTabs.addAll([1, 2, 3, 4, 5, 6, 7]);
+          _loadedTabs.addAll([1, 2, 3, 4, 5, 6, 7, 8]);
         });
       }
     });
@@ -343,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final tabStack = IndexedStack(
       index: _currentIndex,
-      children: List.generate(8, _buildTab),
+      children: List.generate(9, _buildTab),
     );
 
     return Scaffold(
@@ -357,9 +378,10 @@ class _HomeScreenState extends State<HomeScreen> {
               final statusBadge = widget.storage.isOnline
                   ? AppColors.greenBadge(isDark)
                   : AppColors.yellowBadge(isDark);
+              final isNarrow = MediaQuery.of(context).size.width <= 600;
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: isNarrow ? 6 : 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusBadge.background,
                   borderRadius: BorderRadius.circular(6),
@@ -376,15 +398,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       size: 13,
                       color: statusBadge.text,
                     ),
-                    const SizedBox(width: 5),
-                    Text(
-                      widget.storage.isOnline ? 'Online Sync' : 'Offline Cache',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: statusBadge.text,
+                    if (!isNarrow) ...[
+                      const SizedBox(width: 5),
+                      Text(
+                        widget.storage.isOnline ? 'Online Sync' : 'Offline Cache',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: statusBadge.text,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               );
@@ -543,11 +567,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _currentUser.fullName,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
+                  if (MediaQuery.of(context).size.width > 560) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      _currentUser.fullName,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                   const SizedBox(width: 6),
                   AppSvgIcon(
                     svgString: AppSvgIcon.chevronDown,
@@ -586,77 +612,442 @@ class _HomeScreenState extends State<HomeScreen> {
           : tabStack,
       bottomNavigationBar: isDesktopOrWeb
           ? null
-          : BottomNavigationBar(
-              currentIndex: _currentIndex,
-              onTap: _onDestinationSelected,
-              type: BottomNavigationBarType.fixed,
-              items: [
-                BottomNavigationBarItem(
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.dashboard),
-                  activeIcon: AppSvgIcon(
-                    svgString: AppSvgIcon.dashboard,
-                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+          : _buildBottomDock(context, isDark),
+    );
+  }
+
+  // ----------------------------------------------------
+  // REDESIGNED 4-DIVISION BOTTOM DOCK
+  // 1 = Dashboard (Mandatory)
+  // 2 = Profile (Mandatory)
+  // 3 = Currently Active Page (Replaced dynamically from 4)
+  // 4 = List of Other Pages (3 horizontal lines icon)
+  // ----------------------------------------------------
+
+  Widget _buildBottomDock(BuildContext context, bool isDark) {
+    final activeSlot3 = _getDockItemForIndex(_slot3PageIndex);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 680),
+            height: 64,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                // Division 1: Dashboard (Mandatory)
+                Expanded(
+                  child: _buildDockDivisionItem(
+                    key: const Key('dock-division-dashboard'),
+                    label: 'Dashboard',
+                    svgIcon: AppSvgIcon.dashboard,
+                    isSelected: _currentIndex == 0,
+                    isDark: isDark,
+                    onTap: () => _onDestinationSelected(0),
                   ),
-                  label: 'Dashboard',
                 ),
-                BottomNavigationBarItem(
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.calendar),
-                  activeIcon: AppSvgIcon(
-                    svgString: AppSvgIcon.calendar,
-                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+
+                // Division 2: Profile (Mandatory)
+                Expanded(
+                  child: _buildDockDivisionItem(
+                    key: const Key('dock-division-profile'),
+                    label: 'Profile',
+                    svgIcon: AppSvgIcon.user,
+                    isSelected: _currentIndex == 8,
+                    isDark: isDark,
+                    onTap: () => _onDestinationSelected(8),
                   ),
-                  label: 'Timetable',
                 ),
-                BottomNavigationBarItem(
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.attendance),
-                  activeIcon: AppSvgIcon(
-                    svgString: AppSvgIcon.attendance,
-                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+
+                // Division 3: Currently Active Page (Dynamic)
+                Expanded(
+                  child: _buildDockDivisionItem(
+                    key: const Key('dock-division-active-page'),
+                    label: activeSlot3.label,
+                    svgIcon: activeSlot3.svgIcon,
+                    isSelected: _currentIndex == _slot3PageIndex,
+                    isDark: isDark,
+                    onTap: () => _onDestinationSelected(_slot3PageIndex),
                   ),
-                  label: 'Attendance',
                 ),
-                BottomNavigationBarItem(
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.bell),
-                  activeIcon: AppSvgIcon(
-                    svgString: AppSvgIcon.bell,
-                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+
+                // Division 4: List of Other Pages (3 horizontal lines)
+                Expanded(
+                  child: _buildDockDivisionItem(
+                    key: const Key('dock-division-more-pages'),
+                    label: 'Pages',
+                    svgIcon: AppSvgIcon.menu,
+                    isSelected: false,
+                    isDark: isDark,
+                    onTap: () => _showOtherPagesSheet(context, isDark),
                   ),
-                  label: 'Notices',
-                ),
-                BottomNavigationBarItem(
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.user),
-                  activeIcon: AppSvgIcon(
-                    svgString: AppSvgIcon.user,
-                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
-                  ),
-                  label: 'Directory',
-                ),
-                BottomNavigationBarItem(
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.building),
-                  activeIcon: AppSvgIcon(
-                    svgString: AppSvgIcon.building,
-                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
-                  ),
-                  label: 'Departments',
-                ),
-                BottomNavigationBarItem(
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.bed),
-                  activeIcon: AppSvgIcon(
-                    svgString: AppSvgIcon.bed,
-                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
-                  ),
-                  label: 'Hostel',
-                ),
-                BottomNavigationBarItem(
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.utensils),
-                  activeIcon: AppSvgIcon(
-                    svgString: AppSvgIcon.utensils,
-                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
-                  ),
-                  label: 'Mess',
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDockDivisionItem({
+    required Key key,
+    required String label,
+    required String svgIcon,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    final inactiveColor = isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted;
+
+    return InkWell(
+      key: key,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              width: 48,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.wineRed : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: AppSvgIcon(
+                svgString: svgIcon,
+                size: 18,
+                color: isSelected ? Colors.white : inactiveColor,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? (isDark ? Colors.white : AppColors.wineRed) : inactiveColor,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  ({String label, String svgIcon}) _getDockItemForIndex(int index) {
+    switch (index) {
+      case 1:
+        return (label: 'Timetable', svgIcon: AppSvgIcon.calendar);
+      case 2:
+        return (label: 'Attendance', svgIcon: AppSvgIcon.attendance);
+      case 3:
+        return (label: 'Notices', svgIcon: AppSvgIcon.bell);
+      case 4:
+        return (label: 'Directory', svgIcon: AppSvgIcon.user);
+      case 5:
+        return (label: 'Depts', svgIcon: AppSvgIcon.building);
+      case 6:
+        return (label: 'Hostel', svgIcon: AppSvgIcon.bed);
+      case 7:
+        return (label: 'Mess', svgIcon: AppSvgIcon.utensils);
+      default:
+        return (label: 'Timetable', svgIcon: AppSvgIcon.calendar);
+    }
+  }
+
+  void _showOtherPagesSheet(BuildContext context, bool isDark) {
+    final otherPages = [
+      (
+        index: 1,
+        keyName: 'timetable',
+        label: 'Timetable',
+        subtitle: 'Lectures, labs & weekly class schedule',
+        svgIcon: AppSvgIcon.calendar,
+        isRestricted: false,
+        restrictedRole: null,
+      ),
+      (
+        index: 2,
+        keyName: 'attendance',
+        label: 'Attendance',
+        subtitle: 'Live optical QR broadcast & attendance ledger',
+        svgIcon: AppSvgIcon.attendance,
+        isRestricted: false,
+        restrictedRole: null,
+      ),
+      (
+        index: 3,
+        keyName: 'notices',
+        label: 'Notices',
+        subtitle: 'Targeted institutional bulletins & circulars',
+        svgIcon: AppSvgIcon.bell,
+        isRestricted: false,
+        restrictedRole: null,
+      ),
+      (
+        index: 4,
+        keyName: 'directory',
+        label: 'Campus Directory',
+        subtitle: 'Student, faculty & staff identity onboarding',
+        svgIcon: AppSvgIcon.user,
+        isRestricted: !_currentUser.canManageUsers,
+        restrictedRole: 'Campus Administrator',
+      ),
+      (
+        index: 5,
+        keyName: 'departments',
+        label: 'Academic Departments',
+        subtitle: 'Programs, cross-program sections & lab batches',
+        svgIcon: AppSvgIcon.building,
+        isRestricted: !_currentUser.canManageDepartments,
+        restrictedRole: 'HOD / Admin',
+      ),
+      (
+        index: 6,
+        keyName: 'hostel',
+        label: 'Hostel Management',
+        subtitle: 'Room inventory, verified fixtures & occupants',
+        svgIcon: AppSvgIcon.bed,
+        isRestricted: false,
+        restrictedRole: null,
+      ),
+      (
+        index: 7,
+        keyName: 'mess',
+        label: 'Hostel Mess & Ratings',
+        subtitle: 'Weekly menu timetable & feedback reports',
+        svgIcon: AppSvgIcon.utensils,
+        isRestricted: false,
+        restrictedRole: null,
+      ),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Material(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            side: BorderSide(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              width: 1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+              maxWidth: 620,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.wineRed.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const AppSvgIcon(
+                          svgString: AppSvgIcon.menu,
+                          size: 16,
+                          color: AppColors.wineRed,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Campus Pages & Modules',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'Select a page to open and replace in dock division 3',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: otherPages.map((item) {
+                        final isCurrentInSlot3 = _slot3PageIndex == item.index;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: ListTile(
+                            key: Key('dock-menu-item-${item.keyName}'),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            tileColor: isCurrentInSlot3
+                                ? (isDark ? const Color(0xFF261D1D) : const Color(0xFFFFF0F2))
+                                : null,
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: isCurrentInSlot3
+                                    ? AppColors.wineRed
+                                    : (isDark ? const Color(0xFF21262D) : const Color(0xFFF1F5F9)),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: AppSvgIcon(
+                                svgString: item.svgIcon,
+                                size: 18,
+                                color: isCurrentInSlot3
+                                    ? Colors.white
+                                    : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                              ),
+                            ),
+                            title: Text(
+                              item.label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isCurrentInSlot3 ? FontWeight.bold : FontWeight.w600,
+                                color: isCurrentInSlot3 ? AppColors.wineRed : null,
+                              ),
+                            ),
+                            subtitle: Text(
+                              item.subtitle,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (item.isRestricted)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF3B2616) : const Color(0xFFFFF7ED),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isDark ? const Color(0xFFD97706) : const Color(0xFFFDBA74),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.lock_outline, size: 10, color: Color(0xFFD97706)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          item.restrictedRole ?? 'Restricted',
+                                          style: const TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFFD97706),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else if (isCurrentInSlot3)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.wineRed.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Active in Dock',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.wineRed,
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 16,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                ),
+                              ],
+                            ),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              setState(() {
+                                _slot3PageIndex = item.index;
+                              });
+                              _onDestinationSelected(item.index);
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -818,8 +1209,11 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 24),
 
           // Operational Navigation Cards
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               const Text(
                 'Academic Operations',
@@ -1020,24 +1414,27 @@ class _CampusSidebar extends StatelessWidget {
           ),
         ),
       ),
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          ...List.generate(items.length, (idx) {
-            final isSelected = selectedIndex == idx;
-            final item = items[idx];
-            final isLocked = (idx == 4 && !currentUser.canManageUsers) ||
-                (idx == 5 && !currentUser.canManageDepartments);
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            ...List.generate(items.length, (idx) {
+              final isSelected = selectedIndex == idx;
+              final item = items[idx];
+              final isLocked = (idx == 4 && !currentUser.canManageUsers) ||
+                  (idx == 5 && !currentUser.canManageDepartments);
 
-            return _SidebarDestinationItem(
-              svg: item.svg,
-              label: item.label,
-              isSelected: isSelected,
-              isLocked: isLocked,
-              onTap: () => onDestinationSelected(idx),
-            );
-          }),
-        ],
+              return _SidebarDestinationItem(
+                svg: item.svg,
+                label: item.label,
+                isSelected: isSelected,
+                isLocked: isLocked,
+                onTap: () => onDestinationSelected(idx),
+              );
+            }),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }
@@ -1069,8 +1466,6 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Fixed outer container for this destination item (78px wide x 66px high)
-    // Pre-allocated so active or hover states NEVER push neighboring items!
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
@@ -1086,7 +1481,6 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Pill overlay container with rigidly fixed dimensions: 54px x 32px
               Stack(
                 alignment: Alignment.center,
                 clipBehavior: Clip.none,
@@ -1114,8 +1508,6 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
                     child: AppSvgIcon(
                       svgString: widget.svg,
                       size: 18,
-                      // Within the wine overlay, the icon is PURE BRIGHT WHITE!
-                      // When unselected: crisp secondary/muted color
                       color: widget.isSelected
                           ? Colors.white
                           : (_isHovered
@@ -1147,7 +1539,6 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
                 ],
               ),
               const SizedBox(height: 4),
-              // Fixed-height label text
               Text(
                 widget.label,
                 style: TextStyle(

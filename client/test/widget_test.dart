@@ -1349,9 +1349,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 1. Verify Header & Sunday Notice Banner
+    // 1. Verify Header
     expect(find.text('Hostel Mess System & Meal Timetable'), findsOneWidget);
-    expect(find.textContaining('Sunday Meal Schedule: A grand Brunch is served from 10:00 to 13:00 replacing separate breakfast and lunch'), findsOneWidget);
     expect(find.text('Weekly Menu & Timetable'), findsOneWidget);
     expect(find.text('Messages & Ratings Report'), findsOneWidget);
 
@@ -1445,5 +1444,96 @@ void main() {
     // Verify Compulsory feedback indicator and submitted messages
     expect(find.text('Compulsory Feedback'), findsWidgets);
     expect(find.text('Rice was undercooked and soup was cold on arrival.'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Redesigned 4-Division Bottom Dock: Mandatory Dashboard (1) & Profile (2), Active Page (3), and 3-lines Pages menu (4) that replaces slot 3',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(500, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(CampusManagementApp(storage: storage));
+    await tester.pump();
+
+    // Login to reach HomeScreen
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // 1. Verify 4 Dock Divisions are present
+    expect(find.byKey(const Key('dock-division-dashboard')), findsOneWidget);
+    expect(find.byKey(const Key('dock-division-profile')), findsOneWidget);
+    expect(find.byKey(const Key('dock-division-active-page')), findsOneWidget);
+    expect(find.byKey(const Key('dock-division-more-pages')), findsOneWidget);
+
+    // Initial state: Division 1 (Dashboard) is active, Division 3 defaults to Timetable
+    expect(find.text('Academic Operations'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('dock-division-active-page')), matching: find.text('Timetable')), findsOneWidget);
+
+    // 2. Tap Division 2 (Profile) -> Switches to User Profile view
+    await tester.tap(find.byKey(const Key('dock-division-profile')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Official Identity & Verification'), findsOneWidget);
+    expect(find.text('Scoped RBAC Authority'), findsOneWidget);
+
+    // 3. Tap Division 1 (Dashboard) -> Switches back to Dashboard
+    await tester.tap(find.byKey(const Key('dock-division-dashboard')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Academic Operations'), findsOneWidget);
+
+    // 4. Tap Division 3 (Timetable) -> Switches to Timetable view
+    await tester.tap(find.byKey(const Key('dock-division-active-page')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Academic Timetable (9 AM - 5 PM)'), findsOneWidget);
+
+    // 5. Tap Division 4 (3 horizontal lines icon) -> Opens Pages bottom sheet
+    await tester.tap(find.byKey(const Key('dock-division-more-pages')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Campus Pages & Modules'), findsOneWidget);
+    expect(find.text('Select a page to open and replace in dock division 3'), findsOneWidget);
+    expect(find.byKey(const Key('dock-menu-item-mess')), findsOneWidget);
+    expect(find.byKey(const Key('dock-menu-item-attendance')), findsOneWidget);
+    expect(find.byKey(const Key('dock-menu-item-hostel')), findsOneWidget);
+
+    // 6. Select "Mess" from list 4 -> Replaces Division 3 with Mess and navigates to Mess
+    await tester.tap(find.byKey(const Key('dock-menu-item-mess')));
+    await tester.pumpAndSettle();
+
+    // Verify modal is closed
+    expect(find.text('Campus Pages & Modules'), findsNothing);
+
+    // Verify Division 3 now displays "Mess"
+    expect(find.descendant(of: find.byKey(const Key('dock-division-active-page')), matching: find.text('Mess')), findsOneWidget);
+
+    // Verify MessScreen is actively rendered
+    expect(find.text('Hostel Mess System & Meal Timetable'), findsOneWidget);
+
+    // 7. Tap Division 4 again and select "Attendance"
+    await tester.tap(find.byKey(const Key('dock-division-more-pages')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('dock-menu-item-attendance')));
+    await tester.pumpAndSettle();
+
+    // Verify Division 3 now replaced with "Attendance"
+    expect(find.descendant(of: find.byKey(const Key('dock-division-active-page')), matching: find.text('Attendance')), findsOneWidget);
+    expect(find.text('Classroom Attendance'), findsOneWidget);
+
+    // 8. Tap Dashboard (Division 1) -> Division 3 still remembers "Attendance"
+    await tester.tap(find.byKey(const Key('dock-division-dashboard')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Academic Operations'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('dock-division-active-page')), matching: find.text('Attendance')), findsOneWidget);
   });
 }

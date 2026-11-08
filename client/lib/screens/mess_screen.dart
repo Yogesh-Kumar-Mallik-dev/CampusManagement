@@ -346,7 +346,7 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '6 days a week (Mon-Sat): 3 meals daily • Sunday: Grand Brunch replaces Breakfast & Lunch • Rating & Messages Feedback Portal',
+                              'Weekly meal timetable, menu items, and rating & messages feedback portal',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -367,36 +367,6 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
                         label: const Text('Rate a Meal'),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Sunday Schedule Notice Banner
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF231B15) : const Color(0xFFFFF7ED),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFFD97706) : const Color(0xFFFDBA74),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.restaurant, color: Color(0xFFD97706), size: 18),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Sunday Meal Schedule: A grand Brunch is served from 10:00 to 13:00 replacing separate breakfast and lunch. Dinner is served as usual from 19:30 to 21:30.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? const Color(0xFFFDBA74) : const Color(0xFF9A3412),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 18),
 

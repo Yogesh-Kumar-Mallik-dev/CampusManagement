@@ -13,6 +13,7 @@ class UserProfileScreen extends StatefulWidget {
   final UserModel? initialUser;
   final UserModel? currentAdminUser;
   final VoidCallback? onUserUpdated;
+  final bool showAppBar;
 
   const UserProfileScreen({
     super.key,
@@ -21,6 +22,7 @@ class UserProfileScreen extends StatefulWidget {
     this.initialUser,
     this.currentAdminUser,
     this.onUserUpdated,
+    this.showAppBar = true,
   });
 
   @override
@@ -430,31 +432,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         : (_user.isContractor ? AppColors.yellowBadge(isDark) : AppColors.blueBadge(isDark));
 
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Text(
-          _user.fullName.isNotEmpty ? _user.fullName : 'User Profile',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh Profile Data',
-            icon: const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 18),
-            onPressed: _loadUserProfile,
-          ),
-          IconButton(
-            tooltip: 'Copy Canonical Handle',
-            icon: const AppSvgIcon(svgString: AppSvgIcon.info, size: 18),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: _user.campusHandle));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Copied handle: ${_user.campusHandle}')),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              titleSpacing: 0,
+              title: Text(
+                _user.fullName.isNotEmpty ? _user.fullName : 'User Profile',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Refresh Profile Data',
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 18),
+                  onPressed: _loadUserProfile,
+                ),
+                IconButton(
+                  tooltip: 'Copy Canonical Handle',
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.info, size: 18),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: _user.campusHandle));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Copied handle: ${_user.campusHandle}')),
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
+            )
+          : null,
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.wineRed),
@@ -538,12 +542,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       children: [
         AppSvgIcon(svgString: svgIcon, size: 16, color: AppColors.wineRed),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.2,
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.2,
+            ),
           ),
         ),
       ],
@@ -1040,9 +1046,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );
