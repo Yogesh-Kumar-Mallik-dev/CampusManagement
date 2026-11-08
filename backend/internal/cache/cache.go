@@ -37,12 +37,21 @@ func NewRedisStore(addr, password string, db int) *RedisStore {
 }
 
 func (r *RedisStore) IsAvailable() bool {
+	if r == nil || r.client == nil {
+		return false
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	return r.client.Ping(ctx).Err() == nil
 }
 
 func (r *RedisStore) Get(ctx context.Context, key string) ([]byte, error) {
+	if r == nil || r.client == nil {
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	val, err := r.client.Get(ctx, key).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil, nil // Cache miss
@@ -56,6 +65,12 @@ func (r *RedisStore) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 func (r *RedisStore) Set(ctx context.Context, key string, val []byte, ttl time.Duration) error {
+	if r == nil || r.client == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	err := r.client.Set(ctx, key, val, ttl).Err()
 	if err != nil {
 		log.Printf("[Cache Warning] Redis Set failed for key %s: %v", key, err)
@@ -64,6 +79,12 @@ func (r *RedisStore) Set(ctx context.Context, key string, val []byte, ttl time.D
 }
 
 func (r *RedisStore) Delete(ctx context.Context, key string) error {
+	if r == nil || r.client == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	_ = r.client.Del(ctx, key).Err()
 	return nil
 }
@@ -89,6 +110,9 @@ func (rm *ResilientManager) FetchOrCompute(
 	ttl time.Duration,
 	compute func(ctx context.Context) ([]byte, error),
 ) ([]byte, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	// 1. Try Cache
 	if rm.store != nil {
 		if data, err := rm.store.Get(ctx, key); err == nil && data != nil {

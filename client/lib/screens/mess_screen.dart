@@ -75,6 +75,13 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
   }
 
   void _showRatingDialog({MessMealModel? targetMeal}) {
+    if (_timetable.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mess timetable is still loading. Please try again shortly.')),
+      );
+      return;
+    }
+
     MessMealModel selectedMeal = targetMeal ??
         (_mealsForSelectedDay.isNotEmpty ? _mealsForSelectedDay.first : _timetable.first);
     MessRatingValue selectedRating = MessRatingValue.good;

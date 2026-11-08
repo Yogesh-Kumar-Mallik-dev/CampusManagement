@@ -47,6 +47,9 @@ func (s *PermissionService) AddMemoryScope(scope model.Scope) {
 
 // AssignRole grants a role to a user within a specific scope
 func (s *PermissionService) AssignRole(ctx context.Context, userID, roleCode, scopeCode string, validUntil *time.Time) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
