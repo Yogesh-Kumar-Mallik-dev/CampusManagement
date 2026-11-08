@@ -831,31 +831,32 @@ class _HostelScreenState extends State<HostelScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Title & Action Header
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 10,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              canManage
-                                  ? 'Hostel Room System & Asset Inventory'
-                                  : 'Hostel Residence Portal',
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            canManage
+                                ? 'Hostel Room System & Asset Inventory'
+                                : 'Hostel Residence Portal',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            canManage
+                                ? 'Warden Console • Room numbers 100 to 999 • Strict capacity limits: 3 beds, 3 tables, 3 chairs, 2 tubelights, 2 fans, 3 lockers, and 3 occupants • 14-character alphanumeric serial tracking'
+                                : 'Student Resident View • Personal room allotment, roommates, and serial-tracked fixture inventory.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              canManage
-                                  ? 'Warden Console • Room numbers 100 to 999 • Strict capacity limits: 3 beds, 3 tables, 3 chairs, 2 tubelights, 2 fans, 3 lockers, and 3 occupants • 14-character alphanumeric serial tracking'
-                                  : 'Student Resident View • Personal room allotment, roommates, and serial-tracked fixture inventory.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                       if (canManage)
                         ElevatedButton.icon(
@@ -903,10 +904,15 @@ class _HostelScreenState extends State<HostelScreen> {
                     const SizedBox(height: 20),
 
                     // Filters & Search Bar
-                    Row(
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Wrap(
                           spacing: 8,
+                          runSpacing: 6,
                           children: [
                             _buildFloorChip(null, 'All Floors', isDark),
                             _buildFloorChip(1, 'Floor 1 (100-199)', isDark),
@@ -914,7 +920,6 @@ class _HostelScreenState extends State<HostelScreen> {
                             _buildFloorChip(3, 'Floor 3 (300-399)', isDark),
                           ],
                         ),
-                        const Spacer(),
                         SizedBox(
                           width: 260,
                           height: 38,
@@ -964,7 +969,7 @@ class _HostelScreenState extends State<HostelScreen> {
                               crossAxisCount: crossAxisCount,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 16,
-                              mainAxisExtent: 310,
+                              mainAxisExtent: constraints.maxWidth < 500 ? 360 : 310,
                             ),
                             itemCount: _filteredRooms.length,
                             itemBuilder: (context, idx) {
@@ -1046,35 +1051,42 @@ class _HostelScreenState extends State<HostelScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Banner Row
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.wineRed,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'MY ALLOTTED ROOM: ROOM ${myRoom.roomNumber}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    letterSpacing: 0.5,
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.wineRed,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'MY ALLOTTED ROOM: ROOM ${myRoom.roomNumber}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${myRoom.blockName} • Floor ${myRoom.floor}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                  Text(
+                    '${myRoom.blockName} • Floor ${myRoom.floor}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1100,99 +1112,113 @@ class _HostelScreenState extends State<HostelScreen> {
           const SizedBox(height: 14),
 
           // 2 Columns: Roommates and Fixtures
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Roommates
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ROOMMATES (${myRoom.occupantCount} / ${HostelRoomModel.maxOccupants})',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...myRoom.occupants.map((occ) {
-                      final isMe = occ.campusHandle == currentUserHandle || occ.userId == widget.currentUser?.id;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isMe
-                              ? AppColors.wineRed.withValues(alpha: 0.1)
-                              : (isDark ? const Color(0xFF1E2229) : const Color(0xFFF8FAFC)),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: isMe ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.person, size: 14, color: isMe ? AppColors.wineRed : null),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '${occ.name} (@${occ.campusHandle})${isMe ? " (You)" : ""}',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
-                                  color: isMe ? AppColors.wineRed : null,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 580;
 
-              // Verified Fixtures with SNs
-              Expanded(
-                flex: 6,
-                child: Column(
+              final roommatesWidget = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ROOMMATES (${myRoom.occupantCount} / ${HostelRoomModel.maxOccupants})',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...myRoom.occupants.map((occ) {
+                    final isMe = occ.campusHandle == currentUserHandle || occ.userId == widget.currentUser?.id;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isMe
+                            ? AppColors.wineRed.withValues(alpha: 0.1)
+                            : (isDark ? const Color(0xFF1E2229) : const Color(0xFFF8FAFC)),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isMe ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.person, size: 14, color: isMe ? AppColors.wineRed : null),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${occ.name} (@${occ.campusHandle})${isMe ? " (You)" : ""}',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
+                                color: isMe ? AppColors.wineRed : null,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              );
+
+              final fixturesWidget = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'VERIFIED ROOM FIXTURES (${myRoom.assets.length} ITEMS REGISTERED)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildMyRoomAssetSummary('Beds', myRoom.bedCount, HostelRoomModel.maxBeds, myRoom.assets.where((a) => a.assetType == 'bed').toList(), isDark),
+                      _buildMyRoomAssetSummary('Tables', myRoom.tableCount, HostelRoomModel.maxTables, myRoom.assets.where((a) => a.assetType == 'table').toList(), isDark),
+                      _buildMyRoomAssetSummary('Chairs', myRoom.chairCount, HostelRoomModel.maxChairs, myRoom.assets.where((a) => a.assetType == 'chair').toList(), isDark),
+                      _buildMyRoomAssetSummary('Tubelights', myRoom.tubelightCount, HostelRoomModel.maxTubelights, myRoom.assets.where((a) => a.assetType == 'tubelight').toList(), isDark),
+                      _buildMyRoomAssetSummary('Fans', myRoom.fanCount, HostelRoomModel.maxFans, myRoom.assets.where((a) => a.assetType == 'fan').toList(), isDark),
+                      _buildMyRoomAssetSummary('Lockers', myRoom.lockerCount, HostelRoomModel.maxLockers, myRoom.assets.where((a) => a.assetType == 'locker').toList(), isDark),
+                    ],
+                  ),
+                ],
+              );
+
+              if (isNarrow) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'VERIFIED ROOM FIXTURES (${myRoom.assets.length} ITEMS REGISTERED)',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _buildMyRoomAssetSummary('Beds', myRoom.bedCount, HostelRoomModel.maxBeds, myRoom.assets.where((a) => a.assetType == 'bed').toList(), isDark),
-                        _buildMyRoomAssetSummary('Tables', myRoom.tableCount, HostelRoomModel.maxTables, myRoom.assets.where((a) => a.assetType == 'table').toList(), isDark),
-                        _buildMyRoomAssetSummary('Chairs', myRoom.chairCount, HostelRoomModel.maxChairs, myRoom.assets.where((a) => a.assetType == 'chair').toList(), isDark),
-                        _buildMyRoomAssetSummary('Tubelights', myRoom.tubelightCount, HostelRoomModel.maxTubelights, myRoom.assets.where((a) => a.assetType == 'tubelight').toList(), isDark),
-                        _buildMyRoomAssetSummary('Fans', myRoom.fanCount, HostelRoomModel.maxFans, myRoom.assets.where((a) => a.assetType == 'fan').toList(), isDark),
-                        _buildMyRoomAssetSummary('Lockers', myRoom.lockerCount, HostelRoomModel.maxLockers, myRoom.assets.where((a) => a.assetType == 'locker').toList(), isDark),
-                      ],
-                    ),
+                    roommatesWidget,
+                    const SizedBox(height: 14),
+                    fixturesWidget,
                   ],
-                ),
-              ),
-            ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 4, child: roommatesWidget),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 6, child: fixturesWidget),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 14),
 
           // Actions Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 10,
+            runSpacing: 8,
             children: [
               OutlinedButton.icon(
                 key: const Key('btn-student-inspect-room'),
@@ -1206,7 +1232,6 @@ class _HostelScreenState extends State<HostelScreen> {
                 icon: const Icon(Icons.inventory_2_outlined, size: 14),
                 label: const Text('View All Serial Numbers', style: TextStyle(fontSize: 11)),
               ),
-              const SizedBox(width: 10),
               ElevatedButton.icon(
                 key: const Key('btn-report-fixture-issue'),
                 style: ElevatedButton.styleFrom(
@@ -1299,54 +1324,68 @@ class _HostelScreenState extends State<HostelScreen> {
 
     final availableBeds = totalBeds - totalOccupants;
 
-    return Row(
-      children: [
-        _buildMetricCard('Registered Rooms', '${_rooms.length}', '100 to 999 range', AppColors.wineRed, isDark),
-        const SizedBox(width: 12),
-        _buildMetricCard('Total Residents', '$totalOccupants', 'Max 3 / room', const Color(0xFF0969DA), isDark),
-        const SizedBox(width: 12),
-        _buildMetricCard('Available Beds', '${availableBeds < 0 ? 0 : availableBeds}', 'Vacant allocations', const Color(0xFF2DA44E), isDark),
-        const SizedBox(width: 12),
-        _buildMetricCard('Tracked Fixtures', '$totalAssets', '<= 14 alphanumeric SN', const Color(0xFFD97706), isDark),
-      ],
+    final cards = [
+      _buildMetricCard('Registered Rooms', '${_rooms.length}', '100-999 range', AppColors.wineRed, isDark),
+      _buildMetricCard('Total Residents', '$totalOccupants', 'Max 3 / room', const Color(0xFF0969DA), isDark),
+      _buildMetricCard('Available Beds', '${availableBeds < 0 ? 0 : availableBeds}', 'Vacant allocations', const Color(0xFF2DA44E), isDark),
+      _buildMetricCard('Tracked Fixtures', '$totalAssets', '<= 14 alphanumeric SN', const Color(0xFFD97706), isDark),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 720) {
+          return Row(
+            children: [
+              for (int i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(child: cards[i]),
+              ],
+            ],
+          );
+        }
+        final itemWidth = (constraints.maxWidth - 12) / 2;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: cards.map((c) => SizedBox(width: itemWidth, child: c)).toList(),
+        );
+      },
     );
   }
 
   Widget _buildMetricCard(String title, String val, String subtitle, Color accent, bool isDark) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  val,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: accent),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                val,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: accent),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '• $subtitle',
+                  style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    '• $subtitle',
-                    style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

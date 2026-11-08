@@ -9,7 +9,7 @@ import '../widgets/app_logo.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final OfflineStorageService storage;
-  final String userIdentifier; // id or campus handle
+  final String userIdentifier;
   final UserModel? initialUser;
   final UserModel? currentAdminUser;
   final VoidCallback? onUserUpdated;
@@ -1101,8 +1101,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       width: 1,
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const AppSvgIcon(
                         svgString: AppSvgIcon.shield,

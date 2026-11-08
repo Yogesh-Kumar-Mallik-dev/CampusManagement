@@ -1536,4 +1536,101 @@ void main() {
     expect(find.text('Academic Operations'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('dock-division-active-page')), matching: find.text('Attendance')), findsOneWidget);
   });
+
+  testWidgets('Small Screen Responsiveness: 360x640 bottom dock sheet, hostel student view, and mess feedback cards',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(CampusManagementApp(storage: storage));
+    await tester.pumpAndSettle();
+
+    // Login as student Alex
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // Verify 4 divisions are rendered on small screen
+    expect(find.byKey(const Key('dock-division-dashboard')), findsOneWidget);
+    expect(find.byKey(const Key('dock-division-profile')), findsOneWidget);
+    expect(find.byKey(const Key('dock-division-active-page')), findsOneWidget);
+    expect(find.byKey(const Key('dock-division-more-pages')), findsOneWidget);
+
+    // Open Division 4 "Other Pages" bottom sheet
+    await tester.tap(find.byKey(const Key('dock-division-more-pages')));
+    await tester.pumpAndSettle();
+    expect(find.text('Campus Pages & Modules'), findsOneWidget);
+
+    // Verify every sheet item fits vertically within screen bounds
+    for (final keyName in ['timetable', 'attendance', 'notices', 'directory', 'departments', 'hostel', 'mess']) {
+      final finder = find.byKey(Key('dock-menu-item-$keyName'));
+      expect(finder, findsOneWidget);
+      final rect = tester.getRect(finder);
+      expect(rect.bottom, lessThanOrEqualTo(640.0));
+    }
+
+    // Switch to Mess page via Division 4
+    await tester.tap(find.byKey(const Key('dock-menu-item-mess')));
+    await tester.pumpAndSettle();
+    expect(find.text('Campus Pages & Modules'), findsNothing);
+    expect(find.text('Hostel Mess System & Meal Timetable'), findsOneWidget);
+
+    // Switch to Hostel page via Division 4
+    await tester.tap(find.byKey(const Key('dock-division-more-pages')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('dock-menu-item-hostel')));
+    await tester.pumpAndSettle();
+    expect(find.text('Hostel Residence Portal'), findsOneWidget);
+    expect(find.byKey(const Key('card-my-allotted-room')), findsOneWidget);
+
+    // Switch back to Dashboard (Division 1) -> active page slot 3 retains Hostel
+    await tester.tap(find.byKey(const Key('dock-division-dashboard')));
+    await tester.pumpAndSettle();
+    expect(find.text('Academic Operations'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('dock-division-active-page')), matching: find.text('Hostel')), findsOneWidget);
+  });
+
+  testWidgets('Small Screen Responsiveness: MessScreen and HostelScreen standalone on 360x640',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final user = OfflineStorageService.getMockUserForHandle('campus_admin');
+
+    // Test MessScreen on small screen with tab switching
+    await tester.pumpWidget(MaterialApp(
+      home: MessScreen(
+        storage: storage,
+        currentUser: user,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Hostel Mess System & Meal Timetable'), findsOneWidget);
+
+    await tester.tap(find.text('Messages & Ratings Report'));
+    await tester.pumpAndSettle();
+    expect(find.text('STUDENT FEEDBACK & MESSAGES'), findsOneWidget);
+
+    // Test HostelScreen on small screen with warden console
+    await tester.pumpWidget(MaterialApp(
+      home: HostelScreen(
+        storage: storage,
+        currentUser: user,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Hostel Room System & Asset Inventory'), findsOneWidget);
+  });
 }

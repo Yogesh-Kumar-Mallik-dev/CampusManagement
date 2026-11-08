@@ -333,27 +333,28 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 10,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Hostel Mess System & Meal Timetable',
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Hostel Mess System & Meal Timetable',
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Weekly meal timetable, menu items, and rating & messages feedback portal',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Weekly meal timetable, menu items, and rating & messages feedback portal',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                       ElevatedButton.icon(
                         key: const Key('btn-open-rate-meal-dialog'),
@@ -643,16 +644,17 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
         ],
 
         // Filter Bar & Messages Heading
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(
-              child: Text(
-                'STUDENT FEEDBACK & MESSAGES',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
+            const Text(
+              'STUDENT FEEDBACK & MESSAGES',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 6,
+              runSpacing: 6,
               children: [
                 _buildMessageFilterChip('all', 'All Messages', isDark),
                 _buildMessageFilterChip('compulsory', 'Compulsory (Very Poor - Average)', isDark),
@@ -830,31 +832,38 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: ratingColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: ratingColor),
-                ),
-                child: Text(
-                  ratingVal.label.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: ratingColor,
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: ratingColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: ratingColor),
+                    ),
+                    child: Text(
+                      ratingVal.label.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: ratingColor,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '$dayCap ${msg.mealType.toUpperCase()} • ${msg.userName} (@${msg.campusHandle})',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  Text(
+                    '$dayCap ${msg.mealType.toUpperCase()}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
               if (msg.isMessageCompulsory)
                 Container(
@@ -881,6 +890,15 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${msg.userName} (@${msg.campusHandle})',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
           ),
           const SizedBox(height: 8),
           Text(

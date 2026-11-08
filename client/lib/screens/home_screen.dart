@@ -439,7 +439,7 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() {
                 _currentUser = newUser;
                 _tabWidgetCache.clear();
-                _loadedTabs.addAll([0, 1, 2, 3, 4, 5]);
+                _loadedTabs.addAll([0, 1, 2, 3, 4, 5, 6, 7, 8]);
               });
               _checkServer();
             },
@@ -929,23 +929,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
                 Flexible(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: otherPages.map((item) {
                         final isCurrentInSlot3 = _slot3PageIndex == item.index;
 
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.only(bottom: 2),
                           child: ListTile(
                             key: Key('dock-menu-item-${item.keyName}'),
+                            dense: true,
+                            visualDensity: VisualDensity.compact,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             tileColor: isCurrentInSlot3
                                 ? (isDark ? const Color(0xFF261D1D) : const Color(0xFFFFF0F2))
                                 : null,
                             leading: Container(
-                              width: 36,
-                              height: 36,
+                              width: 30,
+                              height: 30,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: isCurrentInSlot3
@@ -955,7 +958,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               child: AppSvgIcon(
                                 svgString: item.svgIcon,
-                                size: 18,
+                                size: 15,
                                 color: isCurrentInSlot3
                                     ? Colors.white
                                     : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
@@ -963,17 +966,25 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             title: Text(
                               item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 12.5,
                                 fontWeight: isCurrentInSlot3 ? FontWeight.bold : FontWeight.w600,
                                 color: isCurrentInSlot3 ? AppColors.wineRed : null,
                               ),
                             ),
                             subtitle: Text(
-                              item.subtitle,
+                              item.isRestricted && item.restrictedRole != null
+                                  ? 'Requires ${item.restrictedRole}'
+                                  : item.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                fontSize: 10.5,
+                                color: item.isRestricted
+                                    ? const Color(0xFFD97706)
+                                    : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
                               ),
                             ),
                             trailing: Row(
@@ -989,21 +1000,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         color: isDark ? const Color(0xFFD97706) : const Color(0xFFFDBA74),
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.lock_outline, size: 10, color: Color(0xFFD97706)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          item.restrictedRole ?? 'Restricted',
-                                          style: const TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFFD97706),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                    child: const Icon(Icons.lock_outline, size: 12, color: Color(0xFFD97706)),
                                   )
                                 else if (isCurrentInSlot3)
                                   Container(
@@ -1013,7 +1010,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: const Text(
-                                      'Active in Dock',
+                                      'Active',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -1070,77 +1067,127 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 1,
               ),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.wineRed,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _currentUser.firstName[0],
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            _currentUser.fullName,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 520;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.wineRed,
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          Builder(
-                            builder: (context) {
-                              final roleBadge = _currentUser.archetype == 'student'
-                                  ? AppColors.primaryBadge(isDark)
-                                  : AppColors.greenBadge(isDark);
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: roleBadge.background,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: roleBadge.border,
-                                    width: 1,
+                          child: Text(
+                            _currentUser.firstName.isNotEmpty ? _currentUser.firstName[0] : '?',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  Text(
+                                    _currentUser.fullName,
+                                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                                   ),
+                                  Builder(
+                                    builder: (context) {
+                                      final roleBadge = _currentUser.archetype == 'student'
+                                          ? AppColors.primaryBadge(isDark)
+                                          : AppColors.greenBadge(isDark);
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: roleBadge.background,
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: roleBadge.border,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _currentUser.archetype.toUpperCase(),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: roleBadge.text,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '@${_currentUser.campusHandle} • ${_currentUser.email}',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                  fontFamily: 'monospace',
                                 ),
-                                child: Text(
-                                  _currentUser.archetype.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: roleBadge.text,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!isNarrow) ...[
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                              side: BorderSide(
+                                color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
+                                width: 1,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            icon: const AppSvgIcon(svgString: AppSvgIcon.user, size: 14),
+                            label: const Text('View Profile', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => UserProfileScreen(
+                                    storage: widget.storage,
+                                    userIdentifier: _currentUser.id,
+                                    initialUser: _currentUser,
+                                    currentAdminUser: _currentUser,
+                                    onUserUpdated: () async {
+                                      final fresh = await widget.storage.getUserProfile(_currentUser.id);
+                                      if (mounted) {
+                                        setState(() {
+                                          _currentUser = fresh;
+                                        });
+                                      }
+                                    },
                                   ),
                                 ),
                               );
                             },
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Canonical Handle: ${_currentUser.campusHandle}  |  ${_currentUser.email}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      ],
+                    ),
+                    if (_currentUser.activeScopes.isNotEmpty) ...[
+                      const SizedBox(height: 10),
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
@@ -1159,7 +1206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Text(
                               scope,
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 10.5,
                                 color: scopeBadge.text,
                               ),
                             ),
@@ -1167,43 +1214,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         }).toList(),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
-                    side: BorderSide(
-                      color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
-                      width: 1,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  ),
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.user, size: 14),
-                  label: const Text('View Profile', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => UserProfileScreen(
-                          storage: widget.storage,
-                          userIdentifier: _currentUser.id,
-                          initialUser: _currentUser,
-                          currentAdminUser: _currentUser,
-                          onUserUpdated: () async {
-                            final fresh = await widget.storage.getUserProfile(_currentUser.id);
-                            setState(() {
-                              _currentUser = fresh;
-                              _tabWidgetCache.clear();
-                              _loadedTabs.addAll([0, 1, 2, 3, 4, 5]);
-                            });
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 24),
