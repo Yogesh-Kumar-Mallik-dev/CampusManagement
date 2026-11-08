@@ -8,6 +8,7 @@ import '../widgets/smooth_theme_toggle.dart';
 import 'attendance_screen.dart';
 import 'department_management_screen.dart';
 import 'hostel_screen.dart';
+import 'mess_screen.dart';
 import 'notices_screen.dart';
 import 'timetable_screen.dart';
 import 'user_management_screen.dart';
@@ -105,6 +106,12 @@ class _HomeScreenState extends State<HomeScreen> {
         case 6:
           return HostelScreen(
             key: ValueKey('tab-hostel-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
+          );
+        case 7:
+          return MessScreen(
+            key: ValueKey('tab-mess-${_currentUser.id}'),
             storage: widget.storage,
             currentUser: _currentUser,
           );
@@ -640,6 +647,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   label: 'Hostel',
                 ),
+                BottomNavigationBarItem(
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.utensils),
+                  activeIcon: AppSvgIcon(
+                    svgString: AppSvgIcon.utensils,
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                  ),
+                  label: 'Mess',
+                ),
               ],
             ),
     );
@@ -868,6 +883,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: const Color(0xFFD97706),
                   onTap: () => _onDestinationSelected(6),
                 ),
+                _buildOperationCard(
+                  title: 'Hostel Mess & Feedback',
+                  subtitle: 'Weekly menu, Sunday brunch & meal ratings',
+                  iconSvg: AppSvgIcon.utensils,
+                  color: const Color(0xFF2DA44E),
+                  onTap: () => _onDestinationSelected(7),
+                ),
               ];
 
               if (isWide) {
@@ -984,6 +1006,7 @@ class _CampusSidebar extends StatelessWidget {
       (svg: AppSvgIcon.user, label: 'Directory'),
       (svg: AppSvgIcon.building, label: 'Depts'),
       (svg: AppSvgIcon.bed, label: 'Hostel'),
+      (svg: AppSvgIcon.utensils, label: 'Mess'),
     ];
 
     return Container(

@@ -504,5 +504,42 @@ CREATE TABLE IF NOT EXISTS hostel_occupants (
 CREATE INDEX IF NOT EXISTS idx_hostel_occupants_room ON hostel_occupants(room_number);
 CREATE INDEX IF NOT EXISTS idx_hostel_occupants_user ON hostel_occupants(user_id);
 
+-- 34. Mess Meal Schedule (3 meals/day Mon-Sat, Sunday Brunch replaces Breakfast & Lunch)
+CREATE TABLE IF NOT EXISTS mess_meals (
+    id VARCHAR(64) PRIMARY KEY,
+    day_of_week VARCHAR(16) NOT NULL,       -- 'monday', 'tuesday', ..., 'sunday'
+    meal_type VARCHAR(16) NOT NULL,         -- 'breakfast', 'lunch', 'dinner', 'brunch'
+    start_time VARCHAR(8) NOT NULL,         -- '07:30', '10:00', '12:30', '19:30'
+    end_time VARCHAR(8) NOT NULL,           -- '09:30', '13:00', '14:30', '21:30'
+    title VARCHAR(128) NOT NULL,
+    menu_summary TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_mess_meals_day ON mess_meals(day_of_week);
+
+-- 35. Mess Ratings and Feedback Messages (compulsory for very_poor, poor, average; optional for rest)
+CREATE TABLE IF NOT EXISTS mess_ratings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    meal_id VARCHAR(64) REFERENCES mess_meals(id) ON DELETE CASCADE,
+    day_of_week VARCHAR(16) NOT NULL,
+    meal_type VARCHAR(16) NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_name VARCHAR(128) NOT NULL,
+    campus_handle VARCHAR(128) NOT NULL,
+    rating VARCHAR(16) NOT NULL,            -- 'very_poor', 'poor', 'average', 'good', 'very_good', 'abstained'
+    message TEXT,                           -- Compulsory when rating is very_poor, poor, average
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_mess_ratings_meal ON mess_ratings(meal_id);
+CREATE INDEX IF NOT EXISTS idx_mess_ratings_rating ON mess_ratings(rating);
+CREATE INDEX IF NOT EXISTS idx_mess_ratings_created ON mess_ratings(created_at);
+
+
 
 

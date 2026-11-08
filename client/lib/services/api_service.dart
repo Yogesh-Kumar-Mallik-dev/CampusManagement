@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/academic.dart';
 import '../models/hostel.dart';
+import '../models/mess.dart';
 import '../models/user.dart';
 
 class ApiService {
@@ -760,5 +761,57 @@ class ApiService {
     if (res.statusCode != 200) {
       throw Exception('Failed to remove occupant: ${res.body}');
     }
+  }
+
+  // ----------------------------------------------------
+  // MESS OPERATIONS (TIMETABLE, SUNDAY BRUNCH, RATINGS)
+  // ----------------------------------------------------
+
+  Future<List<MessMealModel>> fetchMessTimetable() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/mess/timetable'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => MessMealModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to fetch mess timetable (${res.statusCode})');
+  }
+
+  Future<MessReportSummary> fetchMessRatingsReport({String? mealId, String? rating}) async {
+    final queryParams = <String, String>{};
+    if (mealId != null && mealId.isNotEmpty) queryParams['meal_id'] = mealId;
+    if (rating != null && rating.isNotEmpty) queryParams['rating'] = rating;
+
+    final uri = Uri.parse('$baseUrl/api/v1/mess/ratings').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      return MessReportSummary.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to fetch mess ratings report (${res.statusCode})');
+  }
+
+  Future<MessRatingModel> submitMessRating({
+    required String mealId,
+    required String userId,
+    required String userName,
+    required String campusHandle,
+    required String rating,
+    required String message,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/mess/ratings'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'meal_id': mealId,
+        'user_id': userId,
+        'user_name': userName,
+        'campus_handle': campusHandle,
+        'rating': rating,
+        'message': message,
+      }),
+    );
+    if (res.statusCode == 201) {
+      return MessRatingModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to submit mess rating: ${res.body}');
   }
 }

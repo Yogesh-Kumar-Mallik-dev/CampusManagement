@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../models/academic.dart';
 import '../models/hostel.dart';
+import '../models/mess.dart';
 import '../models/user.dart';
 import 'api_service.dart';
 
@@ -21,6 +22,8 @@ class OfflineStorageService {
   final List<SemesterModel> _cachedSemesters = [];
   final List<SectionModel> _cachedSections = [];
   final List<HostelRoomModel> _cachedHostelRooms = [];
+  final List<MessMealModel> _cachedMessMeals = [];
+  final List<MessRatingModel> _cachedMessRatings = [];
   final Map<String, String> _studentSectionMap = {};
   final Map<String, String> _studentProgramMap = {};
   final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
@@ -3527,5 +3530,286 @@ class OfflineStorageService {
     final room = _cachedHostelRooms[roomIdx];
     final updatedOccupants = room.occupants.where((o) => o.userId != userId && o.campusHandle != userId).toList();
     _cachedHostelRooms[roomIdx] = room.copyWith(occupants: updatedOccupants, updatedAt: DateTime.now());
+  }
+
+  // ----------------------------------------------------
+  // MESS OPERATIONS (TIMETABLE, SUNDAY BRUNCH, RATINGS)
+  // ----------------------------------------------------
+
+  void _seedDefaultMessDataIfEmpty() {
+    if (_cachedMessMeals.isNotEmpty) return;
+
+    final days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    for (final day in days) {
+      final dayTitle = '${day[0].toUpperCase()}${day.substring(1)}';
+
+      // Breakfast (Mon - Sat)
+      _cachedMessMeals.add(MessMealModel(
+        id: 'meal-$day-breakfast',
+        dayOfWeek: day,
+        mealType: 'breakfast',
+        startTime: '07:30',
+        endTime: '09:30',
+        title: '$dayTitle Breakfast',
+        menuSummary: 'Idli, Vada, Sambar, Coconut Chutney, Bread Butter, Tea / Coffee',
+        items: const ['Idli (3 pcs)', 'Medu Vada (1 pc)', 'Sambar', 'Chutney', 'Bread & Jam', 'Tea / Coffee'],
+      ));
+
+      // Lunch (Mon - Sat)
+      _cachedMessMeals.add(MessMealModel(
+        id: 'meal-$day-lunch',
+        dayOfWeek: day,
+        mealType: 'lunch',
+        startTime: '12:30',
+        endTime: '14:30',
+        title: '$dayTitle Lunch',
+        menuSummary: 'Steamed Basmati Rice, Chapati, Dal Tadka, Paneer Butter Masala, Curd, Green Salad',
+        items: const ['Basmati Rice', 'Tawa Roti', 'Dal Tadka', 'Paneer Sabzi', 'Curd', 'Kachumber Salad'],
+      ));
+
+      // Dinner (Mon - Sat)
+      _cachedMessMeals.add(MessMealModel(
+        id: 'meal-$day-dinner',
+        dayOfWeek: day,
+        mealType: 'dinner',
+        startTime: '19:30',
+        endTime: '21:30',
+        title: '$dayTitle Dinner',
+        menuSummary: 'Phulka, Jeera Rice, Rajma Curry, Mix Veg Poriyal, Gulab Jamun, Buttermilk',
+        items: const ['Phulka', 'Jeera Rice', 'Punjabi Rajma', 'Dry Mix Veg', 'Gulab Jamun', 'Spiced Buttermilk'],
+      ));
+    }
+
+    // Sunday: Brunch replaces Breakfast and Lunch!
+    _cachedMessMeals.add(const MessMealModel(
+      id: 'meal-sunday-brunch',
+      dayOfWeek: 'sunday',
+      mealType: 'brunch',
+      startTime: '10:00',
+      endTime: '13:00',
+      title: 'Sunday Grand Brunch (Replaces Breakfast & Lunch)',
+      menuSummary: 'Chole Bhature, Masala Dosa Counter, Poha, Fresh Fruit Platter, Cold Coffee, Badam Milk',
+      items: ['Chole Bhature (2 pcs)', 'Live Masala Dosa', 'Indori Poha', 'Cut Fruit Salad', 'Iced Cold Coffee', 'Kesar Badam Milk'],
+    ));
+
+    // Sunday Dinner
+    _cachedMessMeals.add(const MessMealModel(
+      id: 'meal-sunday-dinner',
+      dayOfWeek: 'sunday',
+      mealType: 'dinner',
+      startTime: '19:30',
+      endTime: '21:30',
+      title: 'Sunday Special Dinner',
+      menuSummary: 'Veg Biryani / Chicken Biryani, Mirchi Ka Salan, Raita, Rasmalai, Ice Cream',
+      items: ['Hyderabadi Biryani', 'Mirchi Ka Salan', 'Boondi Raita', 'Rasmalai', 'Vanilla Cup'],
+    ));
+
+    // Seed Initial Student Feedback & Compulsory/Optional Messages
+    final now = DateTime.now();
+    _cachedMessRatings.addAll([
+      MessRatingModel(
+        id: 'rate-001',
+        mealId: 'meal-sunday-brunch',
+        dayOfWeek: 'sunday',
+        mealType: 'brunch',
+        userId: 'u-student-harish',
+        userName: 'Harish Kumar',
+        campusHandle: 'harish_2025_l_btech_1',
+        rating: 'very_good',
+        message: 'The Sunday live dosa counter was exceptional this week, crispy and fresh.',
+        createdAt: now.subtract(const Duration(hours: 14)),
+      ),
+      MessRatingModel(
+        id: 'rate-002',
+        mealId: 'meal-sunday-brunch',
+        dayOfWeek: 'sunday',
+        mealType: 'brunch',
+        userId: 'u-student-rohit',
+        userName: 'Rohit Verma',
+        campusHandle: 'rohit_2025_btech_2',
+        rating: 'good',
+        message: 'Brunch timings from 10:00 to 13:00 work very well on weekends.',
+        createdAt: now.subtract(const Duration(hours: 12)),
+      ),
+      MessRatingModel(
+        id: 'rate-003',
+        mealId: 'meal-saturday-dinner',
+        dayOfWeek: 'saturday',
+        mealType: 'dinner',
+        userId: 'u-student-amit',
+        userName: 'Amit Shah',
+        campusHandle: 'amit_2025_btech_3',
+        rating: 'poor',
+        message: 'Dal was overly salty and chapatis were cold by 20:30.', // Compulsory feedback
+        createdAt: now.subtract(const Duration(hours: 28)),
+      ),
+      MessRatingModel(
+        id: 'rate-004',
+        mealId: 'meal-friday-lunch',
+        dayOfWeek: 'friday',
+        mealType: 'lunch',
+        userId: 'u-student-harish',
+        userName: 'Harish Kumar',
+        campusHandle: 'harish_2025_l_btech_1',
+        rating: 'average',
+        message: 'Paneer cubes were slightly rubbery, but the rice quality was good.', // Compulsory feedback
+        createdAt: now.subtract(const Duration(hours: 46)),
+      ),
+      MessRatingModel(
+        id: 'rate-005',
+        mealId: 'meal-friday-breakfast',
+        dayOfWeek: 'friday',
+        mealType: 'breakfast',
+        userId: 'u-student-priya',
+        userName: 'Priya Sharma',
+        campusHandle: 'priya_2025_btech_4',
+        rating: 'very_poor',
+        message: 'Chutney was fermented and smelled sour; reported to mess vendor immediately.', // Compulsory feedback
+        createdAt: now.subtract(const Duration(hours: 52)),
+      ),
+      MessRatingModel(
+        id: 'rate-006',
+        mealId: 'meal-thursday-dinner',
+        dayOfWeek: 'thursday',
+        mealType: 'dinner',
+        userId: 'u-student-rohit',
+        userName: 'Rohit Verma',
+        campusHandle: 'rohit_2025_btech_2',
+        rating: 'abstained',
+        message: '', // Optional for abstained
+        createdAt: now.subtract(const Duration(hours: 70)),
+      ),
+    ]);
+  }
+
+  Future<List<MessMealModel>> getMessTimetable() async {
+    _seedDefaultMessDataIfEmpty();
+    await checkConnectivity();
+
+    if (isOnline) {
+      try {
+        final serverTimetable = await api.fetchMessTimetable();
+        if (serverTimetable.isNotEmpty) {
+          _cachedMessMeals.clear();
+          _cachedMessMeals.addAll(serverTimetable);
+        }
+      } catch (_) {}
+    }
+
+    return List.unmodifiable(_cachedMessMeals);
+  }
+
+  Future<MessReportSummary> getMessRatingsReport({String? mealId, String? rating}) async {
+    _seedDefaultMessDataIfEmpty();
+    await checkConnectivity();
+
+    if (isOnline) {
+      try {
+        return await api.fetchMessRatingsReport(mealId: mealId, rating: rating);
+      } catch (_) {}
+    }
+
+    final counts = <String, int>{
+      'very_poor': 0,
+      'poor': 0,
+      'average': 0,
+      'good': 0,
+      'very_good': 0,
+      'abstained': 0,
+    };
+
+    double totalScore = 0.0;
+    int scoredCount = 0;
+    int totalRatings = 0;
+    final messages = <MessRatingModel>[];
+
+    for (final r in _cachedMessRatings) {
+      if (mealId != null && mealId.isNotEmpty && r.mealId != mealId) {
+        continue;
+      }
+
+      counts[r.rating] = (counts[r.rating] ?? 0) + 1;
+      totalRatings++;
+
+      final score = r.ratingEnum.score;
+      if (score != null) {
+        totalScore += score.toDouble();
+        scoredCount++;
+      }
+
+      if (rating == null || rating.isEmpty || r.rating == rating ||
+          (rating == 'compulsory' && r.isMessageCompulsory)) {
+        messages.add(r);
+      }
+    }
+
+    messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final avgScore = scoredCount > 0 ? (totalScore / scoredCount) : 0.0;
+
+    return MessReportSummary(
+      totalRatings: totalRatings,
+      averageScore: avgScore,
+      ratingCounts: counts,
+      recentMessages: messages,
+      sundayScheduleNote: 'On Sunday, Brunch (10:00 - 13:00) replaces Breakfast and Lunch. Dinner is served at 19:30 - 21:30.',
+    );
+  }
+
+  Future<MessRatingModel> submitMessRating({
+    required String mealId,
+    required String userId,
+    required String userName,
+    required String campusHandle,
+    required String rating,
+    required String message,
+  }) async {
+    _seedDefaultMessDataIfEmpty();
+
+    final meal = _cachedMessMeals.firstWhere(
+      (m) => m.id == mealId,
+      orElse: () => throw Exception('Meal $mealId not found in mess timetable'),
+    );
+
+    final ratingVal = MessRatingValue.fromCode(rating);
+    final valErr = MessRatingModel.validateRatingFeedback(
+      rating: ratingVal,
+      message: message,
+    );
+    if (valErr != null) {
+      throw Exception(valErr);
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final serverRecord = await api.submitMessRating(
+          mealId: mealId,
+          userId: userId,
+          userName: userName,
+          campusHandle: campusHandle,
+          rating: rating,
+          message: message.trim(),
+        );
+        _cachedMessRatings.insert(0, serverRecord);
+        return serverRecord;
+      } catch (_) {}
+    }
+
+    final record = MessRatingModel(
+      id: 'rate-${DateTime.now().millisecondsSinceEpoch}',
+      mealId: meal.id,
+      dayOfWeek: meal.dayOfWeek,
+      mealType: meal.mealType,
+      userId: userId.trim(),
+      userName: userName.trim(),
+      campusHandle: campusHandle.trim(),
+      rating: rating,
+      message: message.trim(),
+      createdAt: DateTime.now(),
+    );
+
+    _cachedMessRatings.insert(0, record);
+    return record;
   }
 }

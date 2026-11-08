@@ -79,6 +79,7 @@ func main() {
 	permService := service.NewPermissionService(dbPool, cacheManager)
 	academicService := service.NewAcademicService(dbPool, cacheManager, permService)
 	hostelService := service.NewHostelService(dbPool, permService)
+	messService := service.NewMessService(dbPool, permService)
 
 	// Seed Standard Campus Roles into Permission Service & Sample Academic Data
 	seedDefaultRolesAndScopes(permService)
@@ -89,6 +90,7 @@ func main() {
 	departmentHandler := handler.NewDepartmentHandler(academicService, userHandler.FindUser, userHandler.ListTeachers)
 	authHandler := handler.NewAuthHandler(permService)
 	hostelHandler := handler.NewHostelHandler(hostelService)
+	messHandler := handler.NewMessHandler(messService)
 
 	// 4. Define HTTP Routes
 	mux := http.NewServeMux()
@@ -156,6 +158,10 @@ func main() {
 	mux.HandleFunc("/api/v1/hostel/rooms", hostelHandler.HandleRooms)
 	mux.HandleFunc("/api/v1/hostel/rooms/assets", hostelHandler.HandleAssets)
 	mux.HandleFunc("/api/v1/hostel/rooms/occupants", hostelHandler.HandleOccupants)
+
+	// Mess Meal Timetable (6 days x 3 meals, Sunday Brunch + Dinner) & Rating Feedback
+	mux.HandleFunc("/api/v1/mess/timetable", messHandler.HandleTimetable)
+	mux.HandleFunc("/api/v1/mess/ratings", messHandler.HandleRatings)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
 	mux.HandleFunc("/api/v1/sync", academicHandler.DeltaSync)

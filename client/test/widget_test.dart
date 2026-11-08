@@ -4,9 +4,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:campus_client/main.dart';
 import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/models/hostel.dart';
+import 'package:campus_client/models/mess.dart';
 import 'package:campus_client/screens/home_screen.dart';
 import 'package:campus_client/screens/hostel_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
+import 'package:campus_client/screens/mess_screen.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
 import 'package:campus_client/widgets/app_dropdown.dart';
@@ -1255,5 +1257,193 @@ void main() {
     expect(find.byKey(const Key('btn-modal-add-resident')), findsNothing);
     expect(find.byIcon(Icons.person_remove), findsNothing);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
+  });
+
+  test('Mess Meal Schedule & Compulsory vs Optional Rating Feedback Rules', () {
+    // 1. Verify Compulsory vs Optional Rules
+    expect(MessRatingValue.veryPoor.isMessageCompulsory, isTrue);
+    expect(MessRatingValue.poor.isMessageCompulsory, isTrue);
+    expect(MessRatingValue.average.isMessageCompulsory, isTrue);
+    expect(MessRatingValue.good.isMessageCompulsory, isFalse);
+    expect(MessRatingValue.veryGood.isMessageCompulsory, isFalse);
+    expect(MessRatingValue.abstained.isMessageCompulsory, isFalse);
+
+    // 2. Validate empty message on compulsory ratings -> fails
+    expect(
+      MessRatingModel.validateRatingFeedback(
+        rating: MessRatingValue.veryPoor,
+        message: '   ',
+      ),
+      isNotNull,
+    );
+    expect(
+      MessRatingModel.validateRatingFeedback(
+        rating: MessRatingValue.poor,
+        message: '',
+      ),
+      isNotNull,
+    );
+    expect(
+      MessRatingModel.validateRatingFeedback(
+        rating: MessRatingValue.average,
+        message: null,
+      ),
+      isNotNull,
+    );
+
+    // 3. Validate compulsory ratings with message -> passes
+    expect(
+      MessRatingModel.validateRatingFeedback(
+        rating: MessRatingValue.average,
+        message: 'Food was decent but warm.',
+      ),
+      isNull,
+    );
+
+    // 4. Validate optional ratings with empty message -> passes
+    expect(
+      MessRatingModel.validateRatingFeedback(
+        rating: MessRatingValue.good,
+        message: '',
+      ),
+      isNull,
+    );
+    expect(
+      MessRatingModel.validateRatingFeedback(
+        rating: MessRatingValue.veryGood,
+        message: null,
+      ),
+      isNull,
+    );
+    expect(
+      MessRatingModel.validateRatingFeedback(
+        rating: MessRatingValue.abstained,
+        message: '',
+      ),
+      isNull,
+    );
+  });
+
+  testWidgets('Hostel Mess: Weekly timetable (6 days x 3 meals, Sunday Brunch + Dinner), rating dialog with compulsory messages, and messages report tab',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MessScreen(
+            storage: storage,
+            currentUser: student,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Verify Header & Sunday Notice Banner
+    expect(find.text('Hostel Mess System & Meal Timetable'), findsOneWidget);
+    expect(find.textContaining('Sunday Meal Schedule: A grand Brunch is served from 10:00 to 13:00 replacing separate breakfast and lunch'), findsOneWidget);
+    expect(find.text('Weekly Menu & Timetable'), findsOneWidget);
+    expect(find.text('Messages & Ratings Report'), findsOneWidget);
+
+    // 2. Verify Monday Schedule: 3 meals (Breakfast, Lunch, Dinner)
+    await tester.tap(find.byKey(const Key('chip-day-monday')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-meal-meal-monday-breakfast')), findsOneWidget);
+    expect(find.byKey(const Key('card-meal-meal-monday-lunch')), findsOneWidget);
+    expect(find.byKey(const Key('card-meal-meal-monday-dinner')), findsOneWidget);
+    expect(find.text('07:30 - 09:30'), findsWidgets);
+    expect(find.text('12:30 - 14:30'), findsWidgets);
+    expect(find.text('19:30 - 21:30'), findsWidgets);
+
+    // 3. Verify Sunday Schedule: Brunch (10:00 - 13:00) replacing Breakfast and Lunch
+    await tester.tap(find.byKey(const Key('chip-day-sunday')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-meal-meal-sunday-brunch')), findsOneWidget);
+    expect(find.byKey(const Key('card-meal-meal-sunday-dinner')), findsOneWidget);
+    expect(find.text('10:00 - 13:00'), findsOneWidget);
+    expect(find.text('Sunday Grand Brunch (Replaces Breakfast & Lunch)'), findsOneWidget);
+    expect(find.text('BRUNCH'), findsOneWidget);
+    // Ensure Monday breakfast card is not shown under Sunday
+    expect(find.byKey(const Key('card-meal-meal-monday-breakfast')), findsNothing);
+
+    // 4. Test Rating Dialog: Very Poor rating with COMPULSORY message validation
+    final rateBtn = find.byKey(const Key('btn-open-rate-meal-dialog'));
+    expect(rateBtn, findsOneWidget);
+    await tester.tap(rateBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-rate-mess-meal')), findsOneWidget);
+    expect(find.text('Submit Meal Rating & Feedback'), findsOneWidget);
+
+    // Select Very Poor rating
+    await tester.tap(find.byKey(const Key('chip-rating-very_poor')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Feedback Message (Compulsory)'), findsOneWidget);
+    expect(find.textContaining('Feedback message is COMPULSORY for Very Poor, Poor, and Average ratings.'), findsOneWidget);
+
+    // Attempt submitting without entering message -> Must be blocked by validation
+    await tester.tap(find.byKey(const Key('btn-submit-mess-rating')));
+    await tester.pumpAndSettle();
+    expect(find.text('Feedback message is compulsory for Very Poor rating.'), findsOneWidget);
+
+    // Enter compulsory feedback message
+    await tester.enterText(
+      find.byKey(const Key('input-mess-feedback-message')),
+      'Rice was undercooked and soup was cold on arrival.',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Feedback message is compulsory for Very Poor rating.'), findsNothing);
+
+    // Submit valid Very Poor rating
+    await tester.tap(find.byKey(const Key('btn-submit-mess-rating')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dialog-rate-mess-meal')), findsNothing);
+
+    // 5. Test Rating Dialog: Very Good rating with OPTIONAL message (can submit empty)
+    await tester.tap(rateBtn);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('chip-rating-very_good')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Feedback Message (Optional)'), findsOneWidget);
+    expect(find.textContaining('Feedback message is OPTIONAL for Good, Very Good, and Abstained ratings.'), findsOneWidget);
+
+    // Submit with empty message -> Succeeds
+    await tester.tap(find.byKey(const Key('btn-submit-mess-rating')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dialog-rate-mess-meal')), findsNothing);
+
+    // 6. Switch to Tab 2: "Messages & Ratings Report"
+    await tester.tap(find.text('Messages & Ratings Report'));
+    await tester.pumpAndSettle();
+
+    // Verify KPI Ribbon
+    expect(find.text('STUDENT FEEDBACK & MESSAGES'), findsOneWidget);
+    expect(find.textContaining('Total Student Ratings'), findsOneWidget);
+    expect(find.text('Avg Score (/ 5.0)'), findsOneWidget);
+
+    // Verify Sentiment Breakdown Pills
+    expect(find.textContaining('Very Good:'), findsWidgets);
+    expect(find.textContaining('Average:'), findsWidgets);
+    expect(find.textContaining('Poor:'), findsWidgets);
+    expect(find.textContaining('Abstained:'), findsWidgets);
+
+    // Verify Compulsory feedback indicator and submitted messages
+    expect(find.text('Compulsory Feedback'), findsWidgets);
+    expect(find.text('Rice was undercooked and soup was cold on arrival.'), findsOneWidget);
   });
 }
