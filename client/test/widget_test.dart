@@ -1180,7 +1180,7 @@ void main() {
     expect(find.text('1/3 RESIDENTS'), findsWidgets);
   });
 
-  testWidgets('Hostel Room System: Student Resident view renders My Allotted Room card with verified fixtures and restricts administrative actions',
+  testWidgets('Hostel Room System: Student Resident view shows strictly their allotted room information and restricts other rooms',
       (WidgetTester tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);
@@ -1205,18 +1205,29 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 1. Verify Student View Header (No Add Room button)
-    expect(find.text('Hostel Residence Portal & Room Directory'), findsOneWidget);
+    // 1. Verify Student View Header (No Add Room button, no campus-wide controls)
+    expect(find.text('Hostel Residence Portal'), findsOneWidget);
     expect(find.text('Hostel Room System & Asset Inventory'), findsNothing);
     expect(find.byKey(const Key('btn-add-hostel-room')), findsNothing);
     expect(find.text('Harish Kumar'), findsWidgets);
 
-    // 2. Verify "My Allotted Room" hero card is rendered for Harish in Room 101
+    // 2. Verify Student can ONLY see their allotted room (Room 101)
     expect(find.byKey(const Key('card-my-allotted-room')), findsOneWidget);
     expect(find.text('MY ALLOTTED ROOM: ROOM 101'), findsOneWidget);
     expect(find.text('Active Allocation'), findsOneWidget);
     expect(find.text('Harish Kumar (@harish_2025_l_btech_1) (You)'), findsOneWidget);
     expect(find.text('Rohit Verma (@rohit_2025_btech_2)'), findsOneWidget);
+
+    // Verify other rooms and other occupants are strictly NOT visible to student
+    expect(find.text('ROOM 102'), findsNothing);
+    expect(find.text('ROOM 204'), findsNothing);
+    expect(find.text('ROOM 305'), findsNothing);
+    expect(find.textContaining('Amit Shah'), findsNothing);
+
+    // Verify campus-wide ribbons and filters are hidden from student
+    expect(find.text('Registered Rooms'), findsNothing);
+    expect(find.text('All Floors'), findsNothing);
+    expect(find.byKey(const Key('input-search-hostel-room')), findsNothing);
 
     // 3. Verify Serial-Tracked Fixture Summaries on My Room Card
     expect(find.text('Beds: 3/3'), findsWidgets);
@@ -1226,10 +1237,9 @@ void main() {
     expect(find.text('Fans: 2/2'), findsWidgets);
     expect(find.text('Lockers: 3/3'), findsWidgets);
 
-    // 4. Verify Administrative Mutation buttons are hidden on room directory cards
+    // 4. Verify Administrative Mutation buttons are hidden
     expect(find.text('+ Asset'), findsNothing);
     expect(find.text('+ Resident'), findsNothing);
-    expect(find.text('Inspect Fixtures & Occupancy'), findsWidgets);
 
     // 5. Test Fixture Issue reporting from student card
     await tester.tap(find.byKey(const Key('btn-report-fixture-issue')));

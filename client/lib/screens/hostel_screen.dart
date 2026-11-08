@@ -43,6 +43,13 @@ class _HostelScreenState extends State<HostelScreen> {
   }
 
   List<HostelRoomModel> get _filteredRooms {
+    final canManage = widget.currentUser?.canManageHostel ?? false;
+    if (!canManage) {
+      if (widget.currentUser == null) return [];
+      return _rooms.where((r) => r.occupants.any((o) =>
+          o.userId == widget.currentUser!.id ||
+          o.campusHandle == widget.currentUser!.campusHandle)).toList();
+    }
     return _rooms.where((r) {
       if (_selectedFloor != null && r.floor != _selectedFloor) {
         return false;
@@ -834,14 +841,14 @@ class _HostelScreenState extends State<HostelScreen> {
                             Text(
                               canManage
                                   ? 'Hostel Room System & Asset Inventory'
-                                  : 'Hostel Residence Portal & Room Directory',
+                                  : 'Hostel Residence Portal',
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               canManage
                                   ? 'Warden Console • Room numbers 100 to 999 • Strict capacity limits: 3 beds, 3 tables, 3 chairs, 2 tubelights, 2 fans, 3 lockers, and 3 occupants • 14-character alphanumeric serial tracking'
-                                  : 'Student Resident View • View your room allotment, verified fixture inventory, and campus directory.',
+                                  : 'Student Resident View • Personal room allotment, roommates, and serial-tracked fixture inventory.',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -890,87 +897,86 @@ class _HostelScreenState extends State<HostelScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // Dedicated "My Allotted Room" hero card for students
-                  if (!canManage) ...[
+                  if (canManage) ...[
+                    // Supervisor/Warden Console: Metrics Ribbon, Floor Filters, Search, and Full Campus Directory
+                    _buildMetricsRibbon(isDark),
+                    const SizedBox(height: 20),
+
+                    // Filters & Search Bar
+                    Row(
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            _buildFloorChip(null, 'All Floors', isDark),
+                            _buildFloorChip(1, 'Floor 1 (100-199)', isDark),
+                            _buildFloorChip(2, 'Floor 2 (200-299)', isDark),
+                            _buildFloorChip(3, 'Floor 3 (300-399)', isDark),
+                          ],
+                        ),
+                        const Spacer(),
+                        SizedBox(
+                          width: 260,
+                          height: 38,
+                          child: TextField(
+                            key: const Key('input-search-hostel-room'),
+                            decoration: InputDecoration(
+                              hintText: 'Search room, resident, SN...',
+                              prefixIcon: const Icon(Icons.search, size: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                              isDense: true,
+                            ),
+                            onChanged: (val) => setState(() => _searchQuery = val),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Room Cards Grid (All Rooms)
+                    if (_filteredRooms.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(32),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                        ),
+                        child: Text(
+                          'No hostel rooms found matching your criteria.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      )
+                    else
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final crossAxisCount = constraints.maxWidth >= 1100 ? 3 : (constraints.maxWidth >= 700 ? 2 : 1);
+                          return GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              mainAxisExtent: 310,
+                            ),
+                            itemCount: _filteredRooms.length,
+                            itemBuilder: (context, idx) {
+                              return _buildRoomCard(_filteredRooms[idx], isDark, true);
+                            },
+                          );
+                        },
+                      ),
+                  ] else ...[
+                    // Student Resident View: Strictly ONLY their room's information
                     _buildMyRoomCard(myRoom, isDark),
                   ],
-
-                  // Metrics Ribbon
-                  _buildMetricsRibbon(isDark),
-                  const SizedBox(height: 20),
-
-                  // Filters & Search Bar
-                  Row(
-                    children: [
-                      // Floor Filter Chips
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          _buildFloorChip(null, 'All Floors', isDark),
-                          _buildFloorChip(1, 'Floor 1 (100-199)', isDark),
-                          _buildFloorChip(2, 'Floor 2 (200-299)', isDark),
-                          _buildFloorChip(3, 'Floor 3 (300-399)', isDark),
-                        ],
-                      ),
-                      const Spacer(),
-                      SizedBox(
-                        width: 260,
-                        height: 38,
-                        child: TextField(
-                          key: const Key('input-search-hostel-room'),
-                          decoration: InputDecoration(
-                            hintText: 'Search room, resident, SN...',
-                            prefixIcon: const Icon(Icons.search, size: 16),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                            isDense: true,
-                          ),
-                          onChanged: (val) => setState(() => _searchQuery = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Room Cards Grid
-                  if (_filteredRooms.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(32),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                      ),
-                      child: Text(
-                        'No hostel rooms found matching your criteria.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                        ),
-                      ),
-                    )
-                  else
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final crossAxisCount = constraints.maxWidth >= 1100 ? 3 : (constraints.maxWidth >= 700 ? 2 : 1);
-                        return GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            mainAxisExtent: canManage ? 310 : 290,
-                          ),
-                          itemCount: _filteredRooms.length,
-                          itemBuilder: (context, idx) {
-                            return _buildRoomCard(_filteredRooms[idx], isDark, canManage);
-                          },
-                        );
-                      },
-                    ),
                 ],
               ),
             ),
