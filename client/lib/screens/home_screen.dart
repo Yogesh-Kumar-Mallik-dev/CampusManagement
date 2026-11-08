@@ -324,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
-          _loadedTabs.addAll([1, 2, 3, 4, 5, 6]);
+          _loadedTabs.addAll([1, 2, 3, 4, 5, 6, 7]);
         });
       }
     });
@@ -343,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final tabStack = IndexedStack(
       index: _currentIndex,
-      children: List.generate(7, _buildTab),
+      children: List.generate(8, _buildTab),
     );
 
     return Scaffold(
