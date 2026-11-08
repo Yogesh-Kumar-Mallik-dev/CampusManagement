@@ -97,6 +97,19 @@ func TestHostelCapacityLimits(t *testing.T) {
 		t.Errorf("expected 4th table to exceed max capacity of 3, but succeeded")
 	}
 
+	// 3. Chair Capacity: Max 3
+	for i := 1; i <= 3; i++ {
+		_, err := svc.AddAsset(roomNum, model.HostelAssetChair, strings.ReplaceAll("CHR-401-0X", "X", string(rune('0'+i))), "operational")
+		if err != nil {
+			t.Fatalf("failed to add chair %d: %v", i, err)
+		}
+	}
+	// 4th Chair must fail
+	_, err = svc.AddAsset(roomNum, model.HostelAssetChair, "CHR-401-04", "operational")
+	if err == nil {
+		t.Errorf("expected 4th chair to exceed max capacity of 3, but succeeded")
+	}
+
 	// 3. Tubelight Capacity: Max 2
 	for i := 1; i <= 2; i++ {
 		_, err := svc.AddAsset(roomNum, model.HostelAssetTubelight, strings.ReplaceAll("TL-401-0X", "X", string(rune('0'+i))), "operational")

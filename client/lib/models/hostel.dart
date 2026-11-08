@@ -89,6 +89,7 @@ class HostelRoomModel {
   static const int maxRoomNumber = 999;
   static const int maxBeds = 3;
   static const int maxTables = 3;
+  static const int maxChairs = 3;
   static const int maxTubelights = 2;
   static const int maxFans = 2;
   static const int maxLockers = 3;
@@ -108,6 +109,7 @@ class HostelRoomModel {
 
   int get bedCount => assets.where((a) => a.assetType == 'bed').length;
   int get tableCount => assets.where((a) => a.assetType == 'table').length;
+  int get chairCount => assets.where((a) => a.assetType == 'chair').length;
   int get tubelightCount => assets.where((a) => a.assetType == 'tubelight').length;
   int get fanCount => assets.where((a) => a.assetType == 'fan').length;
   int get lockerCount => assets.where((a) => a.assetType == 'locker').length;
@@ -115,6 +117,7 @@ class HostelRoomModel {
 
   bool get canAddBed => bedCount < maxBeds;
   bool get canAddTable => tableCount < maxTables;
+  bool get canAddChair => chairCount < maxChairs;
   bool get canAddTubelight => tubelightCount < maxTubelights;
   bool get canAddFan => fanCount < maxFans;
   bool get canAddLocker => lockerCount < maxLockers;
@@ -126,6 +129,8 @@ class HostelRoomModel {
         return bedCount;
       case 'table':
         return tableCount;
+      case 'chair':
+        return chairCount;
       case 'tubelight':
         return tubelightCount;
       case 'fan':
@@ -143,6 +148,8 @@ class HostelRoomModel {
         return maxBeds;
       case 'table':
         return maxTables;
+      case 'chair':
+        return maxChairs;
       case 'tubelight':
         return maxTubelights;
       case 'fan':

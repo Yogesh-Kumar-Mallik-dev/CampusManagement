@@ -265,6 +265,10 @@ func (s *HostelService) SeedDefaultRooms() {
 		_, _ = s.AddAsset(101, model.HostelAssetTable, "TAB-101-01", "operational")
 		_, _ = s.AddAsset(101, model.HostelAssetTable, "TAB-101-02", "operational")
 		_, _ = s.AddAsset(101, model.HostelAssetTable, "TAB-101-03", "operational")
+		// 3 Chairs
+		_, _ = s.AddAsset(101, model.HostelAssetChair, "CHR-101-01", "operational")
+		_, _ = s.AddAsset(101, model.HostelAssetChair, "CHR-101-02", "operational")
+		_, _ = s.AddAsset(101, model.HostelAssetChair, "CHR-101-03", "operational")
 		// 2 Tubelights
 		_, _ = s.AddAsset(101, model.HostelAssetTubelight, "TL-101-01", "operational")
 		_, _ = s.AddAsset(101, model.HostelAssetTubelight, "TL-101-02", "operational")
@@ -287,6 +291,8 @@ func (s *HostelService) SeedDefaultRooms() {
 		_, _ = s.AddAsset(102, model.HostelAssetBed, "BED-102-02", "operational")
 		_, _ = s.AddAsset(102, model.HostelAssetTable, "TAB-102-01", "operational")
 		_, _ = s.AddAsset(102, model.HostelAssetTable, "TAB-102-02", "operational")
+		_, _ = s.AddAsset(102, model.HostelAssetChair, "CHR-102-01", "operational")
+		_, _ = s.AddAsset(102, model.HostelAssetChair, "CHR-102-02", "operational")
 		_, _ = s.AddAsset(102, model.HostelAssetTubelight, "TL-102-01", "operational")
 		_, _ = s.AddAsset(102, model.HostelAssetTubelight, "TL-102-02", "operational")
 		_, _ = s.AddAsset(102, model.HostelAssetFan, "FAN-102-01", "operational")
@@ -304,6 +310,9 @@ func (s *HostelService) SeedDefaultRooms() {
 		_, _ = s.AddAsset(204, model.HostelAssetTable, "TAB-204-01", "operational")
 		_, _ = s.AddAsset(204, model.HostelAssetTable, "TAB-204-02", "operational")
 		_, _ = s.AddAsset(204, model.HostelAssetTable, "TAB-204-03", "operational")
+		_, _ = s.AddAsset(204, model.HostelAssetChair, "CHR-204-01", "operational")
+		_, _ = s.AddAsset(204, model.HostelAssetChair, "CHR-204-02", "operational")
+		_, _ = s.AddAsset(204, model.HostelAssetChair, "CHR-204-03", "operational")
 		_, _ = s.AddAsset(204, model.HostelAssetTubelight, "TL-204-01", "operational")
 		_, _ = s.AddAsset(204, model.HostelAssetTubelight, "TL-204-02", "operational")
 		_, _ = s.AddAsset(204, model.HostelAssetFan, "FAN-204-01", "operational")
@@ -318,6 +327,7 @@ func (s *HostelService) SeedDefaultRooms() {
 	if r305 != nil {
 		_, _ = s.AddAsset(305, model.HostelAssetBed, "BED-305-01", "operational")
 		_, _ = s.AddAsset(305, model.HostelAssetTable, "TAB-305-01", "operational")
+		_, _ = s.AddAsset(305, model.HostelAssetChair, "CHR-305-01", "operational")
 		_, _ = s.AddAsset(305, model.HostelAssetTubelight, "TL-305-01", "operational")
 		_, _ = s.AddAsset(305, model.HostelAssetFan, "FAN-305-01", "operational")
 		_, _ = s.AddAsset(305, model.HostelAssetLocker, "LCK-305-01", "operational")

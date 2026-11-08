@@ -455,7 +455,7 @@ CREATE INDEX IF NOT EXISTS idx_faculty_alloc_sec ON faculty_subject_allocations(
 CREATE INDEX IF NOT EXISTS idx_faculty_alloc_teacher ON faculty_subject_allocations(teacher_id);
 CREATE INDEX IF NOT EXISTS idx_faculty_alloc_subject ON faculty_subject_allocations(subject_id);
 
--- 31. Hostel Rooms (Bounded room numbers 100 to 999 with 3 beds, 3 tables, 2 tubelights, 2 fans, 3 lockers, and 3 occupants max)
+-- 31. Hostel Rooms (Bounded room numbers 100 to 999 with 3 beds, 3 tables, 3 chairs, 2 tubelights, 2 fans, 3 lockers, and 3 occupants max)
 CREATE TABLE IF NOT EXISTS hostel_rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     room_number INT NOT NULL CHECK (room_number >= 100 AND room_number <= 999),
@@ -469,12 +469,12 @@ CREATE TABLE IF NOT EXISTS hostel_rooms (
 
 CREATE INDEX IF NOT EXISTS idx_hostel_rooms_number ON hostel_rooms(room_number);
 
--- 32. Hostel Assets (Beds, tables, tubelights, fans, lockers with alphanumeric serial number <= 14 characters)
+-- 32. Hostel Assets (Beds, tables, chairs, tubelights, fans, lockers with alphanumeric serial number <= 14 characters)
 CREATE TABLE IF NOT EXISTS hostel_assets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     room_id UUID REFERENCES hostel_rooms(id) ON DELETE CASCADE,
     room_number INT NOT NULL,
-    asset_type VARCHAR(32) NOT NULL, -- 'bed', 'table', 'tubelight', 'fan', 'locker'
+    asset_type VARCHAR(32) NOT NULL, -- 'bed', 'table', 'chair', 'tubelight', 'fan', 'locker'
     serial_number VARCHAR(14) NOT NULL UNIQUE,
     condition VARCHAR(32) NOT NULL DEFAULT 'operational',
     installed_at TIMESTAMPTZ DEFAULT NOW(),

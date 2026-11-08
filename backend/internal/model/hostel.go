@@ -14,6 +14,7 @@ const (
 
 	MaxBedsPerRoom       = 3
 	MaxTablesPerRoom     = 3
+	MaxChairsPerRoom     = 3
 	MaxTubelightsPerRoom = 2
 	MaxFansPerRoom       = 2
 	MaxLockersPerRoom    = 3
@@ -26,6 +27,7 @@ const (
 const (
 	HostelAssetBed       = "bed"
 	HostelAssetTable     = "table"
+	HostelAssetChair     = "chair"
 	HostelAssetTubelight = "tubelight"
 	HostelAssetFan       = "fan"
 	HostelAssetLocker    = "locker"
@@ -64,6 +66,8 @@ func MaxCapacityForAsset(assetType string) int {
 		return MaxBedsPerRoom
 	case HostelAssetTable:
 		return MaxTablesPerRoom
+	case HostelAssetChair:
+		return MaxChairsPerRoom
 	case HostelAssetTubelight:
 		return MaxTubelightsPerRoom
 	case HostelAssetFan:
@@ -79,7 +83,7 @@ func MaxCapacityForAsset(assetType string) int {
 type HostelAsset struct {
 	ID           string    `json:"id"`
 	RoomNumber   int       `json:"room_number"`
-	AssetType    string    `json:"asset_type"` // 'bed', 'table', 'tubelight', 'fan', 'locker'
+	AssetType    string    `json:"asset_type"` // 'bed', 'table', 'chair', 'tubelight', 'fan', 'locker'
 	SerialNumber string    `json:"serial_number"` // at most 14 alphanumeric chars
 	Condition    string    `json:"condition"`     // 'operational', 'maintenance_needed', 'damaged'
 	InstalledAt  time.Time `json:"installed_at"`

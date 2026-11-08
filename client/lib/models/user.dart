@@ -166,6 +166,16 @@ class UserModel {
 
   bool get canManageDepartments => isAdmin || isHOD;
 
+  bool get canManageHostel =>
+      isAdmin ||
+      hasRole('warden') ||
+      hasRole('hostel_warden') ||
+      hasPermission('hostel:manage') ||
+      permissions.contains('*') ||
+      (isEmployee && !isAcademic);
+
+  bool get isWarden => hasRole('warden') || hasRole('hostel_warden') || hasPermission('hostel:manage');
+
   bool canEditTimetable([String? targetScope]) =>
       isAdmin ||
       isHOD ||

@@ -196,7 +196,7 @@ class OfflineStorageService {
             scopeCode: 'facility:gate-1',
           ),
         ],
-        permissions: ['gatepass:approve', 'room:inspect'],
+        permissions: ['gatepass:approve', 'room:inspect', 'hostel:manage'],
       );
     } else if (clean.contains('mukesh') || clean.contains('ext_1') || clean.contains('canteen')) {
       return UserModel(
@@ -3238,6 +3238,9 @@ class OfflineStorageService {
         HostelAssetModel(id: 'asset-101-table-1', roomNumber: 101, assetType: 'table', serialNumber: 'TAB-101-01', installedAt: now),
         HostelAssetModel(id: 'asset-101-table-2', roomNumber: 101, assetType: 'table', serialNumber: 'TAB-101-02', installedAt: now),
         HostelAssetModel(id: 'asset-101-table-3', roomNumber: 101, assetType: 'table', serialNumber: 'TAB-101-03', installedAt: now),
+        HostelAssetModel(id: 'asset-101-chr-1', roomNumber: 101, assetType: 'chair', serialNumber: 'CHR-101-01', installedAt: now),
+        HostelAssetModel(id: 'asset-101-chr-2', roomNumber: 101, assetType: 'chair', serialNumber: 'CHR-101-02', installedAt: now),
+        HostelAssetModel(id: 'asset-101-chr-3', roomNumber: 101, assetType: 'chair', serialNumber: 'CHR-101-03', installedAt: now),
         HostelAssetModel(id: 'asset-101-tl-1', roomNumber: 101, assetType: 'tubelight', serialNumber: 'TL-101-01', installedAt: now),
         HostelAssetModel(id: 'asset-101-tl-2', roomNumber: 101, assetType: 'tubelight', serialNumber: 'TL-101-02', installedAt: now),
         HostelAssetModel(id: 'asset-101-fan-1', roomNumber: 101, assetType: 'fan', serialNumber: 'FAN-101-01', installedAt: now),
@@ -3265,6 +3268,8 @@ class OfflineStorageService {
         HostelAssetModel(id: 'asset-102-bed-2', roomNumber: 102, assetType: 'bed', serialNumber: 'BED-102-02', installedAt: now),
         HostelAssetModel(id: 'asset-102-table-1', roomNumber: 102, assetType: 'table', serialNumber: 'TAB-102-01', installedAt: now),
         HostelAssetModel(id: 'asset-102-table-2', roomNumber: 102, assetType: 'table', serialNumber: 'TAB-102-02', installedAt: now),
+        HostelAssetModel(id: 'asset-102-chr-1', roomNumber: 102, assetType: 'chair', serialNumber: 'CHR-102-01', installedAt: now),
+        HostelAssetModel(id: 'asset-102-chr-2', roomNumber: 102, assetType: 'chair', serialNumber: 'CHR-102-02', installedAt: now),
         HostelAssetModel(id: 'asset-102-tl-1', roomNumber: 102, assetType: 'tubelight', serialNumber: 'TL-102-01', installedAt: now),
         HostelAssetModel(id: 'asset-102-tl-2', roomNumber: 102, assetType: 'tubelight', serialNumber: 'TL-102-02', installedAt: now),
         HostelAssetModel(id: 'asset-102-fan-1', roomNumber: 102, assetType: 'fan', serialNumber: 'FAN-102-01', installedAt: now),
@@ -3291,6 +3296,9 @@ class OfflineStorageService {
         HostelAssetModel(id: 'asset-204-table-1', roomNumber: 204, assetType: 'table', serialNumber: 'TAB-204-01', installedAt: now),
         HostelAssetModel(id: 'asset-204-table-2', roomNumber: 204, assetType: 'table', serialNumber: 'TAB-204-02', installedAt: now),
         HostelAssetModel(id: 'asset-204-table-3', roomNumber: 204, assetType: 'table', serialNumber: 'TAB-204-03', installedAt: now),
+        HostelAssetModel(id: 'asset-204-chr-1', roomNumber: 204, assetType: 'chair', serialNumber: 'CHR-204-01', installedAt: now),
+        HostelAssetModel(id: 'asset-204-chr-2', roomNumber: 204, assetType: 'chair', serialNumber: 'CHR-204-02', installedAt: now),
+        HostelAssetModel(id: 'asset-204-chr-3', roomNumber: 204, assetType: 'chair', serialNumber: 'CHR-204-03', installedAt: now),
         HostelAssetModel(id: 'asset-204-tl-1', roomNumber: 204, assetType: 'tubelight', serialNumber: 'TL-204-01', installedAt: now),
         HostelAssetModel(id: 'asset-204-tl-2', roomNumber: 204, assetType: 'tubelight', serialNumber: 'TL-204-02', installedAt: now),
         HostelAssetModel(id: 'asset-204-fan-1', roomNumber: 204, assetType: 'fan', serialNumber: 'FAN-204-01', installedAt: now),
@@ -3313,6 +3321,7 @@ class OfflineStorageService {
       assets: [
         HostelAssetModel(id: 'asset-305-bed-1', roomNumber: 305, assetType: 'bed', serialNumber: 'BED-305-01', installedAt: now),
         HostelAssetModel(id: 'asset-305-table-1', roomNumber: 305, assetType: 'table', serialNumber: 'TAB-305-01', installedAt: now),
+        HostelAssetModel(id: 'asset-305-chr-1', roomNumber: 305, assetType: 'chair', serialNumber: 'CHR-305-01', installedAt: now),
         HostelAssetModel(id: 'asset-305-tl-1', roomNumber: 305, assetType: 'tubelight', serialNumber: 'TL-305-01', installedAt: now),
         HostelAssetModel(id: 'asset-305-fan-1', roomNumber: 305, assetType: 'fan', serialNumber: 'FAN-305-01', installedAt: now),
         HostelAssetModel(id: 'asset-305-lck-1', roomNumber: 305, assetType: 'locker', serialNumber: 'LCK-305-01', installedAt: now),
