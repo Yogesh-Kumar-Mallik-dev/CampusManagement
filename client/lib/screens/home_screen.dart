@@ -646,12 +646,13 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: SafeArea(
         top: false,
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 680),
-            height: 64,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
+        child: SizedBox(
+          height: 64,
+          child: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 680),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 // Division 1: Dashboard (Mandatory)
@@ -706,8 +707,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDockDivisionItem({
     required Key key,

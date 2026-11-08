@@ -887,19 +887,30 @@ class _TimetableScreenState extends State<TimetableScreen> {
           width: 1,
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text('09:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold)),
-          Text('10:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
-          Text('11:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
-          Text('12:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
-          Text('13:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
-          Text('14:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
-          Text('15:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
-          Text('16:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
-          Text('17:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold)),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: const [
+            Text('09:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold)),
+            SizedBox(width: 12),
+            Text('10:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+            SizedBox(width: 12),
+            Text('11:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+            SizedBox(width: 12),
+            Text('12:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+            SizedBox(width: 12),
+            Text('13:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+            SizedBox(width: 12),
+            Text('14:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+            SizedBox(width: 12),
+            Text('15:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+            SizedBox(width: 12),
+            Text('16:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10)),
+            SizedBox(width: 12),
+            Text('17:00', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
@@ -1389,69 +1400,76 @@ class _TimetableScreenState extends State<TimetableScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: block.isRectangle
-                      ? AppColors.wineRed.withValues(alpha: 0.15)
-                      : (slot.isLunch
-                          ? const Color(0xFFD97706).withValues(alpha: 0.15)
-                          : (slot.isFree
-                              ? const Color(0xFF238636).withValues(alpha: 0.15)
-                              : (slot.isOff
-                                  ? const Color(0xFF64748B).withValues(alpha: 0.15)
-                                  : AppColors.wineRed.withValues(alpha: 0.15)))),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  slot.isLunch
-                      ? 'LUNCH BREAK'
-                      : (block.isRectangle ? '2-HOUR EXTENDED SESSION' : '1-HOUR SESSION'),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: block.isRectangle
-                        ? AppColors.wineRed
-                        : (slot.isLunch
-                            ? (isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309))
-                            : (slot.isFree
-                                ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
-                                : (slot.isOff
-                                    ? (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)
-                                    : AppColors.wineRed))),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${block.startTime} - ${block.endTime} (${block.periodLabel})',
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              if (_conflictingSlotIds.contains(slot.id)) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFCF222E).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'DOUBLE-BOOKING CONFLICT',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFCF222E),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: block.isRectangle
+                          ? AppColors.wineRed.withValues(alpha: 0.15)
+                          : (slot.isLunch
+                              ? const Color(0xFFD97706).withValues(alpha: 0.15)
+                              : (slot.isFree
+                                  ? const Color(0xFF238636).withValues(alpha: 0.15)
+                                  : (slot.isOff
+                                      ? const Color(0xFF64748B).withValues(alpha: 0.15)
+                                      : AppColors.wineRed.withValues(alpha: 0.15)))),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      slot.isLunch
+                          ? 'LUNCH BREAK'
+                          : (block.isRectangle ? '2-HOUR EXTENDED SESSION' : '1-HOUR SESSION'),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: block.isRectangle
+                            ? AppColors.wineRed
+                            : (slot.isLunch
+                                ? (isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309))
+                                : (slot.isFree
+                                    ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF047857))
+                                    : (slot.isOff
+                                        ? (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)
+                                        : AppColors.wineRed))),
+                      ),
                     ),
                   ),
-                ),
-              ],
-              const Spacer(),
+                  Text(
+                    '${block.startTime} - ${block.endTime} (${block.periodLabel})',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (_conflictingSlotIds.contains(slot.id))
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCF222E).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'DOUBLE-BOOKING CONFLICT',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFCF222E),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               if (widget.currentUser?.canEditTimetable(widget.activeScope) ?? true)
                 OutlinedButton.icon(
                   icon: const Icon(Icons.edit, size: 13),
