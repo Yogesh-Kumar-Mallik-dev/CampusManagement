@@ -979,8 +979,8 @@ class _HostelScreenState extends State<HostelScreen> {
                         },
                       ),
                   ] else ...[
-                    // Student Resident View: Strictly ONLY their room's information
-                    _buildMyRoomCard(myRoom, isDark),
+                    // Student Resident View: Redesigned full-page residence portal
+                    _buildStudentHostelView(myRoom, isDark),
                   ],
                 ],
               ),
@@ -988,53 +988,181 @@ class _HostelScreenState extends State<HostelScreen> {
     );
   }
 
-  Widget _buildMyRoomCard(HostelRoomModel? myRoom, bool isDark) {
-    if (myRoom == null) {
-      return Container(
-        key: const Key('card-my-allotted-room-vacant'),
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 20),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 24),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
+  Widget _buildStudentHostelView(HostelRoomModel? myRoom, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildStudentMetricsRibbon(myRoom, isDark),
+        const SizedBox(height: 20),
+        if (myRoom == null)
+          _buildMyRoomCardVacant(isDark)
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 960;
+              if (isWide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 7,
+                      child: _buildStudentMainCard(myRoom, isDark),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      flex: 5,
+                      child: _buildStudentSidebar(myRoom, isDark),
+                    ),
+                  ],
+                );
+              }
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'No Hostel Room Allotted',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'You are currently not allocated to any campus residence room. Contact the hostel warden office to apply for room allotment.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                    ),
-                  ),
+                  _buildStudentMainCard(myRoom, isDark),
+                  const SizedBox(height: 20),
+                  _buildStudentSidebar(myRoom, isDark),
                 ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+              );
+            },
+          ),
+      ],
+    );
+  }
 
+  Widget _buildStudentMetricsRibbon(HostelRoomModel? myRoom, bool isDark) {
+    final cards = [
+      _buildMetricCard(
+        'Allotted Residence',
+        myRoom != null ? 'Room ${myRoom.roomNumber}' : 'Unallotted',
+        myRoom != null ? '${myRoom.blockName} • Floor ${myRoom.floor}' : 'Warden Office G-04',
+        AppColors.wineRed,
+        isDark,
+      ),
+      _buildMetricCard(
+        'Roommate Capacity',
+        myRoom != null ? '${myRoom.occupantCount}/${HostelRoomModel.maxOccupants} Occupants' : '0/3 Occupants',
+        myRoom != null
+            ? (myRoom.canAddOccupant
+                ? '${HostelRoomModel.maxOccupants - myRoom.occupantCount} Bed Available'
+                : 'Fully Occupied')
+            : 'No Active Room',
+        const Color(0xFF0969DA),
+        isDark,
+      ),
+      _buildMetricCard(
+        'Verified Fixtures',
+        myRoom != null ? '${myRoom.assets.length} Fixtures' : '0 Fixtures',
+        'Max 14-char alphanumeric',
+        const Color(0xFF2DA44E),
+        isDark,
+      ),
+      _buildMetricCard(
+        'Hostel Gate Curfew',
+        '22:30 IST',
+        'Gate 1 Biometric Log',
+        const Color(0xFFD97706),
+        isDark,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 720) {
+          return Row(
+            children: [
+              for (int i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                Expanded(child: cards[i]),
+              ],
+            ],
+          );
+        }
+        final double itemWidth = constraints.maxWidth < 340
+            ? constraints.maxWidth
+            : (constraints.maxWidth - 12) / 2;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: cards.map((c) => SizedBox(width: itemWidth, child: c)).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildMyRoomCardVacant(bool isDark) {
+    return Container(
+      key: const Key('card-my-allotted-room-vacant'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 28),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'No Hostel Room Allotted',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'You are currently not allocated to any campus residence room. Contact the hostel warden office to apply for room allotment.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Divider(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+          const SizedBox(height: 16),
+          const Text(
+            'HOSTEL ALLOTMENT HELP & INSTRUCTIONS',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '1. Ensure tuition and hostel accommodation fees are cleared for the current academic session.\n2. Submit room preference (Aryabhatta Block, Floor 1-3) at the Warden Office (Gate 1, Room G-04).\n3. Room allotments are capped at 3 occupants and 16 serial-tracked fixtures per room.',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.6,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentMainCard(HostelRoomModel myRoom, bool isDark) {
     final currentUserHandle = widget.currentUser?.campusHandle;
 
     return Container(
       key: const Key('card-my-allotted-room'),
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(12),
@@ -1109,112 +1237,9 @@ class _HostelScreenState extends State<HostelScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // 2 Columns: Roommates and Fixtures
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 580;
-
-              final roommatesWidget = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ROOMMATES (${myRoom.occupantCount} / ${HostelRoomModel.maxOccupants})',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...myRoom.occupants.map((occ) {
-                    final isMe = occ.campusHandle == currentUserHandle || occ.userId == widget.currentUser?.id;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isMe
-                            ? AppColors.wineRed.withValues(alpha: 0.1)
-                            : (isDark ? const Color(0xFF1E2229) : const Color(0xFFF8FAFC)),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: isMe ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.person, size: 14, color: isMe ? AppColors.wineRed : null),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '${occ.name} (@${occ.campusHandle})${isMe ? " (You)" : ""}',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
-                                color: isMe ? AppColors.wineRed : null,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              );
-
-              final fixturesWidget = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'VERIFIED ROOM FIXTURES (${myRoom.assets.length} ITEMS REGISTERED)',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      _buildMyRoomAssetSummary('Beds', myRoom.bedCount, HostelRoomModel.maxBeds, myRoom.assets.where((a) => a.assetType == 'bed').toList(), isDark),
-                      _buildMyRoomAssetSummary('Tables', myRoom.tableCount, HostelRoomModel.maxTables, myRoom.assets.where((a) => a.assetType == 'table').toList(), isDark),
-                      _buildMyRoomAssetSummary('Chairs', myRoom.chairCount, HostelRoomModel.maxChairs, myRoom.assets.where((a) => a.assetType == 'chair').toList(), isDark),
-                      _buildMyRoomAssetSummary('Tubelights', myRoom.tubelightCount, HostelRoomModel.maxTubelights, myRoom.assets.where((a) => a.assetType == 'tubelight').toList(), isDark),
-                      _buildMyRoomAssetSummary('Fans', myRoom.fanCount, HostelRoomModel.maxFans, myRoom.assets.where((a) => a.assetType == 'fan').toList(), isDark),
-                      _buildMyRoomAssetSummary('Lockers', myRoom.lockerCount, HostelRoomModel.maxLockers, myRoom.assets.where((a) => a.assetType == 'locker').toList(), isDark),
-                    ],
-                  ),
-                ],
-              );
-
-              if (isNarrow) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    roommatesWidget,
-                    const SizedBox(height: 14),
-                    fixturesWidget,
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 4, child: roommatesWidget),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 6, child: fixturesWidget),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-
-          // Actions Row
+          // Action Buttons
           Wrap(
             alignment: WrapAlignment.end,
             spacing: 10,
@@ -1253,6 +1278,430 @@ class _HostelScreenState extends State<HostelScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 18),
+
+          // Roommates Section
+          Text(
+            'ROOMMATES (${myRoom.occupantCount} / ${HostelRoomModel.maxOccupants})',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...myRoom.occupants.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final occ = entry.value;
+            final isMe = occ.campusHandle == currentUserHandle || occ.userId == widget.currentUser?.id;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isMe
+                    ? AppColors.wineRed.withValues(alpha: 0.08)
+                    : (isDark ? const Color(0xFF1E2229) : const Color(0xFFF8FAFC)),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isMe ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                ),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: isMe ? AppColors.wineRed : (isDark ? const Color(0xFF2D333B) : const Color(0xFFE2E8F0)),
+                    child: Icon(
+                      Icons.person,
+                      size: 15,
+                      color: isMe ? Colors.white : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${occ.name} (@${occ.campusHandle})${isMe ? " (You)" : ""}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isMe ? FontWeight.bold : FontWeight.w600,
+                            color: isMe ? AppColors.wineRed : null,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Bed Slot #${idx + 1} • ${isMe ? "Primary Resident" : "Roommate Resident"}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isMe)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.wineRed,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'You',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }),
+          if (myRoom.occupantCount < HostelRoomModel.maxOccupants) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF14181F) : const Color(0xFFFAFAFA),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF30363D) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.bed_outlined, size: 16, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Bed Slot #${myRoom.occupantCount + 1}: Vacant • Managed by Warden Office',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 18),
+
+          // Verified Room Fixtures Summary Pills
+          Text(
+            'VERIFIED ROOM FIXTURES (${myRoom.assets.length} ITEMS REGISTERED)',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Capacity limits: 3 beds, 3 tables, 3 chairs, 2 tubelights, 2 fans, 3 lockers. All tracked with unique alphanumeric serial numbers.',
+            style: TextStyle(
+              fontSize: 10.5,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _buildMyRoomAssetSummary('Beds', myRoom.bedCount, HostelRoomModel.maxBeds, myRoom.assets.where((a) => a.assetType == 'bed').toList(), isDark),
+              _buildMyRoomAssetSummary('Tables', myRoom.tableCount, HostelRoomModel.maxTables, myRoom.assets.where((a) => a.assetType == 'table').toList(), isDark),
+              _buildMyRoomAssetSummary('Chairs', myRoom.chairCount, HostelRoomModel.maxChairs, myRoom.assets.where((a) => a.assetType == 'chair').toList(), isDark),
+              _buildMyRoomAssetSummary('Tubelights', myRoom.tubelightCount, HostelRoomModel.maxTubelights, myRoom.assets.where((a) => a.assetType == 'tubelight').toList(), isDark),
+              _buildMyRoomAssetSummary('Fans', myRoom.fanCount, HostelRoomModel.maxFans, myRoom.assets.where((a) => a.assetType == 'fan').toList(), isDark),
+              _buildMyRoomAssetSummary('Lockers', myRoom.lockerCount, HostelRoomModel.maxLockers, myRoom.assets.where((a) => a.assetType == 'locker').toList(), isDark),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Physical Asset Inventory Showcase (Utilizing the Full Space)
+          Text(
+            'PHYSICAL FIXTURE INVENTORY & SERIAL TAGS',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final colCount = constraints.maxWidth >= 550 ? 2 : 1;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: colCount,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  mainAxisExtent: 68,
+                ),
+                itemCount: myRoom.assets.length,
+                itemBuilder: (context, idx) {
+                  return _buildStudentAssetTile(myRoom.assets[idx], isDark);
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentAssetTile(HostelAssetModel asset, bool isDark) {
+    IconData icon;
+    Color iconColor;
+    String typeLabel;
+
+    switch (asset.assetType.toLowerCase()) {
+      case 'bed':
+        icon = Icons.single_bed_outlined;
+        iconColor = AppColors.wineRed;
+        typeLabel = 'Bed Unit';
+        break;
+      case 'table':
+        icon = Icons.table_restaurant_outlined;
+        iconColor = const Color(0xFF0969DA);
+        typeLabel = 'Study Table';
+        break;
+      case 'chair':
+        icon = Icons.chair_outlined;
+        iconColor = const Color(0xFF238636);
+        typeLabel = 'Study Chair';
+        break;
+      case 'tubelight':
+        icon = Icons.lightbulb_outline;
+        iconColor = const Color(0xFFD97706);
+        typeLabel = 'Tubelight';
+        break;
+      case 'fan':
+        icon = Icons.air;
+        iconColor = const Color(0xFF6E7781);
+        typeLabel = 'Ceiling Fan';
+        break;
+      case 'locker':
+        icon = Icons.lock_outline;
+        iconColor = const Color(0xFF8250DF);
+        typeLabel = 'Locker Unit';
+        break;
+      default:
+        icon = Icons.inventory_2_outlined;
+        iconColor = AppColors.wineRed;
+        typeLabel = asset.assetType;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E2229) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 16, color: iconColor),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        typeLabel,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF238636),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Verified',
+                          style: TextStyle(fontSize: 9.5, color: Color(0xFF238636), fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  asset.serialNumber,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentSidebar(HostelRoomModel myRoom, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Rules Card
+        _buildSidebarInfoCard(
+          title: 'RESIDENCE RULES & TIMINGS',
+          icon: Icons.rule_folder_outlined,
+          iconColor: AppColors.wineRed,
+          isDark: isDark,
+          items: const [
+            ('Hostel Curfew', '22:30 IST sharp (Gate 1 Biometric Verification)'),
+            ('Night Out Pass', 'Submit on student portal 6 hours prior to departure'),
+            ('Quiet Hours', '23:00 - 06:00 daily across all wings'),
+            ('Asset Integrity', 'Barring occupants, all 16 items have 14-char SN tags'),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Amenities Card
+        _buildSidebarInfoCard(
+          title: 'HOSTEL AMENITIES & SERVICES',
+          icon: Icons.apartment_outlined,
+          iconColor: const Color(0xFF0969DA),
+          isDark: isDark,
+          items: [
+            ('Wi-Fi Network', 'Aryabhatta-Res-5G (WPA2-Enterprise 1 Gbps)'),
+            ('Laundromat', 'Ground Floor West Wing • 06:00 - 22:00'),
+            ('Drinking Water', 'Central RO + UV cooler station on Floor ${myRoom.floor}'),
+            ('Study Lounge', '2nd Floor Central Atrium (24/7 Access)'),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Contacts Card
+        _buildSidebarInfoCard(
+          title: 'WARDEN & EMERGENCY HELPDESK',
+          icon: Icons.contact_support_outlined,
+          iconColor: const Color(0xFF238636),
+          isDark: isDark,
+          items: const [
+            ('Chief Warden', 'Dr. Ramesh Singh • Gate 1 Office (Ext: 2401)'),
+            ('Resident Caretaker', 'Mr. Kailash Nath • +91 98765 43210 (24/7)'),
+            ('Medical Emergency', 'Campus Health Center (Ext: 1001 / Dial 108)'),
+            ('Maintenance Response', 'Reported fixture issues inspected within 24 hours'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSidebarInfoCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required bool isDark,
+    required List<(String, String)> items,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, size: 16, color: iconColor),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, letterSpacing: 0.3),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...items.map((item) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 5),
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: iconColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: '${item.$1}: ',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(
+                            text: item.$2,
+                            style: TextStyle(
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -1343,7 +1792,9 @@ class _HostelScreenState extends State<HostelScreen> {
             ],
           );
         }
-        final itemWidth = (constraints.maxWidth - 12) / 2;
+        final double itemWidth = constraints.maxWidth < 340
+            ? constraints.maxWidth
+            : (constraints.maxWidth - 12) / 2;
         return Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -1355,7 +1806,7 @@ class _HostelScreenState extends State<HostelScreen> {
 
   Widget _buildMetricCard(String title, String val, String subtitle, Color accent, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(8),
@@ -1363,27 +1814,27 @@ class _HostelScreenState extends State<HostelScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             title,
-            style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+            style: TextStyle(fontSize: 10.5, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                val,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: accent),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '• $subtitle',
-                  style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          Text(
+            val,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: accent),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
