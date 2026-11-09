@@ -1569,8 +1569,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Campus Pages & Modules'), findsOneWidget);
 
-    // Verify every sheet item fits vertically within screen bounds
-    for (final keyName in ['timetable', 'attendance', 'notices', 'directory', 'departments', 'hostel', 'mess']) {
+    // Verify inaccessible pages (directory, departments) are cleanly hidden from student bottom sheet
+    expect(find.byKey(const Key('dock-menu-item-directory')), findsNothing);
+    expect(find.byKey(const Key('dock-menu-item-departments')), findsNothing);
+
+    // Verify every permitted sheet item fits vertically within screen bounds
+    for (final keyName in ['timetable', 'attendance', 'notices', 'hostel', 'mess', 'complaints']) {
       final finder = find.byKey(Key('dock-menu-item-$keyName'));
       expect(finder, findsOneWidget);
       final rect = tester.getRect(finder);
@@ -2355,5 +2359,107 @@ void main() {
     expect(find.text('Institutional Redressal'), findsOneWidget);
     expect(find.text('DISTRIBUTED SYSTEM HEALTH'), findsOneWidget);
     expect(find.text('Executive Administration & Governance'), findsOneWidget);
+  });
+
+  testWidgets('Navigation Filtering & Showcase/Maintenance: Inaccessible pages hidden, lock overlay used for maintenance & feature preview',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+    final facultyHOD = OfflineStorageService.getMockUserForHandle('priya_2024_emp_1');
+    final admin = OfflineStorageService.getMockUserForHandle('campus_admin');
+
+    // 1. Verify Student View: Directory & Depts are completely hidden from sidebar
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(storage: storage, currentUser: student, onLogout: () {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('nav-item-dashboard')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-timetable')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-attendance')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-notices')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-directory')), findsNothing);
+    expect(find.byKey(const Key('nav-item-depts')), findsNothing);
+    expect(find.byKey(const Key('nav-item-hostel')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-mess')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-complaints')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-profile')), findsOneWidget);
+
+    // 2. Verify Faculty (HOD) View: Directory hidden, but Depts visible and accessible
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(storage: storage, currentUser: facultyHOD, onLogout: () {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('nav-item-directory')), findsNothing);
+    expect(find.byKey(const Key('nav-item-depts')), findsOneWidget);
+
+    // 3. Verify Admin View: All 10 items visible
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(storage: storage, currentUser: admin, onLogout: () {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('nav-item-directory')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-depts')), findsOneWidget);
+
+    // 4. Maintenance Takedown Mode: Module 7 (Mess) under maintenance shows locked overlay
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(
+        storage: storage,
+        currentUser: student,
+        maintenancePages: const {7},
+        onLogout: () {},
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('nav-item-mess')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('nav-item-mess')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Module Under Maintenance'), findsOneWidget);
+    expect(find.text('MAINTENANCE TAKEDOWN'), findsOneWidget);
+    expect(find.text('Hostel Mess & Feedback'), findsOneWidget);
+    expect(find.byKey(const Key('btn-maintenance-back-dashboard')), findsOneWidget);
+
+    // Tap Back to Dashboard
+    await tester.tap(find.byKey(const Key('btn-maintenance-back-dashboard')));
+    await tester.pumpAndSettle();
+    expect(find.text('Academic Operations'), findsOneWidget);
+
+    // 5. Future Feature Showcase Mode: Module 5 (Academic Departments) preview showcase
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(
+        storage: storage,
+        currentUser: student,
+        showcasePages: const {5},
+        onLogout: () {},
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Module 5 was previously hidden for student, now shown as locked feature showcase
+    expect(find.byKey(const Key('nav-item-depts')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('nav-item-depts')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Upcoming Feature Preview'), findsOneWidget);
+    expect(find.text('PREVIEW SHOWCASE'), findsOneWidget);
+    expect(find.text('Academic Departments & Structure'), findsOneWidget);
+    expect(find.byKey(const Key('btn-showcase-back-dashboard')), findsOneWidget);
+
+    // Tap Back to Dashboard
+    await tester.tap(find.byKey(const Key('btn-showcase-back-dashboard')));
+    await tester.pumpAndSettle();
+    expect(find.text('Academic Operations'), findsOneWidget);
   });
 }

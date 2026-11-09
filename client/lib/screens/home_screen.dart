@@ -19,12 +19,16 @@ class HomeScreen extends StatefulWidget {
   final OfflineStorageService storage;
   final UserModel? currentUser;
   final VoidCallback? onLogout;
+  final Set<int> maintenancePages;
+  final Set<int> showcasePages;
 
   const HomeScreen({
     super.key,
     required this.storage,
     this.currentUser,
     this.onLogout,
+    this.maintenancePages = const {},
+    this.showcasePages = const {},
   });
 
   @override
@@ -37,8 +41,20 @@ class _HomeScreenState extends State<HomeScreen> {
   final Set<int> _loadedTabs = {0};
   final Map<int, Widget> _tabWidgetCache = {};
 
+  late Set<int> _maintenancePages;
+  late Set<int> _showcasePages;
+
   late List<UserModel> _personas;
   late UserModel _currentUser;
+
+  bool _isPageInMaintenance(int index) => _maintenancePages.contains(index);
+  bool _isPageInShowcase(int index) => _showcasePages.contains(index);
+
+  bool _isPageAccessible(int index) {
+    if (index == 4) return _currentUser.canManageUsers;
+    if (index == 5) return _currentUser.canManageDepartments;
+    return true;
+  }
 
   void _onDestinationSelected(int index) {
     if (index >= 1 && index <= 8) {
@@ -62,6 +78,23 @@ class _HomeScreenState extends State<HomeScreen> {
       return _buildDashboardView();
     }
     return _tabWidgetCache.putIfAbsent(index, () {
+      if (_isPageInMaintenance(index)) {
+        final info = _getMaintenanceInfo(index);
+        return _buildMaintenanceView(
+          moduleName: info.$1,
+          maintenanceWindow: info.$2,
+          reason: info.$3,
+        );
+      }
+      if (_isPageInShowcase(index)) {
+        final info = _getShowcaseInfo(index);
+        return _buildFeatureShowcaseView(
+          moduleName: info.$1,
+          previewTag: info.$2,
+          description: info.$3,
+        );
+      }
+
       switch (index) {
         case 1:
           return TimetableScreen(
@@ -329,9 +362,404 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildMaintenanceView({
+    required String moduleName,
+    required String maintenanceWindow,
+    required String reason,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 580),
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFFD97706).withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: const AppSvgIcon(
+                      svgString: AppSvgIcon.lock,
+                      size: 22,
+                      color: Color(0xFFD97706),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Text(
+                              'Module Under Maintenance',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.4)),
+                              ),
+                              child: const Text(
+                                'MAINTENANCE TAKEDOWN',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFD97706),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          moduleName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Maintenance Window: ',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        Expanded(
+                          child: Text(
+                            maintenanceWindow,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFD97706)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'System Reason: ',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        Expanded(
+                          child: Text(
+                            reason,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Data Preservation: ',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'All offline records, submissions, and queued transactions remain preserved locally.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                key: const Key('btn-maintenance-back-dashboard'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? Colors.white : AppColors.lightTextPrimary,
+                  side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () => _onDestinationSelected(0),
+                icon: const AppSvgIcon(svgString: AppSvgIcon.dashboard, size: 14),
+                label: const Text('Back to Dashboard'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureShowcaseView({
+    required String moduleName,
+    required String previewTag,
+    required String description,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 580),
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0969DA).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF0969DA).withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: const AppSvgIcon(
+                      svgString: AppSvgIcon.lock,
+                      size: 22,
+                      color: Color(0xFF0969DA),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Text(
+                              'Upcoming Feature Preview',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0969DA).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFF0969DA).withValues(alpha: 0.4)),
+                              ),
+                              child: Text(
+                                previewTag,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0969DA),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          moduleName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Showcase Overview: ',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        Expanded(
+                          child: Text(
+                            description,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Release Channel: ',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Institutional preview channel. Scheduled for upcoming academic rollout.',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                key: const Key('btn-showcase-back-dashboard'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? Colors.white : AppColors.lightTextPrimary,
+                  side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () => _onDestinationSelected(0),
+                icon: const AppSvgIcon(svgString: AppSvgIcon.dashboard, size: 14),
+                label: const Text('Back to Dashboard'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  (String, String, String) _getMaintenanceInfo(int index) {
+    switch (index) {
+      case 1:
+        return ('Academic Timetable', '22:00 - 01:00 IST', 'Term schedule re-indexing and room slot synchronization.');
+      case 2:
+        return ('Attendance Ledger & Studio', '23:30 - 01:00 IST', 'Rolling cryptographic QR token generator service upgrade.');
+      case 3:
+        return ('Institutional Notices', '01:00 - 02:30 IST', 'Notice distribution queue indexing and multicast channel optimization.');
+      case 4:
+        return ('Campus Directory & Identity Management', '23:00 - 02:00 IST', 'Directory administration indexing and cryptographic identity sync.');
+      case 5:
+        return ('Academic Departments & Structure', '22:00 - 01:00 IST', 'Curriculum database migration and syllabus archive indexing.');
+      case 6:
+        return ('Hostel Room Management', '00:00 - 03:00 IST', 'Room inventory database maintenance and serial tracking sync.');
+      case 7:
+        return ('Hostel Mess & Feedback', '21:30 - 23:00 IST', 'Dining feedback aggregation system maintenance and menu sync.');
+      case 8:
+        return ('Grievances & Complaints Redressal', '01:00 - 03:00 IST', 'Ticket dispatcher and cryptographic anonymity vault upgrade.');
+      default:
+        return ('Campus Module', '23:00 - 02:00 IST', 'System database re-indexing and maintenance upgrade.');
+    }
+  }
+
+  (String, String, String) _getShowcaseInfo(int index) {
+    switch (index) {
+      case 1:
+        return ('Academic Timetable', 'UPCOMING MODULE', 'AI-assisted dynamic clash resolution timetable editor.');
+      case 2:
+        return ('Attendance Ledger & Studio', 'UPCOMING MODULE', 'Facial geo-fenced optical roll-call verification.');
+      case 3:
+        return ('Institutional Notices', 'UPCOMING MODULE', 'Automated emergency SMS and push broadcast alert system.');
+      case 4:
+        return ('Campus Directory & Identity Management', 'PREVIEW SHOWCASE', 'Enterprise federated multi-campus directory lookup.');
+      case 5:
+        return ('Academic Departments & Structure', 'PREVIEW SHOWCASE', 'Autonomous credit-transfer and Board of Studies governance.');
+      case 6:
+        return ('Hostel Room Management', 'UPCOMING MODULE', 'Smart RFID hostel room access and automated power management.');
+      case 7:
+        return ('Hostel Mess & Feedback', 'UPCOMING MODULE', 'Digital meal coupon reservation and dietary calorie analyzer.');
+      case 8:
+        return ('Grievances & Complaints Redressal', 'UPCOMING MODULE', 'AI-prioritized institutional grievance triage and SLA escalation.');
+      default:
+        return ('Campus Module', 'PREVIEW SHOWCASE', 'Next-generation campus management service in development.');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _maintenancePages = Set.from(widget.maintenancePages);
+    _showcasePages = Set.from(widget.showcasePages);
     _personas = [
       OfflineStorageService.getMockUserForHandle('campus_admin'),
       OfflineStorageService.getMockUserForHandle('priya_2024_emp_1'),
@@ -365,6 +793,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _currentUser = widget.currentUser!;
       _tabWidgetCache.clear();
       _checkServer();
+    }
+    if (widget.maintenancePages != oldWidget.maintenancePages) {
+      _maintenancePages = Set.from(widget.maintenancePages);
+      _tabWidgetCache.clear();
+    }
+    if (widget.showcasePages != oldWidget.showcasePages) {
+      _showcasePages = Set.from(widget.showcasePages);
+      _tabWidgetCache.clear();
     }
   }
 
@@ -634,6 +1070,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   selectedIndex: _currentIndex,
                   onDestinationSelected: _onDestinationSelected,
                   currentUser: _currentUser,
+                  maintenancePages: _maintenancePages,
+                  showcasePages: _showcasePages,
                 ),
                 Expanded(child: tabStack),
               ],
@@ -819,15 +1257,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showOtherPagesSheet(BuildContext context, bool isDark) {
-    final otherPages = [
+    final allPages = [
       (
         index: 1,
         keyName: 'timetable',
         label: 'Timetable',
         subtitle: 'Lectures, labs & weekly class schedule',
         svgIcon: AppSvgIcon.calendar,
-        isRestricted: false,
-        restrictedRole: null,
       ),
       (
         index: 2,
@@ -835,8 +1271,6 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Attendance',
         subtitle: 'Live optical QR broadcast & attendance ledger',
         svgIcon: AppSvgIcon.attendance,
-        isRestricted: false,
-        restrictedRole: null,
       ),
       (
         index: 3,
@@ -844,8 +1278,6 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Notices',
         subtitle: 'Targeted institutional bulletins & circulars',
         svgIcon: AppSvgIcon.bell,
-        isRestricted: false,
-        restrictedRole: null,
       ),
       (
         index: 4,
@@ -853,8 +1285,6 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Campus Directory',
         subtitle: 'Student, faculty & staff identity onboarding',
         svgIcon: AppSvgIcon.user,
-        isRestricted: !_currentUser.canManageUsers,
-        restrictedRole: 'Campus Administrator',
       ),
       (
         index: 5,
@@ -862,8 +1292,6 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Academic Departments',
         subtitle: 'Programs, cross-program sections & lab batches',
         svgIcon: AppSvgIcon.building,
-        isRestricted: !_currentUser.canManageDepartments,
-        restrictedRole: 'HOD / Admin',
       ),
       (
         index: 6,
@@ -871,8 +1299,6 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Hostel Management',
         subtitle: 'Room inventory, verified fixtures & occupants',
         svgIcon: AppSvgIcon.bed,
-        isRestricted: false,
-        restrictedRole: null,
       ),
       (
         index: 7,
@@ -880,8 +1306,6 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Hostel Mess & Ratings',
         subtitle: 'Weekly menu timetable & feedback reports',
         svgIcon: AppSvgIcon.utensils,
-        isRestricted: false,
-        restrictedRole: null,
       ),
       (
         index: 8,
@@ -889,10 +1313,62 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Grievances & Complaints',
         subtitle: 'Lodge & track verified or anonymous complaints',
         svgIcon: AppSvgIcon.alertTriangle,
-        isRestricted: false,
-        restrictedRole: null,
       ),
     ];
+
+    final otherPages = <({
+      int index,
+      String keyName,
+      String label,
+      String subtitle,
+      String svgIcon,
+      bool isRestricted,
+      String? lockBadgeText,
+    })>[];
+
+    for (final page in allPages) {
+      final isMaintenance = _isPageInMaintenance(page.index);
+      final isShowcase = _isPageInShowcase(page.index);
+
+      if (isMaintenance) {
+        otherPages.add((
+          index: page.index,
+          keyName: page.keyName,
+          label: page.label,
+          subtitle: 'Module temporarily offline for scheduled maintenance',
+          svgIcon: page.svgIcon,
+          isRestricted: true,
+          lockBadgeText: 'Maintenance',
+        ));
+        continue;
+      }
+
+      if (isShowcase) {
+        otherPages.add((
+          index: page.index,
+          keyName: page.keyName,
+          label: page.label,
+          subtitle: 'Upcoming module preview (Coming Soon)',
+          svgIcon: page.svgIcon,
+          isRestricted: true,
+          lockBadgeText: 'Preview',
+        ));
+        continue;
+      }
+
+      final isAccessible = _isPageAccessible(page.index);
+      if (isAccessible) {
+        otherPages.add((
+          index: page.index,
+          keyName: page.keyName,
+          label: page.label,
+          subtitle: page.subtitle,
+          svgIcon: page.svgIcon,
+          isRestricted: false,
+          lockBadgeText: null,
+        ));
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -1019,9 +1495,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             subtitle: Text(
-                              item.isRestricted && item.restrictedRole != null
-                                  ? 'Requires ${item.restrictedRole}'
-                                  : item.subtitle,
+                              item.subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1044,7 +1518,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                         color: isDark ? const Color(0xFFD97706) : const Color(0xFFFDBA74),
                                       ),
                                     ),
-                                    child: const Icon(Icons.lock_outline, size: 12, color: Color(0xFFD97706)),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.lock_outline, size: 12, color: Color(0xFFD97706)),
+                                        if (item.lockBadgeText != null) ...[
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            item.lockBadgeText!,
+                                            style: const TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFD97706),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   )
                                 else if (isCurrentInSlot3)
                                   Container(
@@ -2844,11 +3334,15 @@ class _CampusSidebar extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final UserModel currentUser;
+  final Set<int> maintenancePages;
+  final Set<int> showcasePages;
 
   const _CampusSidebar({
     required this.selectedIndex,
     required this.onDestinationSelected,
     required this.currentUser,
+    this.maintenancePages = const {},
+    this.showcasePages = const {},
   });
 
   @override
@@ -2868,18 +3362,67 @@ class _CampusSidebarState extends State<_CampusSidebar> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final items = const [
-      (svg: AppSvgIcon.dashboard, label: 'Dashboard'),
-      (svg: AppSvgIcon.calendar, label: 'Timetable'),
-      (svg: AppSvgIcon.attendance, label: 'Attendance'),
-      (svg: AppSvgIcon.bell, label: 'Notices'),
-      (svg: AppSvgIcon.user, label: 'Directory'),
-      (svg: AppSvgIcon.building, label: 'Depts'),
-      (svg: AppSvgIcon.bed, label: 'Hostel'),
-      (svg: AppSvgIcon.utensils, label: 'Mess'),
-      (svg: AppSvgIcon.alertTriangle, label: 'Complaints'),
-      (svg: AppSvgIcon.user, label: 'Profile'),
+    final allItems = const [
+      (index: 0, svg: AppSvgIcon.dashboard, label: 'Dashboard'),
+      (index: 1, svg: AppSvgIcon.calendar, label: 'Timetable'),
+      (index: 2, svg: AppSvgIcon.attendance, label: 'Attendance'),
+      (index: 3, svg: AppSvgIcon.bell, label: 'Notices'),
+      (index: 4, svg: AppSvgIcon.user, label: 'Directory'),
+      (index: 5, svg: AppSvgIcon.building, label: 'Depts'),
+      (index: 6, svg: AppSvgIcon.bed, label: 'Hostel'),
+      (index: 7, svg: AppSvgIcon.utensils, label: 'Mess'),
+      (index: 8, svg: AppSvgIcon.alertTriangle, label: 'Complaints'),
+      (index: 9, svg: AppSvgIcon.user, label: 'Profile'),
     ];
+
+    final visibleItems = <({
+      int index,
+      String svg,
+      String label,
+      bool isLocked,
+      String? lockBadgeText,
+    })>[];
+
+    for (final item in allItems) {
+      final isMaintenance = widget.maintenancePages.contains(item.index);
+      final isShowcase = widget.showcasePages.contains(item.index);
+
+      if (isMaintenance) {
+        visibleItems.add((
+          index: item.index,
+          svg: item.svg,
+          label: item.label,
+          isLocked: true,
+          lockBadgeText: 'Maintenance',
+        ));
+        continue;
+      }
+
+      if (isShowcase) {
+        visibleItems.add((
+          index: item.index,
+          svg: item.svg,
+          label: item.label,
+          isLocked: true,
+          lockBadgeText: 'Preview',
+        ));
+        continue;
+      }
+
+      final isAccessible = (item.index == 4 && widget.currentUser.canManageUsers) ||
+          (item.index == 5 && widget.currentUser.canManageDepartments) ||
+          (item.index != 4 && item.index != 5);
+
+      if (isAccessible) {
+        visibleItems.add((
+          index: item.index,
+          svg: item.svg,
+          label: item.label,
+          isLocked: false,
+          lockBadgeText: null,
+        ));
+      }
+    }
 
     return Container(
       width: 78,
@@ -2897,7 +3440,7 @@ class _CampusSidebarState extends State<_CampusSidebar> {
           final totalHeight = constraints.maxHeight;
           final verticalPadding = totalHeight < 560 ? 4.0 : 8.0;
           final availableHeight = totalHeight - (verticalPadding * 2);
-          final idealItemHeight = availableHeight / items.length;
+          final idealItemHeight = availableHeight / (visibleItems.isEmpty ? 1 : visibleItems.length);
           final itemHeight = idealItemHeight.clamp(42.0, 66.0);
 
           return Scrollbar(
@@ -2910,20 +3453,19 @@ class _CampusSidebarState extends State<_CampusSidebar> {
                 padding: EdgeInsets.symmetric(vertical: verticalPadding),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: List.generate(items.length, (idx) {
-                    final isSelected = widget.selectedIndex == idx;
-                    final item = items[idx];
-                    final isLocked = (idx == 4 && !widget.currentUser.canManageUsers) ||
-                        (idx == 5 && !widget.currentUser.canManageDepartments);
+                  children: List.generate(visibleItems.length, (idx) {
+                    final item = visibleItems[idx];
+                    final isSelected = widget.selectedIndex == item.index;
 
                     return _SidebarDestinationItem(
                       key: Key('nav-item-${item.label.toLowerCase()}'),
                       svg: item.svg,
                       label: item.label,
                       isSelected: isSelected,
-                      isLocked: isLocked,
+                      isLocked: item.isLocked,
+                      lockBadgeText: item.lockBadgeText,
                       itemHeight: itemHeight,
-                      onTap: () => widget.onDestinationSelected(idx),
+                      onTap: () => widget.onDestinationSelected(item.index),
                     );
                   }),
                 ),
@@ -2941,6 +3483,7 @@ class _SidebarDestinationItem extends StatefulWidget {
   final String label;
   final bool isSelected;
   final bool isLocked;
+  final String? lockBadgeText;
   final double itemHeight;
   final VoidCallback onTap;
 
@@ -2950,6 +3493,7 @@ class _SidebarDestinationItem extends StatefulWidget {
     required this.label,
     required this.isSelected,
     this.isLocked = false,
+    this.lockBadgeText,
     this.itemHeight = 66.0,
     required this.onTap,
   });
@@ -2973,7 +3517,9 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
     final double fontSize = (h >= 58) ? 11.0 : (h >= 48 ? 10.0 : 9.0);
 
     return Tooltip(
-      message: widget.isLocked ? '${widget.label} (Restricted)' : widget.label,
+      message: widget.isLocked
+          ? '${widget.label} (${widget.lockBadgeText ?? 'Restricted'})'
+          : widget.label,
       waitDuration: const Duration(milliseconds: 350),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
