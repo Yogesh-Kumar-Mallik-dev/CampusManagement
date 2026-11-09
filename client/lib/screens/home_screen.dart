@@ -1111,7 +1111,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _getPersonalizedBannerSubtitle(UserModel user) {
     if (user.isAdmin) {
-      return 'Institutional Operations & Executive Governance • Campus Director';
+      return 'Institutional Operations & Leadership • Campus Director';
     }
     if (user.isWarden) {
       return 'Campus Residential Services • Chief Hostel Warden • Gate 1 Office';
@@ -1142,6 +1142,42 @@ class _HomeScreenState extends State<HomeScreen> {
       return '$org • Gate Pass: $pass • Authorized Contractor';
     }
     return user.email;
+  }
+
+  String _getMetricHeaderTitle(String persona) {
+    switch (persona) {
+      case 'student':
+        return 'Student Academic Vitals';
+      case 'faculty':
+        return 'Instructional & Department Vitals';
+      case 'warden':
+        return 'Housing & Residential Vitals';
+      case 'mess':
+        return 'Dining & Food Service Vitals';
+      case 'contractor':
+        return 'Facility Access & Vendor Vitals';
+      case 'admin':
+      default:
+        return 'Institutional Vital Indicators';
+    }
+  }
+
+  String _getMetricHeaderBadge(String persona) {
+    switch (persona) {
+      case 'student':
+        return 'Active Semester CSE-3A';
+      case 'faculty':
+        return 'Faculty & Department Chair';
+      case 'warden':
+        return 'Hostel Residential Oversight';
+      case 'mess':
+        return 'Central Canteen Operations';
+      case 'contractor':
+        return 'Authorized Vendor Service';
+      case 'admin':
+      default:
+        return 'Campus Executive Governance';
+    }
   }
 
   Widget _buildDashboardView() {
@@ -1338,12 +1374,12 @@ class _HomeScreenState extends State<HomeScreen> {
             spacing: 8,
             runSpacing: 4,
             children: [
-              const Text(
-                'Live Operational Indicators',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              Text(
+                _getMetricHeaderTitle(persona),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
               Text(
-                'Personalized for ${_currentUser.archetype.toUpperCase()}',
+                _getMetricHeaderBadge(persona),
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
@@ -1359,65 +1395,614 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 16),
 
           // ----------------------------------------------------
-          // PERSONALIZED OPERATIONS CARDS
+          // PERSONALIZED OPERATIONS CARDS (Academic Operations)
           // ----------------------------------------------------
           _buildPersonalizedOperations(context, isDark, persona),
 
           const SizedBox(height: 16),
 
           // ----------------------------------------------------
-          // PERSONALIZED SPOTLIGHT / QUICK ACTION CARDS
+          // ROLE-SPECIFIC SPECIALIZED PANELS
           // ----------------------------------------------------
-          _buildPersonalizedSpotlight(context, isDark, persona),
+          _buildPersonalizedPanels(context, isDark, persona),
 
           const SizedBox(height: 16),
 
           // Institutional System Specs & Sync Health
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                width: 1,
-              ),
+          _buildSystemSpecsBanner(context, isDark, persona),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSystemSpecsBanner(BuildContext context, bool isDark, String persona) {
+    final String title;
+    final String description;
+    final String iconSvg;
+    final Color iconColor;
+
+    switch (persona) {
+      case 'student':
+        title = 'Student Campus Support & Offline Ledger';
+        description = 'All timetables, attendance sync outbox, and room information cache offline on this device. Campus Emergency: Ext 1001 (Dial 108) • Biometric Gate 1 Curfew 22:30 IST.';
+        iconSvg = AppSvgIcon.shield;
+        iconColor = AppColors.wineRed;
+        break;
+
+      case 'faculty':
+        title = 'Academic Integrity & Offline Ledger Synchronization';
+        description = 'All optical QR broadcast sessions, attendance ledgers, and department curriculum cache locally. Student scan confirmations append to local outbox and synchronize automatically.';
+        iconSvg = AppSvgIcon.attendance;
+        iconColor = AppColors.githubGreen;
+        break;
+
+      case 'warden':
+        title = 'Residential Security & Caretaker Emergency Desk';
+        description = 'Turnstile entry records, resident room allocations, and fixture audits synchronize with Go backend. Chief Warden Office: Ext 2401 • Campus Health Center: Ext 1001 • Gate 1 Biometrics Active.';
+        iconSvg = AppSvgIcon.shield;
+        iconColor = AppColors.wineRed;
+        break;
+
+      case 'mess':
+        title = 'Food Hygiene & Kitchen Quality Compliance';
+        description = 'Central campus catering operates under standard hygiene protocols. Central RO + UV cooler station verified. Compulsory student feedback required on all ratings under 3 stars.';
+        iconSvg = AppSvgIcon.utensils;
+        iconColor = const Color(0xFF2DA44E);
+        break;
+
+      case 'admin':
+      default:
+        title = 'Offline-First Replication & Scoped RBAC Engine Active';
+        description = 'All attendance records, course structures, and schedules cache locally on this device. When offline, all transactions append to the local outbox and sync with cryptographic safety to the Go backend when network reconnects.';
+        iconSvg = AppSvgIcon.shield;
+        iconColor = AppColors.wineRed;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: AppSvgIcon(
+              svgString: iconSvg,
+              size: 18,
+              color: iconColor,
             ),
-            child: Row(
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 2),
-                  child: AppSvgIcon(
-                    svgString: AppSvgIcon.shield,
-                    size: 18,
-                    color: AppColors.wineRed,
-                  ),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Offline-First Replication & Scoped RBAC Engine Active',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'All attendance records, course structures, and schedules cache locally on this device. When offline, all transactions append to the local outbox and sync with cryptographic safety to the Go backend when network reconnects.',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 3),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    height: 1.35,
                   ),
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonalizedPanels(BuildContext context, bool isDark, String persona) {
+    final Widget panel1;
+    final Widget panel2;
+
+    switch (persona) {
+      case 'student':
+        panel1 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Upcoming Academic Session',
+          badgeText: 'UPCOMING LECTURE',
+          badgeColor: AppColors.wineRed,
+          actionLabel: 'Open Timetable',
+          onAction: () => _onDestinationSelected(1),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'CS301: Operating Systems (09:00 - 10:00 AM)',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Lecture Hall LH-101 • Faculty: Dr. Priya Nair',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Optical QR token session will be broadcast at start of lecture for roll-call verification.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ),
+        );
+        panel2 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Residential Hall & Dining',
+          badgeText: 'ROOM 108',
+          badgeColor: const Color(0xFFD97706),
+          actionLabel: 'Rate Recent Meal',
+          onAction: () => _onDestinationSelected(7),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Aryabhatta Hall • Floor 1 • Curfew 22:30 IST Gate 1',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Central Mess Dinner: Paneer Butter Masala, Dal Makhani, Tandoori Roti (20:00 - 21:30)',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Sunday Schedule: Brunch (10:00 - 12:30) and Dinner (20:00 - 21:30) only.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ),
+        );
+        break;
+
+      case 'faculty':
+        panel1 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Optical Attendance Studio',
+          badgeText: 'OPTICAL ATTENDANCE STUDIO',
+          badgeColor: AppColors.githubGreen,
+          actionLabel: 'Launch Attendance',
+          onAction: () => _onDestinationSelected(2),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Course: CS301 Operating Systems • Section CSE-3A',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '64 Registered Students • Venue: Lecture Hall LH-101',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Optical rotating QR code refreshes every 4s with rolling cryptographic signatures preventing proxy check-ins.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ),
+        );
+        panel2 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: "Today's Teaching Schedule",
+          badgeText: '3 SESSIONS',
+          badgeColor: AppColors.wineRed,
+          actionLabel: 'View Timetable',
+          onAction: () => _onDestinationSelected(1),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '09:00 - 10:00 AM • CS301 Operating Systems (LH-101)',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                '11:00 - 12:00 PM • CS302 Database Systems (LH-102)',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                '02:00 - 04:00 PM • CS303 OS Practical Lab (Lab 2 - Batches A1, A2)',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        );
+        break;
+
+      case 'warden':
+        panel1 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Residential Curfew Protocol',
+          badgeText: 'RESIDENTIAL PROTOCOL',
+          badgeColor: AppColors.wineRed,
+          actionLabel: 'Inspect Rooms',
+          onAction: () => _onDestinationSelected(6),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Gate 1 Biometric Verification & Turnstile Protocol',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'All resident students must scan through Gate 1 turnstiles by 22:30 IST sharp.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Night Out Passes require portal submission 6 hours prior to departure. Quiet hours: 23:00 - 06:00 across all wings.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ),
+        );
+        panel2 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Hostel Maintenance Queue',
+          badgeText: '3 OPEN TICKETS',
+          badgeColor: const Color(0xFFD97706),
+          actionLabel: 'Manage Maintenance',
+          onAction: () => _onDestinationSelected(8),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Room 108: Tubelight flickering (SN: TL-108-01) - Inspected',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'Room 204: Low water pressure on Floor 2 central cooler - Work ordered',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'Room 312: Steel locker key replacement request - Pending inspection',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'All 16 room assets tagged with 14-char institutional serial numbers.',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ),
+        );
+        break;
+
+      case 'mess':
+        panel1 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: "Today's Complete Meal Menu",
+          badgeText: 'CENTRAL MESS BOARD',
+          badgeColor: const Color(0xFF2DA44E),
+          actionLabel: 'Edit Weekly Menu',
+          onAction: () => _onDestinationSelected(7),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Breakfast (07:30 - 09:00): Idli Sambar, Upma, Coconut Chutney, Tea/Coffee',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'Lunch (12:30 - 14:00): Rajma Masala, Steamed Rice, Phulka, Curd, Salad',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'Snacks (17:00 - 18:30): Crispy Veg Cutlet, Green Mint Chutney, Masala Chai',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'Dinner (20:00 - 21:30): Paneer Butter Masala, Dal Makhani, Roti, Gulab Jamun',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        );
+        panel2 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Food Quality Meter & Feedback',
+          badgeText: 'SUNDAY TIMETABLE CONSTRAINT',
+          badgeColor: const Color(0xFF0969DA),
+          actionLabel: 'Inspect Rating Reports',
+          onAction: () => _onDestinationSelected(7),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Student Satisfaction: 68% 5-Star • 22% 4-Star • 10% Sub-3-Star',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Compulsory Explanation Rule: Any student rating under 3 stars must provide detailed corrective remarks.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Sunday Schedule: Brunch (10:00 - 12:30) & Dinner (20:00 - 21:30) only. Breakfast and Lunch are not scheduled on Sundays.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ),
+        );
+        break;
+
+      case 'contractor':
+        panel1 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Gate Pass Verification & Facility Access',
+          badgeText: 'AUTHORIZED VENDOR',
+          badgeColor: AppColors.githubGreen,
+          actionLabel: 'View Profile',
+          onAction: () => _onDestinationSelected(9),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Active Biometric Gate Pass • Main Gate & Gate 1 Authorization',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Authorized Building Scopes: Canteen Building, Kitchen Facilities & Main Gate Turnstiles.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+            ],
+          ),
+        );
+        panel2 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Campus Facility Maintenance Windows',
+          badgeText: 'SERVICE HOURS',
+          badgeColor: const Color(0xFF2DA44E),
+          actionLabel: 'Mess Timetable',
+          onAction: () => _onDestinationSelected(7),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Morning Service Window: 06:00 - 08:30 (Pre-Lecture Servicing)',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'Evening Service Window: 17:30 - 20:00 (Post-Lecture Maintenance)',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        );
+        break;
+
+      case 'admin':
+      default:
+        panel1 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Institutional Redressal & Grievances SLA',
+          badgeText: 'DISTRIBUTED SYSTEM HEALTH',
+          badgeColor: AppColors.statusRed,
+          actionLabel: 'Open Redressal Center',
+          onAction: () => _onDestinationSelected(8),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Triage: 3 Pending Review • 5 Under Investigation • 6 Resolved',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Categories: Hostel (5) • Student Welfare (4) • Canteen (3) • Campus Facilities (2)',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'SLA Compliance: 88% resolved within mandated 24-hour institutional resolution policy.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ),
+        );
+        panel2 = _buildDashboardPanel(
+          context: context,
+          isDark: isDark,
+          title: 'Academic Structure & Department Chairs',
+          badgeText: '6 DEPTS ACTIVE',
+          badgeColor: const Color(0xFF0969DA),
+          actionLabel: 'Manage Departments',
+          onAction: () => _onDestinationSelected(5),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'CSE: 28 Faculty • 4 Degree Programs • HOD: Dr. Priya Nair',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'ECE: 22 Faculty • 3 Degree Programs • 480 Students',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 3),
+              const Text(
+                'Mechanical: 18 Faculty • 3 Degree Programs • 360 Students',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        );
+        break;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 750) {
+          final cardWidth = (constraints.maxWidth - 16) / 2;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: cardWidth, child: panel1),
+              const SizedBox(width: 16),
+              SizedBox(width: cardWidth, child: panel2),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            panel1,
+            const SizedBox(height: 12),
+            panel2,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDashboardPanel({
+    required BuildContext context,
+    required bool isDark,
+    required String title,
+    required String badgeText,
+    required Color badgeColor,
+    required Widget content,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.4), width: 1),
+                ),
+                child: Text(
+                  badgeText,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          content,
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: badgeColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.arrow_forward, size: 13),
+                label: Text(actionLabel, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                onPressed: onAction,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2118,274 +2703,6 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ],
-    );
-  }
-
-  Widget _buildPersonalizedSpotlight(BuildContext context, bool isDark, String persona) {
-    final Widget card1;
-    final Widget card2;
-
-    switch (persona) {
-      case 'student':
-        card1 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Upcoming Lecture',
-          title: 'CS301: Operating Systems (09:00 - 10:00 AM)',
-          description: 'Lecture Hall LH-101 • Dr. Priya Nair • Optical QR token session will be broadcast at start of lecture for roll-call verification.',
-          iconSvg: AppSvgIcon.calendar,
-          color: AppColors.wineRed,
-          actionLabel: 'Open Timetable',
-          onAction: () => _onDestinationSelected(1),
-        );
-        card2 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Residential Life & Dining',
-          title: 'Aryabhatta Hall • Room 108 & Central Mess',
-          description: 'Curfew is 22:30 IST sharp at Gate 1. Sunday schedule serves Brunch (10:00 - 12:30) and Dinner (20:00 - 21:30) only.',
-          iconSvg: AppSvgIcon.bed,
-          color: const Color(0xFFD97706),
-          actionLabel: 'Rate Recent Meal',
-          onAction: () => _onDestinationSelected(7),
-        );
-        break;
-
-      case 'faculty':
-        card1 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Optical Attendance Studio',
-          title: 'Section CSE-3A Rolling Broadcast Ready',
-          description: 'Generates rotating optical QR tokens with anti-proxy cryptographic signatures. Scan confirmations sync directly to course ledger.',
-          iconSvg: AppSvgIcon.attendance,
-          color: AppColors.githubGreen,
-          actionLabel: 'Start Broadcast',
-          onAction: () => _onDestinationSelected(2),
-        );
-        card2 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Department & Syllabus Audit',
-          title: 'Odd Semester BoS Curriculum & Workload',
-          description: 'All course syllabi, retrospectively archived Board of Studies minutes, and faculty practical lab splits are up to date.',
-          iconSvg: AppSvgIcon.building,
-          color: const Color(0xFF0969DA),
-          actionLabel: 'Manage Department',
-          onAction: () => _onDestinationSelected(5),
-        );
-        break;
-
-      case 'warden':
-        card1 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Residential Protocol',
-          title: 'Night Curfew 22:30 IST • Gate 1 Biometrics',
-          description: 'All resident students must scan through Gate 1 turnstiles by 22:30. Night out passes require approval 6 hours prior to departure.',
-          iconSvg: AppSvgIcon.shield,
-          color: AppColors.wineRed,
-          actionLabel: 'Inspect Rooms',
-          onAction: () => _onDestinationSelected(6),
-        );
-        card2 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Fixture Integrity Tracking',
-          title: 'Room Fixture Limits & 14-Char Serial Tags',
-          description: 'Standard allocations: 3 beds, 3 tables, 2 tubelights, 2 fans, 3 lockers. All 16 assets per room are strictly serialized.',
-          iconSvg: AppSvgIcon.bed,
-          color: const Color(0xFFD97706),
-          actionLabel: 'Manage Hostel',
-          onAction: () => _onDestinationSelected(6),
-        );
-        break;
-
-      case 'mess':
-        card1 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Sunday Timetable Constraint',
-          title: 'Weekly Timetable Structure & Sunday Schedule',
-          description: 'Monday to Saturday serves Breakfast, Lunch, Snacks, and Dinner. Sunday serves Brunch (10:00 - 12:30) and Dinner (20:00 - 21:30) only.',
-          iconSvg: AppSvgIcon.calendar,
-          color: AppColors.wineRed,
-          actionLabel: 'Edit Menu',
-          onAction: () => _onDestinationSelected(7),
-        );
-        card2 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Quality Assurance Rule',
-          title: 'Compulsory Explanations for Sub-3-Star Ratings',
-          description: 'Students rating any meal 1 or 2 stars must provide detailed corrective remarks. Inspect aggregated reports weekly.',
-          iconSvg: AppSvgIcon.utensils,
-          color: const Color(0xFF2DA44E),
-          actionLabel: 'Inspect Ratings',
-          onAction: () => _onDestinationSelected(7),
-        );
-        break;
-
-      case 'contractor':
-        card1 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Security & Access Control',
-          title: 'Authorized Gate Pass & Scoped Facilities',
-          description: 'Access granted to Canteen and Main Gate facilities. Comply with security gate clearance protocols during shift hours.',
-          iconSvg: AppSvgIcon.shield,
-          color: AppColors.githubGreen,
-          actionLabel: 'View Profile',
-          onAction: () => _onDestinationSelected(9),
-        );
-        card2 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Dining Services & Facilities',
-          title: 'Central Canteen Dining Facility Schedule',
-          description: 'Dining facility meal timings: Breakfast (07:30 - 09:00), Lunch (12:30 - 14:00), Snacks (17:00 - 18:30), Dinner (20:00 - 21:30).',
-          iconSvg: AppSvgIcon.utensils,
-          color: const Color(0xFF2DA44E),
-          actionLabel: 'Mess Schedule',
-          onAction: () => _onDestinationSelected(7),
-        );
-        break;
-
-      case 'admin':
-      default:
-        card1 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Distributed System Health',
-          title: 'Offline-First Replication & Go Sync Engine',
-          description: 'All transactions, attendance tallies, and complaints append to local SQLite/hive storage. Cryptographic hash verifies outbox sync upon reconnection.',
-          iconSvg: AppSvgIcon.shield,
-          color: AppColors.wineRed,
-          actionLabel: 'Directory Governance',
-          onAction: () => _onDestinationSelected(4),
-        );
-        card2 = _buildSpotlightCard(
-          context: context,
-          isDark: isDark,
-          category: 'Institutional Compliance & RBAC',
-          title: 'Granular Scoped Permissions & Audit Log',
-          description: 'Department Chairs, Wardens, and Canteen Managers operate under verified scope boundaries with full identity audit trails.',
-          iconSvg: AppSvgIcon.alertTriangle,
-          color: AppColors.statusRed,
-          actionLabel: 'Redressal Center',
-          onAction: () => _onDestinationSelected(8),
-        );
-        break;
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= 750) {
-          final cardWidth = (constraints.maxWidth - 16) / 2;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(width: cardWidth, child: card1),
-              const SizedBox(width: 16),
-              SizedBox(width: cardWidth, child: card2),
-            ],
-          );
-        }
-        return Column(
-          children: [
-            card1,
-            const SizedBox(height: 12),
-            card2,
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildSpotlightCard({
-    required BuildContext context,
-    required bool isDark,
-    required String category,
-    required String title,
-    required String description,
-    required String iconSvg,
-    required Color color,
-    required String actionLabel,
-    required VoidCallback onAction,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: AppSvgIcon(svgString: iconSvg, size: 16, color: color),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                        color: color,
-                      ),
-                    ),
-                    Text(
-                      title,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: color,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                visualDensity: VisualDensity.compact,
-              ),
-              icon: const Icon(Icons.arrow_forward, size: 14),
-              label: Text(actionLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              onPressed: onAction,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
