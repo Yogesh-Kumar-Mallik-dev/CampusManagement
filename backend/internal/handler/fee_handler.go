@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"campus/backend/internal/model"
@@ -264,4 +265,30 @@ func (h *FeeHandler) HandleReceipt(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(receipt)
+}
+
+// HandleInvoicePDF handles GET /api/v1/fees/invoices/pdf?id={id}
+func (h *FeeHandler) HandleInvoicePDF(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, `{"error":"invoice id is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	pdfBytes, filename, err := h.feeService.GenerateInvoicePDF(r.Context(), id)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfBytes)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(pdfBytes)
 }

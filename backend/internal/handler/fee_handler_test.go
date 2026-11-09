@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -225,5 +226,43 @@ func TestFeeHandlerEndpoints(t *testing.T) {
 	feeH.HandleReceipt(rrReceiptNoNum, reqReceiptNoNum)
 	if rrReceiptNoNum.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 from HandleReceipt without number, got %d", rrReceiptNoNum.Code)
+	}
+
+	// 9. HandleInvoicePDF
+	reqPDF := httptest.NewRequest(http.MethodGet, "/api/v1/fees/invoices/pdf?id="+invoices[0].ID, nil)
+	rrPDF := httptest.NewRecorder()
+	feeH.HandleInvoicePDF(rrPDF, reqPDF)
+	if rrPDF.Code != http.StatusOK {
+		t.Fatalf("expected 200 from HandleInvoicePDF, got %d", rrPDF.Code)
+	}
+	if rrPDF.Header().Get("Content-Type") != "application/pdf" {
+		t.Fatalf("expected application/pdf content type, got %s", rrPDF.Header().Get("Content-Type"))
+	}
+	if !strings.HasPrefix(rrPDF.Body.String(), "%PDF-1.4") {
+		t.Fatalf("expected PDF-1.4 header")
+	}
+
+	// HandleInvoicePDF missing id
+	reqPDFMissingID := httptest.NewRequest(http.MethodGet, "/api/v1/fees/invoices/pdf", nil)
+	rrPDFMissingID := httptest.NewRecorder()
+	feeH.HandleInvoicePDF(rrPDFMissingID, reqPDFMissingID)
+	if rrPDFMissingID.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 from HandleInvoicePDF without id, got %d", rrPDFMissingID.Code)
+	}
+
+	// HandleInvoicePDF not found
+	reqPDFNotFound := httptest.NewRequest(http.MethodGet, "/api/v1/fees/invoices/pdf?id=missing-inv", nil)
+	rrPDFNotFound := httptest.NewRecorder()
+	feeH.HandleInvoicePDF(rrPDFNotFound, reqPDFNotFound)
+	if rrPDFNotFound.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 from HandleInvoicePDF with invalid id, got %d", rrPDFNotFound.Code)
+	}
+
+	// HandleInvoicePDF wrong method
+	reqPDFPost := httptest.NewRequest(http.MethodPost, "/api/v1/fees/invoices/pdf?id=some-id", nil)
+	rrPDFPost := httptest.NewRecorder()
+	feeH.HandleInvoicePDF(rrPDFPost, reqPDFPost)
+	if rrPDFPost.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405 from HandleInvoicePDF with POST, got %d", rrPDFPost.Code)
 	}
 }

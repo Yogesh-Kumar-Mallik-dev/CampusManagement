@@ -7,6 +7,7 @@ import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
+import '../utils/invoice_pdf_generator.dart';
 import 'storage_interface.dart';
 
 class OfflineStorageService implements ICampusStorage {
@@ -4810,5 +4811,24 @@ class OfflineStorageService implements ICampusStorage {
     } catch (_) {
       throw Exception("Fee receipt '$receiptNumber' not found");
     }
+  }
+
+  @override
+  Future<List<int>> downloadInvoicePdf(String invoiceId) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.downloadInvoicePdf(invoiceId);
+      } catch (_) {}
+    }
+
+    final invoice = _cachedFeeInvoices.firstWhere(
+      (inv) => inv.id == invoiceId,
+      orElse: () => throw Exception("Fee invoice '$invoiceId' not found"),
+    );
+
+    return InvoicePdfGenerator.generate(invoice);
   }
 }

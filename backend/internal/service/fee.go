@@ -27,6 +27,7 @@ type FeeServiceInterface interface {
 	GetReceipt(ctx context.Context, receiptNumber string) (*model.FeeReceipt, error)
 	CreateInvoice(ctx context.Context, inv model.FeeInvoice) (*model.FeeInvoice, error)
 	IssueFine(ctx context.Context, fine model.FineRecord) (*model.FineRecord, error)
+	GenerateInvoicePDF(ctx context.Context, invoiceID string) ([]byte, string, error)
 }
 
 // FeeService implements FeeServiceInterface with memory-cached and database resilience
@@ -632,4 +633,22 @@ func (s *FeeService) IssueFine(ctx context.Context, fine model.FineRecord) (*mod
 	s.fines[fine.ID] = &fine
 	copy := fine
 	return &copy, nil
+}
+
+func (s *FeeService) GenerateInvoicePDF(ctx context.Context, invoiceID string) ([]byte, string, error) {
+	s.mu.RLock()
+	inv, ok := s.invoices[invoiceID]
+	s.mu.RUnlock()
+
+	if !ok || inv == nil {
+		return nil, "", fmt.Errorf("invoice '%s' not found", invoiceID)
+	}
+
+	pdfBytes, err := GenerateInvoicePDF(inv)
+	if err != nil {
+		return nil, "", err
+	}
+
+	filename := fmt.Sprintf("invoice-%s.pdf", inv.ID)
+	return pdfBytes, filename, nil
 }

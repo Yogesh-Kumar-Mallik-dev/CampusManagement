@@ -6,6 +6,7 @@ import '../models/fee.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/file_downloader.dart';
 import '../widgets/app_dropdown.dart';
 
 class FeeScreen extends StatefulWidget {
@@ -667,29 +668,41 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
                       style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
                     ),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (isPayable)
-                        ElevatedButton.icon(
-                          key: Key('btn-pay-fee-${invoice.id}'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.wineRed,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                          ),
-                          onPressed: () => _showPayInvoiceDialog(invoice),
-                          icon: const Icon(Icons.payment, size: 16),
-                          label: Text('Pay Dues (${currencyFmt.format(invoice.dueAmount)})'),
-                        )
-                      else
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
                         OutlinedButton.icon(
-                          key: Key('btn-settled-${invoice.id}'),
-                          onPressed: null,
-                          icon: const Icon(Icons.check_circle, size: 16, color: AppColors.githubGreen),
-                          label: const Text('Invoice Settled in Full'),
+                          key: Key('btn-download-invoice-pdf-${invoice.id}'),
+                          onPressed: () => _downloadInvoicePdf(invoice),
+                          icon: const Icon(Icons.picture_as_pdf_outlined, size: 16, color: AppColors.wineRed),
+                          label: const Text('Download Invoice PDF', style: TextStyle(fontSize: 12)),
                         ),
-                    ],
+                        if (isPayable)
+                          ElevatedButton.icon(
+                            key: Key('btn-pay-fee-${invoice.id}'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.wineRed,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            ),
+                            onPressed: () => _showPayInvoiceDialog(invoice),
+                            icon: const Icon(Icons.payment, size: 16),
+                            label: Text('Pay Dues (${currencyFmt.format(invoice.dueAmount)})', style: const TextStyle(fontSize: 12)),
+                          )
+                        else
+                          OutlinedButton.icon(
+                            key: Key('btn-settled-${invoice.id}'),
+                            onPressed: null,
+                            icon: const Icon(Icons.check_circle, size: 16, color: AppColors.githubGreen),
+                            label: const Text('Invoice Settled in Full', style: TextStyle(fontSize: 12)),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1219,6 +1232,40 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
   // ----------------------------------------------------
   // DIALOGS: PAY INVOICE, PAY FINE, APPEAL, RECEIPT
   // ----------------------------------------------------
+
+  Future<void> _downloadInvoicePdf(FeeInvoiceModel invoice) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Generating PDF for ${invoice.id}...'),
+          duration: const Duration(milliseconds: 900),
+        ),
+      );
+
+      final bytes = await _facade.downloadInvoicePdf(invoice.id);
+      final filename = 'invoice-${invoice.id}.pdf';
+      await triggerPdfDownload(filename: filename, bytes: bytes);
+
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Invoice PDF downloaded: $filename (${bytes.length} bytes)'),
+          backgroundColor: AppColors.githubGreen,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (err) {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to download invoice PDF: $err'),
+          backgroundColor: AppColors.statusRed,
+        ),
+      );
+    }
+  }
 
   Future<void> _showPayInvoiceDialog(FeeInvoiceModel invoice) async {
     final messenger = ScaffoldMessenger.of(context);

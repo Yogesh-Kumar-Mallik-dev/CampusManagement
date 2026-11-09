@@ -180,6 +180,7 @@ abstract class ICampusFacade {
   });
   Future<List<FeePaymentModel>> getFeePayments(String studentId);
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
+  Future<List<int>> downloadInvoicePdf(String invoiceId);
 }
 
 /// CampusFacade is the production implementation of ICampusFacade.
@@ -638,4 +639,8 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber) =>
       storage.getFeeReceipt(receiptNumber);
+
+  @override
+  Future<List<int>> downloadInvoicePdf(String invoiceId) =>
+      storage.downloadInvoicePdf(invoiceId);
 }

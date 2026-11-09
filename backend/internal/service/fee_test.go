@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -256,5 +257,35 @@ func TestFeeServiceOperations(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected validation error for invalid fine")
+	}
+
+	// 7. PDF Generation Test
+	pdfBytes, filename, err := svc.GenerateInvoicePDF(ctx, "inv-tuition-2026-sem3")
+	if err != nil {
+		t.Fatalf("failed to generate invoice PDF: %v", err)
+	}
+	if len(pdfBytes) == 0 {
+		t.Fatalf("expected non-empty PDF bytes")
+	}
+	if !strings.HasPrefix(string(pdfBytes), "%PDF-1.4") {
+		t.Fatalf("expected PDF-1.4 header")
+	}
+	if !strings.Contains(string(pdfBytes), "%%EOF") {
+		t.Fatalf("expected EOF marker in PDF")
+	}
+	if filename != "invoice-inv-tuition-2026-sem3.pdf" {
+		t.Fatalf("unexpected filename: %s", filename)
+	}
+
+	// PDF for missing invoice
+	_, _, err = svc.GenerateInvoicePDF(ctx, "non-existent-invoice")
+	if err == nil {
+		t.Fatalf("expected error for non-existent invoice")
+	}
+
+	// Direct nil test
+	_, err = GenerateInvoicePDF(nil)
+	if err == nil {
+		t.Fatalf("expected error generating PDF for nil invoice")
 	}
 }

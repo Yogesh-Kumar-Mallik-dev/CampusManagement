@@ -63,6 +63,7 @@ type CampusFacadeInterface interface {
 	WaiveFine(ctx context.Context, fineID, waivedBy string) (*model.FineRecord, error)
 	GetPaymentRecords(ctx context.Context, studentID string) ([]model.FeePayment, error)
 	GetReceipt(ctx context.Context, receiptNumber string) (*model.FeeReceipt, error)
+	DownloadInvoicePDF(ctx context.Context, invoiceID string) ([]byte, string, error)
 }
 
 // CampusFacade coordinates operations across all backend domain services through a single entry point
@@ -402,4 +403,11 @@ func (f *CampusFacade) GetReceipt(ctx context.Context, receiptNumber string) (*m
 		return nil, fmt.Errorf("fee service unavailable")
 	}
 	return f.fee.GetReceipt(ctx, receiptNumber)
+}
+
+func (f *CampusFacade) DownloadInvoicePDF(ctx context.Context, invoiceID string) ([]byte, string, error) {
+	if f.fee == nil {
+		return nil, "", fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.GenerateInvoicePDF(ctx, invoiceID)
 }

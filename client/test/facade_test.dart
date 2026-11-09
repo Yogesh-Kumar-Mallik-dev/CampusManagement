@@ -514,6 +514,11 @@ void main() {
 
       final receipt = await facade.getFeeReceipt(payments.first.receiptNumber);
       expect(receipt.receiptNumber, equals(payments.first.receiptNumber));
+
+      // 5. Download Invoice PDF
+      final pdfBytes = await facade.downloadInvoicePdf(dueInvoice.id);
+      expect(pdfBytes.isNotEmpty, isTrue);
+      expect(String.fromCharCodes(pdfBytes).startsWith('%PDF-1.4'), isTrue);
     });
   });
 }

@@ -2500,7 +2500,14 @@ void main() {
     expect(find.text('Hostel Residency & Maintenance (Aryabhatta Block)'), findsOneWidget);
     expect(find.text('Itemized Fee Head Breakdown'), findsWidgets);
 
-    // 3. Test Pay Fee Dialog
+    // 3. Test Download Invoice PDF
+    expect(find.byKey(const Key('btn-download-invoice-pdf-inv-hostel-2026-sem3')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-download-invoice-pdf-inv-hostel-2026-sem3')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Invoice PDF downloaded: invoice-inv-hostel-2026-sem3.pdf'), findsOneWidget);
+
+    // 4. Test Pay Fee Dialog
     expect(find.byKey(const Key('btn-pay-fee-inv-hostel-2026-sem3')), findsOneWidget);
     await tester.tap(find.byKey(const Key('btn-pay-fee-inv-hostel-2026-sem3')));
     await tester.pumpAndSettle();

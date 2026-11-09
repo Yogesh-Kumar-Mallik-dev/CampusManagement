@@ -1100,4 +1100,13 @@ class ApiService implements ICampusApi {
     }
     throw Exception('Failed to fetch receipt: ${res.statusCode}');
   }
+
+  @override
+  Future<List<int>> downloadInvoicePdf(String invoiceId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/invoices/pdf?id=$invoiceId'));
+    if (res.statusCode == 200) {
+      return res.bodyBytes;
+    }
+    throw Exception('Failed to download invoice PDF (${res.statusCode}): ${res.body}');
+  }
 }

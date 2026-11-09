@@ -7,6 +7,7 @@ import 'package:campus_client/models/hostel.dart';
 import 'package:campus_client/models/mess.dart';
 import 'package:campus_client/models/user.dart';
 import 'package:campus_client/theme/svg_icons.dart';
+import 'package:campus_client/utils/invoice_pdf_generator.dart';
 import 'package:campus_client/widgets/app_skeleton.dart';
 
 void main() {
@@ -471,6 +472,42 @@ void main() {
       final sumParsed = FeeSummaryModel.fromJson(sumJson);
       expect(sumParsed.totalDues, equals(40000));
       expect(sumParsed.activeFinesCount, equals(1));
+    });
+
+    test('InvoicePdfGenerator compiles compliant PDF 1.4 binary bytes', () {
+      final now = DateTime.now();
+      final invoice = FeeInvoiceModel(
+        id: 'inv-pdf-01',
+        studentId: 'usr-std-01',
+        studentName: 'Pooja Sharma',
+        campusHandle: 'pooja_2026',
+        academicYear: '2026-2027',
+        semesterNumber: 4,
+        feeType: FeeType.tuition,
+        title: 'B.Tech Semester 4 Comprehensive Fee',
+        totalAmount: 55000,
+        paidAmount: 25000,
+        dueAmount: 30000,
+        dueDate: now.add(const Duration(days: 20)),
+        status: InvoiceStatus.partial,
+        breakdown: const [
+          FeeHeadModel(headName: 'Instruction & Tuition', amount: 40000),
+          FeeHeadModel(headName: 'AI Computing Laboratory', amount: 15000),
+        ],
+        createdAt: now.subtract(const Duration(days: 10)),
+        updatedAt: now,
+      );
+
+      final pdfBytes = InvoicePdfGenerator.generate(invoice);
+      expect(pdfBytes.isNotEmpty, isTrue);
+
+      final pdfString = String.fromCharCodes(pdfBytes);
+      expect(pdfString.startsWith('%PDF-1.4'), isTrue);
+      expect(pdfString.contains('%%EOF'), isTrue);
+      expect(pdfString.contains('inv-pdf-01'), isTrue);
+      expect(pdfString.contains('Pooja Sharma'), isTrue);
+      expect(pdfString.contains('Instruction & Tuition'), isTrue);
+      expect(pdfString.contains('AI Computing Laboratory'), isTrue);
     });
   });
 

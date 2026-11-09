@@ -307,6 +307,7 @@ func (c *Container) BuildMux() *http.ServeMux {
 	if c.FeeHandler != nil {
 		mux.HandleFunc("/api/v1/fees/summary", c.FeeHandler.HandleSummary)
 		mux.HandleFunc("/api/v1/fees/invoices", c.FeeHandler.HandleInvoices)
+		mux.HandleFunc("/api/v1/fees/invoices/pdf", c.FeeHandler.HandleInvoicePDF)
 		mux.HandleFunc("/api/v1/fees/pay", c.FeeHandler.HandlePayInvoice)
 		mux.HandleFunc("/api/v1/fees/fines", c.FeeHandler.HandleFines)
 		mux.HandleFunc("/api/v1/fees/fines/pay", c.FeeHandler.HandlePayFine)

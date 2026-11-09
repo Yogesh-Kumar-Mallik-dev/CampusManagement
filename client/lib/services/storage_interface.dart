@@ -182,6 +182,7 @@ abstract class ICampusApi {
   });
   Future<List<FeePaymentModel>> getFeePayments(String studentId);
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
+  Future<List<int>> downloadInvoicePdf(String invoiceId);
 }
 
 /// ICampusStorage abstracts local persistence, offline caching, and outbox synchronization.
@@ -358,4 +359,5 @@ abstract class ICampusStorage {
   });
   Future<List<FeePaymentModel>> getFeePayments(String studentId);
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
+  Future<List<int>> downloadInvoicePdf(String invoiceId);
 }

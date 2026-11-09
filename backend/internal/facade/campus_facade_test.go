@@ -342,6 +342,11 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 	if err != nil || fetchedReceipt == nil {
 		t.Fatalf("get receipt failed: %v", err)
 	}
+
+	pdfBytes, filename, err := facade.DownloadInvoicePDF(ctx, targetInv.ID)
+	if err != nil || len(pdfBytes) == 0 || filename == "" {
+		t.Fatalf("download invoice pdf failed: %v", err)
+	}
 }
 
 func TestCampusFacadeNilSafety(t *testing.T) {
@@ -468,6 +473,9 @@ func TestCampusFacadeNilSafety(t *testing.T) {
 		t.Fatal("expected error on nil fee")
 	}
 	if _, err := facade.GetReceipt(ctx, "1"); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, _, err := facade.DownloadInvoicePDF(ctx, "1"); err == nil {
 		t.Fatal("expected error on nil fee")
 	}
 }
