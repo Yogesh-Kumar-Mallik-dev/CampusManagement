@@ -358,6 +358,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  @override
+  void didUpdateWidget(HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentUser != null && widget.currentUser != oldWidget.currentUser) {
+      _currentUser = widget.currentUser!;
+      _tabWidgetCache.clear();
+      _checkServer();
+    }
+  }
+
   void _checkServer() {
     widget.storage.refreshConnectivityAndSync(_currentUser.id).then((_) {
       if (mounted) setState(() {});
@@ -1082,17 +1092,71 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _getTimeGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  String _getPersonaCategory(UserModel user) {
+    if (user.isAdmin) return 'admin';
+    if (user.isWarden) return 'warden';
+    if (user.isMessManager) return 'mess';
+    if (user.isFaculty || user.isHOD) return 'faculty';
+    if (user.isStudent) return 'student';
+    if (user.isContractor) return 'contractor';
+    return 'student';
+  }
+
+  String _getPersonalizedBannerSubtitle(UserModel user) {
+    if (user.isAdmin) {
+      return 'Institutional Operations & Executive Governance • Campus Director';
+    }
+    if (user.isWarden) {
+      return 'Campus Residential Services • Chief Hostel Warden • Gate 1 Office';
+    }
+    if (user.isMessManager) {
+      return 'Dining & Catering Operations • Central Campus Canteen & Mess';
+    }
+    if (user.isFaculty || user.isHOD) {
+      final deptScope = user.activeScopes.firstWhere(
+        (s) => s.startsWith('dept:'),
+        orElse: () => 'dept:cse',
+      );
+      final deptName = deptScope.replaceFirst('dept:', '').toUpperCase();
+      final title = user.isHOD ? 'Head of Department & Faculty' : 'Faculty Member';
+      return 'Department of $deptName • $title • Cabin: CS-304';
+    }
+    if (user.isStudent) {
+      final secScope = user.sectionScope ??
+          user.activeScopes.firstWhere((s) => s.startsWith('sec:'), orElse: () => 'sec:cse-3a');
+      final secName = secScope.replaceFirst('sec:', '').toUpperCase();
+      final sem = user.currentSemester ?? 3;
+      final roll = (user.universityRollNo?.isNotEmpty == true) ? user.universityRollNo! : '2025-CS-042';
+      return 'B.Tech Computer Science • Semester $sem • Section $secName • Roll: $roll';
+    }
+    if (user.isContractor) {
+      final org = user.vendorOrganization ?? 'External Contractor Services';
+      final pass = user.gatePassId ?? 'GP-2025-0891';
+      return '$org • Gate Pass: $pass • Authorized Contractor';
+    }
+    return user.email;
+  }
+
   Widget _buildDashboardView() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final persona = _getPersonaCategory(_currentUser);
+    final greeting = _getTimeGreeting();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Enterprise User Identity Strip
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               borderRadius: BorderRadius.circular(8),
@@ -1103,7 +1167,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 520;
+                final isNarrow = constraints.maxWidth < 560;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1111,12 +1175,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
-                          width: 44,
-                          height: 44,
+                          width: 42,
+                          height: 42,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: AppColors.wineRed,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(7),
                           ),
                           child: Text(
                             _currentUser.firstName.isNotEmpty ? _currentUser.firstName[0] : '?',
@@ -1127,7 +1191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1138,8 +1202,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 runSpacing: 4,
                                 children: [
                                   Text(
-                                    _currentUser.fullName,
-                                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                                    '$greeting, ${_currentUser.firstName}!',
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   ),
                                   Builder(
                                     builder: (context) {
@@ -1159,7 +1223,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         child: Text(
                                           _currentUser.archetype.toUpperCase(),
                                           style: TextStyle(
-                                            fontSize: 10,
+                                            fontSize: 9.5,
                                             fontWeight: FontWeight.bold,
                                             color: roleBadge.text,
                                           ),
@@ -1169,12 +1233,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 3),
+                              const SizedBox(height: 2),
+                              Text(
+                                _getPersonalizedBannerSubtitle(_currentUser),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
                               Text(
                                 '@${_currentUser.campusHandle} • ${_currentUser.email}',
                                 style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                  fontSize: 10,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                                   fontFamily: 'monospace',
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -1221,7 +1295,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     if (_currentUser.activeScopes.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
@@ -1240,7 +1314,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Text(
                               scope,
                               style: TextStyle(
-                                fontSize: 10.5,
+                                fontSize: 10,
                                 color: scopeBadge.text,
                               ),
                             ),
@@ -1253,9 +1327,11 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          // Operational Navigation Cards
+          // ----------------------------------------------------
+          // LIVE PERSONALIZED ROLE METRICS (4 CARDS)
+          // ----------------------------------------------------
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -1263,110 +1339,42 @@ class _HomeScreenState extends State<HomeScreen> {
             runSpacing: 4,
             children: [
               const Text(
-                'Academic Operations',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                'Live Operational Indicators',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
               Text(
-                'Phase 1 Baseline',
+                'Personalized for ${_currentUser.archetype.toUpperCase()}',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                   color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 600;
-              final cards = [
-                _buildOperationCard(
-                  title: 'Academic Timetable',
-                  subtitle: 'Daily schedule, lecture slots, and labs',
-                  iconSvg: AppSvgIcon.calendar,
-                  color: AppColors.wineRed,
-                  onTap: () => _onDestinationSelected(1),
-                ),
-                _buildOperationCard(
-                  title: 'Attendance Ledger',
-                  subtitle: 'Offline outbox with idempotent sync',
-                  iconSvg: AppSvgIcon.attendance,
-                  color: AppColors.githubGreen,
-                  onTap: () => _onDestinationSelected(2),
-                ),
-                _buildOperationCard(
-                  title: 'Targeted Notices',
-                  subtitle: 'Scoped department announcements',
-                  iconSvg: AppSvgIcon.bell,
-                  color: AppColors.statusYellow,
-                  onTap: () => _onDestinationSelected(3),
-                ),
-                _buildOperationCard(
-                  title: 'Directory & Identities',
-                  subtitle: 'Onboarding & lifecycle exit control',
-                  iconSvg: AppSvgIcon.user,
-                  color: AppColors.wineRed,
-                  onTap: () => _onDestinationSelected(4),
-                ),
-                _buildOperationCard(
-                  title: 'Departments & Academics',
-                  subtitle: 'Curriculum, faculty allocations, and semesters',
-                  iconSvg: AppSvgIcon.building,
-                  color: const Color(0xFF0969DA),
-                  onTap: () => _onDestinationSelected(5),
-                ),
-                _buildOperationCard(
-                  title: 'Hostel Rooms',
-                  subtitle: 'Rooms 100-999, fixture inventory & allotments',
-                  iconSvg: AppSvgIcon.bed,
-                  color: const Color(0xFFD97706),
-                  onTap: () => _onDestinationSelected(6),
-                ),
-                _buildOperationCard(
-                  title: 'Hostel Mess & Feedback',
-                  subtitle: 'Weekly menu, Sunday brunch & meal ratings',
-                  iconSvg: AppSvgIcon.utensils,
-                  color: const Color(0xFF2DA44E),
-                  onTap: () => _onDestinationSelected(7),
-                ),
-                _buildOperationCard(
-                  key: const Key('card-quick-complaints'),
-                  title: 'Grievances & Redressal',
-                  subtitle: 'Official complaints, hostel maintenance & anonymous reporting',
-                  iconSvg: AppSvgIcon.alertTriangle,
-                  color: AppColors.statusRed,
-                  onTap: () => _onDestinationSelected(8),
-                ),
-              ];
+          _buildPersonalizedMetrics(context, isDark, persona),
 
-              if (isWide) {
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: cards.map((c) {
-                    final cardWidth = (constraints.maxWidth - 36) / 4;
-                    return SizedBox(width: cardWidth, child: c);
-                  }).toList(),
-                );
-              }
-              return Column(
-                children: [
-                  for (int i = 0; i < cards.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 10),
-                    cards[i],
-                  ],
-                ],
-              );
-            },
-          ),
+          const SizedBox(height: 16),
 
-          const SizedBox(height: 24),
+          // ----------------------------------------------------
+          // PERSONALIZED OPERATIONS CARDS
+          // ----------------------------------------------------
+          _buildPersonalizedOperations(context, isDark, persona),
 
-          // Institutional System Specs
+          const SizedBox(height: 16),
+
+          // ----------------------------------------------------
+          // PERSONALIZED SPOTLIGHT / QUICK ACTION CARDS
+          // ----------------------------------------------------
+          _buildPersonalizedSpotlight(context, isDark, persona),
+
+          const SizedBox(height: 16),
+
+          // Institutional System Specs & Sync Health
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               borderRadius: BorderRadius.circular(8),
@@ -1382,32 +1390,998 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: EdgeInsets.only(top: 2),
                   child: AppSvgIcon(
                     svgString: AppSvgIcon.shield,
-                    size: 20,
+                    size: 18,
                     color: AppColors.wineRed,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Offline-First Replication & Scoped RBAC Engine Active',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
-                        'All attendance, course structures, and schedules cache locally on this device. When offline, all transactions append to the local outbox and sync with cryptographic safety to the Go backend when network reconnects.',
+                        'All attendance records, course structures, and schedules cache locally on this device. When offline, all transactions append to the local outbox and sync with cryptographic safety to the Go backend when network reconnects.',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11.5,
                           color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                          height: 1.4,
+                          height: 1.35,
                         ),
                       ),
                     ],
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonalizedMetrics(BuildContext context, bool isDark, String persona) {
+    final List<_DashboardMetricCard> metrics;
+
+    switch (persona) {
+      case 'student':
+        metrics = [
+          _DashboardMetricCard(
+            title: 'Attendance Health',
+            value: '82.4%',
+            subtitle: 'Safe • >75% Mandatory Margin',
+            iconSvg: AppSvgIcon.attendance,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+          _DashboardMetricCard(
+            title: "Today's Schedule",
+            value: '5 Sessions',
+            subtitle: '4 Lectures & 1 Practical Lab',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(1),
+          ),
+          _DashboardMetricCard(
+            title: 'Hostel Residence',
+            value: 'Room 108',
+            subtitle: 'Floor 1 • Curfew 22:30 IST',
+            iconSvg: AppSvgIcon.bed,
+            color: const Color(0xFFD97706),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _DashboardMetricCard(
+            title: 'Mess Schedule',
+            value: 'Active Menu',
+            subtitle: '6 Days + Sunday Brunch (10:00-12:30)',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+        ];
+        break;
+
+      case 'faculty':
+        metrics = [
+          _DashboardMetricCard(
+            title: 'Teaching Load',
+            value: '3 Classes Today',
+            subtitle: 'CS301 (09:00), CS302 Lab (14:00)',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(1),
+          ),
+          _DashboardMetricCard(
+            title: 'Optical Attendance',
+            value: 'Ready to Roll',
+            subtitle: '1-Tap Rolling QR Broadcast',
+            iconSvg: AppSvgIcon.attendance,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+          _DashboardMetricCard(
+            title: 'Department Stats',
+            value: '28 Faculty',
+            subtitle: '4 Degree Programs • CSE Dept',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(5),
+          ),
+          _DashboardMetricCard(
+            title: 'Student Grievances',
+            value: 'Academic Inbox',
+            subtitle: 'Course & Practical Inquiries',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+        ];
+        break;
+
+      case 'warden':
+        metrics = [
+          _DashboardMetricCard(
+            title: 'Hostel Occupancy',
+            value: '94% Occupancy',
+            subtitle: '142 / 150 Rooms Allotted',
+            iconSvg: AppSvgIcon.bed,
+            color: const Color(0xFFD97706),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _DashboardMetricCard(
+            title: 'Night Curfew',
+            value: '22:30 IST',
+            subtitle: 'Gate 1 Biometric Verification',
+            iconSvg: AppSvgIcon.shield,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _DashboardMetricCard(
+            title: 'Fixture Inventory',
+            value: '16 Items Monitored',
+            subtitle: '14-Char Serial Asset Tracking',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _DashboardMetricCard(
+            title: 'Hostel Redressal',
+            value: 'Maintenance Queue',
+            subtitle: 'Plumbing, Electric & Fixtures',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+        ];
+        break;
+
+      case 'mess':
+        metrics = [
+          _DashboardMetricCard(
+            title: 'Meal Timetable',
+            value: '6 Days + Sunday',
+            subtitle: 'Sunday Brunch (10:00 - 12:30)',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _DashboardMetricCard(
+            title: 'Average Rating',
+            value: '4.2 / 5.0 Stars',
+            subtitle: 'Mandatory Reviews < 3 Stars',
+            iconSvg: AppSvgIcon.attendance,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _DashboardMetricCard(
+            title: 'Service Schedule',
+            value: 'Standard Timetable',
+            subtitle: 'Breakfast, Lunch, Snacks, Dinner',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _DashboardMetricCard(
+            title: 'Catering Feedback',
+            value: 'Quality Redressal',
+            subtitle: 'Hygiene & Meal Feedback',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+        ];
+        break;
+
+      case 'contractor':
+        metrics = [
+          _DashboardMetricCard(
+            title: 'Gate Pass Status',
+            value: 'Active Verified',
+            subtitle: 'Gate 1 & Main Gate Authorized',
+            iconSvg: AppSvgIcon.shield,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(9),
+          ),
+          _DashboardMetricCard(
+            title: 'Facility Scopes',
+            value: 'Assigned Areas',
+            subtitle: 'Canteen & Main Campus Buildings',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(9),
+          ),
+          _DashboardMetricCard(
+            title: 'Mess Schedule',
+            value: 'Canteen Access',
+            subtitle: 'Dining Timetable & Menu Access',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _DashboardMetricCard(
+            title: 'Vendor Redressal',
+            value: 'Contractor Issues',
+            subtitle: 'Facility & Billing Inquiries',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+        ];
+        break;
+
+      case 'admin':
+      default:
+        metrics = [
+          _DashboardMetricCard(
+            title: 'Campus Directory',
+            value: '1,420 Identities',
+            subtitle: 'Students, Staff & Contractors',
+            iconSvg: AppSvgIcon.user,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(4),
+          ),
+          _DashboardMetricCard(
+            title: 'Academic Structure',
+            value: '6 Departments',
+            subtitle: '18 Degree Programs & Sections',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(5),
+          ),
+          _DashboardMetricCard(
+            title: 'Institutional Redressal',
+            value: '5 Categories',
+            subtitle: 'Student, Staff, Hostel, Campus',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+          _DashboardMetricCard(
+            title: 'Offline Sync Engine',
+            value: '100% Operational',
+            subtitle: 'Cryptographic Outbox Active',
+            iconSvg: AppSvgIcon.shield,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+        ];
+        break;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        if (width >= 620) {
+          final cardWidth = (width - 36) / 4;
+          return Row(
+            children: [
+              for (int i = 0; i < metrics.length; i++) ...[
+                if (i > 0) const SizedBox(width: 12),
+                SizedBox(width: cardWidth, child: metrics[i]),
+              ],
+            ],
+          );
+        } else if (width >= 420) {
+          final cardWidth = (width - 12) / 2;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: metrics.map((m) => SizedBox(width: cardWidth, child: m)).toList(),
+          );
+        } else {
+          return Column(
+            children: [
+              for (int i = 0; i < metrics.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                metrics[i],
+              ],
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildPersonalizedOperations(BuildContext context, bool isDark, String persona) {
+    final String personaLabel;
+    final List<Widget> cards;
+
+    switch (persona) {
+      case 'student':
+        personaLabel = 'Student Campus Hub';
+        cards = [
+          _buildOperationCard(
+            title: 'Academic Timetable',
+            subtitle: 'My daily schedule, lecture slots, and lab batches',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(1),
+          ),
+          _buildOperationCard(
+            title: 'Attendance Ledger',
+            subtitle: 'Live optical QR roll-call & 30-day course status',
+            iconSvg: AppSvgIcon.attendance,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+          _buildOperationCard(
+            title: 'Targeted Notices',
+            subtitle: 'Section CSE-3A circulars & club bulletins',
+            iconSvg: AppSvgIcon.bell,
+            color: AppColors.statusYellow,
+            onTap: () => _onDestinationSelected(3),
+          ),
+          _buildOperationCard(
+            title: 'Directory & Identities',
+            subtitle: 'Campus directory & faculty advisor contact',
+            iconSvg: AppSvgIcon.user,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(4),
+          ),
+          _buildOperationCard(
+            title: 'Departments & Academics',
+            subtitle: 'B.Tech CSE curriculum, syllabus & course outlines',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(5),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Rooms',
+            subtitle: 'Room 108, roommates & verified asset inventory',
+            iconSvg: AppSvgIcon.bed,
+            color: const Color(0xFFD97706),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Mess & Feedback',
+            subtitle: 'Weekly menu, Sunday brunch & meal ratings',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-complaints'),
+            title: 'Grievances & Redressal',
+            subtitle: 'Official complaints, hostel maintenance & anonymous reporting',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+        ];
+        break;
+
+      case 'faculty':
+        personaLabel = 'Academic & Instructional Governance';
+        cards = [
+          _buildOperationCard(
+            title: 'Attendance Ledger',
+            subtitle: 'Launch rotating QR broadcast for Section CSE-3A',
+            iconSvg: AppSvgIcon.attendance,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+          _buildOperationCard(
+            title: 'Academic Timetable',
+            subtitle: 'My lecture slots, laboratory batches & room assignments',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(1),
+          ),
+          _buildOperationCard(
+            title: 'Departments & Academics',
+            subtitle: 'Programs, syllabus audit trail & faculty workload',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(5),
+          ),
+          _buildOperationCard(
+            title: 'Targeted Notices',
+            subtitle: 'Scoped department announcements & bulletins',
+            iconSvg: AppSvgIcon.bell,
+            color: AppColors.statusYellow,
+            onTap: () => _onDestinationSelected(3),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-complaints'),
+            title: 'Grievances & Redressal',
+            subtitle: 'Review escalated academic complaints & student feedback',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+          _buildOperationCard(
+            title: 'Directory & Identities',
+            subtitle: 'Student roll numbers, faculty & staff directory',
+            iconSvg: AppSvgIcon.user,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(4),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Rooms',
+            subtitle: 'Hostel inventory & student resident information',
+            iconSvg: AppSvgIcon.bed,
+            color: const Color(0xFFD97706),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Mess & Feedback',
+            subtitle: 'Weekly dining menu & student food quality ratings',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+        ];
+        break;
+
+      case 'warden':
+        personaLabel = 'Residential Life & Facility Controls';
+        cards = [
+          _buildOperationCard(
+            title: 'Hostel Rooms',
+            subtitle: 'Inspect rooms 100-999, edit fixtures & manage occupants',
+            iconSvg: AppSvgIcon.bed,
+            color: const Color(0xFFD97706),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-complaints'),
+            title: 'Grievances & Redressal',
+            subtitle: 'Address plumbing, electrical & asset maintenance tickets',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Mess & Feedback',
+            subtitle: 'Inspect food ratings, weekly menu & Sunday brunch',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _buildOperationCard(
+            title: 'Targeted Notices',
+            subtitle: 'Post curfew advisories, maintenance notices & inspections',
+            iconSvg: AppSvgIcon.bell,
+            color: AppColors.statusYellow,
+            onTap: () => _onDestinationSelected(3),
+          ),
+          _buildOperationCard(
+            title: 'Directory & Identities',
+            subtitle: 'Occupant student records, roll numbers & emergency contacts',
+            iconSvg: AppSvgIcon.user,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(4),
+          ),
+          _buildOperationCard(
+            title: 'Academic Timetable',
+            subtitle: 'Check student class timings for gate pass clearance',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(1),
+          ),
+          _buildOperationCard(
+            title: 'Departments & Academics',
+            subtitle: 'Departmental directory & faculty liaison roster',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(5),
+          ),
+          _buildOperationCard(
+            title: 'Attendance Ledger',
+            subtitle: 'Campus attendance ledgers & night curfews',
+            iconSvg: AppSvgIcon.attendance,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+        ];
+        break;
+
+      case 'mess':
+        personaLabel = 'Dining Operations & Quality Assurance';
+        cards = [
+          _buildOperationCard(
+            title: 'Hostel Mess & Feedback',
+            subtitle: 'Edit daily breakfast, lunch, snacks & dinner timetable',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-complaints'),
+            title: 'Grievances & Redressal',
+            subtitle: 'Resolve meal quality, hygiene & contractor tickets',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+          _buildOperationCard(
+            title: 'Targeted Notices',
+            subtitle: 'Publish feast schedules & special menu notices',
+            iconSvg: AppSvgIcon.bell,
+            color: AppColors.statusYellow,
+            onTap: () => _onDestinationSelected(3),
+          ),
+          _buildOperationCard(
+            title: 'Academic Timetable',
+            subtitle: 'Monitor lecture timings to prepare meal serving volumes',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(1),
+          ),
+          _buildOperationCard(
+            title: 'Directory & Identities',
+            subtitle: 'Staff roster & catering personnel identity directory',
+            iconSvg: AppSvgIcon.user,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(4),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Rooms',
+            subtitle: 'Resident boarders & meal plan allocations',
+            iconSvg: AppSvgIcon.bed,
+            color: const Color(0xFFD97706),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _buildOperationCard(
+            title: 'Departments & Academics',
+            subtitle: 'Academic calendar & institutional events',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(5),
+          ),
+          _buildOperationCard(
+            title: 'Attendance Ledger',
+            subtitle: 'Catering staff logs & attendance ledgers',
+            iconSvg: AppSvgIcon.attendance,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+        ];
+        break;
+
+      case 'contractor':
+        personaLabel = 'Vendor Operations & Facility Access';
+        cards = [
+          _buildOperationCard(
+            title: 'Hostel Mess & Feedback',
+            subtitle: 'Dining timetable & catering operations',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-complaints'),
+            title: 'Grievances & Redressal',
+            subtitle: 'Submit contractor tickets & facility maintenance',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+          _buildOperationCard(
+            title: 'Targeted Notices',
+            subtitle: 'Gate security alerts & operational updates',
+            iconSvg: AppSvgIcon.bell,
+            color: AppColors.statusYellow,
+            onTap: () => _onDestinationSelected(3),
+          ),
+          _buildOperationCard(
+            title: 'Directory & Identities',
+            subtitle: 'Authorized facilities & contract validation',
+            iconSvg: AppSvgIcon.user,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(9),
+          ),
+          _buildOperationCard(
+            title: 'Academic Timetable',
+            subtitle: 'Campus schedule & building access hours',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(1),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Rooms',
+            subtitle: 'Assigned facility maintenance areas',
+            iconSvg: AppSvgIcon.bed,
+            color: const Color(0xFFD97706),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _buildOperationCard(
+            title: 'Departments & Academics',
+            subtitle: 'Campus building structure & departmental wings',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(5),
+          ),
+          _buildOperationCard(
+            title: 'Attendance Ledger',
+            subtitle: 'Contractor gate check-in & duty ledger',
+            iconSvg: AppSvgIcon.attendance,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+        ];
+        break;
+
+      case 'admin':
+      default:
+        personaLabel = 'Executive Administration & Governance';
+        cards = [
+          _buildOperationCard(
+            title: 'Directory & Identities',
+            subtitle: 'Onboarding & lifecycle exit control',
+            iconSvg: AppSvgIcon.user,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(4),
+          ),
+          _buildOperationCard(
+            title: 'Departments & Academics',
+            subtitle: 'Curriculum, faculty allocations, and semesters',
+            iconSvg: AppSvgIcon.building,
+            color: const Color(0xFF0969DA),
+            onTap: () => _onDestinationSelected(5),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-complaints'),
+            title: 'Grievances & Redressal',
+            subtitle: 'Official complaints, hostel maintenance & anonymous reporting',
+            iconSvg: AppSvgIcon.alertTriangle,
+            color: AppColors.statusRed,
+            onTap: () => _onDestinationSelected(8),
+          ),
+          _buildOperationCard(
+            title: 'Academic Timetable',
+            subtitle: 'Daily schedule, lecture slots, and labs',
+            iconSvg: AppSvgIcon.calendar,
+            color: AppColors.wineRed,
+            onTap: () => _onDestinationSelected(1),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Rooms',
+            subtitle: 'Rooms 100-999, fixture inventory & allotments',
+            iconSvg: AppSvgIcon.bed,
+            color: const Color(0xFFD97706),
+            onTap: () => _onDestinationSelected(6),
+          ),
+          _buildOperationCard(
+            title: 'Hostel Mess & Feedback',
+            subtitle: 'Weekly menu, Sunday brunch & meal ratings',
+            iconSvg: AppSvgIcon.utensils,
+            color: const Color(0xFF2DA44E),
+            onTap: () => _onDestinationSelected(7),
+          ),
+          _buildOperationCard(
+            title: 'Targeted Notices',
+            subtitle: 'Scoped department announcements',
+            iconSvg: AppSvgIcon.bell,
+            color: AppColors.statusYellow,
+            onTap: () => _onDestinationSelected(3),
+          ),
+          _buildOperationCard(
+            title: 'Attendance Ledger',
+            subtitle: 'Offline outbox with idempotent sync',
+            iconSvg: AppSvgIcon.attendance,
+            color: AppColors.githubGreen,
+            onTap: () => _onDestinationSelected(2),
+          ),
+        ];
+        break;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            const Text(
+              'Academic Operations',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              personaLabel,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 600;
+            if (isWide) {
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: cards.map((c) {
+                  final cardWidth = (constraints.maxWidth - 36) / 4;
+                  return SizedBox(width: cardWidth, child: c);
+                }).toList(),
+              );
+            }
+            return Column(
+              children: [
+                for (int i = 0; i < cards.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  cards[i],
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPersonalizedSpotlight(BuildContext context, bool isDark, String persona) {
+    final Widget card1;
+    final Widget card2;
+
+    switch (persona) {
+      case 'student':
+        card1 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Upcoming Lecture',
+          title: 'CS301: Operating Systems (09:00 - 10:00 AM)',
+          description: 'Lecture Hall LH-101 • Dr. Priya Nair • Optical QR token session will be broadcast at start of lecture for roll-call verification.',
+          iconSvg: AppSvgIcon.calendar,
+          color: AppColors.wineRed,
+          actionLabel: 'Open Timetable',
+          onAction: () => _onDestinationSelected(1),
+        );
+        card2 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Residential Life & Dining',
+          title: 'Aryabhatta Hall • Room 108 & Central Mess',
+          description: 'Curfew is 22:30 IST sharp at Gate 1. Sunday schedule serves Brunch (10:00 - 12:30) and Dinner (20:00 - 21:30) only.',
+          iconSvg: AppSvgIcon.bed,
+          color: const Color(0xFFD97706),
+          actionLabel: 'Rate Recent Meal',
+          onAction: () => _onDestinationSelected(7),
+        );
+        break;
+
+      case 'faculty':
+        card1 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Optical Attendance Studio',
+          title: 'Section CSE-3A Rolling Broadcast Ready',
+          description: 'Generates rotating optical QR tokens with anti-proxy cryptographic signatures. Scan confirmations sync directly to course ledger.',
+          iconSvg: AppSvgIcon.attendance,
+          color: AppColors.githubGreen,
+          actionLabel: 'Start Broadcast',
+          onAction: () => _onDestinationSelected(2),
+        );
+        card2 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Department & Syllabus Audit',
+          title: 'Odd Semester BoS Curriculum & Workload',
+          description: 'All course syllabi, retrospectively archived Board of Studies minutes, and faculty practical lab splits are up to date.',
+          iconSvg: AppSvgIcon.building,
+          color: const Color(0xFF0969DA),
+          actionLabel: 'Manage Department',
+          onAction: () => _onDestinationSelected(5),
+        );
+        break;
+
+      case 'warden':
+        card1 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Residential Protocol',
+          title: 'Night Curfew 22:30 IST • Gate 1 Biometrics',
+          description: 'All resident students must scan through Gate 1 turnstiles by 22:30. Night out passes require approval 6 hours prior to departure.',
+          iconSvg: AppSvgIcon.shield,
+          color: AppColors.wineRed,
+          actionLabel: 'Inspect Rooms',
+          onAction: () => _onDestinationSelected(6),
+        );
+        card2 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Fixture Integrity Tracking',
+          title: 'Room Fixture Limits & 14-Char Serial Tags',
+          description: 'Standard allocations: 3 beds, 3 tables, 2 tubelights, 2 fans, 3 lockers. All 16 assets per room are strictly serialized.',
+          iconSvg: AppSvgIcon.bed,
+          color: const Color(0xFFD97706),
+          actionLabel: 'Manage Hostel',
+          onAction: () => _onDestinationSelected(6),
+        );
+        break;
+
+      case 'mess':
+        card1 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Sunday Timetable Constraint',
+          title: 'Weekly Timetable Structure & Sunday Schedule',
+          description: 'Monday to Saturday serves Breakfast, Lunch, Snacks, and Dinner. Sunday serves Brunch (10:00 - 12:30) and Dinner (20:00 - 21:30) only.',
+          iconSvg: AppSvgIcon.calendar,
+          color: AppColors.wineRed,
+          actionLabel: 'Edit Menu',
+          onAction: () => _onDestinationSelected(7),
+        );
+        card2 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Quality Assurance Rule',
+          title: 'Compulsory Explanations for Sub-3-Star Ratings',
+          description: 'Students rating any meal 1 or 2 stars must provide detailed corrective remarks. Inspect aggregated reports weekly.',
+          iconSvg: AppSvgIcon.utensils,
+          color: const Color(0xFF2DA44E),
+          actionLabel: 'Inspect Ratings',
+          onAction: () => _onDestinationSelected(7),
+        );
+        break;
+
+      case 'contractor':
+        card1 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Security & Access Control',
+          title: 'Authorized Gate Pass & Scoped Facilities',
+          description: 'Access granted to Canteen and Main Gate facilities. Comply with security gate clearance protocols during shift hours.',
+          iconSvg: AppSvgIcon.shield,
+          color: AppColors.githubGreen,
+          actionLabel: 'View Profile',
+          onAction: () => _onDestinationSelected(9),
+        );
+        card2 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Dining Services & Facilities',
+          title: 'Central Canteen Dining Facility Schedule',
+          description: 'Dining facility meal timings: Breakfast (07:30 - 09:00), Lunch (12:30 - 14:00), Snacks (17:00 - 18:30), Dinner (20:00 - 21:30).',
+          iconSvg: AppSvgIcon.utensils,
+          color: const Color(0xFF2DA44E),
+          actionLabel: 'Mess Schedule',
+          onAction: () => _onDestinationSelected(7),
+        );
+        break;
+
+      case 'admin':
+      default:
+        card1 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Distributed System Health',
+          title: 'Offline-First Replication & Go Sync Engine',
+          description: 'All transactions, attendance tallies, and complaints append to local SQLite/hive storage. Cryptographic hash verifies outbox sync upon reconnection.',
+          iconSvg: AppSvgIcon.shield,
+          color: AppColors.wineRed,
+          actionLabel: 'Directory Governance',
+          onAction: () => _onDestinationSelected(4),
+        );
+        card2 = _buildSpotlightCard(
+          context: context,
+          isDark: isDark,
+          category: 'Institutional Compliance & RBAC',
+          title: 'Granular Scoped Permissions & Audit Log',
+          description: 'Department Chairs, Wardens, and Canteen Managers operate under verified scope boundaries with full identity audit trails.',
+          iconSvg: AppSvgIcon.alertTriangle,
+          color: AppColors.statusRed,
+          actionLabel: 'Redressal Center',
+          onAction: () => _onDestinationSelected(8),
+        );
+        break;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 750) {
+          final cardWidth = (constraints.maxWidth - 16) / 2;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: cardWidth, child: card1),
+              const SizedBox(width: 16),
+              SizedBox(width: cardWidth, child: card2),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            card1,
+            const SizedBox(height: 12),
+            card2,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSpotlightCard({
+    required BuildContext context,
+    required bool isDark,
+    required String category,
+    required String title,
+    required String description,
+    required String iconSvg,
+    required Color color,
+    required String actionLabel,
+    required VoidCallback onAction,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: AppSvgIcon(svgString: iconSvg, size: 16, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      category.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: color,
+                      ),
+                    ),
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: color,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.arrow_forward, size: 14),
+              label: Text(actionLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: onAction,
             ),
           ),
         ],
@@ -1430,6 +2404,121 @@ class _HomeScreenState extends State<HomeScreen> {
       iconSvg: iconSvg,
       color: color,
       onTap: onTap,
+    );
+  }
+}
+
+class _DashboardMetricCard extends StatefulWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+  final String iconSvg;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DashboardMetricCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.iconSvg,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  State<_DashboardMetricCard> createState() => _DashboardMetricCardState();
+}
+
+class _DashboardMetricCardState extends State<_DashboardMetricCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bgColor = _isHovered
+        ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
+        : (isDark ? AppColors.darkSurface : AppColors.lightSurface);
+
+    final borderColor = _isHovered
+        ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+        : (isDark ? AppColors.darkBorder : AppColors.lightBorder);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: widget.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: AppSvgIcon(
+                      svgString: widget.iconSvg,
+                      size: 14,
+                      color: widget.color,
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 10,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                widget.title,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 1),
+              Text(
+                widget.subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
