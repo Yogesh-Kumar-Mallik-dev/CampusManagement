@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../models/complaint.dart';
 import '../models/hostel.dart';
 import '../models/user.dart';
+import '../screens/complaints_screen.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
@@ -1094,42 +1096,76 @@ class _HostelScreenState extends State<HostelScreen> {
                           ),
                         ],
                       ),
-                      if (canManage)
-                        ElevatedButton.icon(
-                          key: const Key('btn-add-hostel-room'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.wineRed,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          OutlinedButton.icon(
+                            key: const Key('btn-shortcut-hostel-complaint'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.statusRed,
+                              side: const BorderSide(color: AppColors.statusRed, width: 1),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            onPressed: () {
+                              ComplaintsScreen.showFileComplaintDialog(
+                                context: context,
+                                storage: widget.storage,
+                                currentUser: widget.currentUser,
+                                initialCategory: ComplaintCategory.hostel,
+                                initialTitle: 'Hostel Maintenance / Fixture Grievance',
+                              );
+                            },
+                            icon: const AppSvgIcon(
+                              svgString: AppSvgIcon.alertTriangle,
+                              size: 14,
+                              color: AppColors.statusRed,
+                            ),
+                            label: const Text(
+                              'Report Hostel Issue',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
                           ),
-                          onPressed: _showCreateRoomDialog,
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Add Room'),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.wineRed.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppColors.wineRed),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.school, size: 14, color: AppColors.wineRed),
-                              const SizedBox(width: 6),
-                              Text(
-                                widget.currentUser?.fullName ?? 'Student Resident',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.wineRed,
-                                ),
+                          if (canManage)
+                            ElevatedButton.icon(
+                              key: const Key('btn-add-hostel-room'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.wineRed,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                               ),
-                            ],
-                          ),
-                        ),
+                              onPressed: _showCreateRoomDialog,
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Add Room'),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.wineRed.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppColors.wineRed),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.school, size: 14, color: AppColors.wineRed),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    widget.currentUser?.fullName ?? 'Student Resident',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.wineRed,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 18),

@@ -5,7 +5,9 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../models/academic.dart';
+import '../models/complaint.dart';
 import '../models/user.dart';
+import '../screens/complaints_screen.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
@@ -519,6 +521,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         titleSpacing: 16,
         title: Text(_getTitleForMode()),
         actions: [
+          IconButton(
+            key: const Key('btn-shortcut-attendance-complaint'),
+            icon: const AppSvgIcon(
+              svgString: AppSvgIcon.alertTriangle,
+              size: 18,
+              color: AppColors.statusRed,
+            ),
+            tooltip: 'Report Attendance Grievance',
+            onPressed: () {
+              ComplaintsScreen.showFileComplaintDialog(
+                context: context,
+                storage: widget.storage,
+                currentUser: widget.currentUser,
+                initialCategory: ComplaintCategory.student,
+                initialTitle: 'Attendance Ledger Discrepancy',
+              );
+            },
+          ),
           if (widget.storage.pendingSyncCount > 0)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),

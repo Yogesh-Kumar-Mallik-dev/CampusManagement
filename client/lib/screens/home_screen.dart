@@ -423,6 +423,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 8),
 
+          // Grievances & Complaints Direct Shortcut
+          IconButton(
+            key: const Key('appbar-btn-complaints'),
+            tooltip: 'Grievances & Complaints',
+            icon: const AppSvgIcon(
+              svgString: AppSvgIcon.alertTriangle,
+              size: 18,
+            ),
+            onPressed: () => _onDestinationSelected(8),
+          ),
+          const SizedBox(width: 4),
+
           // Smooth Animated Theme Toggle
           const SmoothThemeToggle(),
           const SizedBox(width: 4),
@@ -787,6 +799,10 @@ class _HomeScreenState extends State<HomeScreen> {
         return (label: 'Hostel', svgIcon: AppSvgIcon.bed);
       case 7:
         return (label: 'Mess', svgIcon: AppSvgIcon.utensils);
+      case 8:
+        return (label: 'Complaints', svgIcon: AppSvgIcon.alertTriangle);
+      case 9:
+        return (label: 'Profile', svgIcon: AppSvgIcon.user);
       default:
         return (label: 'Timetable', svgIcon: AppSvgIcon.calendar);
     }
@@ -1315,6 +1331,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: const Color(0xFF2DA44E),
                   onTap: () => _onDestinationSelected(7),
                 ),
+                _buildOperationCard(
+                  key: const Key('card-quick-complaints'),
+                  title: 'Grievances & Redressal',
+                  subtitle: 'Official complaints, hostel maintenance & anonymous reporting',
+                  iconSvg: AppSvgIcon.alertTriangle,
+                  color: AppColors.statusRed,
+                  onTap: () => _onDestinationSelected(8),
+                ),
               ];
 
               if (isWide) {
@@ -1392,6 +1416,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildOperationCard({
+    Key? key,
     required String title,
     required String subtitle,
     required String iconSvg,
@@ -1399,6 +1424,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required VoidCallback onTap,
   }) {
     return _OperationCard(
+      key: key,
       title: title,
       subtitle: subtitle,
       iconSvg: iconSvg,
@@ -1432,6 +1458,8 @@ class _CampusSidebar extends StatelessWidget {
       (svg: AppSvgIcon.building, label: 'Depts'),
       (svg: AppSvgIcon.bed, label: 'Hostel'),
       (svg: AppSvgIcon.utensils, label: 'Mess'),
+      (svg: AppSvgIcon.alertTriangle, label: 'Complaints'),
+      (svg: AppSvgIcon.user, label: 'Profile'),
     ];
 
     return Container(
@@ -1456,6 +1484,7 @@ class _CampusSidebar extends StatelessWidget {
                   (idx == 5 && !currentUser.canManageDepartments);
 
               return _SidebarDestinationItem(
+                key: Key('nav-item-${item.label.toLowerCase()}'),
                 svg: item.svg,
                 label: item.label,
                 isSelected: isSelected,
@@ -1479,6 +1508,7 @@ class _SidebarDestinationItem extends StatefulWidget {
   final VoidCallback onTap;
 
   const _SidebarDestinationItem({
+    super.key,
     required this.svg,
     required this.label,
     required this.isSelected,
@@ -1598,6 +1628,7 @@ class _OperationCard extends StatefulWidget {
   final VoidCallback onTap;
 
   const _OperationCard({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.iconSvg,

@@ -14,104 +14,23 @@ class ComplaintsScreen extends StatefulWidget {
     this.currentUser,
   });
 
-  @override
-  State<ComplaintsScreen> createState() => _ComplaintsScreenState();
-}
-
-class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProviderStateMixin {
-  late TabController _tabController;
-  List<ComplaintModel> _complaints = [];
-  bool _isLoading = true;
-
-  String _selectedCategory = 'all';
-  String _selectedStatus = 'all';
-
-  bool get _hasAdminAccess => widget.currentUser?.hasAnyComplaintManagementPermission ?? false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: _hasAdminAccess ? 2 : 1, vsync: this);
-    _loadComplaints();
-  }
-
-  @override
-  void didUpdateWidget(ComplaintsScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentUser?.id != widget.currentUser?.id) {
-      final newLength = _hasAdminAccess ? 2 : 1;
-      if (_tabController.length != newLength) {
-        _tabController.dispose();
-        _tabController = TabController(length: newLength, vsync: this);
-      }
-      _loadComplaints();
-    }
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadComplaints() async {
-    setState(() => _isLoading = true);
-    try {
-      final list = await widget.storage.getComplaints(
-        viewerId: widget.currentUser?.id,
-      );
-      if (mounted) {
-        setState(() {
-          _complaints = list;
-          _isLoading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  List<ComplaintModel> get _myComplaints {
-    final uid = widget.currentUser?.id ?? '';
-    final handle = widget.currentUser?.campusHandle ?? '';
-    return _complaints.where((c) {
-      final isMine = (uid.isNotEmpty && c.submittedBy == uid) ||
-          (handle.isNotEmpty && c.submitterHandle == handle);
-      if (!isMine) return false;
-      if (_selectedCategory != 'all' && c.category != _selectedCategory) return false;
-      if (_selectedStatus != 'all' && c.status != _selectedStatus) return false;
-      return true;
-    }).toList();
-  }
-
-  List<ComplaintModel> get _adminComplaints {
-    final user = widget.currentUser;
-    if (user == null) return [];
-
-    final allowedCats = user.manageableComplaintCategories;
-    final isUnrestricted = user.isAdmin || user.permissions.contains('*') || user.hasPermission('complaints:manage');
-
-    return _complaints.where((c) {
-      if (!isUnrestricted && !allowedCats.contains(c.category)) {
-        return false;
-      }
-      if (_selectedCategory != 'all' && c.category != _selectedCategory) return false;
-      if (_selectedStatus != 'all' && c.status != _selectedStatus) return false;
-      return true;
-    }).toList();
-  }
-
-  void _showFileComplaintDialog() {
-    final titleCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    String category = ComplaintCategory.hostel;
+  static Future<ComplaintModel?> showFileComplaintDialog({
+    required BuildContext context,
+    required OfflineStorageService storage,
+    UserModel? currentUser,
+    String initialCategory = ComplaintCategory.hostel,
+    String? initialTitle,
+    String? initialDescription,
+    VoidCallback? onSubmitted,
+  }) async {
+    final titleCtrl = TextEditingController(text: initialTitle ?? '');
+    final descCtrl = TextEditingController(text: initialDescription ?? '');
+    String category = initialCategory;
     String urgency = ComplaintUrgency.medium;
     bool isAnonymous = false;
     String? validationError;
 
-    showDialog(
+    return showDialog<ComplaintModel>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
@@ -353,7 +272,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                     return;
                   }
 
-                  final user = widget.currentUser;
+                  final user = currentUser;
                   final complaint = ComplaintModel(
                     id: '',
                     title: cleanTitle,
@@ -372,14 +291,14 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
 
                   final messenger = ScaffoldMessenger.of(context);
                   try {
-                    await widget.storage.createComplaint(complaint);
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    await _loadComplaints();
-                    if (mounted) {
-                      messenger.showSnackBar(
-                        SnackBar(content: Text('Complaint successfully filed under ${ComplaintCategory.displayName(category)}.')),
-                      );
+                    final created = await storage.createComplaint(complaint);
+                    if (ctx.mounted) Navigator.pop(ctx, created);
+                    if (onSubmitted != null) {
+                      onSubmitted();
                     }
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Complaint successfully filed under ${ComplaintCategory.displayName(category)}.')),
+                    );
                   } catch (e) {
                     setDialogState(() => validationError = e.toString().replaceAll('Exception: ', ''));
                   }
@@ -391,6 +310,108 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
         },
       ),
     );
+  }
+
+  @override
+  State<ComplaintsScreen> createState() => _ComplaintsScreenState();
+}
+
+class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
+  List<ComplaintModel> _complaints = [];
+  bool _isLoading = true;
+
+  String _selectedCategory = 'all';
+  String _selectedStatus = 'all';
+
+  bool get _hasAdminAccess => widget.currentUser?.hasAnyComplaintManagementPermission ?? false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _hasAdminAccess ? 2 : 1, vsync: this);
+    _loadComplaints();
+  }
+
+  @override
+  void didUpdateWidget(ComplaintsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentUser?.id != widget.currentUser?.id) {
+      final newLength = _hasAdminAccess ? 2 : 1;
+      if (_tabController.length != newLength) {
+        _tabController.dispose();
+        _tabController = TabController(length: newLength, vsync: this);
+      }
+      _loadComplaints();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadComplaints() async {
+    setState(() => _isLoading = true);
+    try {
+      final list = await widget.storage.getComplaints(
+        viewerId: widget.currentUser?.id,
+      );
+      if (mounted) {
+        setState(() {
+          _complaints = list;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  List<ComplaintModel> get _myComplaints {
+    final uid = widget.currentUser?.id ?? '';
+    final handle = widget.currentUser?.campusHandle ?? '';
+    return _complaints.where((c) {
+      final isMine = (uid.isNotEmpty && c.submittedBy == uid) ||
+          (handle.isNotEmpty && c.submitterHandle == handle);
+      if (!isMine) return false;
+      if (_selectedCategory != 'all' && c.category != _selectedCategory) return false;
+      if (_selectedStatus != 'all' && c.status != _selectedStatus) return false;
+      return true;
+    }).toList();
+  }
+
+  List<ComplaintModel> get _adminComplaints {
+    final user = widget.currentUser;
+    if (user == null) return [];
+
+    final allowedCats = user.manageableComplaintCategories;
+    final isUnrestricted = user.isAdmin || user.permissions.contains('*') || user.hasPermission('complaints:manage');
+
+    return _complaints.where((c) {
+      if (!isUnrestricted && !allowedCats.contains(c.category)) {
+        return false;
+      }
+      if (_selectedCategory != 'all' && c.category != _selectedCategory) return false;
+      if (_selectedStatus != 'all' && c.status != _selectedStatus) return false;
+      return true;
+    }).toList();
+  }
+
+  void _showFileComplaintDialog({String initialCategory = ComplaintCategory.hostel}) async {
+    final created = await ComplaintsScreen.showFileComplaintDialog(
+      context: context,
+      storage: widget.storage,
+      currentUser: widget.currentUser,
+      initialCategory: initialCategory,
+      onSubmitted: _loadComplaints,
+    );
+    if (created != null && mounted) {
+      await _loadComplaints();
+    }
   }
 
   void _showUpdateStatusDialog(ComplaintModel complaint) {

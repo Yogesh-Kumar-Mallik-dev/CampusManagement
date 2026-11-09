@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../models/complaint.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
+import '../screens/complaints_screen.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/svg_icons.dart';
 
 class MessScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -546,16 +549,49 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
                           ),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        key: const Key('btn-open-rate-meal-dialog'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.wineRed,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
-                        onPressed: () => _showRatingDialog(),
-                        icon: const Icon(Icons.star_rate_rounded, size: 16),
-                        label: const Text('Rate a Meal'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            key: const Key('btn-shortcut-mess-complaint'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.statusRed,
+                              side: const BorderSide(color: AppColors.statusRed, width: 1),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            onPressed: () {
+                              ComplaintsScreen.showFileComplaintDialog(
+                                context: context,
+                                storage: widget.storage,
+                                currentUser: widget.currentUser,
+                                initialCategory: ComplaintCategory.hostel,
+                                initialTitle: 'Hostel Mess & Hygiene Grievance',
+                              );
+                            },
+                            icon: const AppSvgIcon(
+                              svgString: AppSvgIcon.alertTriangle,
+                              size: 14,
+                              color: AppColors.statusRed,
+                            ),
+                            label: const Text(
+                              'Report Mess Grievance',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            key: const Key('btn-open-rate-meal-dialog'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.wineRed,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            onPressed: () => _showRatingDialog(),
+                            icon: const Icon(Icons.star_rate_rounded, size: 16),
+                            label: const Text('Rate a Meal'),
+                          ),
+                        ],
                       ),
                     ],
                   ),

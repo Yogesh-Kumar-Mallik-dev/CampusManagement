@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/academic.dart';
+import '../models/complaint.dart';
 import '../models/user.dart';
+import '../screens/complaints_screen.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
@@ -467,6 +469,24 @@ class _TimetableScreenState extends State<TimetableScreen> {
       appBar: AppBar(
         title: const Text('Academic Timetable (9 AM - 5 PM)'),
         actions: [
+          IconButton(
+            key: const Key('btn-shortcut-timetable-complaint'),
+            icon: const AppSvgIcon(
+              svgString: AppSvgIcon.alertTriangle,
+              size: 18,
+              color: AppColors.statusRed,
+            ),
+            tooltip: 'Report Academic / Timetable Grievance',
+            onPressed: () {
+              ComplaintsScreen.showFileComplaintDialog(
+                context: context,
+                storage: widget.storage,
+                currentUser: widget.currentUser,
+                initialCategory: ComplaintCategory.student,
+                initialTitle: 'Academic / Timetable Conflict',
+              );
+            },
+          ),
           IconButton(
             icon: Icon(
               _viewMode == TimetableViewMode.dayRow

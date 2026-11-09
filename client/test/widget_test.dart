@@ -5,6 +5,7 @@ import 'package:campus_client/main.dart';
 import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/models/hostel.dart';
 import 'package:campus_client/models/mess.dart';
+import 'package:campus_client/screens/attendance_screen.dart';
 import 'package:campus_client/screens/complaints_screen.dart';
 import 'package:campus_client/screens/home_screen.dart';
 import 'package:campus_client/screens/hostel_screen.dart';
@@ -1960,5 +1961,160 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('Institutional Grievances & Complaints'), findsOneWidget);
+  });
+
+  testWidgets('Dedicated Complaints Navigation: AppBar shortcut, Desktop Sidebar, Mobile Dock & Dashboard Card',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final admin = OfflineStorageService.getMockUserForHandle('campus_admin');
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(
+        storage: storage,
+        currentUser: admin,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Dashboard Operational Card for Complaints
+    expect(find.byKey(const Key('card-quick-complaints')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('card-quick-complaints')));
+    await tester.pumpAndSettle();
+    expect(find.text('Institutional Grievances & Complaints'), findsOneWidget);
+
+    // 2. Desktop Sidebar navigation item
+    expect(find.byKey(const Key('nav-item-complaints')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('nav-item-dashboard')));
+    await tester.pumpAndSettle();
+    expect(find.text('Academic Operations'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('nav-item-complaints')));
+    await tester.pumpAndSettle();
+    expect(find.text('Institutional Grievances & Complaints'), findsOneWidget);
+
+    // 3. Top AppBar Complaints Quick Shortcut
+    await tester.tap(find.byKey(const Key('nav-item-dashboard')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('appbar-btn-complaints')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('appbar-btn-complaints')));
+    await tester.pumpAndSettle();
+    expect(find.text('Institutional Grievances & Complaints'), findsOneWidget);
+
+    // 4. Mobile screen 4-division bottom dock navigation
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+
+    // Switch to Dashboard
+    await tester.tap(find.byKey(const Key('dock-division-dashboard')));
+    await tester.pumpAndSettle();
+
+    // Open Pages Menu (Division 4)
+    await tester.tap(find.byKey(const Key('dock-division-more-pages')));
+    await tester.pumpAndSettle();
+
+    // Tap Grievances & Complaints
+    expect(find.byKey(const Key('dock-menu-item-complaints')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('dock-menu-item-complaints')));
+    await tester.pumpAndSettle();
+
+    // Active Slot 3 now displays Complaints
+    expect(find.text('Institutional Grievances & Complaints'), findsOneWidget);
+    expect(find.byKey(const Key('dock-division-active-page')), findsOneWidget);
+  });
+
+  testWidgets('Contextual Complaints Shortcuts: Hostel, Mess, Timetable, and Attendance screens',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    // 1. Hostel Screen Shortcut
+    await tester.pumpWidget(MaterialApp(
+      home: HostelScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-shortcut-hostel-complaint')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-shortcut-hostel-complaint')));
+    await tester.pumpAndSettle();
+
+    // Dialog opens prefilled with category hostel
+    expect(find.byKey(const Key('dialog-file-complaint')), findsOneWidget);
+    expect(find.text('Hostel & Mess'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // 2. Mess Screen Shortcut
+    await tester.pumpWidget(MaterialApp(
+      home: MessScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-shortcut-mess-complaint')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-shortcut-mess-complaint')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-file-complaint')), findsOneWidget);
+    expect(find.text('Hostel & Mess'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // 3. Timetable Screen Shortcut
+    await tester.pumpWidget(MaterialApp(
+      home: TimetableScreen(
+        storage: storage,
+        currentUser: student,
+        activeScope: 'sec:cse-3a',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-shortcut-timetable-complaint')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-shortcut-timetable-complaint')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-file-complaint')), findsOneWidget);
+    expect(find.text('Student Affairs & Academics'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // 4. Attendance Screen Shortcut
+    await tester.pumpWidget(MaterialApp(
+      home: AttendanceScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-shortcut-attendance-complaint')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-shortcut-attendance-complaint')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-file-complaint')), findsOneWidget);
+    expect(find.text('Student Affairs & Academics'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
   });
 }
