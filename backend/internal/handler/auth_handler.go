@@ -58,7 +58,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 
 	switch cleanID {
-	case "harish_2025_l_btech_1", "harish_2025_l_btech_1@campus.edu":
+	case "harish_2025_l_btech_1", "harish_2025_l_btech_1@campus.edu", "harish_student", "student":
 		user = model.User{
 			BaseSyncModel: model.BaseSyncModel{
 				ID:        "usr-harish_2025_l_btech_1",

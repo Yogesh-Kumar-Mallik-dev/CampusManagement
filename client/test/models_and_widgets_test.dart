@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/models/complaint.dart';
+import 'package:campus_client/models/fee.dart';
 import 'package:campus_client/models/hostel.dart';
 import 'package:campus_client/models/mess.dart';
 import 'package:campus_client/models/user.dart';
@@ -351,6 +352,125 @@ void main() {
       final cmpParsed = ComplaintModel.fromJson(cmpJson);
       expect(cmpParsed.title, equals('WiFi Down'));
       expect(cmpParsed.urgency, equals(ComplaintUrgency.high));
+    });
+
+    test('Fee and Fine models serialization, getters, and copyWith', () {
+      final now = DateTime.now();
+
+      // FeeHeadModel
+      final head = FeeHeadModel(headName: 'Tuition', amount: 50000);
+      final headJson = head.toJson();
+      final headParsed = FeeHeadModel.fromJson(headJson);
+      expect(headParsed.headName, equals('Tuition'));
+      expect(headParsed.amount, equals(50000));
+
+      // FeeInvoiceModel
+      final invoice = FeeInvoiceModel(
+        id: 'inv-1',
+        studentId: 'usr-1',
+        studentName: 'Harish Kumar',
+        campusHandle: 'harish_1',
+        academicYear: '2026-2027',
+        semesterNumber: 3,
+        feeType: FeeType.tuition,
+        title: 'Semester 3 Tuition Fee',
+        totalAmount: 60000,
+        paidAmount: 20000,
+        dueAmount: 40000,
+        dueDate: now.add(const Duration(days: 10)),
+        status: InvoiceStatus.partial,
+        breakdown: [head],
+        createdAt: now,
+        updatedAt: now,
+      );
+      final invJson = invoice.toJson();
+      final invParsed = FeeInvoiceModel.fromJson(invJson);
+      expect(invParsed.id, equals('inv-1'));
+      expect(invParsed.isPartial, isTrue);
+      expect(invParsed.isPaid, isFalse);
+      expect(invParsed.isPending, isFalse);
+      expect(invParsed.isOverdue, isFalse);
+
+      final invPaid = invoice.copyWith(dueAmount: 0, status: InvoiceStatus.paid);
+      expect(invPaid.isPaid, isTrue);
+
+      // FineRecordModel
+      final fine = FineRecordModel(
+        id: 'fine-1',
+        studentId: 'usr-1',
+        studentName: 'Harish Kumar',
+        campusHandle: 'harish_1',
+        category: FineCategory.library,
+        reason: 'Overdue textbook',
+        amount: 200,
+        issuedAt: now,
+        dueDate: now.add(const Duration(days: 5)),
+        status: FineStatus.unpaid,
+        createdAt: now,
+        updatedAt: now,
+      );
+      final fineJson = fine.toJson();
+      final fineParsed = FineRecordModel.fromJson(fineJson);
+      expect(fineParsed.isUnpaid, isTrue);
+      expect(fineParsed.isPaid, isFalse);
+
+      final fineAppealed = fine.copyWith(status: FineStatus.appealed, appealReason: 'Valid excuse');
+      expect(fineAppealed.isAppealed, isTrue);
+
+      final fineWaived = fine.copyWith(status: FineStatus.waived, waivedBy: 'Dean');
+      expect(fineWaived.isWaived, isTrue);
+
+      // FeePaymentModel
+      final payment = FeePaymentModel(
+        id: 'pay-1',
+        invoiceId: 'inv-1',
+        studentId: 'usr-1',
+        studentName: 'Harish Kumar',
+        amount: 20000,
+        paymentMethod: 'upi',
+        transactionRef: 'TXN-12345',
+        paymentStatus: 'success',
+        paidAt: now,
+        receiptNumber: 'RCP-2026-001',
+      );
+      final payJson = payment.toJson();
+      final payParsed = FeePaymentModel.fromJson(payJson);
+      expect(payParsed.amount, equals(20000));
+      expect(payParsed.receiptNumber, equals('RCP-2026-001'));
+
+      // FeeReceiptModel
+      final receipt = FeeReceiptModel(
+        receiptNumber: 'RCP-2026-001',
+        paymentId: 'pay-1',
+        invoiceId: 'inv-1',
+        studentId: 'usr-1',
+        studentName: 'Harish Kumar',
+        campusHandle: 'harish_1',
+        amount: 20000,
+        paymentMethod: 'upi',
+        transactionRef: 'TXN-12345',
+        issuedAt: now,
+        title: 'Tuition Fee Payment',
+        category: 'fee',
+      );
+      final recJson = receipt.toJson();
+      final recParsed = FeeReceiptModel.fromJson(recJson);
+      expect(recParsed.receiptNumber, equals('RCP-2026-001'));
+      expect(recParsed.amount, equals(20000));
+
+      // FeeSummaryModel
+      final summary = FeeSummaryModel(
+        totalDues: 40000,
+        totalPaid: 20000,
+        pendingFines: 200,
+        nextDueDate: now.add(const Duration(days: 5)),
+        overdueInvoices: 0,
+        activeFinesCount: 1,
+      );
+      final sumJson = summary.toJson();
+      final sumParsed = FeeSummaryModel.fromJson(sumJson);
+      expect(sumParsed.totalDues, equals(40000));
+      expect(sumParsed.activeFinesCount, equals(1));
     });
   });
 

@@ -43,6 +43,7 @@ type Container struct {
 	HostelService     service.HostelServiceInterface
 	MessService       service.MessServiceInterface
 	ComplaintService  service.ComplaintServiceInterface
+	FeeService        service.FeeServiceInterface
 
 	Facade facade.CampusFacadeInterface
 
@@ -53,6 +54,7 @@ type Container struct {
 	HostelHandler     *handler.HostelHandler
 	MessHandler       *handler.MessHandler
 	ComplaintHandler  *handler.ComplaintHandler
+	FeeHandler        *handler.FeeHandler
 }
 
 // Option allows customizing/mocking dependencies during container initialization
@@ -107,6 +109,12 @@ func WithComplaintService(svc service.ComplaintServiceInterface) Option {
 	}
 }
 
+func WithFeeService(svc service.FeeServiceInterface) Option {
+	return func(c *Container) {
+		c.FeeService = svc
+	}
+}
+
 func WithFacade(f facade.CampusFacadeInterface) Option {
 	return func(c *Container) {
 		c.Facade = f
@@ -153,6 +161,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.HostelService = service.NewHostelService(c.DBPool, permSvc)
 	c.MessService = service.NewMessService(c.DBPool, permSvc)
 	c.ComplaintService = service.NewComplaintService()
+	c.FeeService = service.NewFeeService(c.DBPool, permSvc)
 
 	// Apply overrides/mocks
 	for _, opt := range opts {
@@ -179,6 +188,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 			c.HostelService,
 			c.MessService,
 			c.ComplaintService,
+			c.FeeService,
 		)
 	}
 
@@ -194,6 +204,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.HostelHandler = handler.NewHostelHandler(c.HostelService)
 	c.MessHandler = handler.NewMessHandler(c.MessService)
 	c.ComplaintHandler = handler.NewComplaintHandler(c.ComplaintService)
+	c.FeeHandler = handler.NewFeeHandler(c.FeeService)
 
 	return c, nil
 }
@@ -290,6 +301,19 @@ func (c *Container) BuildMux() *http.ServeMux {
 	if c.ComplaintHandler != nil {
 		mux.HandleFunc("/api/v1/complaints", c.ComplaintHandler.HandleComplaints)
 		mux.HandleFunc("/api/v1/complaints/status", c.ComplaintHandler.HandleComplaintStatus)
+	}
+
+	// Institutional Fee & Fine Management System
+	if c.FeeHandler != nil {
+		mux.HandleFunc("/api/v1/fees/summary", c.FeeHandler.HandleSummary)
+		mux.HandleFunc("/api/v1/fees/invoices", c.FeeHandler.HandleInvoices)
+		mux.HandleFunc("/api/v1/fees/pay", c.FeeHandler.HandlePayInvoice)
+		mux.HandleFunc("/api/v1/fees/fines", c.FeeHandler.HandleFines)
+		mux.HandleFunc("/api/v1/fees/fines/pay", c.FeeHandler.HandlePayFine)
+		mux.HandleFunc("/api/v1/fees/fines/appeal", c.FeeHandler.HandleAppealFine)
+		mux.HandleFunc("/api/v1/fees/fines/waive", c.FeeHandler.HandleWaiveFine)
+		mux.HandleFunc("/api/v1/fees/payments", c.FeeHandler.HandlePayments)
+		mux.HandleFunc("/api/v1/fees/receipt", c.FeeHandler.HandleReceipt)
 	}
 
 	return mux

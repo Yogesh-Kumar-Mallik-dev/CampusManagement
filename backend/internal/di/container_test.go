@@ -128,7 +128,8 @@ func TestContainerOptionOverrides(t *testing.T) {
 	customHostel := service.NewHostelService(nil, customPerm)
 	customMess := service.NewMessService(nil, customPerm)
 	customComplaint := service.NewComplaintService()
-	customFacade := facade.NewCampusFacade(customID, customPerm, customAcad, customHostel, customMess, customComplaint)
+	customFee := service.NewFeeService(nil, customPerm)
+	customFacade := facade.NewCampusFacade(customID, customPerm, customAcad, customHostel, customMess, customComplaint, customFee)
 
 	container, err := NewContainer(
 		ContainerConfig{UseMemoryStores: true},
@@ -139,6 +140,7 @@ func TestContainerOptionOverrides(t *testing.T) {
 		WithHostelService(customHostel),
 		WithMessService(customMess),
 		WithComplaintService(customComplaint),
+		WithFeeService(customFee),
 		WithFacade(customFacade),
 		WithDBPool(nil),
 	)
@@ -167,6 +169,9 @@ func TestContainerOptionOverrides(t *testing.T) {
 	}
 	if container.ComplaintService != customComplaint {
 		t.Fatal("custom ComplaintService was not injected")
+	}
+	if container.FeeService != customFee {
+		t.Fatal("custom FeeService was not injected")
 	}
 	if container.Facade != customFacade {
 		t.Fatal("custom Facade was not injected")

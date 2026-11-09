@@ -51,6 +51,18 @@ type CampusFacadeInterface interface {
 	GetComplaint(id, viewerID string) (*model.Complaint, error)
 	ListComplaints(category, status, submittedBy, viewerID string, allowedCategories []string) []model.Complaint
 	UpdateComplaintStatus(id, newStatus, remarks, resolvedBy string) (*model.Complaint, error)
+
+	// Fees & Fines
+	GetFeeSummary(ctx context.Context, studentID string) (model.FeeSummary, error)
+	GetInvoices(ctx context.Context, studentID, status string) ([]model.FeeInvoice, error)
+	GetInvoiceByID(ctx context.Context, id string) (*model.FeeInvoice, error)
+	PayInvoice(ctx context.Context, req model.PayInvoiceRequest) (*model.FeePayment, *model.FeeReceipt, error)
+	GetFines(ctx context.Context, studentID, status string) ([]model.FineRecord, error)
+	PayFine(ctx context.Context, req model.PayFineRequest) (*model.FeePayment, *model.FeeReceipt, error)
+	AppealFine(ctx context.Context, fineID, reason string) (*model.FineRecord, error)
+	WaiveFine(ctx context.Context, fineID, waivedBy string) (*model.FineRecord, error)
+	GetPaymentRecords(ctx context.Context, studentID string) ([]model.FeePayment, error)
+	GetReceipt(ctx context.Context, receiptNumber string) (*model.FeeReceipt, error)
 }
 
 // CampusFacade coordinates operations across all backend domain services through a single entry point
@@ -61,6 +73,7 @@ type CampusFacade struct {
 	hostel      service.HostelServiceInterface
 	mess        service.MessServiceInterface
 	complaints  service.ComplaintServiceInterface
+	fee         service.FeeServiceInterface
 }
 
 func NewCampusFacade(
@@ -70,6 +83,7 @@ func NewCampusFacade(
 	hostel service.HostelServiceInterface,
 	mess service.MessServiceInterface,
 	complaints service.ComplaintServiceInterface,
+	fee service.FeeServiceInterface,
 ) *CampusFacade {
 	return &CampusFacade{
 		idGen:       idGen,
@@ -78,6 +92,7 @@ func NewCampusFacade(
 		hostel:      hostel,
 		mess:        mess,
 		complaints:  complaints,
+		fee:         fee,
 	}
 }
 
@@ -316,4 +331,75 @@ func (f *CampusFacade) UpdateComplaintStatus(id, newStatus, remarks, resolvedBy 
 		return nil, fmt.Errorf("complaints service unavailable")
 	}
 	return f.complaints.UpdateComplaintStatus(id, newStatus, remarks, resolvedBy)
+}
+
+// Fees & Fines
+func (f *CampusFacade) GetFeeSummary(ctx context.Context, studentID string) (model.FeeSummary, error) {
+	if f.fee == nil {
+		return model.FeeSummary{}, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.GetFeeSummary(ctx, studentID)
+}
+
+func (f *CampusFacade) GetInvoices(ctx context.Context, studentID, status string) ([]model.FeeInvoice, error) {
+	if f.fee == nil {
+		return nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.GetInvoices(ctx, studentID, status)
+}
+
+func (f *CampusFacade) GetInvoiceByID(ctx context.Context, id string) (*model.FeeInvoice, error) {
+	if f.fee == nil {
+		return nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.GetInvoiceByID(ctx, id)
+}
+
+func (f *CampusFacade) PayInvoice(ctx context.Context, req model.PayInvoiceRequest) (*model.FeePayment, *model.FeeReceipt, error) {
+	if f.fee == nil {
+		return nil, nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.PayInvoice(ctx, req)
+}
+
+func (f *CampusFacade) GetFines(ctx context.Context, studentID, status string) ([]model.FineRecord, error) {
+	if f.fee == nil {
+		return nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.GetFines(ctx, studentID, status)
+}
+
+func (f *CampusFacade) PayFine(ctx context.Context, req model.PayFineRequest) (*model.FeePayment, *model.FeeReceipt, error) {
+	if f.fee == nil {
+		return nil, nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.PayFine(ctx, req)
+}
+
+func (f *CampusFacade) AppealFine(ctx context.Context, fineID, reason string) (*model.FineRecord, error) {
+	if f.fee == nil {
+		return nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.AppealFine(ctx, fineID, reason)
+}
+
+func (f *CampusFacade) WaiveFine(ctx context.Context, fineID, waivedBy string) (*model.FineRecord, error) {
+	if f.fee == nil {
+		return nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.WaiveFine(ctx, fineID, waivedBy)
+}
+
+func (f *CampusFacade) GetPaymentRecords(ctx context.Context, studentID string) ([]model.FeePayment, error) {
+	if f.fee == nil {
+		return nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.GetPaymentRecords(ctx, studentID)
+}
+
+func (f *CampusFacade) GetReceipt(ctx context.Context, receiptNumber string) (*model.FeeReceipt, error) {
+	if f.fee == nil {
+		return nil, fmt.Errorf("fee service unavailable")
+	}
+	return f.fee.GetReceipt(ctx, receiptNumber)
 }

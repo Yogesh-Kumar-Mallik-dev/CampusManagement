@@ -17,11 +17,11 @@ echo "==> [build] Compiling Go backend binary..."
 cd "$ROOT_DIR/backend"
 mkdir -p bin
 go build -o bin/server ./cmd/server/main.go
-echo "✅ [build] Go server binary built: backend/bin/server"
+echo "[build] Go server binary built: backend/bin/server"
 
 echo "==> [build] Building Flutter web production bundle..."
 cd "$ROOT_DIR/client"
 flutter build web --release
-echo "✅ [build] Flutter web bundle built: client/build/web"
+echo "[build] Flutter web bundle built: client/build/web"
 
-echo "🎉 [build] All production artifacts compiled successfully."
+echo "[build] All production artifacts compiled successfully."

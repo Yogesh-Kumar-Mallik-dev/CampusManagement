@@ -1,5 +1,6 @@
 import '../models/academic.dart';
 import '../models/complaint.dart';
+import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
@@ -154,6 +155,33 @@ abstract class ICampusApi {
     required String remarks,
     required String resolvedBy,
   });
+
+  // Institutional Fees & Fines Subsystem
+  Future<FeeSummaryModel> getFeeSummary(String studentId);
+  Future<List<FeeInvoiceModel>> getInvoices({String? studentId, String? status});
+  Future<FeeInvoiceModel?> getInvoiceById(String id);
+  Future<Map<String, dynamic>> payInvoice({
+    required String invoiceId,
+    required String studentId,
+    required double amount,
+    required String paymentMethod,
+  });
+  Future<List<FineRecordModel>> getFines({String? studentId, String? status});
+  Future<Map<String, dynamic>> payFine({
+    required String fineId,
+    required String studentId,
+    required String paymentMethod,
+  });
+  Future<FineRecordModel> appealFine({
+    required String fineId,
+    required String reason,
+  });
+  Future<FineRecordModel> waiveFine({
+    required String fineId,
+    required String waivedBy,
+  });
+  Future<List<FeePaymentModel>> getFeePayments(String studentId);
+  Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
 }
 
 /// ICampusStorage abstracts local persistence, offline caching, and outbox synchronization.
@@ -303,4 +331,31 @@ abstract class ICampusStorage {
     required String remarks,
     required String resolvedBy,
   });
+
+  // Institutional Fees & Fines Subsystem
+  Future<FeeSummaryModel> getFeeSummary(String studentId);
+  Future<List<FeeInvoiceModel>> getInvoices({String? studentId, String? status});
+  Future<FeeInvoiceModel?> getInvoiceById(String id);
+  Future<Map<String, dynamic>> payInvoice({
+    required String invoiceId,
+    required String studentId,
+    required double amount,
+    required String paymentMethod,
+  });
+  Future<List<FineRecordModel>> getFines({String? studentId, String? status});
+  Future<Map<String, dynamic>> payFine({
+    required String fineId,
+    required String studentId,
+    required String paymentMethod,
+  });
+  Future<FineRecordModel> appealFine({
+    required String fineId,
+    required String reason,
+  });
+  Future<FineRecordModel> waiveFine({
+    required String fineId,
+    required String waivedBy,
+  });
+  Future<List<FeePaymentModel>> getFeePayments(String studentId);
+  Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
 }

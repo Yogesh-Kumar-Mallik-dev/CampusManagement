@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/academic.dart';
 import '../models/complaint.dart';
+import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
@@ -933,5 +934,170 @@ class ApiService implements ICampusApi {
       return ComplaintModel.fromJson(jsonDecode(res.body));
     }
     throw Exception('Failed to update complaint status: ${res.body}');
+  }
+
+  // ----------------------------------------------------
+  // INSTITUTIONAL FEES & FINES SUBSYSTEM
+  // ----------------------------------------------------
+
+  @override
+  Future<FeeSummaryModel> getFeeSummary(String studentId) => fetchFeeSummary(studentId);
+
+  Future<FeeSummaryModel> fetchFeeSummary(String studentId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/summary?student_id=$studentId'));
+    if (res.statusCode == 200) {
+      return FeeSummaryModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to fetch fee summary: ${res.statusCode}');
+  }
+
+  @override
+  Future<List<FeeInvoiceModel>> getInvoices({String? studentId, String? status}) =>
+      fetchInvoices(studentId: studentId, status: status);
+
+  Future<List<FeeInvoiceModel>> fetchInvoices({String? studentId, String? status}) async {
+    final queryParams = <String, String>{};
+    if (studentId != null && studentId.isNotEmpty) queryParams['student_id'] = studentId;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+
+    final uri = Uri.parse('$baseUrl/api/v1/fees/invoices').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => FeeInvoiceModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to fetch invoices: ${res.statusCode}');
+  }
+
+  @override
+  Future<FeeInvoiceModel?> getInvoiceById(String id) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/invoices?id=$id'));
+    if (res.statusCode == 200) {
+      return FeeInvoiceModel.fromJson(jsonDecode(res.body));
+    }
+    return null;
+  }
+
+  @override
+  Future<Map<String, dynamic>> payInvoice({
+    required String invoiceId,
+    required String studentId,
+    required double amount,
+    required String paymentMethod,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/fees/pay'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'invoice_id': invoiceId,
+        'student_id': studentId,
+        'amount': amount,
+        'payment_method': paymentMethod,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to pay invoice: ${res.body}');
+  }
+
+  @override
+  Future<List<FineRecordModel>> getFines({String? studentId, String? status}) =>
+      fetchFines(studentId: studentId, status: status);
+
+  Future<List<FineRecordModel>> fetchFines({String? studentId, String? status}) async {
+    final queryParams = <String, String>{};
+    if (studentId != null && studentId.isNotEmpty) queryParams['student_id'] = studentId;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+
+    final uri = Uri.parse('$baseUrl/api/v1/fees/fines').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => FineRecordModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to fetch fines: ${res.statusCode}');
+  }
+
+  @override
+  Future<Map<String, dynamic>> payFine({
+    required String fineId,
+    required String studentId,
+    required String paymentMethod,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/fees/fines/pay'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'fine_id': fineId,
+        'student_id': studentId,
+        'payment_method': paymentMethod,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to pay fine: ${res.body}');
+  }
+
+  @override
+  Future<FineRecordModel> appealFine({
+    required String fineId,
+    required String reason,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/fees/fines/appeal'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'fine_id': fineId,
+        'reason': reason,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return FineRecordModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to appeal fine: ${res.body}');
+  }
+
+  @override
+  Future<FineRecordModel> waiveFine({
+    required String fineId,
+    required String waivedBy,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/fees/fines/waive'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'fine_id': fineId,
+        'waived_by': waivedBy,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return FineRecordModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to waive fine: ${res.body}');
+  }
+
+  @override
+  Future<List<FeePaymentModel>> getFeePayments(String studentId) => fetchFeePayments(studentId);
+
+  Future<List<FeePaymentModel>> fetchFeePayments(String studentId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/payments?student_id=$studentId'));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => FeePaymentModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to fetch payments: ${res.statusCode}');
+  }
+
+  @override
+  Future<FeeReceiptModel> getFeeReceipt(String receiptNumber) => fetchReceipt(receiptNumber);
+
+  Future<FeeReceiptModel> fetchReceipt(String receiptNumber) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/receipt?receipt_number=$receiptNumber'));
+    if (res.statusCode == 200) {
+      return FeeReceiptModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to fetch receipt: ${res.statusCode}');
   }
 }

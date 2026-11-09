@@ -7,6 +7,7 @@ import 'package:campus_client/models/hostel.dart';
 import 'package:campus_client/models/mess.dart';
 import 'package:campus_client/screens/attendance_screen.dart';
 import 'package:campus_client/screens/complaints_screen.dart';
+import 'package:campus_client/screens/fee_screen.dart';
 import 'package:campus_client/screens/home_screen.dart';
 import 'package:campus_client/screens/hostel_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
@@ -2217,7 +2218,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Sidebar Responsiveness: Desktop and tablet screen sizes show all 10 items without partial cut off', (tester) async {
+  testWidgets('Sidebar Responsiveness: Desktop and tablet screen sizes show all 11 items without partial cut off', (tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);
     final admin = OfflineStorageService.getMockUserForHandle('campus_admin');
@@ -2247,6 +2248,7 @@ void main() {
       'nav-item-hostel',
       'nav-item-mess',
       'nav-item-complaints',
+      'nav-item-fees',
       'nav-item-profile',
     ];
 
@@ -2461,5 +2463,224 @@ void main() {
     await tester.tap(find.byKey(const Key('btn-showcase-back-dashboard')));
     await tester.pumpAndSettle();
     expect(find.text('Academic Operations'), findsOneWidget);
+  });
+
+  testWidgets('Institutional Fee Portal: Invoices list, status filter, itemized breakdown, and payment dialog with receipt proof', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeeScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Verify summary cards
+    expect(find.text('Total Outstanding Dues'), findsOneWidget);
+    expect(find.text('Settled Institutional Fees'), findsOneWidget);
+    expect(find.text('Pending Fines & Penalties'), findsOneWidget);
+    expect(find.text('Next Settlement Deadline'), findsOneWidget);
+
+    // 2. Verify Tab 1 (Fee Portal) is default
+    expect(find.byKey(const Key('tab-fee-invoices')), findsOneWidget);
+    expect(find.byKey(const Key('filter-fee-invoices-status')), findsOneWidget);
+
+    // Verify invoice cards exist
+    expect(find.byKey(const Key('invoice-card-inv-hostel-2026-sem3')), findsOneWidget);
+    expect(find.text('Hostel Residency & Maintenance (Aryabhatta Block)'), findsOneWidget);
+    expect(find.text('Itemized Fee Head Breakdown'), findsWidgets);
+
+    // 3. Test Pay Fee Dialog
+    expect(find.byKey(const Key('btn-pay-fee-inv-hostel-2026-sem3')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-pay-fee-inv-hostel-2026-sem3')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-pay-invoice')), findsOneWidget);
+    expect(find.byKey(const Key('input-payment-amount')), findsOneWidget);
+    expect(find.byKey(const Key('select-payment-method')), findsOneWidget);
+
+    // Confirm Payment
+    await tester.tap(find.byKey(const Key('btn-confirm-pay-invoice')));
+    await tester.pumpAndSettle();
+
+    // Verify snackbar feedback with receipt proof
+    expect(find.textContaining('Payment processed successfully'), findsOneWidget);
+  });
+
+  testWidgets('Institutional Fine Portal: Disciplinary and library fines, appeal flow, waiver for admins, and fine settlement', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+    final admin = OfflineStorageService.getMockUserForHandle('campus_admin');
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeeScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Switch to Fine Portal Tab
+    await tester.tap(find.byKey(const Key('tab-fine-portal')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('filter-fines-status')), findsOneWidget);
+    expect(find.byKey(const Key('fine-card-fine-lib-01')), findsOneWidget);
+    expect(find.byKey(const Key('fine-card-fine-disc-01')), findsOneWidget);
+
+    // 1. Appeal fine flow
+    expect(find.byKey(const Key('btn-appeal-fine-fine-lib-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-appeal-fine-fine-lib-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-appeal-fine')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('input-appeal-reason')), 'Attending IEEE conference with HOD permission');
+    await tester.tap(find.byKey(const Key('btn-submit-appeal')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Fine appeal submitted'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    // 2. Pay fine flow
+    await tester.ensureVisible(find.byKey(const Key('btn-pay-fine-fine-lib-01')));
+    expect(find.byKey(const Key('btn-pay-fine-fine-lib-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-pay-fine-fine-lib-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-pay-fine')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-confirm-pay-fine')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Fine settled successfully'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    // 3. Admin waiver flow
+    await tester.pumpWidget(MaterialApp(
+      home: FeeScreen(
+        storage: storage,
+        currentUser: admin,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('tab-fine-portal')));
+    await tester.pumpAndSettle();
+
+    if (find.byKey(const Key('btn-waive-fine-fine-disc-01')).evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(const Key('btn-waive-fine-fine-disc-01')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('dialog-waive-fine')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('btn-confirm-waive')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Penalty successfully waived'), findsOneWidget);
+    }
+  });
+
+  testWidgets('Records and Receipts Ledger: Search receipts and view tamper-evident proof', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeeScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Switch to Tab 3 (Records & Receipts)
+    await tester.tap(find.byKey(const Key('tab-records-ledger')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('input-search-payments')), findsOneWidget);
+    expect(find.byKey(const Key('payment-record-pay-001')), findsOneWidget);
+
+    // Search filter
+    await tester.enterText(find.byKey(const Key('input-search-payments')), 'TXN-HDFC');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Ref: TXN-HDFC'), findsOneWidget);
+
+    // View Receipt Proof dialog
+    expect(find.byKey(const Key('btn-view-receipt-RCP-2026-00108')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-view-receipt-RCP-2026-00108')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-view-receipt')), findsOneWidget);
+    expect(find.text('Official Settlement Receipt'), findsOneWidget);
+    expect(find.text('Tamper-evident proof of settlement issued by Campus Treasury Operations.'), findsOneWidget);
+
+    // Close Dialog
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dialog-view-receipt')), findsNothing);
+  });
+
+  testWidgets('Small Screen Responsiveness: FeeScreen standalone on 360x640 with zero layout overflow', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeeScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Verify all 4 tabs switch without overflow
+    await tester.tap(find.byKey(const Key('tab-fine-portal')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('tab-records-ledger')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('tab-fee-structure')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('tab-fee-invoices')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }

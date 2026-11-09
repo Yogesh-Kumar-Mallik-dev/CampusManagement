@@ -21,4 +21,4 @@ echo "==> [check] Running Flutter static analysis (flutter analyze)..."
 cd "$ROOT_DIR/client"
 flutter analyze
 
-echo "✅ [check] All Go and Flutter checks passed cleanly."
+echo "[check] All Go and Flutter checks passed cleanly."

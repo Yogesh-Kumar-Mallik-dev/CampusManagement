@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../models/academic.dart';
 import '../models/complaint.dart';
+import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
@@ -26,6 +27,10 @@ class OfflineStorageService implements ICampusStorage {
   final List<MessMealModel> _cachedMessMeals = [];
   final List<MessRatingModel> _cachedMessRatings = [];
   final List<ComplaintModel> _cachedComplaints = [];
+  final List<FeeInvoiceModel> _cachedFeeInvoices = [];
+  final List<FineRecordModel> _cachedFines = [];
+  final List<FeePaymentModel> _cachedFeePayments = [];
+  final List<FeeReceiptModel> _cachedFeeReceipts = [];
   final Map<String, String> _studentSectionMap = {};
   final Map<String, String> _studentProgramMap = {};
   final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
@@ -4213,5 +4218,597 @@ class OfflineStorageService implements ICampusStorage {
 
     _cachedComplaints[idx] = updated;
     return updated;
+  }
+
+  // ----------------------------------------------------
+  // INSTITUTIONAL FEES & FINES SUBSYSTEM
+  // ----------------------------------------------------
+
+  void _seedDefaultFeesIfEmpty() {
+    if (_cachedFeeInvoices.isNotEmpty) return;
+
+    final now = DateTime.now();
+    const studentId = 'usr-harish_2025_l_btech_1';
+    const studentName = 'Harish Kumar';
+    const handle = 'harish_2025_l_btech_1';
+
+    // 1. Invoices
+    final inv1 = FeeInvoiceModel(
+      id: 'inv-tuition-2026-sem3',
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      academicYear: '2026-2027',
+      semesterNumber: 3,
+      feeType: FeeType.tuition,
+      title: 'B.Tech Semester 3 Tuition & Curriculum Fee',
+      totalAmount: 65000,
+      paidAmount: 30000,
+      dueAmount: 35000,
+      dueDate: now.add(const Duration(days: 15)),
+      status: InvoiceStatus.partial,
+      breakdown: const [
+        FeeHeadModel(headName: 'Tuition & Instruction', amount: 45000),
+        FeeHeadModel(headName: 'Computer & AI Lab Access', amount: 12000),
+        FeeHeadModel(headName: 'Library & Digital Journals', amount: 5000),
+        FeeHeadModel(headName: 'Examination & Assessment', amount: 3000),
+      ],
+      createdAt: now.subtract(const Duration(days: 30)),
+      updatedAt: now.subtract(const Duration(days: 5)),
+    );
+
+    final inv2 = FeeInvoiceModel(
+      id: 'inv-hostel-2026-sem3',
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      academicYear: '2026-2027',
+      semesterNumber: 3,
+      feeType: FeeType.hostel,
+      title: 'Hostel Residency & Maintenance (Aryabhatta Block)',
+      totalAmount: 25000,
+      paidAmount: 0,
+      dueAmount: 25000,
+      dueDate: now.add(const Duration(days: 7)),
+      status: InvoiceStatus.pending,
+      breakdown: const [
+        FeeHeadModel(headName: 'Room Rent (Double Occupancy)', amount: 18000),
+        FeeHeadModel(headName: 'Electricity & High-Speed WiFi', amount: 4500),
+        FeeHeadModel(headName: 'Maintenance & Sanitization', amount: 2500),
+      ],
+      createdAt: now.subtract(const Duration(days: 20)),
+      updatedAt: now.subtract(const Duration(days: 20)),
+    );
+
+    final inv3 = FeeInvoiceModel(
+      id: 'inv-mess-2026-sem3',
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      academicYear: '2026-2027',
+      semesterNumber: 3,
+      feeType: FeeType.mess,
+      title: 'Mess Boarding & Dining Operations (Semester 3)',
+      totalAmount: 18000,
+      paidAmount: 18000,
+      dueAmount: 0,
+      dueDate: now.subtract(const Duration(days: 10)),
+      status: InvoiceStatus.paid,
+      breakdown: const [
+        FeeHeadModel(headName: 'Breakfast, Lunch & Dinner', amount: 16000),
+        FeeHeadModel(headName: 'Special Sunday Dining & Festive Meals', amount: 2000),
+      ],
+      createdAt: now.subtract(const Duration(days: 45)),
+      updatedAt: now.subtract(const Duration(days: 40)),
+    );
+
+    _cachedFeeInvoices.addAll([inv1, inv2, inv3]);
+
+    // 2. Fines
+    final fine1 = FineRecordModel(
+      id: 'fine-lib-01',
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      category: FineCategory.library,
+      reason: "Overdue book: 'Introduction to Algorithms' (Cormen et al.) overdue by 15 days",
+      amount: 150,
+      issuedAt: now.subtract(const Duration(days: 10)),
+      dueDate: now.add(const Duration(days: 5)),
+      status: FineStatus.unpaid,
+      createdAt: now.subtract(const Duration(days: 10)),
+      updatedAt: now.subtract(const Duration(days: 10)),
+    );
+
+    final fine2 = FineRecordModel(
+      id: 'fine-disc-01',
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      category: FineCategory.disciplinary,
+      reason: 'Hostel late entry past 10:30 PM without approved warden e-pass',
+      amount: 500,
+      issuedAt: now.subtract(const Duration(days: 8)),
+      dueDate: now.add(const Duration(days: 3)),
+      status: FineStatus.appealed,
+      appealReason: 'Was attending IEEE student branch robotics lab experiment with faculty supervisor permission',
+      createdAt: now.subtract(const Duration(days: 8)),
+      updatedAt: now.subtract(const Duration(days: 2)),
+    );
+
+    _cachedFines.addAll([fine1, fine2]);
+
+    // 3. Historical Payments & Receipts
+    final pay1 = FeePaymentModel(
+      id: 'pay-001',
+      invoiceId: inv1.id,
+      studentId: studentId,
+      studentName: studentName,
+      amount: 30000,
+      paymentMethod: 'netbanking',
+      transactionRef: 'TXN-HDFC-882910',
+      paymentStatus: 'success',
+      paidAt: now.subtract(const Duration(days: 5)),
+      receiptNumber: 'RCP-2026-00108',
+    );
+
+    final pay2 = FeePaymentModel(
+      id: 'pay-002',
+      invoiceId: inv3.id,
+      studentId: studentId,
+      studentName: studentName,
+      amount: 18000,
+      paymentMethod: 'upi',
+      transactionRef: 'TXN-UPI-992384',
+      paymentStatus: 'success',
+      paidAt: now.subtract(const Duration(days: 40)),
+      receiptNumber: 'RCP-2026-00109',
+    );
+
+    _cachedFeePayments.addAll([pay1, pay2]);
+
+    final rec1 = FeeReceiptModel(
+      receiptNumber: 'RCP-2026-00108',
+      paymentId: pay1.id,
+      invoiceId: inv1.id,
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      amount: 30000,
+      paymentMethod: 'netbanking',
+      transactionRef: 'TXN-HDFC-882910',
+      issuedAt: pay1.paidAt,
+      title: inv1.title,
+      category: 'fee',
+    );
+
+    final rec2 = FeeReceiptModel(
+      receiptNumber: 'RCP-2026-00109',
+      paymentId: pay2.id,
+      invoiceId: inv3.id,
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      amount: 18000,
+      paymentMethod: 'upi',
+      transactionRef: 'TXN-UPI-992384',
+      issuedAt: pay2.paidAt,
+      title: inv3.title,
+      category: 'fee',
+    );
+
+    _cachedFeeReceipts.addAll([rec1, rec2]);
+  }
+
+  @override
+  Future<FeeSummaryModel> getFeeSummary(String studentId) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.getFeeSummary(studentId);
+      } catch (_) {}
+    }
+
+    double totalDues = 0.0;
+    double totalPaid = 0.0;
+    double pendingFines = 0.0;
+    DateTime? nextDueDate;
+    int overdueInvoices = 0;
+    int activeFinesCount = 0;
+
+    final now = DateTime.now();
+
+    for (final inv in _cachedFeeInvoices) {
+      if (studentId.isNotEmpty && inv.studentId != studentId) continue;
+
+      totalDues += inv.dueAmount;
+      totalPaid += inv.paidAmount;
+
+      if (!inv.isPaid) {
+        if (inv.dueDate.isBefore(now)) {
+          overdueInvoices++;
+        }
+        if (nextDueDate == null || inv.dueDate.isBefore(nextDueDate)) {
+          nextDueDate = inv.dueDate;
+        }
+      }
+    }
+
+    for (final fine in _cachedFines) {
+      if (studentId.isNotEmpty && fine.studentId != studentId) continue;
+
+      if (fine.isUnpaid || fine.isAppealed) {
+        pendingFines += fine.amount;
+        activeFinesCount++;
+        if (nextDueDate == null || fine.dueDate.isBefore(nextDueDate)) {
+          nextDueDate = fine.dueDate;
+        }
+      }
+    }
+
+    return FeeSummaryModel(
+      totalDues: totalDues,
+      totalPaid: totalPaid,
+      pendingFines: pendingFines,
+      nextDueDate: nextDueDate,
+      overdueInvoices: overdueInvoices,
+      activeFinesCount: activeFinesCount,
+    );
+  }
+
+  @override
+  Future<List<FeeInvoiceModel>> getInvoices({String? studentId, String? status}) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.getInvoices(studentId: studentId, status: status);
+        _cachedFeeInvoices.clear();
+        _cachedFeeInvoices.addAll(list);
+        return list;
+      } catch (_) {}
+    }
+
+    final cleanStatus = status?.trim().toLowerCase();
+    final list = _cachedFeeInvoices.where((inv) {
+      if (studentId != null && studentId.isNotEmpty && inv.studentId != studentId) return false;
+      if (cleanStatus != null && cleanStatus.isNotEmpty && inv.status.toLowerCase() != cleanStatus) return false;
+      return true;
+    }).toList();
+
+    list.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    return list;
+  }
+
+  @override
+  Future<FeeInvoiceModel?> getInvoiceById(String id) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final fetched = await api.getInvoiceById(id);
+        if (fetched != null) return fetched;
+      } catch (_) {}
+    }
+
+    try {
+      return _cachedFeeInvoices.firstWhere((inv) => inv.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> payInvoice({
+    required String invoiceId,
+    required String studentId,
+    required double amount,
+    required String paymentMethod,
+  }) async {
+    _seedDefaultFeesIfEmpty();
+
+    if (amount <= 0) {
+      throw Exception('Payment amount must be greater than zero');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.payInvoice(
+          invoiceId: invoiceId,
+          studentId: studentId,
+          amount: amount,
+          paymentMethod: paymentMethod,
+        );
+        return res;
+      } catch (_) {}
+    }
+
+    final idx = _cachedFeeInvoices.indexWhere((inv) => inv.id == invoiceId);
+    if (idx == -1) {
+      throw Exception("Fee invoice '$invoiceId' not found");
+    }
+
+    final inv = _cachedFeeInvoices[idx];
+    if (amount > inv.dueAmount) {
+      throw Exception('Cannot pay more than invoice due amount of ₹${inv.dueAmount.toStringAsFixed(2)}');
+    }
+
+    final now = DateTime.now();
+    final newPaid = inv.paidAmount + amount;
+    final newDue = inv.dueAmount - amount;
+    final newStatus = newDue <= 0.001 ? InvoiceStatus.paid : InvoiceStatus.partial;
+
+    final updatedInv = inv.copyWith(
+      paidAmount: newPaid,
+      dueAmount: newDue <= 0.001 ? 0.0 : newDue,
+      status: newStatus,
+      updatedAt: now,
+    );
+    _cachedFeeInvoices[idx] = updatedInv;
+
+    final receiptNumber = 'RCP-${now.year}-${(1000 + _cachedFeePayments.length + 1)}';
+    final payment = FeePaymentModel(
+      id: 'pay-${now.millisecondsSinceEpoch}',
+      invoiceId: inv.id,
+      studentId: inv.studentId,
+      studentName: inv.studentName,
+      amount: amount,
+      paymentMethod: paymentMethod,
+      transactionRef: 'TXN-${now.millisecondsSinceEpoch}',
+      paymentStatus: 'success',
+      paidAt: now,
+      receiptNumber: receiptNumber,
+    );
+    _cachedFeePayments.insert(0, payment);
+
+    final receipt = FeeReceiptModel(
+      receiptNumber: receiptNumber,
+      paymentId: payment.id,
+      invoiceId: inv.id,
+      studentId: inv.studentId,
+      studentName: inv.studentName,
+      campusHandle: inv.campusHandle,
+      amount: amount,
+      paymentMethod: paymentMethod,
+      transactionRef: payment.transactionRef,
+      issuedAt: now,
+      title: inv.title,
+      category: 'fee',
+    );
+    _cachedFeeReceipts.insert(0, receipt);
+
+    return {
+      'payment': payment,
+      'receipt': receipt,
+    };
+  }
+
+  @override
+  Future<List<FineRecordModel>> getFines({String? studentId, String? status}) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.getFines(studentId: studentId, status: status);
+        _cachedFines.clear();
+        _cachedFines.addAll(list);
+        return list;
+      } catch (_) {}
+    }
+
+    final cleanStatus = status?.trim().toLowerCase();
+    final list = _cachedFines.where((fine) {
+      if (studentId != null && studentId.isNotEmpty && fine.studentId != studentId) return false;
+      if (cleanStatus != null && cleanStatus.isNotEmpty && fine.status.toLowerCase() != cleanStatus) return false;
+      return true;
+    }).toList();
+
+    list.sort((a, b) => b.issuedAt.compareTo(a.issuedAt));
+    return list;
+  }
+
+  @override
+  Future<Map<String, dynamic>> payFine({
+    required String fineId,
+    required String studentId,
+    required String paymentMethod,
+  }) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.payFine(
+          fineId: fineId,
+          studentId: studentId,
+          paymentMethod: paymentMethod,
+        );
+        return res;
+      } catch (_) {}
+    }
+
+    final idx = _cachedFines.indexWhere((f) => f.id == fineId);
+    if (idx == -1) {
+      throw Exception("Fine record '$fineId' not found");
+    }
+
+    final fine = _cachedFines[idx];
+    if (fine.isPaid) {
+      throw Exception('Fine is already paid and cleared');
+    }
+    if (fine.isWaived) {
+      throw Exception('Fine was officially waived; no payment required');
+    }
+
+    final now = DateTime.now();
+    final receiptNumber = 'RCP-${now.year}-${(2000 + _cachedFeePayments.length + 1)}';
+
+    final payment = FeePaymentModel(
+      id: 'pay-fine-${now.millisecondsSinceEpoch}',
+      fineId: fine.id,
+      studentId: fine.studentId,
+      studentName: fine.studentName,
+      amount: fine.amount,
+      paymentMethod: paymentMethod,
+      transactionRef: 'TXN-FINE-${now.millisecondsSinceEpoch}',
+      paymentStatus: 'success',
+      paidAt: now,
+      receiptNumber: receiptNumber,
+    );
+    _cachedFeePayments.insert(0, payment);
+
+    final receipt = FeeReceiptModel(
+      receiptNumber: receiptNumber,
+      paymentId: payment.id,
+      fineId: fine.id,
+      studentId: fine.studentId,
+      studentName: fine.studentName,
+      campusHandle: fine.campusHandle,
+      amount: fine.amount,
+      paymentMethod: paymentMethod,
+      transactionRef: payment.transactionRef,
+      issuedAt: now,
+      title: 'Settlement: ${FineCategory.displayName(fine.category)}',
+      category: 'fine',
+    );
+    _cachedFeeReceipts.insert(0, receipt);
+
+    final updatedFine = fine.copyWith(
+      status: FineStatus.paid,
+      paidAt: now,
+      receiptId: receiptNumber,
+      updatedAt: now,
+    );
+    _cachedFines[idx] = updatedFine;
+
+    return {
+      'payment': payment,
+      'receipt': receipt,
+    };
+  }
+
+  @override
+  Future<FineRecordModel> appealFine({
+    required String fineId,
+    required String reason,
+  }) async {
+    _seedDefaultFeesIfEmpty();
+
+    if (reason.trim().isEmpty) {
+      throw Exception('Appeal explanation is required');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.appealFine(fineId: fineId, reason: reason);
+        final idx = _cachedFines.indexWhere((f) => f.id == fineId);
+        if (idx != -1) _cachedFines[idx] = res;
+        return res;
+      } catch (_) {}
+    }
+
+    final idx = _cachedFines.indexWhere((f) => f.id == fineId);
+    if (idx == -1) {
+      throw Exception("Fine record '$fineId' not found");
+    }
+
+    final fine = _cachedFines[idx];
+    if (fine.isPaid) {
+      throw Exception('Cannot appeal a settled and paid fine');
+    }
+
+    final now = DateTime.now();
+    final updated = fine.copyWith(
+      status: FineStatus.appealed,
+      appealReason: reason.trim(),
+      updatedAt: now,
+    );
+    _cachedFines[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<FineRecordModel> waiveFine({
+    required String fineId,
+    required String waivedBy,
+  }) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.waiveFine(fineId: fineId, waivedBy: waivedBy);
+        final idx = _cachedFines.indexWhere((f) => f.id == fineId);
+        if (idx != -1) _cachedFines[idx] = res;
+        return res;
+      } catch (_) {}
+    }
+
+    final idx = _cachedFines.indexWhere((f) => f.id == fineId);
+    if (idx == -1) {
+      throw Exception("Fine record '$fineId' not found");
+    }
+
+    final fine = _cachedFines[idx];
+    if (fine.isPaid) {
+      throw Exception('Cannot waive a settled and paid fine');
+    }
+
+    final now = DateTime.now();
+    final updated = fine.copyWith(
+      status: FineStatus.waived,
+      waivedBy: waivedBy.trim().isEmpty ? 'Institution Administrator' : waivedBy.trim(),
+      updatedAt: now,
+    );
+    _cachedFines[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<List<FeePaymentModel>> getFeePayments(String studentId) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.getFeePayments(studentId);
+        _cachedFeePayments.clear();
+        _cachedFeePayments.addAll(list);
+        return list;
+      } catch (_) {}
+    }
+
+    final list = _cachedFeePayments.where((p) {
+      if (studentId.isNotEmpty && p.studentId != studentId) return false;
+      return true;
+    }).toList();
+
+    list.sort((a, b) => b.paidAt.compareTo(a.paidAt));
+    return list;
+  }
+
+  @override
+  Future<FeeReceiptModel> getFeeReceipt(String receiptNumber) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.getFeeReceipt(receiptNumber);
+      } catch (_) {}
+    }
+
+    try {
+      return _cachedFeeReceipts.firstWhere((r) => r.receiptNumber == receiptNumber);
+    } catch (_) {
+      throw Exception("Fee receipt '$receiptNumber' not found");
+    }
   }
 }

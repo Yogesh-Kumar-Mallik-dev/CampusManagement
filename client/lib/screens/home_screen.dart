@@ -8,6 +8,7 @@ import '../widgets/smooth_theme_toggle.dart';
 import 'attendance_screen.dart';
 import 'complaints_screen.dart';
 import 'department_management_screen.dart';
+import 'fee_screen.dart';
 import 'hostel_screen.dart';
 import 'mess_screen.dart';
 import 'notices_screen.dart';
@@ -57,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onDestinationSelected(int index) {
-    if (index >= 1 && index <= 8) {
+    if (index >= 1 && index <= 9) {
       _slot3PageIndex = index;
     }
     if (_currentIndex == index) return;
@@ -160,6 +161,12 @@ class _HomeScreenState extends State<HomeScreen> {
             currentUser: _currentUser,
           );
         case 9:
+          return FeeScreen(
+            key: ValueKey('tab-fees-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
+          );
+        case 10:
           return UserProfileScreen(
             key: ValueKey('tab-profile-${_currentUser.id}'),
             storage: widget.storage,
@@ -727,6 +734,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return ('Hostel Mess & Feedback', '21:30 - 23:00 IST', 'Dining feedback aggregation system maintenance and menu sync.');
       case 8:
         return ('Grievances & Complaints Redressal', '01:00 - 03:00 IST', 'Ticket dispatcher and cryptographic anonymity vault upgrade.');
+      case 9:
+        return ('Institutional Fee & Fine Management', '00:00 - 02:00 IST', 'Payment gateway settlement re-indexing and bank ledger synchronization.');
       default:
         return ('Campus Module', '23:00 - 02:00 IST', 'System database re-indexing and maintenance upgrade.');
     }
@@ -750,6 +759,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return ('Hostel Mess & Feedback', 'UPCOMING MODULE', 'Digital meal coupon reservation and dietary calorie analyzer.');
       case 8:
         return ('Grievances & Complaints Redressal', 'UPCOMING MODULE', 'AI-prioritized institutional grievance triage and SLA escalation.');
+      case 9:
+        return ('Institutional Fee & Fine Management', 'UPCOMING MODULE', 'Automated scholarship disbursement and installment e-mandate portal.');
       default:
         return ('Campus Module', 'PREVIEW SHOWCASE', 'Next-generation campus management service in development.');
     }
@@ -817,7 +828,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final tabStack = IndexedStack(
       index: _currentIndex,
-      children: List.generate(10, _buildTab),
+      children: List.generate(11, _buildTab),
     );
 
     return Scaffold(
@@ -878,6 +889,18 @@ class _HomeScreenState extends State<HomeScreen> {
               size: 18,
             ),
             onPressed: () => _onDestinationSelected(8),
+          ),
+          const SizedBox(width: 4),
+
+          // Fees & Fine Portal Direct Shortcut
+          IconButton(
+            key: const Key('appbar-btn-fees'),
+            tooltip: 'Fees & Fine Portal',
+            icon: const AppSvgIcon(
+              svgString: AppSvgIcon.creditCard,
+              size: 18,
+            ),
+            onPressed: () => _onDestinationSelected(9),
           ),
           const SizedBox(width: 4),
 
@@ -1140,9 +1163,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     key: const Key('dock-division-profile'),
                     label: 'Profile',
                     svgIcon: AppSvgIcon.user,
-                    isSelected: _currentIndex == 9,
+                    isSelected: _currentIndex == 10,
                     isDark: isDark,
-                    onTap: () => _onDestinationSelected(9),
+                    onTap: () => _onDestinationSelected(10),
                   ),
                 ),
 
@@ -1250,6 +1273,8 @@ class _HomeScreenState extends State<HomeScreen> {
       case 8:
         return (label: 'Complaints', svgIcon: AppSvgIcon.alertTriangle);
       case 9:
+        return (label: 'Fees', svgIcon: AppSvgIcon.creditCard);
+      case 10:
         return (label: 'Profile', svgIcon: AppSvgIcon.user);
       default:
         return (label: 'Timetable', svgIcon: AppSvgIcon.calendar);
@@ -1313,6 +1338,13 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Grievances & Complaints',
         subtitle: 'Lodge & track verified or anonymous complaints',
         svgIcon: AppSvgIcon.alertTriangle,
+      ),
+      (
+        index: 9,
+        keyName: 'fees',
+        label: 'Fees & Fine Portal',
+        subtitle: 'Semester dues, itemized invoices, fines & receipts',
+        svgIcon: AppSvgIcon.creditCard,
       ),
     ];
 
@@ -3372,7 +3404,8 @@ class _CampusSidebarState extends State<_CampusSidebar> {
       (index: 6, svg: AppSvgIcon.bed, label: 'Hostel'),
       (index: 7, svg: AppSvgIcon.utensils, label: 'Mess'),
       (index: 8, svg: AppSvgIcon.alertTriangle, label: 'Complaints'),
-      (index: 9, svg: AppSvgIcon.user, label: 'Profile'),
+      (index: 9, svg: AppSvgIcon.creditCard, label: 'Fees'),
+      (index: 10, svg: AppSvgIcon.user, label: 'Profile'),
     ];
 
     final visibleItems = <({
@@ -3441,7 +3474,7 @@ class _CampusSidebarState extends State<_CampusSidebar> {
           final verticalPadding = totalHeight < 560 ? 4.0 : 8.0;
           final availableHeight = totalHeight - (verticalPadding * 2);
           final idealItemHeight = availableHeight / (visibleItems.isEmpty ? 1 : visibleItems.length);
-          final itemHeight = idealItemHeight.clamp(42.0, 66.0);
+          final itemHeight = idealItemHeight.clamp(38.0, 66.0);
 
           return Scrollbar(
             controller: _scrollController,

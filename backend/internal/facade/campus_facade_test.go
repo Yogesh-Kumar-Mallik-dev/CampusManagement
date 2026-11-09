@@ -21,6 +21,7 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 	hostelService := service.NewHostelService(nil, permService)
 	messService := service.NewMessService(nil, permService)
 	complaintService := service.NewComplaintService()
+	feeService := service.NewFeeService(nil, permService)
 
 	// Seed data
 	hostelService.SeedDefaultRooms()
@@ -33,6 +34,7 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 		hostelService,
 		messService,
 		complaintService,
+		feeService,
 	)
 
 	// 1. Identity & Auth via Facade
@@ -259,12 +261,93 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 	if err != nil || updatedComp.Status != model.ComplaintStatusInProgress {
 		t.Fatalf("update complaint status failed: %v", err)
 	}
+
+	// 5. Fees & Fines via Facade
+	feeSummary, err := facade.GetFeeSummary(ctx, "usr-harish_2025_l_btech_1")
+	if err != nil || feeSummary.TotalDues <= 0 {
+		t.Fatalf("get fee summary failed: %v", err)
+	}
+
+	invoices, err := facade.GetInvoices(ctx, "usr-harish_2025_l_btech_1", "")
+	if err != nil || len(invoices) == 0 {
+		t.Fatalf("get invoices failed: %v", err)
+	}
+
+	var targetInv model.FeeInvoice
+	for _, inv := range invoices {
+		if inv.DueAmount > 0 {
+			targetInv = inv
+			break
+		}
+	}
+	if targetInv.ID == "" {
+		t.Fatal("expected at least one invoice with due balance")
+	}
+
+	singleInv, err := facade.GetInvoiceByID(ctx, targetInv.ID)
+	if err != nil || singleInv == nil {
+		t.Fatalf("get invoice by id failed: %v", err)
+	}
+
+	payInv, rec, err := facade.PayInvoice(ctx, model.PayInvoiceRequest{
+		InvoiceID:     targetInv.ID,
+		StudentID:     targetInv.StudentID,
+		Amount:        1000.0,
+		PaymentMethod: "upi",
+	})
+	if err != nil || payInv == nil || rec == nil {
+		t.Fatalf("pay invoice failed: %v", err)
+	}
+
+	fines, err := facade.GetFines(ctx, "usr-harish_2025_l_btech_1", "")
+	if err != nil || len(fines) == 0 {
+		t.Fatalf("get fines failed: %v", err)
+	}
+
+	appealedFine, err := facade.AppealFine(ctx, fines[0].ID, "Valid medical reason")
+	if err != nil || appealedFine.Status != model.FineStatusAppealed {
+		t.Fatalf("appeal fine failed: %v", err)
+	}
+
+	waivedFine, err := facade.WaiveFine(ctx, fines[0].ID, "admin")
+	if err != nil || waivedFine.Status != model.FineStatusWaived {
+		t.Fatalf("waive fine failed: %v", err)
+	}
+
+	// Pay an unpaid fine
+	var unpaidFine model.FineRecord
+	for _, f := range fines {
+		if f.Status == model.FineStatusUnpaid {
+			unpaidFine = f
+			break
+		}
+	}
+	if unpaidFine.ID != "" {
+		payFine, fineRec, err := facade.PayFine(ctx, model.PayFineRequest{
+			FineID:        unpaidFine.ID,
+			StudentID:     unpaidFine.StudentID,
+			PaymentMethod: "netbanking",
+		})
+		if err != nil || payFine == nil || fineRec == nil {
+			t.Fatalf("pay fine failed: %v", err)
+		}
+	}
+
+	paymentRecords, err := facade.GetPaymentRecords(ctx, "usr-harish_2025_l_btech_1")
+	if err != nil || len(paymentRecords) == 0 {
+		t.Fatalf("get payment records failed: %v", err)
+	}
+
+	fetchedReceipt, err := facade.GetReceipt(ctx, rec.ReceiptNumber)
+	if err != nil || fetchedReceipt == nil {
+		t.Fatalf("get receipt failed: %v", err)
+	}
 }
 
 func TestCampusFacadeNilSafety(t *testing.T) {
 	ctx := context.Background()
 	// Nil dependencies facade
-	facade := NewCampusFacade(nil, nil, nil, nil, nil, nil)
+	facade := NewCampusFacade(nil, nil, nil, nil, nil, nil, nil)
 
 	if _, err := facade.GenerateHandle(ctx, "student", "a", 2025, ""); err == nil {
 		t.Fatal("expected error on nil idGen")
@@ -356,5 +439,35 @@ func TestCampusFacadeNilSafety(t *testing.T) {
 	}
 	if _, err := facade.UpdateComplaintStatus("1", "s", "r", "v"); err == nil {
 		t.Fatal("expected error on nil complaints")
+	}
+	if _, err := facade.GetFeeSummary(ctx, "s"); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, err := facade.GetInvoices(ctx, "s", ""); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, err := facade.GetInvoiceByID(ctx, "1"); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, _, err := facade.PayInvoice(ctx, model.PayInvoiceRequest{}); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, err := facade.GetFines(ctx, "s", ""); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, _, err := facade.PayFine(ctx, model.PayFineRequest{}); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, err := facade.AppealFine(ctx, "1", "r"); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, err := facade.WaiveFine(ctx, "1", "a"); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, err := facade.GetPaymentRecords(ctx, "s"); err == nil {
+		t.Fatal("expected error on nil fee")
+	}
+	if _, err := facade.GetReceipt(ctx, "1"); err == nil {
+		t.Fatal("expected error on nil fee")
 	}
 }

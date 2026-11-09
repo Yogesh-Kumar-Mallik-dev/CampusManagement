@@ -1,5 +1,6 @@
 import '../models/academic.dart';
 import '../models/complaint.dart';
+import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
@@ -152,6 +153,33 @@ abstract class ICampusFacade {
     required String remarks,
     required String resolvedBy,
   });
+
+  // Institutional Fees & Fines
+  Future<FeeSummaryModel> getFeeSummary(String studentId);
+  Future<List<FeeInvoiceModel>> getInvoices({String? studentId, String? status});
+  Future<FeeInvoiceModel?> getInvoiceById(String id);
+  Future<Map<String, dynamic>> payInvoice({
+    required String invoiceId,
+    required String studentId,
+    required double amount,
+    required String paymentMethod,
+  });
+  Future<List<FineRecordModel>> getFines({String? studentId, String? status});
+  Future<Map<String, dynamic>> payFine({
+    required String fineId,
+    required String studentId,
+    required String paymentMethod,
+  });
+  Future<FineRecordModel> appealFine({
+    required String fineId,
+    required String reason,
+  });
+  Future<FineRecordModel> waiveFine({
+    required String fineId,
+    required String waivedBy,
+  });
+  Future<List<FeePaymentModel>> getFeePayments(String studentId);
+  Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
 }
 
 /// CampusFacade is the production implementation of ICampusFacade.
@@ -545,4 +573,69 @@ class CampusFacade implements ICampusFacade {
         remarks: remarks,
         resolvedBy: resolvedBy,
       );
+
+  // Institutional Fees & Fines
+  @override
+  Future<FeeSummaryModel> getFeeSummary(String studentId) =>
+      storage.getFeeSummary(studentId);
+
+  @override
+  Future<List<FeeInvoiceModel>> getInvoices({String? studentId, String? status}) =>
+      storage.getInvoices(studentId: studentId, status: status);
+
+  @override
+  Future<FeeInvoiceModel?> getInvoiceById(String id) =>
+      storage.getInvoiceById(id);
+
+  @override
+  Future<Map<String, dynamic>> payInvoice({
+    required String invoiceId,
+    required String studentId,
+    required double amount,
+    required String paymentMethod,
+  }) =>
+      storage.payInvoice(
+        invoiceId: invoiceId,
+        studentId: studentId,
+        amount: amount,
+        paymentMethod: paymentMethod,
+      );
+
+  @override
+  Future<List<FineRecordModel>> getFines({String? studentId, String? status}) =>
+      storage.getFines(studentId: studentId, status: status);
+
+  @override
+  Future<Map<String, dynamic>> payFine({
+    required String fineId,
+    required String studentId,
+    required String paymentMethod,
+  }) =>
+      storage.payFine(
+        fineId: fineId,
+        studentId: studentId,
+        paymentMethod: paymentMethod,
+      );
+
+  @override
+  Future<FineRecordModel> appealFine({
+    required String fineId,
+    required String reason,
+  }) =>
+      storage.appealFine(fineId: fineId, reason: reason);
+
+  @override
+  Future<FineRecordModel> waiveFine({
+    required String fineId,
+    required String waivedBy,
+  }) =>
+      storage.waiveFine(fineId: fineId, waivedBy: waivedBy);
+
+  @override
+  Future<List<FeePaymentModel>> getFeePayments(String studentId) =>
+      storage.getFeePayments(studentId);
+
+  @override
+  Future<FeeReceiptModel> getFeeReceipt(String receiptNumber) =>
+      storage.getFeeReceipt(receiptNumber);
 }

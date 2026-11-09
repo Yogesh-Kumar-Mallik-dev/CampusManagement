@@ -25,4 +25,4 @@ else
   flutter test
 fi
 
-echo "✅ [test] All backend and client test suites passed successfully."
+echo "[test] All backend and client test suites passed successfully."

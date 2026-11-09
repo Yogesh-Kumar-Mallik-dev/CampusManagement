@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_client/facade/campus_facade.dart';
 import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/models/complaint.dart';
+import 'package:campus_client/models/fee.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
 
@@ -451,6 +452,68 @@ void main() {
         final updatedMeal = await facade.updateMessMeal(mealToUpdate);
         expect(updatedMeal.menuSummary, equals('Updated Special Thali'));
       }
+    });
+
+    test('Facade manages institutional Fee and Fine Subsystems', () async {
+      const studentId = 'usr-harish_2025_l_btech_1';
+
+      // 1. Fee summary
+      final summary = await facade.getFeeSummary(studentId);
+      expect(summary.totalDues, greaterThan(0));
+      expect(summary.totalPaid, greaterThan(0));
+
+      // 2. Invoices query
+      final invoices = await facade.getInvoices(studentId: studentId);
+      expect(invoices.isNotEmpty, isTrue);
+
+      final inv = await facade.getInvoiceById(invoices.first.id);
+      expect(inv, isNotNull);
+
+      // Find an invoice with due amount
+      final dueInvoice = invoices.firstWhere((i) => i.dueAmount > 0);
+      final payResult = await facade.payInvoice(
+        invoiceId: dueInvoice.id,
+        studentId: studentId,
+        amount: 500.0,
+        paymentMethod: 'upi',
+      );
+      expect(payResult['payment'], isA<FeePaymentModel>());
+      expect(payResult['receipt'], isA<FeeReceiptModel>());
+
+      // 3. Fines query & pay
+      final fines = await facade.getFines(studentId: studentId);
+      expect(fines.isNotEmpty, isTrue);
+
+      final appealed = await facade.appealFine(
+        fineId: fines.first.id,
+        reason: 'Authorized absence for robotics symposium',
+      );
+      expect(appealed.status, equals(FineStatus.appealed));
+
+      final waived = await facade.waiveFine(
+        fineId: fines.first.id,
+        waivedBy: 'Campus Dean',
+      );
+      expect(waived.status, equals(FineStatus.waived));
+
+      // Pay an unpaid fine
+      final unpaidFines = fines.where((f) => f.status == FineStatus.unpaid).toList();
+      if (unpaidFines.isNotEmpty) {
+        final finePayResult = await facade.payFine(
+          fineId: unpaidFines.first.id,
+          studentId: studentId,
+          paymentMethod: 'netbanking',
+        );
+        expect(finePayResult['payment'], isA<FeePaymentModel>());
+        expect(finePayResult['receipt'], isA<FeeReceiptModel>());
+      }
+
+      // 4. Historical payments and receipt lookup
+      final payments = await facade.getFeePayments(studentId);
+      expect(payments.isNotEmpty, isTrue);
+
+      final receipt = await facade.getFeeReceipt(payments.first.receiptNumber);
+      expect(receipt.receiptNumber, equals(payments.first.receiptNumber));
     });
   });
 }
