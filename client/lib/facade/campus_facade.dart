@@ -2,6 +2,7 @@ import '../models/academic.dart';
 import '../models/complaint.dart';
 import '../models/fee.dart';
 import '../models/hostel.dart';
+import '../models/library.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
 import '../services/storage_interface.dart';
@@ -181,6 +182,16 @@ abstract class ICampusFacade {
   Future<List<FeePaymentModel>> getFeePayments(String studentId);
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
   Future<List<int>> downloadInvoicePdf(String invoiceId);
+
+  // Institutional Library Subsystem
+  Future<LibrarySummaryModel> getLibrarySummary(String studentId);
+  Future<List<PhysicalBookModel>> getPhysicalBooks({String? query, String? category});
+  Future<PhysicalBookModel?> getBookById(String id);
+  Future<List<BorrowRecordModel>> getBorrowRecords({String? studentId, String? status});
+  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId});
+  Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId});
+  Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId});
+  Future<List<EBookModel>> getEBooks({String? query, String? category});
 }
 
 /// CampusFacade is the production implementation of ICampusFacade.
@@ -643,4 +654,37 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<List<int>> downloadInvoicePdf(String invoiceId) =>
       storage.downloadInvoicePdf(invoiceId);
+
+  // Institutional Library Subsystem
+  @override
+  Future<LibrarySummaryModel> getLibrarySummary(String studentId) =>
+      storage.getLibrarySummary(studentId);
+
+  @override
+  Future<List<PhysicalBookModel>> getPhysicalBooks({String? query, String? category}) =>
+      storage.getPhysicalBooks(query: query, category: category);
+
+  @override
+  Future<PhysicalBookModel?> getBookById(String id) =>
+      storage.getBookById(id);
+
+  @override
+  Future<List<BorrowRecordModel>> getBorrowRecords({String? studentId, String? status}) =>
+      storage.getBorrowRecords(studentId: studentId, status: status);
+
+  @override
+  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId}) =>
+      storage.borrowBook(studentId: studentId, bookId: bookId);
+
+  @override
+  Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId}) =>
+      storage.returnBook(borrowId: borrowId, studentId: studentId);
+
+  @override
+  Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId}) =>
+      storage.renewBook(borrowId: borrowId, studentId: studentId);
+
+  @override
+  Future<List<EBookModel>> getEBooks({String? query, String? category}) =>
+      storage.getEBooks(query: query, category: category);
 }

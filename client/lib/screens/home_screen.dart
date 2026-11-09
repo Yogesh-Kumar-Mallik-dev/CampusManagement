@@ -10,6 +10,7 @@ import 'complaints_screen.dart';
 import 'department_management_screen.dart';
 import 'fee_screen.dart';
 import 'hostel_screen.dart';
+import 'library_screen.dart';
 import 'mess_screen.dart';
 import 'notices_screen.dart';
 import 'timetable_screen.dart';
@@ -58,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onDestinationSelected(int index) {
-    if (index >= 1 && index <= 9) {
+    if (index >= 1 && index <= 10) {
       _slot3PageIndex = index;
     }
     if (_currentIndex == index) return;
@@ -167,6 +168,13 @@ class _HomeScreenState extends State<HomeScreen> {
             currentUser: _currentUser,
           );
         case 10:
+          return LibraryScreen(
+            key: ValueKey('tab-library-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
+            onNavigateToTab: _onDestinationSelected,
+          );
+        case 11:
           return UserProfileScreen(
             key: ValueKey('tab-profile-${_currentUser.id}'),
             storage: widget.storage,
@@ -823,18 +831,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktopOrWeb = MediaQuery.of(context).size.width >= 800;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktopOrWeb = screenWidth >= 800;
+    final isNarrow = screenWidth <= 600;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final tabStack = IndexedStack(
       index: _currentIndex,
-      children: List.generate(11, _buildTab),
+      children: List.generate(12, _buildTab),
     );
 
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 16,
-        title: const AppLogo(height: 40),
+        titleSpacing: isNarrow ? 8 : 16,
+        title: AppLogo(height: isNarrow ? 34 : 40),
         actions: [
           // Connection Status Badge
           Builder(
@@ -884,25 +894,61 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             key: const Key('appbar-btn-complaints'),
             tooltip: 'Grievances & Complaints',
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(28, 28),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+            ),
             icon: const AppSvgIcon(
               svgString: AppSvgIcon.alertTriangle,
               size: 18,
             ),
             onPressed: () => _onDestinationSelected(8),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
 
           // Fees & Fine Portal Direct Shortcut
           IconButton(
             key: const Key('appbar-btn-fees'),
             tooltip: 'Fees & Fine Portal',
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(28, 28),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+            ),
             icon: const AppSvgIcon(
               svgString: AppSvgIcon.creditCard,
               size: 18,
             ),
             onPressed: () => _onDestinationSelected(9),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
+
+          // Library & Knowledge Portal Direct Shortcut
+          IconButton(
+            key: const Key('appbar-btn-library'),
+            tooltip: 'Library & Knowledge Portal',
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(28, 28),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            icon: const AppSvgIcon(
+              svgString: AppSvgIcon.book,
+              size: 18,
+            ),
+            onPressed: () => _onDestinationSelected(10),
+          ),
+          const SizedBox(width: 2),
 
           // Smooth Animated Theme Toggle
           const SmoothThemeToggle(),
@@ -1163,9 +1209,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     key: const Key('dock-division-profile'),
                     label: 'Profile',
                     svgIcon: AppSvgIcon.user,
-                    isSelected: _currentIndex == 10,
+                    isSelected: _currentIndex == 11,
                     isDark: isDark,
-                    onTap: () => _onDestinationSelected(10),
+                    onTap: () => _onDestinationSelected(11),
                   ),
                 ),
 
@@ -1275,6 +1321,8 @@ class _HomeScreenState extends State<HomeScreen> {
       case 9:
         return (label: 'Fees', svgIcon: AppSvgIcon.creditCard);
       case 10:
+        return (label: 'Library', svgIcon: AppSvgIcon.book);
+      case 11:
         return (label: 'Profile', svgIcon: AppSvgIcon.user);
       default:
         return (label: 'Timetable', svgIcon: AppSvgIcon.calendar);
@@ -1345,6 +1393,13 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Fees & Fine Portal',
         subtitle: 'Semester dues, itemized invoices, fines & receipts',
         svgIcon: AppSvgIcon.creditCard,
+      ),
+      (
+        index: 10,
+        keyName: 'library',
+        label: 'Library & Knowledge Portal',
+        subtitle: 'Borrowed books, return dates, late fines & infinite e-books',
+        svgIcon: AppSvgIcon.book,
       ),
     ];
 
@@ -2857,6 +2912,22 @@ class _HomeScreenState extends State<HomeScreen> {
             color: AppColors.statusRed,
             onTap: () => _onDestinationSelected(8),
           ),
+          _buildOperationCard(
+            key: const Key('card-quick-fees'),
+            title: 'Fees & Fine Portal',
+            subtitle: 'Semester dues, itemized invoices, fines & receipts',
+            iconSvg: AppSvgIcon.creditCard,
+            color: const Color(0xFF0D9488),
+            onTap: () => _onDestinationSelected(9),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-library'),
+            title: 'Library & Knowledge Portal',
+            subtitle: 'Borrowed books, return dates, late fines & infinite e-books',
+            iconSvg: AppSvgIcon.book,
+            color: const Color(0xFF2563EB),
+            onTap: () => _onDestinationSelected(10),
+          ),
         ];
         break;
 
@@ -3405,7 +3476,8 @@ class _CampusSidebarState extends State<_CampusSidebar> {
       (index: 7, svg: AppSvgIcon.utensils, label: 'Mess'),
       (index: 8, svg: AppSvgIcon.alertTriangle, label: 'Complaints'),
       (index: 9, svg: AppSvgIcon.creditCard, label: 'Fees'),
-      (index: 10, svg: AppSvgIcon.user, label: 'Profile'),
+      (index: 10, svg: AppSvgIcon.book, label: 'Library'),
+      (index: 11, svg: AppSvgIcon.user, label: 'Profile'),
     ];
 
     final visibleItems = <({
@@ -3474,7 +3546,7 @@ class _CampusSidebarState extends State<_CampusSidebar> {
           final verticalPadding = totalHeight < 560 ? 4.0 : 8.0;
           final availableHeight = totalHeight - (verticalPadding * 2);
           final idealItemHeight = availableHeight / (visibleItems.isEmpty ? 1 : visibleItems.length);
-          final itemHeight = idealItemHeight.clamp(38.0, 66.0);
+          final itemHeight = idealItemHeight.clamp(35.0, 66.0);
 
           return Scrollbar(
             controller: _scrollController,
@@ -3543,11 +3615,11 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final h = widget.itemHeight;
 
-    final double iconBoxWidth = (h >= 58) ? 52.0 : (h >= 48 ? 46.0 : 40.0);
-    final double iconBoxHeight = (h >= 58) ? 30.0 : (h >= 48 ? 26.0 : 22.0);
-    final double iconSize = (h >= 58) ? 18.0 : (h >= 48 ? 16.0 : 14.0);
-    final double spacing = (h >= 56) ? 3.0 : 2.0;
-    final double fontSize = (h >= 58) ? 11.0 : (h >= 48 ? 10.0 : 9.0);
+    final double iconBoxWidth = (h >= 58) ? 52.0 : (h >= 48 ? 46.0 : (h >= 40 ? 40.0 : 36.0));
+    final double iconBoxHeight = (h >= 58) ? 30.0 : (h >= 48 ? 26.0 : (h >= 40 ? 22.0 : 18.0));
+    final double iconSize = (h >= 58) ? 18.0 : (h >= 48 ? 16.0 : (h >= 40 ? 14.0 : 12.0));
+    final double spacing = (h >= 56) ? 3.0 : (h >= 42 ? 2.0 : 1.0);
+    final double fontSize = (h >= 58) ? 11.0 : (h >= 48 ? 10.0 : (h >= 42 ? 9.0 : 8.0));
 
     return Tooltip(
       message: widget.isLocked
@@ -3564,7 +3636,7 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
           child: Container(
             width: 78,
             height: widget.itemHeight,
-            padding: const EdgeInsets.symmetric(vertical: 2),
+            padding: EdgeInsets.symmetric(vertical: h < 42 ? 0.0 : 2.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,

@@ -5,6 +5,7 @@ import '../models/academic.dart';
 import '../models/complaint.dart';
 import '../models/fee.dart';
 import '../models/hostel.dart';
+import '../models/library.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
 import '../utils/invoice_pdf_generator.dart';
@@ -32,6 +33,9 @@ class OfflineStorageService implements ICampusStorage {
   final List<FineRecordModel> _cachedFines = [];
   final List<FeePaymentModel> _cachedFeePayments = [];
   final List<FeeReceiptModel> _cachedFeeReceipts = [];
+  final List<PhysicalBookModel> _cachedPhysicalBooks = [];
+  final List<BorrowRecordModel> _cachedBorrowRecords = [];
+  final List<EBookModel> _cachedEBooks = [];
   final Map<String, String> _studentSectionMap = {};
   final Map<String, String> _studentProgramMap = {};
   final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
@@ -62,6 +66,7 @@ class OfflineStorageService implements ICampusStorage {
     _seedDefaultTimetableIfEmpty();
     _seedDefaultNoticesIfEmpty();
     _seedDefaultHostelRoomsIfEmpty();
+    _seedDefaultLibraryIfEmpty();
     if (_cachedSummaries.isEmpty) {
       _cachedSummaries.addAll(_getDefaultStudentSummaries());
     }
@@ -4830,5 +4835,728 @@ class OfflineStorageService implements ICampusStorage {
     );
 
     return InvoicePdfGenerator.generate(invoice);
+  }
+
+  // Institutional Library Subsystem & Fine Portal Synchronization
+
+  void _seedDefaultLibraryIfEmpty() {
+    if (_cachedPhysicalBooks.isNotEmpty) return;
+
+    final now = DateTime.now();
+
+    // 1. Seed Physical Books Catalog
+    _cachedPhysicalBooks.addAll([
+      PhysicalBookModel(
+        id: 'bk-algo-01',
+        isbn: '978-0262033848',
+        title: 'Introduction to Algorithms (CLRS 3rd Edition)',
+        author: 'Thomas H. Cormen, Charles E. Leiserson',
+        publisher: 'MIT Press',
+        edition: '3rd Edition',
+        category: 'Computer Science',
+        departmentId: 'dept-cse',
+        totalCopies: 5,
+        availableCopies: 4,
+        shelfLocation: 'Rack C-3, 2nd Floor Central Wing',
+        replacementCost: 4500.0,
+        createdAt: now.subtract(const Duration(days: 90)),
+        updatedAt: now,
+      ),
+      PhysicalBookModel(
+        id: 'bk-os-01',
+        isbn: '978-1118063330',
+        title: 'Operating System Concepts',
+        author: 'Abraham Silberschatz, Peter B. Galvin',
+        publisher: 'Wiley',
+        edition: '9th Edition',
+        category: 'Computer Science',
+        departmentId: 'dept-cse',
+        totalCopies: 3,
+        availableCopies: 2,
+        shelfLocation: 'Rack D-2, 2nd Floor Central Wing',
+        replacementCost: 3200.0,
+        createdAt: now.subtract(const Duration(days: 90)),
+        updatedAt: now,
+      ),
+      PhysicalBookModel(
+        id: 'bk-db-01',
+        isbn: '978-0073523323',
+        title: 'Database System Concepts',
+        author: 'Abraham Silberschatz, Henry F. Korth',
+        publisher: 'McGraw-Hill',
+        edition: '7th Edition',
+        category: 'Computer Science',
+        departmentId: 'dept-cse',
+        totalCopies: 6,
+        availableCopies: 4,
+        shelfLocation: 'Rack A-4, 2nd Floor East Wing',
+        replacementCost: 4100.0,
+        createdAt: now.subtract(const Duration(days: 90)),
+        updatedAt: now,
+      ),
+      PhysicalBookModel(
+        id: 'bk-ai-01',
+        isbn: '978-0136042594',
+        title: 'Artificial Intelligence: A Modern Approach',
+        author: 'Stuart Russell, Peter Norvig',
+        publisher: 'Pearson',
+        edition: '4th Edition',
+        category: 'Artificial Intelligence',
+        departmentId: 'dept-cse',
+        totalCopies: 4,
+        availableCopies: 0,
+        shelfLocation: 'Rack C-1, 3rd Floor AI Wing',
+        replacementCost: 5200.0,
+        createdAt: now.subtract(const Duration(days: 90)),
+        updatedAt: now,
+      ),
+      PhysicalBookModel(
+        id: 'bk-digital-01',
+        isbn: '978-0132774208',
+        title: 'Digital Logic and Computer Design',
+        author: 'M. Morris Mano',
+        publisher: 'Prentice Hall',
+        edition: '5th Edition',
+        category: 'Electronics',
+        departmentId: 'dept-ece',
+        totalCopies: 5,
+        availableCopies: 3,
+        shelfLocation: 'Rack B-2, 1st Floor Electronics Wing',
+        replacementCost: 2800.0,
+        createdAt: now.subtract(const Duration(days: 90)),
+        updatedAt: now,
+      ),
+      PhysicalBookModel(
+        id: 'bk-math-01',
+        isbn: '978-0073383095',
+        title: 'Discrete Mathematics and Its Applications',
+        author: 'Kenneth H. Rosen',
+        publisher: 'McGraw-Hill',
+        edition: '8th Edition',
+        category: 'Mathematics',
+        departmentId: 'dept-math',
+        totalCopies: 7,
+        availableCopies: 6,
+        shelfLocation: 'Rack M-1, Ground Floor Math Wing',
+        replacementCost: 3600.0,
+        createdAt: now.subtract(const Duration(days: 90)),
+        updatedAt: now,
+      ),
+    ]);
+
+    // 2. Demo Student Borrows (Harish Kumar)
+    const studentId = 'usr-harish_2025_l_btech_1';
+    const studentName = 'Harish Kumar';
+    const handle = 'harish_2025_l_btech_1';
+
+    // Active loan (due in 9 days)
+    final loan1 = BorrowRecordModel(
+      id: 'brw-clrs-01',
+      bookId: 'bk-algo-01',
+      bookTitle: 'Introduction to Algorithms (CLRS 3rd Edition)',
+      bookAuthor: 'Thomas H. Cormen, Charles E. Leiserson',
+      bookIsbn: '978-0262033848',
+      shelfLocation: 'Rack C-3, 2nd Floor Central Wing',
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      borrowedAt: now.subtract(const Duration(days: 5)),
+      dueDate: now.add(const Duration(days: 9)),
+      status: BorrowStatus.active,
+      renewalCount: 0,
+      maxRenewals: 2,
+      finePerDay: 10.0,
+      accruedLateFine: 0.0,
+      createdAt: now.subtract(const Duration(days: 5)),
+      updatedAt: now,
+    );
+
+    // Overdue loan (due 5 days ago, 50 INR fine linked to Fine Portal)
+    const overdueFineId = 'fine-lib-overdue-01';
+    final loan2 = BorrowRecordModel(
+      id: 'brw-os-01',
+      bookId: 'bk-os-01',
+      bookTitle: 'Operating System Concepts',
+      bookAuthor: 'Abraham Silberschatz, Peter B. Galvin',
+      bookIsbn: '978-1118063330',
+      shelfLocation: 'Rack D-2, 2nd Floor Central Wing',
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      borrowedAt: now.subtract(const Duration(days: 19)),
+      dueDate: now.subtract(const Duration(days: 5)),
+      status: BorrowStatus.overdue,
+      renewalCount: 0,
+      maxRenewals: 2,
+      finePerDay: 10.0,
+      accruedLateFine: 50.0,
+      finePortalFeeId: overdueFineId,
+      createdAt: now.subtract(const Duration(days: 19)),
+      updatedAt: now,
+    );
+
+    // Returned loan
+    final loan3 = BorrowRecordModel(
+      id: 'brw-math-01',
+      bookId: 'bk-math-01',
+      bookTitle: 'Discrete Mathematics and Its Applications',
+      bookAuthor: 'Kenneth H. Rosen',
+      bookIsbn: '978-0073383095',
+      shelfLocation: 'Rack M-1, Ground Floor Math Wing',
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: handle,
+      borrowedAt: now.subtract(const Duration(days: 45)),
+      dueDate: now.subtract(const Duration(days: 31)),
+      returnedAt: now.subtract(const Duration(days: 32)),
+      status: BorrowStatus.returned,
+      renewalCount: 1,
+      maxRenewals: 2,
+      finePerDay: 10.0,
+      accruedLateFine: 0.0,
+      createdAt: now.subtract(const Duration(days: 45)),
+      updatedAt: now.subtract(const Duration(days: 32)),
+    );
+
+    _cachedBorrowRecords.addAll([loan1, loan2, loan3]);
+
+    // Ensure overdue fine is synchronized into the Institutional Fine Portal
+    _seedDefaultFeesIfEmpty();
+    if (!_cachedFines.any((f) => f.id == overdueFineId)) {
+      _cachedFines.add(FineRecordModel(
+        id: overdueFineId,
+        studentId: studentId,
+        studentName: studentName,
+        campusHandle: handle,
+        category: FineCategory.library,
+        reason: "Overdue library loan: 'Operating System Concepts' (5 days overdue)",
+        amount: 50.0,
+        issuedAt: now.subtract(const Duration(days: 5)),
+        dueDate: now.add(const Duration(days: 9)),
+        status: FineStatus.unpaid,
+        createdAt: now.subtract(const Duration(days: 5)),
+        updatedAt: now,
+      ));
+    }
+
+    // 3. Digital E-Books for Infinite Borrowing
+    _cachedEBooks.addAll([
+      EBookModel(
+        id: 'ebk-clean-code',
+        title: 'Clean Code: A Handbook of Agile Software Craftsmanship',
+        author: 'Robert C. Martin',
+        category: 'Computer Science',
+        publisher: 'Prentice Hall',
+        format: 'PDF',
+        fileSize: '12.4 MB',
+        totalReaders: 1420,
+        downloadUrl: '/api/v1/library/ebooks/download/clean-code.pdf',
+        readUrl: '/library/reader/clean-code',
+        isInfiniteBorrow: true,
+        description: 'Even bad code can function. But if code isn’t clean, it can bring a development organization to its knees. Master professional craftsmanship.',
+        requiredSemesters: [3, 4],
+        tags: ['Software Engineering', 'Best Practices', 'Refactoring'],
+        createdAt: now.subtract(const Duration(days: 120)),
+        updatedAt: now,
+      ),
+      EBookModel(
+        id: 'ebk-deep-learning',
+        title: 'Deep Learning',
+        author: 'Ian Goodfellow, Yoshua Bengio, Aaron Courville',
+        category: 'Artificial Intelligence',
+        publisher: 'MIT Press',
+        format: 'PDF',
+        fileSize: '28.6 MB',
+        totalReaders: 980,
+        downloadUrl: '/api/v1/library/ebooks/download/deep-learning.pdf',
+        readUrl: '/library/reader/deep-learning',
+        isInfiniteBorrow: true,
+        description: 'The definitive textbook on deep learning covering mathematical fundamentals, neural network architectures, and modern representation learning.',
+        requiredSemesters: [5, 6, 7],
+        tags: ['Neural Networks', 'Machine Learning', 'Mathematics'],
+        createdAt: now.subtract(const Duration(days: 120)),
+        updatedAt: now,
+      ),
+      EBookModel(
+        id: 'ebk-design-patterns',
+        title: 'Design Patterns: Elements of Reusable Object-Oriented Software',
+        author: 'Erich Gamma, Richard Helm, Ralph Johnson, John Vlissides',
+        category: 'Computer Science',
+        publisher: 'Addison-Wesley',
+        format: 'EPUB',
+        fileSize: '8.1 MB',
+        totalReaders: 2150,
+        downloadUrl: '/api/v1/library/ebooks/download/design-patterns.epub',
+        readUrl: '/library/reader/design-patterns',
+        isInfiniteBorrow: true,
+        description: 'Captures a wealth of experience in software engineering and presents solutions to common design problems in scalable object-oriented software.',
+        requiredSemesters: [4, 5],
+        tags: ['Architecture', 'Object-Oriented', 'Patterns'],
+        createdAt: now.subtract(const Duration(days: 120)),
+        updatedAt: now,
+      ),
+      EBookModel(
+        id: 'ebk-ml-systems',
+        title: 'Designing Machine Learning Systems',
+        author: 'Chip Huyen',
+        category: 'Artificial Intelligence',
+        publisher: "O'Reilly Media",
+        format: 'PDF',
+        fileSize: '16.2 MB',
+        totalReaders: 840,
+        downloadUrl: '/api/v1/library/ebooks/download/ml-systems.pdf',
+        readUrl: '/library/reader/ml-systems',
+        isInfiniteBorrow: true,
+        description: 'Comprehensive guide to designing reliable, scalable, and maintainable ML workflows, feature stores, and continuous model deployment.',
+        requiredSemesters: [6, 7],
+        tags: ['MLOps', 'System Design', 'Production ML'],
+        createdAt: now.subtract(const Duration(days: 120)),
+        updatedAt: now,
+      ),
+      EBookModel(
+        id: 'ebk-computer-arch',
+        title: 'Computer Architecture: A Quantitative Approach',
+        author: 'John L. Hennessy, David A. Patterson',
+        category: 'Electronics',
+        publisher: 'Morgan Kaufmann',
+        format: 'PDF',
+        fileSize: '34.1 MB',
+        totalReaders: 620,
+        downloadUrl: '/api/v1/library/ebooks/download/computer-arch.pdf',
+        readUrl: '/library/reader/computer-arch',
+        isInfiniteBorrow: true,
+        description: 'Explores hardware and microprocessor design principles, instruction-level parallelism, memory hierarchies, and vector computing.',
+        requiredSemesters: [4, 5],
+        tags: ['Hardware', 'Processors', 'Parallel Computing'],
+        createdAt: now.subtract(const Duration(days: 120)),
+        updatedAt: now,
+      ),
+      EBookModel(
+        id: 'ebk-linear-algebra',
+        title: 'Linear Algebra and Its Applications',
+        author: 'Gilbert Strang',
+        category: 'Mathematics',
+        publisher: 'Cengage Learning',
+        format: 'PDF',
+        fileSize: '21.5 MB',
+        totalReaders: 1110,
+        downloadUrl: '/api/v1/library/ebooks/download/linear-algebra.pdf',
+        readUrl: '/library/reader/linear-algebra',
+        isInfiniteBorrow: true,
+        description: 'Renowned text introducing vector spaces, linear transformations, eigenvalues, singular value decomposition, and computational applications.',
+        requiredSemesters: [1, 2],
+        tags: ['Mathematics', 'Linear Algebra', 'Foundations'],
+        createdAt: now.subtract(const Duration(days: 120)),
+        updatedAt: now,
+      ),
+    ]);
+  }
+
+  @override
+  Future<LibrarySummaryModel> getLibrarySummary(String studentId) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.getLibrarySummary(studentId);
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
+    int activeBorrows = 0;
+    int overdueBorrows = 0;
+    int returnedBorrows = 0;
+    double totalLateFines = 0.0;
+
+    for (int i = 0; i < _cachedBorrowRecords.length; i++) {
+      final rec = _cachedBorrowRecords[i];
+      if (studentId.isNotEmpty && rec.studentId != studentId) continue;
+
+      if (rec.isReturned) {
+        returnedBorrows++;
+      } else {
+        // Active or overdue
+        if (now.isAfter(rec.dueDate)) {
+          overdueBorrows++;
+          final days = now.difference(rec.dueDate).inDays;
+          final fineDays = days > 0 ? days : 1;
+          final accrued = fineDays * rec.finePerDay;
+          totalLateFines += accrued;
+
+          if (rec.status != BorrowStatus.overdue || rec.accruedLateFine != accrued) {
+            _cachedBorrowRecords[i] = rec.copyWith(
+              status: BorrowStatus.overdue,
+              accruedLateFine: accrued,
+              updatedAt: now,
+            );
+          }
+        } else {
+          activeBorrows++;
+        }
+      }
+    }
+
+    final totalActive = activeBorrows + overdueBorrows;
+    final availableQuota = (4 - totalActive).clamp(0, 4);
+
+    return LibrarySummaryModel(
+      studentId: studentId,
+      maxBorrowQuota: 4,
+      activeBorrowsCount: activeBorrows,
+      overdueBorrowsCount: overdueBorrows,
+      availableQuota: overdueBorrows > 0 ? 0 : availableQuota,
+      totalLateFineDue: totalLateFines,
+      returnedHistoryCount: returnedBorrows,
+      ebooksAccessedCount: _cachedEBooks.length,
+    );
+  }
+
+  @override
+  Future<List<PhysicalBookModel>> getPhysicalBooks({String? query, String? category}) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.getPhysicalBooks(query: query, category: category);
+        _cachedPhysicalBooks.clear();
+        _cachedPhysicalBooks.addAll(list);
+        return list;
+      } catch (_) {}
+    }
+
+    final cleanQuery = query?.trim().toLowerCase() ?? '';
+    final cleanCategory = category?.trim();
+
+    return _cachedPhysicalBooks.where((b) {
+      if (cleanCategory != null &&
+          cleanCategory.isNotEmpty &&
+          cleanCategory != 'All Categories' &&
+          b.category != cleanCategory) {
+        return false;
+      }
+      if (cleanQuery.isNotEmpty) {
+        final match = b.title.toLowerCase().contains(cleanQuery) ||
+            b.author.toLowerCase().contains(cleanQuery) ||
+            b.isbn.toLowerCase().contains(cleanQuery) ||
+            b.shelfLocation.toLowerCase().contains(cleanQuery);
+        if (!match) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Future<PhysicalBookModel?> getBookById(String id) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.getBookById(id);
+      } catch (_) {}
+    }
+
+    try {
+      return _cachedPhysicalBooks.firstWhere((b) => b.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<BorrowRecordModel>> getBorrowRecords({String? studentId, String? status}) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.getBorrowRecords(studentId: studentId, status: status);
+        _cachedBorrowRecords.clear();
+        _cachedBorrowRecords.addAll(list);
+        return list;
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
+    // Synchronize overdue status dynamically
+    for (int i = 0; i < _cachedBorrowRecords.length; i++) {
+      final rec = _cachedBorrowRecords[i];
+      if (!rec.isReturned && now.isAfter(rec.dueDate)) {
+        final days = now.difference(rec.dueDate).inDays;
+        final fineDays = days > 0 ? days : 1;
+        final accrued = fineDays * rec.finePerDay;
+        if (rec.status != BorrowStatus.overdue || rec.accruedLateFine != accrued) {
+          _cachedBorrowRecords[i] = rec.copyWith(
+            status: BorrowStatus.overdue,
+            accruedLateFine: accrued,
+            updatedAt: now,
+          );
+        }
+      }
+    }
+
+    final cleanStatus = status?.trim().toLowerCase();
+
+    return _cachedBorrowRecords.where((r) {
+      if (studentId != null && studentId.isNotEmpty && r.studentId != studentId) return false;
+      if (cleanStatus != null && cleanStatus.isNotEmpty && cleanStatus != 'all') {
+        if (cleanStatus == 'active' && !r.isActive) return false;
+        if (cleanStatus == 'overdue' && !r.isOverdue) return false;
+        if (cleanStatus == 'returned' && !r.isReturned) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId}) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.borrowBook(studentId: studentId, bookId: bookId);
+        _cachedBorrowRecords.insert(0, res);
+        // decrement local copy
+        final bIdx = _cachedPhysicalBooks.indexWhere((b) => b.id == bookId);
+        if (bIdx != -1) {
+          final b = _cachedPhysicalBooks[bIdx];
+          _cachedPhysicalBooks[bIdx] = b.copyWith(
+            availableCopies: (b.availableCopies - 1).clamp(0, b.totalCopies),
+          );
+        }
+        return res;
+      } catch (e) {
+        rethrow;
+      }
+    }
+
+    // Offline validation
+    final now = DateTime.now();
+
+    // Check active and overdue loans
+    int activeBorrowsCount = 0;
+    bool hasOverdue = false;
+    for (final rec in _cachedBorrowRecords) {
+      if (rec.studentId == studentId && !rec.isReturned) {
+        if (now.isAfter(rec.dueDate)) {
+          hasOverdue = true;
+        }
+        activeBorrowsCount++;
+      }
+    }
+
+    if (hasOverdue) {
+      throw Exception('Cannot borrow new books while overdue loans remain unreturned');
+    }
+    if (activeBorrowsCount >= 4) {
+      throw Exception('Borrowing quota limit reached (Maximum 4 books permitted concurrently)');
+    }
+
+    final bookIdx = _cachedPhysicalBooks.indexWhere((b) => b.id == bookId);
+    if (bookIdx == -1) {
+      throw Exception('Book not found in institutional catalog');
+    }
+
+    final book = _cachedPhysicalBooks[bookIdx];
+    if (book.availableCopies <= 0) {
+      throw Exception("All copies of '${book.title}' are currently checked out");
+    }
+
+    // Decrement available copies
+    _cachedPhysicalBooks[bookIdx] = book.copyWith(
+      availableCopies: book.availableCopies - 1,
+      updatedAt: now,
+    );
+
+    final borrowId = 'brw-${DateTime.now().millisecondsSinceEpoch}';
+    final newBorrow = BorrowRecordModel(
+      id: borrowId,
+      bookId: book.id,
+      bookTitle: book.title,
+      bookAuthor: book.author,
+      bookIsbn: book.isbn,
+      shelfLocation: book.shelfLocation,
+      studentId: studentId,
+      studentName: _currentUser?.fullName ?? 'Student',
+      campusHandle: _currentUser?.campusHandle ?? studentId,
+      borrowedAt: now,
+      dueDate: now.add(const Duration(days: 14)),
+      status: BorrowStatus.active,
+      renewalCount: 0,
+      maxRenewals: 2,
+      finePerDay: 10.0,
+      accruedLateFine: 0.0,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _cachedBorrowRecords.insert(0, newBorrow);
+    return newBorrow;
+  }
+
+  @override
+  Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId}) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.returnBook(borrowId: borrowId, studentId: studentId);
+        final idx = _cachedBorrowRecords.indexWhere((r) => r.id == borrowId);
+        if (idx != -1) _cachedBorrowRecords[idx] = res;
+        final bIdx = _cachedPhysicalBooks.indexWhere((b) => b.id == res.bookId);
+        if (bIdx != -1) {
+          final b = _cachedPhysicalBooks[bIdx];
+          _cachedPhysicalBooks[bIdx] = b.copyWith(
+            availableCopies: (b.availableCopies + 1).clamp(0, b.totalCopies),
+          );
+        }
+        return res;
+      } catch (e) {
+        rethrow;
+      }
+    }
+
+    final idx = _cachedBorrowRecords.indexWhere((r) => r.id == borrowId);
+    if (idx == -1) {
+      throw Exception('Borrow record not found');
+    }
+
+    final record = _cachedBorrowRecords[idx];
+    if (record.isReturned) {
+      throw Exception('Book is already marked as returned');
+    }
+
+    final now = DateTime.now();
+    double lateFine = 0.0;
+    String? finePortalId = record.finePortalFeeId;
+
+    if (now.isAfter(record.dueDate)) {
+      final days = now.difference(record.dueDate).inDays;
+      final fineDays = days > 0 ? days : 1;
+      lateFine = fineDays * record.finePerDay;
+
+      // Issue fine to fine portal if not already issued
+      if (finePortalId == null) {
+        finePortalId = 'fine-lib-rtn-${record.id}';
+        _seedDefaultFeesIfEmpty();
+        _cachedFines.add(FineRecordModel(
+          id: finePortalId,
+          studentId: record.studentId,
+          studentName: record.studentName,
+          campusHandle: record.campusHandle,
+          category: FineCategory.library,
+          reason: "Late book return fine for '${record.bookTitle}' ($fineDays days late)",
+          amount: lateFine,
+          issuedAt: now,
+          dueDate: now.add(const Duration(days: 14)),
+          status: FineStatus.unpaid,
+          createdAt: now,
+          updatedAt: now,
+        ));
+      }
+    }
+
+    final returnedRecord = record.copyWith(
+      status: BorrowStatus.returned,
+      returnedAt: now,
+      accruedLateFine: lateFine,
+      finePortalFeeId: finePortalId,
+      updatedAt: now,
+    );
+    _cachedBorrowRecords[idx] = returnedRecord;
+
+    // Increment available copies of physical book
+    final bIdx = _cachedPhysicalBooks.indexWhere((b) => b.id == record.bookId);
+    if (bIdx != -1) {
+      final b = _cachedPhysicalBooks[bIdx];
+      _cachedPhysicalBooks[bIdx] = b.copyWith(
+        availableCopies: (b.availableCopies + 1).clamp(0, b.totalCopies),
+        updatedAt: now,
+      );
+    }
+
+    return returnedRecord;
+  }
+
+  @override
+  Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId}) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.renewBook(borrowId: borrowId, studentId: studentId);
+        final idx = _cachedBorrowRecords.indexWhere((r) => r.id == borrowId);
+        if (idx != -1) _cachedBorrowRecords[idx] = res;
+        return res;
+      } catch (e) {
+        rethrow;
+      }
+    }
+
+    final idx = _cachedBorrowRecords.indexWhere((r) => r.id == borrowId);
+    if (idx == -1) {
+      throw Exception('Borrow record not found');
+    }
+
+    final record = _cachedBorrowRecords[idx];
+    if (record.isReturned) {
+      throw Exception('Cannot renew a book that has already been returned');
+    }
+
+    final now = DateTime.now();
+    if (now.isAfter(record.dueDate)) {
+      throw Exception('Overdue books cannot be renewed; please return the copy and settle late fines');
+    }
+    if (record.renewalCount >= record.maxRenewals) {
+      throw Exception('Maximum renewal limit reached (2 renewals maximum permitted)');
+    }
+
+    final renewedRecord = record.copyWith(
+      dueDate: record.dueDate.add(const Duration(days: 14)),
+      renewalCount: record.renewalCount + 1,
+      updatedAt: now,
+    );
+    _cachedBorrowRecords[idx] = renewedRecord;
+    return renewedRecord;
+  }
+
+  @override
+  Future<List<EBookModel>> getEBooks({String? query, String? category}) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.getEBooks(query: query, category: category);
+        _cachedEBooks.clear();
+        _cachedEBooks.addAll(list);
+        return list;
+      } catch (_) {}
+    }
+
+    final cleanQuery = query?.trim().toLowerCase() ?? '';
+    final cleanCategory = category?.trim();
+
+    return _cachedEBooks.where((e) {
+      if (cleanCategory != null &&
+          cleanCategory.isNotEmpty &&
+          cleanCategory != 'All Categories' &&
+          e.category != cleanCategory) {
+        return false;
+      }
+      if (cleanQuery.isNotEmpty) {
+        final match = e.title.toLowerCase().contains(cleanQuery) ||
+            e.author.toLowerCase().contains(cleanQuery) ||
+            e.description.toLowerCase().contains(cleanQuery) ||
+            e.tags.any((t) => t.toLowerCase().contains(cleanQuery));
+        if (!match) return false;
+      }
+      return true;
+    }).toList();
   }
 }

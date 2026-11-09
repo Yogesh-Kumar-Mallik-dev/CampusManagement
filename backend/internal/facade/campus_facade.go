@@ -64,6 +64,16 @@ type CampusFacadeInterface interface {
 	GetPaymentRecords(ctx context.Context, studentID string) ([]model.FeePayment, error)
 	GetReceipt(ctx context.Context, receiptNumber string) (*model.FeeReceipt, error)
 	DownloadInvoicePDF(ctx context.Context, invoiceID string) ([]byte, string, error)
+
+	// Library
+	GetLibrarySummary(ctx context.Context, studentID string) (model.LibrarySummary, error)
+	GetPhysicalBooks(ctx context.Context, query, category string) ([]model.PhysicalBook, error)
+	GetBookByID(ctx context.Context, id string) (*model.PhysicalBook, error)
+	GetBorrowRecords(ctx context.Context, studentID, status string) ([]model.BorrowRecord, error)
+	BorrowBook(ctx context.Context, req model.BorrowBookRequest) (*model.BorrowRecord, error)
+	ReturnBook(ctx context.Context, req model.ReturnBookRequest) (*model.BorrowRecord, error)
+	RenewBook(ctx context.Context, req model.RenewBookRequest) (*model.BorrowRecord, error)
+	GetEBooks(ctx context.Context, query, category string) ([]model.EBook, error)
 }
 
 // CampusFacade coordinates operations across all backend domain services through a single entry point
@@ -75,6 +85,7 @@ type CampusFacade struct {
 	mess        service.MessServiceInterface
 	complaints  service.ComplaintServiceInterface
 	fee         service.FeeServiceInterface
+	library     service.LibraryServiceInterface
 }
 
 func NewCampusFacade(
@@ -85,6 +96,7 @@ func NewCampusFacade(
 	mess service.MessServiceInterface,
 	complaints service.ComplaintServiceInterface,
 	fee service.FeeServiceInterface,
+	library service.LibraryServiceInterface,
 ) *CampusFacade {
 	return &CampusFacade{
 		idGen:       idGen,
@@ -94,6 +106,7 @@ func NewCampusFacade(
 		mess:        mess,
 		complaints:  complaints,
 		fee:         fee,
+		library:     library,
 	}
 }
 
@@ -411,3 +424,60 @@ func (f *CampusFacade) DownloadInvoicePDF(ctx context.Context, invoiceID string)
 	}
 	return f.fee.GenerateInvoicePDF(ctx, invoiceID)
 }
+
+func (f *CampusFacade) GetLibrarySummary(ctx context.Context, studentID string) (model.LibrarySummary, error) {
+	if f.library == nil {
+		return model.LibrarySummary{}, fmt.Errorf("library service unavailable")
+	}
+	return f.library.GetLibrarySummary(ctx, studentID)
+}
+
+func (f *CampusFacade) GetPhysicalBooks(ctx context.Context, query, category string) ([]model.PhysicalBook, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.GetPhysicalBooks(ctx, query, category)
+}
+
+func (f *CampusFacade) GetBookByID(ctx context.Context, id string) (*model.PhysicalBook, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.GetBookByID(ctx, id)
+}
+
+func (f *CampusFacade) GetBorrowRecords(ctx context.Context, studentID, status string) ([]model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.GetBorrowRecords(ctx, studentID, status)
+}
+
+func (f *CampusFacade) BorrowBook(ctx context.Context, req model.BorrowBookRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.BorrowBook(ctx, req)
+}
+
+func (f *CampusFacade) ReturnBook(ctx context.Context, req model.ReturnBookRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.ReturnBook(ctx, req)
+}
+
+func (f *CampusFacade) RenewBook(ctx context.Context, req model.RenewBookRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.RenewBook(ctx, req)
+}
+
+func (f *CampusFacade) GetEBooks(ctx context.Context, query, category string) ([]model.EBook, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.GetEBooks(ctx, query, category)
+}
+

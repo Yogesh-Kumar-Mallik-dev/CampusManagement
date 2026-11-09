@@ -44,6 +44,12 @@ func TestContainerMemoryModeInitialization(t *testing.T) {
 	if container.ComplaintService == nil {
 		t.Fatal("expected ComplaintService to be initialized")
 	}
+	if container.FeeService == nil {
+		t.Fatal("expected FeeService to be initialized")
+	}
+	if container.LibraryService == nil {
+		t.Fatal("expected LibraryService to be initialized")
+	}
 	if container.Facade == nil {
 		t.Fatal("expected Facade to be initialized")
 	}
@@ -55,7 +61,9 @@ func TestContainerMemoryModeInitialization(t *testing.T) {
 		container.AuthHandler == nil ||
 		container.HostelHandler == nil ||
 		container.MessHandler == nil ||
-		container.ComplaintHandler == nil {
+		container.ComplaintHandler == nil ||
+		container.FeeHandler == nil ||
+		container.LibraryHandler == nil {
 		t.Fatal("expected all handlers to be initialized with DI")
 	}
 
@@ -129,7 +137,8 @@ func TestContainerOptionOverrides(t *testing.T) {
 	customMess := service.NewMessService(nil, customPerm)
 	customComplaint := service.NewComplaintService()
 	customFee := service.NewFeeService(nil, customPerm)
-	customFacade := facade.NewCampusFacade(customID, customPerm, customAcad, customHostel, customMess, customComplaint, customFee)
+	customLib := service.NewLibraryService(nil, customFee)
+	customFacade := facade.NewCampusFacade(customID, customPerm, customAcad, customHostel, customMess, customComplaint, customFee, customLib)
 
 	container, err := NewContainer(
 		ContainerConfig{UseMemoryStores: true},
@@ -141,6 +150,7 @@ func TestContainerOptionOverrides(t *testing.T) {
 		WithMessService(customMess),
 		WithComplaintService(customComplaint),
 		WithFeeService(customFee),
+		WithLibraryService(customLib),
 		WithFacade(customFacade),
 		WithDBPool(nil),
 	)
@@ -172,6 +182,9 @@ func TestContainerOptionOverrides(t *testing.T) {
 	}
 	if container.FeeService != customFee {
 		t.Fatal("custom FeeService was not injected")
+	}
+	if container.LibraryService != customLib {
+		t.Fatal("custom LibraryService was not injected")
 	}
 	if container.Facade != customFacade {
 		t.Fatal("custom Facade was not injected")

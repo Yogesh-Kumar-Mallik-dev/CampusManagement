@@ -22,6 +22,7 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 	messService := service.NewMessService(nil, permService)
 	complaintService := service.NewComplaintService()
 	feeService := service.NewFeeService(nil, permService)
+	libraryService := service.NewLibraryService(nil, feeService)
 
 	// Seed data
 	hostelService.SeedDefaultRooms()
@@ -35,6 +36,7 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 		messService,
 		complaintService,
 		feeService,
+		libraryService,
 	)
 
 	// 1. Identity & Auth via Facade
@@ -347,12 +349,87 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 	if err != nil || len(pdfBytes) == 0 || filename == "" {
 		t.Fatalf("download invoice pdf failed: %v", err)
 	}
+
+	// 7. Library Management via Facade
+	studentID := "usr-harish_2025_l_btech_1"
+	libSummary, err := facade.GetLibrarySummary(ctx, studentID)
+	if err != nil {
+		t.Fatalf("get library summary failed: %v", err)
+	}
+	if libSummary.MaxBorrowQuota != 4 {
+		t.Fatalf("expected max quota 4, got %d", libSummary.MaxBorrowQuota)
+	}
+
+	books, err := facade.GetPhysicalBooks(ctx, "", "")
+	if err != nil || len(books) == 0 {
+		t.Fatalf("get physical books failed: %v", err)
+	}
+
+	singleBook, err := facade.GetBookByID(ctx, books[0].ID)
+	if err != nil || singleBook == nil {
+		t.Fatalf("get book by id failed: %v", err)
+	}
+
+	borrows, err := facade.GetBorrowRecords(ctx, studentID, "")
+	if err != nil || len(borrows) == 0 {
+		t.Fatalf("get borrow records failed: %v", err)
+	}
+
+	// First return the overdue loan so the student is eligible to borrow again
+	returnedOverdue, err := facade.ReturnBook(ctx, model.ReturnBookRequest{
+		BorrowID:  "brw-os-01",
+		StudentID: studentID,
+	})
+	if err != nil || returnedOverdue.Status != model.BorrowStatusReturned {
+		t.Fatalf("return overdue book failed: %v", err)
+	}
+
+	var bookToBorrow *model.PhysicalBook
+	for i := range books {
+		if books[i].AvailableCopies > 0 {
+			bookToBorrow = &books[i]
+			break
+		}
+	}
+	if bookToBorrow == nil {
+		t.Fatal("expected at least one available book in seed data")
+	}
+
+	borrowReq := model.BorrowBookRequest{
+		StudentID: studentID,
+		BookID:    bookToBorrow.ID,
+	}
+	newBorrow, err := facade.BorrowBook(ctx, borrowReq)
+	if err != nil {
+		t.Fatalf("borrow book failed: %v", err)
+	}
+
+	renewedBorrow, err := facade.RenewBook(ctx, model.RenewBookRequest{
+		BorrowID:  newBorrow.ID,
+		StudentID: studentID,
+	})
+	if err != nil || renewedBorrow.RenewalCount != 1 {
+		t.Fatalf("renew book failed: %v", err)
+	}
+
+	returnedBorrow, err := facade.ReturnBook(ctx, model.ReturnBookRequest{
+		BorrowID:  newBorrow.ID,
+		StudentID: studentID,
+	})
+	if err != nil || returnedBorrow.Status != model.BorrowStatusReturned {
+		t.Fatalf("return book failed: %v", err)
+	}
+
+	ebooks, err := facade.GetEBooks(ctx, "", "")
+	if err != nil || len(ebooks) == 0 {
+		t.Fatalf("get ebooks failed: %v", err)
+	}
 }
 
 func TestCampusFacadeNilSafety(t *testing.T) {
 	ctx := context.Background()
 	// Nil dependencies facade
-	facade := NewCampusFacade(nil, nil, nil, nil, nil, nil, nil)
+	facade := NewCampusFacade(nil, nil, nil, nil, nil, nil, nil, nil)
 
 	if _, err := facade.GenerateHandle(ctx, "student", "a", 2025, ""); err == nil {
 		t.Fatal("expected error on nil idGen")
@@ -477,5 +554,29 @@ func TestCampusFacadeNilSafety(t *testing.T) {
 	}
 	if _, _, err := facade.DownloadInvoicePDF(ctx, "1"); err == nil {
 		t.Fatal("expected error on nil fee")
+	}
+	if _, err := facade.GetLibrarySummary(ctx, "s"); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.GetPhysicalBooks(ctx, "", ""); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.GetBookByID(ctx, "1"); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.GetBorrowRecords(ctx, "s", ""); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.BorrowBook(ctx, model.BorrowBookRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.ReturnBook(ctx, model.ReturnBookRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.RenewBook(ctx, model.RenewBookRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.GetEBooks(ctx, "", ""); err == nil {
+		t.Fatal("expected error on nil library")
 	}
 }

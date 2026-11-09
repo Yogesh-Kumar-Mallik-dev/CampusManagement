@@ -10,6 +10,7 @@ import 'package:campus_client/screens/complaints_screen.dart';
 import 'package:campus_client/screens/fee_screen.dart';
 import 'package:campus_client/screens/home_screen.dart';
 import 'package:campus_client/screens/hostel_screen.dart';
+import 'package:campus_client/screens/library_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/screens/mess_screen.dart';
 import 'package:campus_client/services/api_service.dart';
@@ -2218,7 +2219,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Sidebar Responsiveness: Desktop and tablet screen sizes show all 11 items without partial cut off', (tester) async {
+  testWidgets('Sidebar Responsiveness: Desktop and tablet screen sizes show all 12 items without partial cut off', (tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);
     final admin = OfflineStorageService.getMockUserForHandle('campus_admin');
@@ -2249,6 +2250,7 @@ void main() {
       'nav-item-mess',
       'nav-item-complaints',
       'nav-item-fees',
+      'nav-item-library',
       'nav-item-profile',
     ];
 
@@ -2393,6 +2395,8 @@ void main() {
     expect(find.byKey(const Key('nav-item-hostel')), findsOneWidget);
     expect(find.byKey(const Key('nav-item-mess')), findsOneWidget);
     expect(find.byKey(const Key('nav-item-complaints')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-fees')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-library')), findsOneWidget);
     expect(find.byKey(const Key('nav-item-profile')), findsOneWidget);
 
     // 2. Verify Faculty (HOD) View: Directory hidden, but Depts visible and accessible
@@ -2554,6 +2558,8 @@ void main() {
     expect(find.byKey(const Key('fine-card-fine-disc-01')), findsOneWidget);
 
     // 1. Appeal fine flow
+    await tester.drag(find.byType(ListView).last, const Offset(0, -250));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('btn-appeal-fine-fine-lib-01')), findsOneWidget);
     await tester.tap(find.byKey(const Key('btn-appeal-fine-fine-lib-01')));
     await tester.pumpAndSettle();
@@ -2568,7 +2574,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // 2. Pay fine flow
-    await tester.ensureVisible(find.byKey(const Key('btn-pay-fine-fine-lib-01')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('btn-pay-fine-fine-lib-01')),
+      150,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.byKey(const Key('btn-pay-fine-fine-lib-01')), findsOneWidget);
     await tester.tap(find.byKey(const Key('btn-pay-fine-fine-lib-01')));
     await tester.pumpAndSettle();
@@ -2594,6 +2604,11 @@ void main() {
     await tester.pumpAndSettle();
 
     if (find.byKey(const Key('btn-waive-fine-fine-disc-01')).evaluate().isNotEmpty) {
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('btn-waive-fine-fine-disc-01')),
+        150,
+        scrollable: find.byType(Scrollable).last,
+      );
       await tester.tap(find.byKey(const Key('btn-waive-fine-fine-disc-01')));
       await tester.pumpAndSettle();
 
@@ -2689,5 +2704,290 @@ void main() {
     await tester.tap(find.byKey(const Key('tab-fee-invoices')), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Institutional Library: Loans list, active loans, overdue badge, return dates, late fine banner with Fine Portal link, and loan renewal', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    int? navigatedTab;
+
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+        onNavigateToTab: (tabIndex) {
+          navigatedTab = tabIndex;
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Verify Header Metrics
+    expect(find.text('Active Loans'), findsOneWidget);
+    expect(find.text('Overdue Loans'), findsOneWidget);
+    expect(find.text('Borrowing Quota'), findsOneWidget);
+    expect(find.text('Returned History'), findsOneWidget);
+
+    // 2. Overdue Banner & Fine Portal Link
+    expect(find.byKey(const Key('banner-library-overdue')), findsOneWidget);
+    expect(find.text('₹50 Fine Due'), findsOneWidget);
+    expect(find.byKey(const Key('btn-goto-fine-portal')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('btn-goto-fine-portal')));
+    await tester.pumpAndSettle();
+    expect(navigatedTab, equals(9)); // Fee & Fine Portal tab index
+
+    // 3. Loans list & Filter
+    expect(find.byKey(const Key('dropdown-borrow-status')), findsOneWidget);
+    expect(find.byKey(const Key('card-loan-brw-clrs-01')), findsOneWidget);
+    expect(find.byKey(const Key('card-loan-brw-os-01')), findsOneWidget);
+
+    // Filter to Active Loans
+    await tester.tap(find.byKey(const Key('dropdown-borrow-status')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Active Loans').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-loan-brw-clrs-01')), findsOneWidget);
+    expect(find.byKey(const Key('card-loan-brw-os-01')), findsNothing);
+
+    // Filter to Returned History
+    await tester.tap(find.byKey(const Key('dropdown-borrow-status')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Returned History').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-loan-brw-math-01')), findsOneWidget);
+    expect(find.byKey(const Key('card-loan-brw-clrs-01')), findsNothing);
+
+    // Switch back to All Loans
+    await tester.tap(find.byKey(const Key('dropdown-borrow-status')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All Loans').last);
+    await tester.pumpAndSettle();
+
+    // 4. Renew Loan
+    expect(find.byKey(const Key('btn-renew-brw-clrs-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-renew-brw-clrs-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Loan extended by 14 days'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    // 5. Return Book
+    expect(find.byKey(const Key('btn-return-brw-clrs-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-return-brw-clrs-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirm Book Return'), findsOneWidget);
+    await tester.tap(find.text('Return Copy'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('returned successfully'), findsOneWidget);
+  });
+
+  testWidgets('Institutional Library: Physical books catalog, search, category filter, remaining copies badges, and checkout quota decrement', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // First return the overdue loan so Harish has borrowing eligibility
+    await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('btn-return-brw-os-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-return-brw-os-01')));
+    await tester.pumpAndSettle();
+    expect(find.text('Late Return Notice'), findsOneWidget);
+    await tester.tap(find.text('Return Copy'));
+    await tester.pumpAndSettle();
+
+    // Switch to Tab 2: Physical Catalog
+    await tester.tap(find.byKey(const Key('tab-books-catalog')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Borrowing Quota:'), findsOneWidget);
+    expect(find.byKey(const Key('input-book-search')), findsOneWidget);
+    expect(find.byKey(const Key('dropdown-book-category')), findsOneWidget);
+
+    // Verify book cards exist
+    expect(find.byKey(const Key('card-book-bk-algo-01')), findsOneWidget);
+    expect(find.byKey(const Key('card-book-bk-db-01')), findsOneWidget);
+
+    // Filter to AI category
+    await tester.tap(find.byKey(const Key('dropdown-book-category')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Artificial Intelligence').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-book-bk-ai-01')), findsOneWidget);
+    expect(find.text('0 copies left (Checked out)'), findsOneWidget);
+
+    // Verify 0-copy book borrow button is disabled
+    final disabledBorrowButton = tester.widget<ElevatedButton>(find.byKey(const Key('btn-borrow-bk-ai-01')));
+    expect(disabledBorrowButton.onPressed, isNull);
+
+    // Reset to All Categories
+    await tester.tap(find.byKey(const Key('dropdown-book-category')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All Categories').last);
+    await tester.pumpAndSettle();
+
+    // Verify remaining copies badges
+    expect(find.byKey(const Key('badge-copies-bk-db-01')), findsOneWidget);
+    expect(find.text('4 of 6 available'), findsOneWidget);
+
+    // Search for Database System Concepts
+    await tester.enterText(find.byKey(const Key('input-book-search')), 'Database');
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-book-bk-db-01')), findsOneWidget);
+    expect(find.byKey(const Key('card-book-bk-algo-01')), findsNothing);
+
+    // Borrow available book
+    expect(find.byKey(const Key('btn-borrow-bk-db-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-borrow-bk-db-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirm Book Checkout'), findsOneWidget);
+    expect(find.textContaining('Standard Loan Policy:'), findsOneWidget);
+    await tester.tap(find.text('Confirm Checkout'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Successfully borrowed'), findsOneWidget);
+    // Verified copies decremented from 4 to 3
+    expect(find.text('3 of 6 available'), findsOneWidget);
+  });
+
+  testWidgets('Institutional Library: Digital E-Books with infinite concurrent borrowing, search, category filter, and online reader modal', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Switch to Tab 3: Infinite E-Books
+    await tester.tap(find.byKey(const Key('tab-infinite-ebooks')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Institutional Digital Knowledge Repository'), findsOneWidget);
+    expect(find.textContaining('Infinite Concurrent Access'), findsOneWidget);
+    expect(find.byKey(const Key('card-ebook-ebk-clean-code')), findsOneWidget);
+    expect(find.byKey(const Key('card-ebook-ebk-deep-learning')), findsOneWidget);
+
+    // Read Online modal
+    expect(find.byKey(const Key('btn-read-ebook-ebk-clean-code')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-read-ebook-ebk-clean-code')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Infinite Concurrent Institutional License'), findsOneWidget);
+    expect(find.text('Table of Contents (Institutional Digital Edition)'), findsOneWidget);
+    expect(find.text('Start Fullscreen Reader'), findsOneWidget);
+    expect(find.text('Download Offline Copy'), findsOneWidget);
+
+    await tester.tap(find.text('Download Offline Copy'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Downloading'), findsOneWidget);
+
+    // Instant download button on card
+    await tester.tap(find.byKey(const Key('btn-download-ebook-ebk-clean-code')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Downloading'), findsOneWidget);
+  });
+
+  testWidgets('Institutional Library: Policy & Slabs tab and Small Screen Responsiveness (360x640)', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Tab 1: Borrowed Books at 360x640
+    expect(tester.takeException(), isNull);
+
+    // Swipe to Tab 2: Physical Catalog at 360x640
+    await tester.drag(find.byType(TabBarView), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // Swipe to Tab 3: Infinite E-Books at 360x640
+    await tester.drag(find.byType(TabBarView), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // Swipe to Tab 4: Policy & Slabs at 360x640
+    await tester.drag(find.byType(TabBarView), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    expect(find.text('Institutional Borrowing Privileges & Quotas'), findsOneWidget);
+    expect(find.text('Overdue Fine Slabs & Settle Protocol'), findsOneWidget);
+    final policyScrollable = find.descendant(
+      of: find.byKey(const Key('list-library-policy')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.text('Fine Appeals & Medical Waivers'),
+      100,
+      scrollable: policyScrollable,
+    );
+    expect(find.text('Fine Appeals & Medical Waivers'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Book Care & Replacement Policy'),
+      100,
+      scrollable: policyScrollable,
+    );
+    expect(find.text('Book Care & Replacement Policy'), findsOneWidget);
   });
 }

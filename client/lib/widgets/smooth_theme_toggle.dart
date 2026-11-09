@@ -20,6 +20,14 @@ class SmoothThemeToggle extends StatelessWidget {
         final isDark = mode == ThemeMode.dark;
         return IconButton(
           tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          style: IconButton.styleFrom(
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            minimumSize: const Size(28, 28),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+          ),
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
           hoverColor: Colors.transparent,

@@ -4,6 +4,7 @@ import '../models/academic.dart';
 import '../models/complaint.dart';
 import '../models/fee.dart';
 import '../models/hostel.dart';
+import '../models/library.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
 import 'storage_interface.dart';
@@ -1108,5 +1109,117 @@ class ApiService implements ICampusApi {
       return res.bodyBytes;
     }
     throw Exception('Failed to download invoice PDF (${res.statusCode}): ${res.body}');
+  }
+
+  // Institutional Library Subsystem
+  @override
+  Future<LibrarySummaryModel> getLibrarySummary(String studentId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/library/summary?student_id=$studentId'));
+    if (res.statusCode == 200) {
+      return LibrarySummaryModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to get library summary (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<List<PhysicalBookModel>> getPhysicalBooks({String? query, String? category}) async {
+    final uri = Uri.parse('$baseUrl/api/v1/library/books').replace(queryParameters: {
+      if (query != null && query.isNotEmpty) 'q': query,
+      if (category != null && category.isNotEmpty && category != 'All Categories') 'category': category,
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.map((e) => PhysicalBookModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to get physical books (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<PhysicalBookModel?> getBookById(String id) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/library/books?id=$id'));
+    if (res.statusCode == 200) {
+      return PhysicalBookModel.fromJson(jsonDecode(res.body));
+    }
+    return null;
+  }
+
+  @override
+  Future<List<BorrowRecordModel>> getBorrowRecords({String? studentId, String? status}) async {
+    final uri = Uri.parse('$baseUrl/api/v1/library/borrows').replace(queryParameters: {
+      if (studentId != null && studentId.isNotEmpty) 'student_id': studentId,
+      if (status != null && status.isNotEmpty && status != 'all') 'status': status,
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.map((e) => BorrowRecordModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to get borrow records (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/borrow'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'student_id': studentId,
+        'book_id': bookId,
+      }),
+    );
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to borrow book');
+  }
+
+  @override
+  Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/return'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'borrow_id': borrowId,
+        'student_id': studentId,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to return book');
+  }
+
+  @override
+  Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/renew'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'borrow_id': borrowId,
+        'student_id': studentId,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to renew book');
+  }
+
+  @override
+  Future<List<EBookModel>> getEBooks({String? query, String? category}) async {
+    final uri = Uri.parse('$baseUrl/api/v1/library/ebooks').replace(queryParameters: {
+      if (query != null && query.isNotEmpty) 'q': query,
+      if (category != null && category.isNotEmpty && category != 'All Categories') 'category': category,
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.map((e) => EBookModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to get e-books (${res.statusCode}): ${res.body}');
   }
 }

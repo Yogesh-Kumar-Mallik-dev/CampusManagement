@@ -497,7 +497,8 @@ void main() {
       expect(waived.status, equals(FineStatus.waived));
 
       // Pay an unpaid fine
-      final unpaidFines = fines.where((f) => f.status == FineStatus.unpaid).toList();
+      final currentFines = await facade.getFines(studentId: studentId);
+      final unpaidFines = currentFines.where((f) => f.status == FineStatus.unpaid).toList();
       if (unpaidFines.isNotEmpty) {
         final finePayResult = await facade.payFine(
           fineId: unpaidFines.first.id,
@@ -518,6 +519,51 @@ void main() {
       // 5. Download Invoice PDF
       final pdfBytes = await facade.downloadInvoicePdf(dueInvoice.id);
       expect(pdfBytes.isNotEmpty, isTrue);
+
+      // 6. Library Subsystem via Facade
+      final libSummary = await facade.getLibrarySummary(studentId);
+      expect(libSummary.maxBorrowQuota, equals(4));
+
+      final books = await facade.getPhysicalBooks();
+      expect(books.isNotEmpty, isTrue);
+
+      final singleBook = await facade.getBookById(books.first.id);
+      expect(singleBook, isNotNull);
+
+      final borrows = await facade.getBorrowRecords(studentId: studentId);
+      expect(borrows.isNotEmpty, isTrue);
+
+      // Return overdue loan first so Harish can borrow
+      final overdueLoan = borrows.firstWhere((b) => b.isOverdue);
+      final returnedOverdue = await facade.returnBook(
+        borrowId: overdueLoan.id,
+        studentId: studentId,
+      );
+      expect(returnedOverdue.isReturned, isTrue);
+
+      // Now borrow an available book
+      final availableBook = books.firstWhere((b) => b.isAvailable);
+      final newBorrow = await facade.borrowBook(
+        studentId: studentId,
+        bookId: availableBook.id,
+      );
+      expect(newBorrow.isActive, isTrue);
+
+      final renewed = await facade.renewBook(
+        borrowId: newBorrow.id,
+        studentId: studentId,
+      );
+      expect(renewed.renewalCount, equals(1));
+
+      final returnedNew = await facade.returnBook(
+        borrowId: newBorrow.id,
+        studentId: studentId,
+      );
+      expect(returnedNew.isReturned, isTrue);
+
+      final ebooks = await facade.getEBooks();
+      expect(ebooks.isNotEmpty, isTrue);
+      expect(ebooks.first.isInfiniteBorrow, isTrue);
       expect(String.fromCharCodes(pdfBytes).startsWith('%PDF-1.4'), isTrue);
     });
   });

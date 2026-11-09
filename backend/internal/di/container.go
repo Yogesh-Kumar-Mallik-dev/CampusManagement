@@ -44,6 +44,7 @@ type Container struct {
 	MessService       service.MessServiceInterface
 	ComplaintService  service.ComplaintServiceInterface
 	FeeService        service.FeeServiceInterface
+	LibraryService    service.LibraryServiceInterface
 
 	Facade facade.CampusFacadeInterface
 
@@ -55,6 +56,7 @@ type Container struct {
 	MessHandler       *handler.MessHandler
 	ComplaintHandler  *handler.ComplaintHandler
 	FeeHandler        *handler.FeeHandler
+	LibraryHandler    *handler.LibraryHandler
 }
 
 // Option allows customizing/mocking dependencies during container initialization
@@ -115,6 +117,12 @@ func WithFeeService(svc service.FeeServiceInterface) Option {
 	}
 }
 
+func WithLibraryService(svc service.LibraryServiceInterface) Option {
+	return func(c *Container) {
+		c.LibraryService = svc
+	}
+}
+
 func WithFacade(f facade.CampusFacadeInterface) Option {
 	return func(c *Container) {
 		c.Facade = f
@@ -162,6 +170,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.MessService = service.NewMessService(c.DBPool, permSvc)
 	c.ComplaintService = service.NewComplaintService()
 	c.FeeService = service.NewFeeService(c.DBPool, permSvc)
+	c.LibraryService = service.NewLibraryService(c.DBPool, c.FeeService)
 
 	// Apply overrides/mocks
 	for _, opt := range opts {
@@ -189,6 +198,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 			c.MessService,
 			c.ComplaintService,
 			c.FeeService,
+			c.LibraryService,
 		)
 	}
 
@@ -205,6 +215,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.MessHandler = handler.NewMessHandler(c.MessService)
 	c.ComplaintHandler = handler.NewComplaintHandler(c.ComplaintService)
 	c.FeeHandler = handler.NewFeeHandler(c.FeeService)
+	c.LibraryHandler = handler.NewLibraryHandler(c.LibraryService)
 
 	return c, nil
 }
@@ -315,6 +326,17 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/fees/fines/waive", c.FeeHandler.HandleWaiveFine)
 		mux.HandleFunc("/api/v1/fees/payments", c.FeeHandler.HandlePayments)
 		mux.HandleFunc("/api/v1/fees/receipt", c.FeeHandler.HandleReceipt)
+	}
+
+	// Institutional Library Management System
+	if c.LibraryHandler != nil {
+		mux.HandleFunc("/api/v1/library/summary", c.LibraryHandler.HandleSummary)
+		mux.HandleFunc("/api/v1/library/books", c.LibraryHandler.HandleBooks)
+		mux.HandleFunc("/api/v1/library/borrows", c.LibraryHandler.HandleBorrows)
+		mux.HandleFunc("/api/v1/library/borrow", c.LibraryHandler.HandleBorrowBook)
+		mux.HandleFunc("/api/v1/library/return", c.LibraryHandler.HandleReturnBook)
+		mux.HandleFunc("/api/v1/library/renew", c.LibraryHandler.HandleRenewBook)
+		mux.HandleFunc("/api/v1/library/ebooks", c.LibraryHandler.HandleEBooks)
 	}
 
 	return mux

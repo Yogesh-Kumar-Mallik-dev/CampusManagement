@@ -4,6 +4,7 @@ import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/models/complaint.dart';
 import 'package:campus_client/models/fee.dart';
 import 'package:campus_client/models/hostel.dart';
+import 'package:campus_client/models/library.dart';
 import 'package:campus_client/models/mess.dart';
 import 'package:campus_client/models/user.dart';
 import 'package:campus_client/theme/svg_icons.dart';
@@ -508,6 +509,155 @@ void main() {
       expect(pdfString.contains('Pooja Sharma'), isTrue);
       expect(pdfString.contains('Instruction & Tuition'), isTrue);
       expect(pdfString.contains('AI Computing Laboratory'), isTrue);
+    });
+
+    test('Library models serialization, getters, status helpers, and copyWith', () {
+      final now = DateTime.now();
+
+      // 1. BorrowStatus & BookCategory
+      expect(BorrowStatus.displayName(BorrowStatus.active), equals('Active Loan'));
+      expect(BorrowStatus.displayName(BorrowStatus.overdue), equals('Overdue'));
+      expect(BorrowStatus.displayName(BorrowStatus.returned), equals('Returned'));
+      expect(BorrowStatus.displayName('unknown'), equals('Unknown'));
+      expect(BorrowStatus.statusColor(BorrowStatus.active), isA<Color>());
+      expect(BookCategory.catalogCategories.contains(BookCategory.cse), isTrue);
+
+      // 2. PhysicalBookModel
+      final book = PhysicalBookModel(
+        id: 'bk-test-01',
+        isbn: '978-0262033848',
+        title: 'Introduction to Algorithms',
+        author: 'Cormen et al.',
+        publisher: 'MIT Press',
+        edition: '3rd Edition',
+        category: 'Computer Science',
+        departmentId: 'dept-cse',
+        totalCopies: 5,
+        availableCopies: 3,
+        shelfLocation: 'Rack C-3',
+        replacementCost: 4500,
+        createdAt: now,
+        updatedAt: now,
+      );
+      final bookJson = book.toJson();
+      final bookParsed = PhysicalBookModel.fromJson(bookJson);
+      expect(bookParsed.id, equals('bk-test-01'));
+      expect(bookParsed.isAvailable, isTrue);
+      expect(bookParsed.isOutOfStock, isFalse);
+      expect(bookParsed.isLowStock, isFalse);
+      expect(bookParsed.copiesBorrowed, equals(2));
+
+      final bookOutOfStock = book.copyWith(availableCopies: 0);
+      expect(bookOutOfStock.isOutOfStock, isTrue);
+      expect(bookOutOfStock.isAvailable, isFalse);
+
+      final bookLowStock = book.copyWith(availableCopies: 1);
+      expect(bookLowStock.isLowStock, isTrue);
+
+      // 3. BorrowRecordModel
+      final borrow = BorrowRecordModel(
+        id: 'brw-test-01',
+        bookId: 'bk-test-01',
+        bookTitle: 'Introduction to Algorithms',
+        bookAuthor: 'Cormen et al.',
+        bookIsbn: '978-0262033848',
+        shelfLocation: 'Rack C-3',
+        studentId: 'usr-1',
+        studentName: 'Harish Kumar',
+        campusHandle: 'harish_1',
+        borrowedAt: now.subtract(const Duration(days: 5)),
+        dueDate: now.add(const Duration(days: 9)),
+        status: BorrowStatus.active,
+        renewalCount: 0,
+        maxRenewals: 2,
+        finePerDay: 10,
+        accruedLateFine: 0,
+        createdAt: now,
+        updatedAt: now,
+      );
+      final borrowJson = borrow.toJson();
+      final borrowParsed = BorrowRecordModel.fromJson(borrowJson);
+      expect(borrowParsed.id, equals('brw-test-01'));
+      expect(borrowParsed.isActive, isTrue);
+      expect(borrowParsed.isOverdue, isFalse);
+      expect(borrowParsed.isReturned, isFalse);
+      expect(borrowParsed.canRenew, isTrue);
+      expect(borrowParsed.hasLateFine, isFalse);
+      expect(borrowParsed.daysUntilDue, greaterThanOrEqualTo(8));
+
+      final overdueBorrow = borrow.copyWith(
+        status: BorrowStatus.overdue,
+        dueDate: now.subtract(const Duration(days: 4)),
+        accruedLateFine: 40,
+        finePortalFeeId: 'fine-lib-01',
+      );
+      expect(overdueBorrow.isOverdue, isTrue);
+      expect(overdueBorrow.canRenew, isFalse);
+      expect(overdueBorrow.hasLateFine, isTrue);
+      expect(overdueBorrow.overdueDaysCount, greaterThanOrEqualTo(3));
+
+      final returnedBorrow = borrow.copyWith(
+        status: BorrowStatus.returned,
+        returnedAt: now,
+      );
+      expect(returnedBorrow.isReturned, isTrue);
+      expect(returnedBorrow.canRenew, isFalse);
+
+      // 4. EBookModel
+      final ebook = EBookModel(
+        id: 'ebk-test-01',
+        title: 'Clean Code',
+        author: 'Robert C. Martin',
+        category: 'Computer Science',
+        publisher: 'Prentice Hall',
+        format: 'PDF',
+        fileSize: '12.4 MB',
+        totalReaders: 1420,
+        downloadUrl: '/dl/clean-code.pdf',
+        readUrl: '/read/clean-code',
+        isInfiniteBorrow: true,
+        description: 'Clean code handbook',
+        requiredSemesters: const [3, 4],
+        tags: const ['Agile', 'Clean Code'],
+        createdAt: now,
+        updatedAt: now,
+      );
+      final ebookJson = ebook.toJson();
+      final ebookParsed = EBookModel.fromJson(ebookJson);
+      expect(ebookParsed.id, equals('ebk-test-01'));
+      expect(ebookParsed.isPdf, isTrue);
+      expect(ebookParsed.isEpub, isFalse);
+      expect(ebookParsed.isInfiniteBorrow, isTrue);
+
+      final epubEBook = ebook.copyWith(format: 'EPUB');
+      expect(epubEBook.isEpub, isTrue);
+      expect(epubEBook.isPdf, isFalse);
+
+      // 5. LibrarySummaryModel
+      final summary = LibrarySummaryModel(
+        studentId: 'usr-1',
+        maxBorrowQuota: 4,
+        activeBorrowsCount: 2,
+        overdueBorrowsCount: 0,
+        availableQuota: 2,
+        totalLateFineDue: 0,
+        returnedHistoryCount: 5,
+        ebooksAccessedCount: 12,
+      );
+      final summaryJson = summary.toJson();
+      final summaryParsed = LibrarySummaryModel.fromJson(summaryJson);
+      expect(summaryParsed.studentId, equals('usr-1'));
+      expect(summaryParsed.hasOverdue, isFalse);
+      expect(summaryParsed.canBorrowMore, isTrue);
+      expect(summaryParsed.quotaUsageRatio, equals(0.5));
+
+      final summaryWithOverdue = summary.copyWith(
+        overdueBorrowsCount: 1,
+        totalLateFineDue: 50,
+        availableQuota: 0,
+      );
+      expect(summaryWithOverdue.hasOverdue, isTrue);
+      expect(summaryWithOverdue.canBorrowMore, isFalse);
     });
   });
 
