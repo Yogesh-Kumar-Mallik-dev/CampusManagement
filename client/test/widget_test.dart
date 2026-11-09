@@ -5,6 +5,7 @@ import 'package:campus_client/main.dart';
 import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/models/hostel.dart';
 import 'package:campus_client/models/mess.dart';
+import 'package:campus_client/screens/complaints_screen.dart';
 import 'package:campus_client/screens/home_screen.dart';
 import 'package:campus_client/screens/hostel_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
@@ -1808,5 +1809,156 @@ void main() {
     expect(find.byKey(const Key('btn-edit-meal-meal-sunday-brunch')), findsNothing);
     // Student can still rate
     expect(find.byKey(const Key('btn-rate-meal-meal-sunday-brunch')), findsOneWidget);
+  });
+
+  testWidgets('Institutional Complaints: Anonymity policy by category and granular complaints:* RBAC permissions',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+    final warden = OfflineStorageService.getMockUserForHandle('ramesh_2023_emp_1');
+    final hod = OfflineStorageService.getMockUserForHandle('priya_2024_emp_1');
+
+    // Verify permission model
+    expect(student.canManageComplaintsFor('student'), isFalse);
+    expect(student.canManageComplaintsFor('hostel'), isFalse);
+    expect(student.hasAnyComplaintManagementPermission, isFalse);
+
+    expect(warden.canManageComplaintsFor('hostel'), isTrue);
+    expect(warden.canManageComplaintsFor('campus'), isTrue);
+    expect(warden.canManageComplaintsFor('student'), isFalse);
+    expect(warden.canManageComplaintsFor('employee'), isFalse);
+
+    expect(hod.canManageComplaintsFor('student'), isTrue);
+    expect(hod.canManageComplaintsFor('employee'), isTrue);
+    expect(hod.canManageComplaintsFor('hostel'), isFalse);
+
+    // 1. Student lodges an anonymous complaint for Hostel category (permitted)
+    await tester.pumpWidget(MaterialApp(
+      home: ComplaintsScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Verify Student view has no administrative review tab
+    expect(find.byKey(const Key('tab-admin-complaints')), findsNothing);
+
+    // Open File Complaint Dialog
+    await tester.tap(find.byKey(const Key('btn-file-complaint')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dialog-file-complaint')), findsOneWidget);
+
+    // Default category is Hostel, which supports anonymous
+    expect(find.text('Anonymous Reporting (Supported)'), findsOneWidget);
+    final anonSwitch = find.byKey(const Key('switch-complaint-anonymous'));
+    expect(anonSwitch, findsOneWidget);
+
+    // Toggle anonymous switch ON
+    await tester.tap(anonSwitch);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('input-complaint-title')), 'Cold showers in Block C wing');
+    await tester.enterText(find.byKey(const Key('input-complaint-description')), 'Water heater solar coil disconnected after thunderstorm.');
+    await tester.tap(find.byKey(const Key('btn-submit-complaint')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-file-complaint')), findsNothing);
+    expect(find.text('Cold showers in Block C wing'), findsOneWidget);
+    // Verified that submitter name is masked as Anonymous Reporter
+    expect(find.text('Anonymous Reporter'), findsWidgets);
+
+    // 2. Student attempts to lodge complaint for Student Affairs (anonymity not supported)
+    await tester.tap(find.byKey(const Key('btn-file-complaint')));
+    await tester.pumpAndSettle();
+
+    // Change category to Student Affairs & Academics
+    await tester.tap(find.byKey(const Key('select-complaint-category')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Student Affairs & Academics').last);
+    await tester.pumpAndSettle();
+
+    // Anonymous switch should now be locked and notice displayed
+    expect(find.text('Anonymous Reporting Not Supported'), findsOneWidget);
+
+    // Enter title & description
+    await tester.enterText(find.byKey(const Key('input-complaint-title')), 'Missing grade for Practical Lab 2');
+    await tester.enterText(find.byKey(const Key('input-complaint-description')), 'Completed lab on time but grade sheet shows pending submission.');
+    await tester.tap(find.byKey(const Key('btn-submit-complaint')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-file-complaint')), findsNothing);
+    expect(find.text('Missing grade for Practical Lab 2'), findsOneWidget);
+    // Student's verified name is displayed
+    expect(find.text(student.fullName), findsWidgets);
+
+    // 3. Warden administrative review console (hostel:complaints & campus:complaints)
+    await tester.pumpWidget(MaterialApp(
+      home: ComplaintsScreen(
+        storage: storage,
+        currentUser: warden,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Administrative review tab is present for warden
+    expect(find.byKey(const Key('tab-admin-complaints')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('tab-admin-complaints')));
+    await tester.pumpAndSettle();
+
+    // Warden can see and manage Hostel & Campus complaints
+    expect(find.text('Cold showers in Block C wing'), findsOneWidget);
+    // Warden CANNOT see Student category complaints in their admin console
+    expect(find.text('Missing grade for Practical Lab 2'), findsNothing);
+
+    // Update status of the hostel complaint
+    final updateBtn = find.widgetWithText(OutlinedButton, 'Update Status').first;
+    await tester.tap(updateBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-update-complaint-status')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('select-new-status')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Resolved').last);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('input-resolution-remarks')), 'Solar heater coil re-grounded and water temperature verified.');
+    await tester.tap(find.byKey(const Key('btn-save-complaint-status')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-update-complaint-status')), findsNothing);
+    expect(find.text('RESOLVED'), findsWidgets);
+    expect(find.textContaining('Solar heater coil re-grounded'), findsOneWidget);
+  });
+
+  testWidgets('Small Screen Responsiveness: ComplaintsScreen standalone on 360x640',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final user = OfflineStorageService.getMockUserForHandle('campus_admin');
+
+    await tester.pumpWidget(MaterialApp(
+      home: ComplaintsScreen(
+        storage: storage,
+        currentUser: user,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Institutional Grievances & Complaints'), findsOneWidget);
   });
 }

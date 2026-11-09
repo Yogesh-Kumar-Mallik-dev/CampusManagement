@@ -202,6 +202,43 @@ class UserModel {
       hasPermission('mess:manage') ||
       hasPermission('mess:edit_menu');
 
+  bool canManageComplaintsFor(String category) {
+    final cat = category.trim().toLowerCase();
+    if (isAdmin || permissions.contains('*') || hasPermission('complaints:manage')) {
+      return true;
+    }
+    return hasPermission('complaints:$cat');
+  }
+
+  bool get canManageStudentComplaints => canManageComplaintsFor('student');
+  bool get canManageEmployeeComplaints => canManageComplaintsFor('employee');
+  bool get canManageContractorComplaints => canManageComplaintsFor('contractor');
+  bool get canManageCampusComplaints => canManageComplaintsFor('campus');
+  bool get canManageHostelComplaints => canManageComplaintsFor('hostel');
+
+  bool get hasAnyComplaintManagementPermission =>
+      isAdmin ||
+      permissions.contains('*') ||
+      hasPermission('complaints:manage') ||
+      hasPermission('complaints:student') ||
+      hasPermission('complaints:employee') ||
+      hasPermission('complaints:contractor') ||
+      hasPermission('complaints:campus') ||
+      hasPermission('complaints:hostel');
+
+  List<String> get manageableComplaintCategories {
+    if (isAdmin || permissions.contains('*') || hasPermission('complaints:manage')) {
+      return ['student', 'employee', 'contractor', 'campus', 'hostel'];
+    }
+    final list = <String>[];
+    for (final cat in ['student', 'employee', 'contractor', 'campus', 'hostel']) {
+      if (hasPermission('complaints:$cat')) {
+        list.add(cat);
+      }
+    }
+    return list;
+  }
+
   bool canEditTimetable([String? targetScope]) =>
       isAdmin ||
       isHOD ||

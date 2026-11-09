@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/academic.dart';
+import '../models/complaint.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
@@ -867,5 +868,68 @@ class ApiService {
       return MessRatingModel.fromJson(jsonDecode(res.body));
     }
     throw Exception('Failed to submit mess rating: ${res.body}');
+  }
+
+  // ----------------------------------------------------
+  // GRIEVANCES & COMPLAINTS SYSTEM
+  // ----------------------------------------------------
+
+  Future<List<ComplaintModel>> fetchComplaints({
+    String? category,
+    String? status,
+    String? submittedBy,
+    String? viewerId,
+    List<String>? allowedCategories,
+  }) async {
+    final queryParams = <String, String>{};
+    if (category != null && category.isNotEmpty) queryParams['category'] = category;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+    if (submittedBy != null && submittedBy.isNotEmpty) queryParams['submitted_by'] = submittedBy;
+    if (viewerId != null && viewerId.isNotEmpty) queryParams['viewer_id'] = viewerId;
+    if (allowedCategories != null && allowedCategories.isNotEmpty) {
+      queryParams['allowed_categories'] = allowedCategories.join(',');
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/complaints').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => ComplaintModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to fetch complaints: ${res.statusCode}');
+  }
+
+  Future<ComplaintModel> createComplaint(ComplaintModel complaint) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/complaints'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(complaint.toJson()),
+    );
+    if (res.statusCode == 201) {
+      return ComplaintModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create complaint: ${res.body}');
+  }
+
+  Future<ComplaintModel> updateComplaintStatus({
+    required String complaintId,
+    required String status,
+    required String remarks,
+    required String resolvedBy,
+  }) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/v1/complaints/status'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'complaint_id': complaintId,
+        'status': status,
+        'remarks': remarks,
+        'resolved_by': resolvedBy,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return ComplaintModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to update complaint status: ${res.body}');
   }
 }

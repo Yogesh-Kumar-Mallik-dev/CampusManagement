@@ -80,6 +80,7 @@ func main() {
 	academicService := service.NewAcademicService(dbPool, cacheManager, permService)
 	hostelService := service.NewHostelService(dbPool, permService)
 	messService := service.NewMessService(dbPool, permService)
+	complaintService := service.NewComplaintService()
 
 	// Seed Standard Campus Roles into Permission Service & Sample Academic Data
 	seedDefaultRolesAndScopes(permService)
@@ -91,6 +92,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(permService)
 	hostelHandler := handler.NewHostelHandler(hostelService)
 	messHandler := handler.NewMessHandler(messService)
+	complaintHandler := handler.NewComplaintHandler(complaintService)
 
 	// 4. Define HTTP Routes
 	mux := http.NewServeMux()
@@ -163,6 +165,10 @@ func main() {
 	mux.HandleFunc("/api/v1/mess/timetable", messHandler.HandleTimetable)
 	mux.HandleFunc("/api/v1/mess/meals", messHandler.HandleMeals)
 	mux.HandleFunc("/api/v1/mess/ratings", messHandler.HandleRatings)
+
+	// Grievances & Institutional Complaints System
+	mux.HandleFunc("/api/v1/complaints", complaintHandler.HandleComplaints)
+	mux.HandleFunc("/api/v1/complaints/status", complaintHandler.HandleComplaintStatus)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
 	mux.HandleFunc("/api/v1/sync", academicHandler.DeltaSync)
@@ -328,6 +334,8 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 			{Code: "faculty:assign_workload"},
 			{Code: "department:manage"},
 			{Code: "notice:publish"},
+			{Code: "complaints:student"},
+			{Code: "complaints:employee"},
 		},
 	})
 
@@ -361,6 +369,8 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 			{Code: "room:inspect"},
 			{Code: "hostel:manage"},
 			{Code: "hostel:edit_room"},
+			{Code: "complaints:hostel"},
+			{Code: "complaints:campus"},
 		},
 	})
 
@@ -385,6 +395,7 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 			{Code: "mess:manage"},
 			{Code: "coupon:redeem"},
 			{Code: "sales:view"},
+			{Code: "complaints:contractor"},
 		},
 	})
 

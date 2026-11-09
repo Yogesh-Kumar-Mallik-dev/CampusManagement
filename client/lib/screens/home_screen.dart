@@ -6,6 +6,7 @@ import '../theme/svg_icons.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/smooth_theme_toggle.dart';
 import 'attendance_screen.dart';
+import 'complaints_screen.dart';
 import 'department_management_screen.dart';
 import 'hostel_screen.dart';
 import 'mess_screen.dart';
@@ -40,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late UserModel _currentUser;
 
   void _onDestinationSelected(int index) {
-    if (index >= 1 && index <= 7) {
+    if (index >= 1 && index <= 8) {
       _slot3PageIndex = index;
     }
     if (_currentIndex == index) return;
@@ -120,6 +121,12 @@ class _HomeScreenState extends State<HomeScreen> {
             currentUser: _currentUser,
           );
         case 8:
+          return ComplaintsScreen(
+            key: ValueKey('tab-complaints-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
+          );
+        case 9:
           return UserProfileScreen(
             key: ValueKey('tab-profile-${_currentUser.id}'),
             storage: widget.storage,
@@ -345,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
-          _loadedTabs.addAll([1, 2, 3, 4, 5, 6, 7, 8]);
+          _loadedTabs.addAll([1, 2, 3, 4, 5, 6, 7, 8, 9]);
         });
       }
     });
@@ -364,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final tabStack = IndexedStack(
       index: _currentIndex,
-      children: List.generate(9, _buildTab),
+      children: List.generate(10, _buildTab),
     );
 
     return Scaffold(
@@ -439,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() {
                 _currentUser = newUser;
                 _tabWidgetCache.clear();
-                _loadedTabs.addAll([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+                _loadedTabs.addAll([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
               });
               _checkServer();
             },
@@ -673,9 +680,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     key: const Key('dock-division-profile'),
                     label: 'Profile',
                     svgIcon: AppSvgIcon.user,
-                    isSelected: _currentIndex == 8,
+                    isSelected: _currentIndex == 9,
                     isDark: isDark,
-                    onTap: () => _onDestinationSelected(8),
+                    onTap: () => _onDestinationSelected(9),
                   ),
                 ),
 
@@ -847,6 +854,15 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Hostel Mess & Ratings',
         subtitle: 'Weekly menu timetable & feedback reports',
         svgIcon: AppSvgIcon.utensils,
+        isRestricted: false,
+        restrictedRole: null,
+      ),
+      (
+        index: 8,
+        keyName: 'complaints',
+        label: 'Grievances & Complaints',
+        subtitle: 'Lodge & track verified or anonymous complaints',
+        svgIcon: AppSvgIcon.alertTriangle,
         isRestricted: false,
         restrictedRole: null,
       ),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../models/academic.dart';
+import '../models/complaint.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
@@ -24,6 +25,7 @@ class OfflineStorageService {
   final List<HostelRoomModel> _cachedHostelRooms = [];
   final List<MessMealModel> _cachedMessMeals = [];
   final List<MessRatingModel> _cachedMessRatings = [];
+  final List<ComplaintModel> _cachedComplaints = [];
   final Map<String, String> _studentSectionMap = {};
   final Map<String, String> _studentProgramMap = {};
   final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
@@ -134,7 +136,7 @@ class OfflineStorageService {
         ],
         permissions: ['*'],
       );
-    } else if (clean.contains('priya') || clean.contains('emp_1') || clean.contains('faculty') || clean.contains('hod')) {
+    } else if (clean.contains('priya') || clean.contains('nair') || clean.contains('faculty') || clean.contains('hod')) {
       return UserModel(
         id: 'usr-priya_2024_emp_1',
         campusHandle: 'priya_2024_emp_1',
@@ -176,6 +178,8 @@ class OfflineStorageService {
           'faculty:assign_workload',
           'department:manage',
           'notice:publish',
+          'complaints:student',
+          'complaints:employee',
         ],
       );
     } else if (clean.contains('ramesh') || clean.contains('security')) {
@@ -199,7 +203,14 @@ class OfflineStorageService {
             scopeCode: 'facility:gate-1',
           ),
         ],
-        permissions: ['gatepass:approve', 'room:inspect', 'hostel:manage', 'hostel:edit_room'],
+        permissions: [
+          'gatepass:approve',
+          'room:inspect',
+          'hostel:manage',
+          'hostel:edit_room',
+          'complaints:hostel',
+          'complaints:campus',
+        ],
       );
     } else if (clean.contains('mukesh') || clean.contains('ext_1') || clean.contains('canteen')) {
       return UserModel(
@@ -229,6 +240,7 @@ class OfflineStorageService {
           'mess:edit_menu',
           'mess:manage',
           'menu:update',
+          'complaints:contractor',
         ],
       );
     }
@@ -443,6 +455,8 @@ class OfflineStorageService {
           'faculty:assign_workload',
           'department:manage',
           'notice:publish',
+          'complaints:student',
+          'complaints:employee',
         ],
         employeeRecord: {
           'joining_date': '2024-01-15T00:00:00Z',
@@ -488,6 +502,8 @@ class OfflineStorageService {
           'room:inspect',
           'hostel:manage',
           'hostel:edit_room',
+          'complaints:hostel',
+          'complaints:campus',
         ],
         employeeRecord: {
           'joining_date': '2023-06-01T00:00:00Z',
@@ -556,6 +572,7 @@ class OfflineStorageService {
           'mess:edit_menu',
           'mess:manage',
           'menu:update',
+          'complaints:contractor',
         ],
         contractorProfile: {
           'onboarding_year': 2025,
@@ -3960,5 +3977,241 @@ class OfflineStorageService {
 
     _cachedMessRatings.insert(0, record);
     return record;
+  }
+
+  // ----------------------------------------------------
+  // GRIEVANCES & INSTITUTIONAL COMPLAINTS OPERATIONS
+  // ----------------------------------------------------
+
+  void _seedDefaultComplaintsIfEmpty() {
+    if (_cachedComplaints.isNotEmpty) return;
+
+    final now = DateTime.now();
+    _cachedComplaints.addAll([
+      ComplaintModel(
+        id: 'cmp-001',
+        title: 'Water leakage in Aryabhatta Block 2nd floor restroom',
+        description: 'Constant leaking pipe in 2nd floor west-wing bathroom causing water wastage and slippery tiles.',
+        category: ComplaintCategory.hostel,
+        urgency: ComplaintUrgency.high,
+        isAnonymous: true,
+        submittedBy: 'usr-harish_2025_l_btech_1',
+        submitterName: 'Anonymous Reporter',
+        submitterHandle: 'anonymous',
+        submitterRole: 'Anonymous',
+        status: ComplaintStatus.inProgress,
+        resolutionRemarks: 'Plumbing maintenance team notified and work order issued.',
+        resolvedBy: 'usr-ramesh_2023_emp_1',
+        createdAt: now.subtract(const Duration(hours: 48)),
+        updatedAt: now.subtract(const Duration(hours: 48)),
+      ),
+      ComplaintModel(
+        id: 'cmp-002',
+        title: 'Streetlight flickering near Gate 2 walkway',
+        description: 'Main pathway from academic complex to Gate 2 has dark spots due to malfunctioning LED streetlight.',
+        category: ComplaintCategory.campus,
+        urgency: ComplaintUrgency.medium,
+        isAnonymous: true,
+        submittedBy: 'usr-priya_2024_emp_1',
+        submitterName: 'Anonymous Reporter',
+        submitterHandle: 'anonymous',
+        submitterRole: 'Anonymous',
+        status: ComplaintStatus.open,
+        createdAt: now.subtract(const Duration(hours: 36)),
+        updatedAt: now.subtract(const Duration(hours: 36)),
+      ),
+      ComplaintModel(
+        id: 'cmp-003',
+        title: 'Grade calculation discrepancy in CS-301 Midterm Examination',
+        description: 'Question 4 (Dynamic Programming, 10 marks) was marked correct with full points in answer script but recorded as 0 in gradebook portal.',
+        category: ComplaintCategory.student,
+        urgency: ComplaintUrgency.high,
+        isAnonymous: false,
+        submittedBy: 'usr-harish_2025_l_btech_1',
+        submitterName: 'Harish Kumar',
+        submitterHandle: 'harish_2025_l_btech_1',
+        submitterRole: 'student',
+        status: ComplaintStatus.open,
+        createdAt: now.subtract(const Duration(hours: 24)),
+        updatedAt: now.subtract(const Duration(hours: 24)),
+      ),
+      ComplaintModel(
+        id: 'cmp-004',
+        title: 'Office AC cooling unit non-functional in Computer Center Room 204',
+        description: 'Temperature exceeds 34C in faculty lab during afternoon lab sessions due to blower motor failure.',
+        category: ComplaintCategory.employee,
+        urgency: ComplaintUrgency.medium,
+        isAnonymous: false,
+        submittedBy: 'usr-priya_2024_emp_1',
+        submitterName: 'Dr. Priya Sharma',
+        submitterHandle: 'priya_2024_emp_1',
+        submitterRole: 'employee',
+        status: ComplaintStatus.inProgress,
+        resolutionRemarks: 'HVAC contractor scheduled for compressor overhaul.',
+        resolvedBy: 'usr-ramesh_2023_emp_1',
+        createdAt: now.subtract(const Duration(hours: 12)),
+        updatedAt: now.subtract(const Duration(hours: 12)),
+      ),
+      ComplaintModel(
+        id: 'cmp-005',
+        title: 'Commercial gas cylinder unloading area blocked at Central Canteen',
+        description: 'Unloading bay blocked by unauthorized vehicle parking, preventing morning delivery of fuel cylinders.',
+        category: ComplaintCategory.contractor,
+        urgency: ComplaintUrgency.critical,
+        isAnonymous: false,
+        submittedBy: 'usr-mukesh_2025_ext_1',
+        submitterName: 'Mukesh Verma',
+        submitterHandle: 'mukesh_2025_ext_1',
+        submitterRole: 'external',
+        status: ComplaintStatus.resolved,
+        resolutionRemarks: 'Security personnel deployed tow truck and cleared loading dock.',
+        resolvedBy: 'usr-ramesh_2023_emp_1',
+        resolvedAt: now.subtract(const Duration(hours: 2)),
+        createdAt: now.subtract(const Duration(hours: 6)),
+        updatedAt: now.subtract(const Duration(hours: 2)),
+      ),
+    ]);
+  }
+
+  Future<List<ComplaintModel>> getComplaints({
+    String? category,
+    String? status,
+    String? submittedBy,
+    String? viewerId,
+    List<String>? allowedCategories,
+  }) async {
+    _seedDefaultComplaintsIfEmpty();
+    await checkConnectivity();
+
+    if (isOnline) {
+      try {
+        final serverComplaints = await api.fetchComplaints(
+          category: category,
+          status: status,
+          submittedBy: submittedBy,
+          viewerId: viewerId,
+          allowedCategories: allowedCategories,
+        );
+        if (serverComplaints.isNotEmpty) {
+          _cachedComplaints.clear();
+          _cachedComplaints.addAll(serverComplaints);
+        }
+      } catch (_) {}
+    }
+
+    final catFilter = category?.trim().toLowerCase();
+    final statusFilter = status?.trim().toLowerCase();
+    final submitterFilter = submittedBy?.trim();
+    final allowedSet = allowedCategories?.map((c) => c.trim().toLowerCase()).toSet() ?? {};
+    final hasAllowedRestrictions = allowedSet.isNotEmpty && !allowedSet.contains('*');
+
+    final list = _cachedComplaints.where((c) {
+      if (catFilter != null && catFilter.isNotEmpty && catFilter != 'all' && c.category != catFilter) {
+        return false;
+      }
+      if (statusFilter != null && statusFilter.isNotEmpty && statusFilter != 'all' && c.status != statusFilter) {
+        return false;
+      }
+      if (submitterFilter != null && submitterFilter.isNotEmpty && c.submittedBy != submitterFilter) {
+        return false;
+      }
+      if (submitterFilter == null && hasAllowedRestrictions && !allowedSet.contains(c.category)) {
+        return false;
+      }
+      return true;
+    }).map((c) {
+      if (c.isAnonymous) {
+        return c.copyWith(
+          submitterName: 'Anonymous Reporter',
+          submitterHandle: 'anonymous',
+          submitterRole: 'Anonymous',
+          submittedBy: (viewerId != null && viewerId == c.submittedBy) ? c.submittedBy : 'anonymous',
+        );
+      }
+      return c;
+    }).toList();
+
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  Future<ComplaintModel> createComplaint(ComplaintModel complaint) async {
+    _seedDefaultComplaintsIfEmpty();
+
+    if (complaint.title.trim().isEmpty) {
+      throw Exception('Complaint title is required');
+    }
+    if (complaint.description.trim().isEmpty) {
+      throw Exception('Complaint description is required');
+    }
+
+    if (complaint.isAnonymous && !ComplaintCategory.supportsAnonymous(complaint.category)) {
+      throw Exception('Anonymous complaints are not supported for category: ${ComplaintCategory.displayName(complaint.category)}');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final created = await api.createComplaint(complaint);
+        _cachedComplaints.insert(0, created);
+        return created;
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
+    final newComplaint = complaint.copyWith(
+      id: 'cmp-${DateTime.now().millisecondsSinceEpoch}',
+      status: ComplaintStatus.open,
+      submitterName: complaint.isAnonymous ? 'Anonymous Reporter' : complaint.submitterName,
+      submitterHandle: complaint.isAnonymous ? 'anonymous' : complaint.submitterHandle,
+      submitterRole: complaint.isAnonymous ? 'Anonymous' : complaint.submitterRole,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _cachedComplaints.insert(0, newComplaint);
+    return newComplaint;
+  }
+
+  Future<ComplaintModel> updateComplaintStatus({
+    required String complaintId,
+    required String status,
+    required String remarks,
+    required String resolvedBy,
+  }) async {
+    _seedDefaultComplaintsIfEmpty();
+
+    final idx = _cachedComplaints.indexWhere((c) => c.id == complaintId);
+    if (idx == -1) {
+      throw Exception('Complaint $complaintId not found');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final updated = await api.updateComplaintStatus(
+          complaintId: complaintId,
+          status: status,
+          remarks: remarks,
+          resolvedBy: resolvedBy,
+        );
+        _cachedComplaints[idx] = updated;
+        return updated;
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
+    final cleanStatus = status.trim().toLowerCase();
+    final current = _cachedComplaints[idx];
+    final updated = current.copyWith(
+      status: cleanStatus,
+      resolutionRemarks: remarks.trim(),
+      resolvedBy: resolvedBy.trim(),
+      resolvedAt: (cleanStatus == ComplaintStatus.resolved || cleanStatus == ComplaintStatus.rejected) ? now : null,
+      updatedAt: now,
+    );
+
+    _cachedComplaints[idx] = updated;
+    return updated;
   }
 }
