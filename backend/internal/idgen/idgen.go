@@ -18,6 +18,15 @@ func Sanitize(str string) string {
 	return nonAlphaNumRegex.ReplaceAllString(lower, "")
 }
 
+// IDServiceInterface abstracts canonical handle identifier generation
+type IDServiceInterface interface {
+	NextStudentID(ctx context.Context, firstName string, admissionYear int, entryType, program string) (string, error)
+	NextEmployeeID(ctx context.Context, firstName string, joiningYear int) (string, error)
+	NextExternalID(ctx context.Context, firstName string, onboardingYear int) (string, error)
+	NextFacultyID(ctx context.Context, firstName string, joiningYear int) (string, error)
+	NextStaffID(ctx context.Context, firstName string, joiningYear int) (string, error)
+}
+
 type IDService struct {
 	db        *pgxpool.Pool
 	mu        sync.Mutex

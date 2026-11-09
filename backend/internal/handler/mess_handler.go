@@ -9,10 +9,10 @@ import (
 )
 
 type MessHandler struct {
-	messService *service.MessService
+	messService service.MessServiceInterface
 }
 
-func NewMessHandler(svc *service.MessService) *MessHandler {
+func NewMessHandler(svc service.MessServiceInterface) *MessHandler {
 	return &MessHandler{messService: svc}
 }
 

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'di/service_locator.dart';
+import 'facade/campus_facade.dart';
 import 'models/user.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
-import 'services/api_service.dart';
 import 'services/offline_storage_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/svg_icons.dart';
@@ -11,10 +12,19 @@ import 'widgets/circular_theme_reveal.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AppSvgIcon.prewarmCoreIcons();
-  final api = ApiService(baseUrl: 'http://localhost:8080');
-  final storage = OfflineStorageService(api: api);
 
-  runApp(CampusManagementApp(storage: storage));
+  // Initialize unified IoC container and decoupled dependencies
+  final di = CampusDI.setup(defaultBaseUrl: 'http://localhost:8080');
+  final storage = di.get<OfflineStorageService>();
+  final facade = di.get<ICampusFacade>();
+
+  runApp(
+    CampusScope(
+      facade: facade,
+      storage: storage,
+      child: CampusManagementApp(storage: storage),
+    ),
+  );
 }
 
 class CampusManagementApp extends StatefulWidget {

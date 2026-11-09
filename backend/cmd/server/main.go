@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,10 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"campus/backend/internal/cache"
-	"campus/backend/internal/database"
-	"campus/backend/internal/handler"
-	"campus/backend/internal/idgen"
+	"campus/backend/internal/di"
 	"campus/backend/internal/model"
 	"campus/backend/internal/service"
 )
@@ -25,153 +21,20 @@ func main() {
 		port = "8080"
 	}
 
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
-
-	// 1. Initialize Redis Store with safe fallback
-	redisStore := cache.NewRedisStore(redisAddr, "", 0)
-	cacheManager := cache.NewResilientManager(redisStore)
-
-	// 2. Initialize PostgreSQL with strictly capped connection pool
-	dbHost := os.Getenv("POSTGRES_HOST")
-	if dbHost == "" {
-		dbHost = "localhost"
-	}
-	dbPortStr := os.Getenv("POSTGRES_PORT")
-	dbPort := 5432
-	if dbPortStr != "" {
-		var p int
-		if _, err := fmt.Sscanf(dbPortStr, "%d", &p); err == nil && p > 0 {
-			dbPort = p
-		}
-	}
-	dbUser := os.Getenv("POSTGRES_USER")
-	if dbUser == "" {
-		dbUser = "campus_user"
-	}
-	dbPassword := os.Getenv("POSTGRES_PASSWORD")
-	if dbPassword == "" {
-		dbPassword = "campus_password"
-	}
-	dbName := os.Getenv("POSTGRES_DB")
-	if dbName == "" {
-		dbName = "campus_db"
-	}
-
-	dbConfig := database.Config{
-		Host:     dbHost,
-		Port:     dbPort,
-		User:     dbUser,
-		Password: dbPassword,
-		DBName:   dbName,
-		MaxConns: 30,
-		MinConns: 5,
-	}
-	dbPool, err := database.ConnectPostgres(dbConfig)
+	container, err := di.NewDefaultContainer()
 	if err != nil {
-		log.Printf("[Warning] Database startup check: %v (continuing with resilient memory fallback)", err)
+		log.Fatalf("failed to initialize DI container: %v", err)
+	}
+	defer container.Close()
+
+	if concretePerm, ok := container.PermissionService.(*service.PermissionService); ok {
+		seedDefaultRolesAndScopes(concretePerm)
+	}
+	if concreteAcad, ok := container.AcademicService.(*service.AcademicService); ok {
+		seedDefaultAcademics(concreteAcad)
 	}
 
-	// 3. Initialize Services
-	idService := idgen.NewIDService(dbPool)
-	permService := service.NewPermissionService(dbPool, cacheManager)
-	academicService := service.NewAcademicService(dbPool, cacheManager, permService)
-	hostelService := service.NewHostelService(dbPool, permService)
-	messService := service.NewMessService(dbPool, permService)
-	complaintService := service.NewComplaintService()
-
-	// Seed Standard Campus Roles into Permission Service & Sample Academic Data
-	seedDefaultRolesAndScopes(permService)
-	seedDefaultAcademics(academicService)
-
-	userHandler := handler.NewUserHandler(idService, permService)
-	academicHandler := handler.NewAcademicHandler(academicService)
-	departmentHandler := handler.NewDepartmentHandler(academicService, userHandler.FindUser, userHandler.ListTeachers)
-	authHandler := handler.NewAuthHandler(permService)
-	hostelHandler := handler.NewHostelHandler(hostelService)
-	messHandler := handler.NewMessHandler(messService)
-	complaintHandler := handler.NewComplaintHandler(complaintService)
-
-	// 4. Define HTTP Routes
-	mux := http.NewServeMux()
-
-	// Authentication Endpoints
-	mux.HandleFunc("/api/v1/auth/login", authHandler.Login)
-
-	// Health check endpoint
-	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		status := map[string]interface{}{
-			"status":      "ok",
-			"timestamp":   time.Now().UTC(),
-			"cache_ready": redisStore.IsAvailable(),
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(status)
-	})
-
-	// User Management, ID Generation & Lifecycle Routes
-	mux.HandleFunc("/api/v1/users", userHandler.HandleUsers)
-	mux.HandleFunc("/api/v1/users/profile", userHandler.GetUserProfile)
-	mux.HandleFunc("/api/v1/users/roles", userHandler.GetUserRoles)
-	mux.HandleFunc("/api/v1/users/student", userHandler.CreateStudent)
-	mux.HandleFunc("/api/v1/users/employee", userHandler.CreateEmployee)
-	mux.HandleFunc("/api/v1/users/contractor", userHandler.CreateContractor)
-	mux.HandleFunc("/api/v1/users/discontinue", userHandler.DiscontinueUser)
-	mux.HandleFunc("/api/v1/users/reactivate", userHandler.ReactivateUser)
-
-	// Scoped Permissions Endpoints
-	mux.HandleFunc("/api/v1/permissions/assign", userHandler.AssignRole)
-	mux.HandleFunc("/api/v1/permissions/check", userHandler.CheckPermission)
-
-	// Phase 1 Academics, Timetable, Attendance & Notices
-	mux.HandleFunc("/api/v1/academics/courses", academicHandler.HandleCourses)
-	mux.HandleFunc("/api/v1/academics/timetable", academicHandler.HandleTimetable)
-	mux.HandleFunc("/api/v1/academics/timetable/check-conflict", academicHandler.HandleTimetableCheckConflict)
-	mux.HandleFunc("/api/v1/academics/timetable/day-off", academicHandler.HandleTimetableDayOff)
-	mux.HandleFunc("/api/v1/academics/timetable/restore-day", academicHandler.HandleTimetableRestoreDay)
-	mux.HandleFunc("/api/v1/attendance/sync", academicHandler.SyncAttendance)
-	mux.HandleFunc("/api/v1/attendance/summary", academicHandler.GetAttendanceSummary)
-	mux.HandleFunc("/api/v1/attendance/optical/start", academicHandler.StartOpticalSession)
-	mux.HandleFunc("/api/v1/attendance/optical/verify", academicHandler.VerifyOpticalAttendance)
-	mux.HandleFunc("/api/v1/attendance/optical/roster", academicHandler.GetOpticalSessionRoster)
-	mux.HandleFunc("/api/v1/attendance/optical/end", academicHandler.EndOpticalSession)
-	mux.HandleFunc("/api/v1/notices", academicHandler.HandleNotices)
-
-	// Departments & Academic Hierarchy (M:N and N:1)
-	mux.HandleFunc("/api/v1/departments", departmentHandler.HandleDepartments)
-	mux.HandleFunc("/api/v1/academics/programs", departmentHandler.HandlePrograms)
-	mux.HandleFunc("/api/v1/academics/subjects", departmentHandler.HandleSubjects)
-	mux.HandleFunc("/api/v1/academics/subjects/syllabus", departmentHandler.HandleSubjectSyllabus)
-	mux.HandleFunc("/api/v1/academics/semesters", departmentHandler.HandleSemesters)
-	mux.HandleFunc("/api/v1/academics/sections", departmentHandler.HandleSections)
-	mux.HandleFunc("/api/v1/academics/sections/assign-student", departmentHandler.HandleAssignStudentToSection)
-	mux.HandleFunc("/api/v1/academics/sections/transfer-student", departmentHandler.HandleTransferStudentSection)
-	mux.HandleFunc("/api/v1/academics/sections/merge", departmentHandler.HandleMergeSectionCohorts)
-	mux.HandleFunc("/api/v1/academics/sections/batches", departmentHandler.HandleLabBatches)
-	mux.HandleFunc("/api/v1/academics/sections/batches/auto-partition", departmentHandler.HandleAutoPartitionBatches)
-	mux.HandleFunc("/api/v1/academics/sections/batches/assign-student", departmentHandler.HandleAssignStudentBatch)
-	mux.HandleFunc("/api/v1/academics/allocations", departmentHandler.HandleFacultyAllocations)
-	mux.HandleFunc("/api/v1/academics/faculty/workload", departmentHandler.HandleFacultyWorkload)
-	mux.HandleFunc("/api/v1/academics/teachers", departmentHandler.HandleTeachers)
-
-	// Hostel Room System (100 - 999 with 3 beds, 3 tables, 2 tubelights, 2 fans, 3 lockers, and 3 occupants max)
-	mux.HandleFunc("/api/v1/hostel/rooms", hostelHandler.HandleRooms)
-	mux.HandleFunc("/api/v1/hostel/rooms/assets", hostelHandler.HandleAssets)
-	mux.HandleFunc("/api/v1/hostel/rooms/occupants", hostelHandler.HandleOccupants)
-
-	// Mess Meal Timetable (6 days x 3 meals, Sunday Brunch + Dinner) & Rating Feedback
-	mux.HandleFunc("/api/v1/mess/timetable", messHandler.HandleTimetable)
-	mux.HandleFunc("/api/v1/mess/meals", messHandler.HandleMeals)
-	mux.HandleFunc("/api/v1/mess/ratings", messHandler.HandleRatings)
-
-	// Grievances & Institutional Complaints System
-	mux.HandleFunc("/api/v1/complaints", complaintHandler.HandleComplaints)
-	mux.HandleFunc("/api/v1/complaints/status", complaintHandler.HandleComplaintStatus)
-
-	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
-	mux.HandleFunc("/api/v1/sync", academicHandler.DeltaSync)
+	mux := container.BuildMux()
 
 	// Locate client/build/web if built
 	webDistDirs := []string{
@@ -188,7 +51,7 @@ func main() {
 	}
 
 	if webDist != "" {
-		log.Printf("📱 Serving Flutter Web App at http://localhost:%s/ from %s", port, webDist)
+		log.Printf("Serving Flutter Web App at http://localhost:%s/ from %s", port, webDist)
 		fs := http.FileServer(http.Dir(webDist))
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(r.URL.Path, "/api") {
@@ -226,7 +89,7 @@ func main() {
   </style>
 </head>
 <body>
-  <h1>🏛️ CampusOS API Backend</h1>
+  <h1>CampusOS API Backend</h1>
   <p><span class="badge">Status: Online</span> Port: 8080</p>
   <p>Available endpoints:</p>
   <ul>
@@ -261,7 +124,7 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 
-	log.Printf("🚀 Campus Management Backend running on http://localhost:%s", port)
+	log.Printf("Campus Management Backend running on http://localhost:%s", port)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server stopped: %v", err)
 	}

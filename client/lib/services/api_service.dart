@@ -5,8 +5,10 @@ import '../models/complaint.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
+import 'storage_interface.dart';
 
-class ApiService {
+class ApiService implements ICampusApi {
+  @override
   final String baseUrl;
 
   ApiService({this.baseUrl = 'http://localhost:8080'});

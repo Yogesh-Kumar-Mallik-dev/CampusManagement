@@ -11,10 +11,10 @@ import (
 )
 
 type AcademicHandler struct {
-	academicService *service.AcademicService
+	academicService service.AcademicServiceInterface
 }
 
-func NewAcademicHandler(svc *service.AcademicService) *AcademicHandler {
+func NewAcademicHandler(svc service.AcademicServiceInterface) *AcademicHandler {
 	return &AcademicHandler{academicService: svc}
 }
 

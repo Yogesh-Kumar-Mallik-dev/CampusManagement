@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -144,4 +145,57 @@ func (rm *ResilientManager) FetchOrCompute(
 	}
 
 	return result.([]byte), nil
+}
+
+// MemoryStore provides thread-safe in-memory caching for isolated tests and offline mode
+type MemoryStore struct {
+	mu   sync.RWMutex
+	data map[string][]byte
+}
+
+func NewMemoryStore() *MemoryStore {
+	return &MemoryStore{
+		data: make(map[string][]byte),
+	}
+}
+
+func (m *MemoryStore) IsAvailable() bool {
+	return m != nil
+}
+
+func (m *MemoryStore) Get(ctx context.Context, key string) ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	val, ok := m.data[key]
+	if !ok {
+		return nil, nil
+	}
+	cp := make([]byte, len(val))
+	copy(cp, val)
+	return cp, nil
+}
+
+func (m *MemoryStore) Set(ctx context.Context, key string, val []byte, ttl time.Duration) error {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cp := make([]byte, len(val))
+	copy(cp, val)
+	m.data[key] = cp
+	return nil
+}
+
+func (m *MemoryStore) Delete(ctx context.Context, key string) error {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.data, key)
+	return nil
 }

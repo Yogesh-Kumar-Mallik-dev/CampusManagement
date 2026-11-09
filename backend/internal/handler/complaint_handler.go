@@ -9,10 +9,10 @@ import (
 )
 
 type ComplaintHandler struct {
-	service *service.ComplaintService
+	service service.ComplaintServiceInterface
 }
 
-func NewComplaintHandler(s *service.ComplaintService) *ComplaintHandler {
+func NewComplaintHandler(s service.ComplaintServiceInterface) *ComplaintHandler {
 	return &ComplaintHandler{service: s}
 }
 

@@ -11,10 +11,10 @@ import (
 )
 
 type HostelHandler struct {
-	hostelService *service.HostelService
+	hostelService service.HostelServiceInterface
 }
 
-func NewHostelHandler(svc *service.HostelService) *HostelHandler {
+func NewHostelHandler(svc service.HostelServiceInterface) *HostelHandler {
 	return &HostelHandler{hostelService: svc}
 }
 

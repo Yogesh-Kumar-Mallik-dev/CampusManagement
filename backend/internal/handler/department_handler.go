@@ -10,13 +10,13 @@ import (
 )
 
 type DepartmentHandler struct {
-	academicService *service.AcademicService
+	academicService service.AcademicServiceInterface
 	userResolver    func(id string) (model.User, bool)
 	teacherProvider func() []model.User
 }
 
 func NewDepartmentHandler(
-	academicService *service.AcademicService,
+	academicService service.AcademicServiceInterface,
 	userResolver func(id string) (model.User, bool),
 	teacherProvider func() []model.User,
 ) *DepartmentHandler {

@@ -6,10 +6,10 @@ import '../models/complaint.dart';
 import '../models/hostel.dart';
 import '../models/mess.dart';
 import '../models/user.dart';
-import 'api_service.dart';
+import 'storage_interface.dart';
 
-class OfflineStorageService {
-  final ApiService api;
+class OfflineStorageService implements ICampusStorage {
+  final ICampusApi api;
 
   // In-memory local cache accessible on Web, Mobile, and Desktop
   final List<CourseModel> _cachedCourses = [];

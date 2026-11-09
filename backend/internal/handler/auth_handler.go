@@ -11,10 +11,10 @@ import (
 )
 
 type AuthHandler struct {
-	permService *service.PermissionService
+	permService service.PermissionServiceInterface
 }
 
-func NewAuthHandler(permService *service.PermissionService) *AuthHandler {
+func NewAuthHandler(permService service.PermissionServiceInterface) *AuthHandler {
 	return &AuthHandler{
 		permService: permService,
 	}

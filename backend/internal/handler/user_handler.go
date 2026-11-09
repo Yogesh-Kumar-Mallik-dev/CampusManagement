@@ -14,8 +14,8 @@ import (
 )
 
 type UserHandler struct {
-	idGen       *idgen.IDService
-	permService *service.PermissionService
+	idGen       idgen.IDServiceInterface
+	permService service.PermissionServiceInterface
 
 	mu                 sync.RWMutex
 	users              map[string]model.User // Key: user.ID
@@ -27,7 +27,7 @@ type UserHandler struct {
 	contractorProfiles map[string]model.ContractorProfile
 }
 
-func NewUserHandler(idGen *idgen.IDService, permService *service.PermissionService) *UserHandler {
+func NewUserHandler(idGen idgen.IDServiceInterface, permService service.PermissionServiceInterface) *UserHandler {
 	h := &UserHandler{
 		idGen:              idGen,
 		permService:        permService,
