@@ -34,24 +34,44 @@ func main() {
 		seedDefaultAcademics(concreteAcad)
 	}
 
-	mux := container.BuildMux()
+	webDist := findWebDist()
+	if webDist != "" {
+		log.Printf("Serving Flutter Web App at http://localhost:%s/ from %s", port, webDist)
+	}
 
-	// Locate client/build/web if built
+	handler := setupAppHandler(container, webDist)
+
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      handler,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	log.Printf("Campus Management Backend running on http://localhost:%s", port)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("Server stopped: %v", err)
+	}
+}
+
+func findWebDist() string {
 	webDistDirs := []string{
 		"../client/build/web",
 		"client/build/web",
 		"../../client/build/web",
 	}
-	var webDist string
 	for _, dir := range webDistDirs {
 		if fi, err := os.Stat(dir); err == nil && fi.IsDir() {
-			webDist = dir
-			break
+			return dir
 		}
 	}
+	return ""
+}
+
+func setupAppHandler(container *di.Container, webDist string) http.Handler {
+	mux := container.BuildMux()
 
 	if webDist != "" {
-		log.Printf("Serving Flutter Web App at http://localhost:%s/ from %s", port, webDist)
 		fs := http.FileServer(http.Dir(webDist))
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(r.URL.Path, "/api") {
@@ -106,7 +126,7 @@ func main() {
 	}
 
 	// Wrap mux with CORS middleware
-	handlerWithCORS := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User-ID")
@@ -116,18 +136,6 @@ func main() {
 		}
 		mux.ServeHTTP(w, r)
 	})
-
-	server := &http.Server{
-		Addr:         ":" + port,
-		Handler:      handlerWithCORS,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-
-	log.Printf("Campus Management Backend running on http://localhost:%s", port)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Server stopped: %v", err)
-	}
 }
 
 func seedDefaultRolesAndScopes(svc *service.PermissionService) {

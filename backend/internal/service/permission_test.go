@@ -133,4 +133,27 @@ func TestPermissionHierarchyAndScopes(t *testing.T) {
 	if len(aaravPerms) < 4 {
 		t.Fatalf("expected at least 4 permissions for Aarav across 2 roles, got %d", len(aaravPerms))
 	}
+
+	// 8. Test RevokeAllUserRoles
+	err := svc.RevokeAllUserRoles(ctx, aaravID)
+	if err != nil {
+		t.Fatalf("failed to revoke roles: %v", err)
+	}
+
+	activePerms := svc.GetUserPermissions(aaravID)
+	if len(activePerms) != 0 {
+		t.Fatalf("expected 0 permissions after revocation, got %d", len(activePerms))
+	}
+
+	canMark, _ := svc.Can(ctx, aaravID, "attendance:mark", "sec:cse-3a")
+	if canMark {
+		t.Fatalf("expected revoked user to not have permission")
+	}
+
+	roles := svc.GetUserRoles(aaravID)
+	for _, r := range roles {
+		if r.IsActive {
+			t.Fatalf("expected all roles to be inactive after revocation")
+		}
+	}
 }

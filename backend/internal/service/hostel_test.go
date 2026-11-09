@@ -225,3 +225,44 @@ func TestHostelEditRoomAndAsset(t *testing.T) {
 		t.Errorf("expected duplicate serial assignment to fail, but succeeded")
 	}
 }
+
+func TestHostelQueriesAndRemoval(t *testing.T) {
+	svc := NewHostelService(nil, nil)
+
+	_, err := svc.CreateRoom(333, "Aryabhata Block")
+	if err != nil {
+		t.Fatalf("failed to create room 333: %v", err)
+	}
+
+	rooms, err := svc.GetRooms()
+	if err != nil || len(rooms) == 0 {
+		t.Fatalf("expected rooms, got %v", rooms)
+	}
+
+	fetched, err := svc.GetRoomByNumber(333)
+	if err != nil || fetched.RoomNumber != 333 {
+		t.Fatalf("expected room 333, got %v", fetched)
+	}
+
+	// Non-existent room
+	_, err = svc.GetRoomByNumber(998)
+	if err == nil {
+		t.Fatalf("expected error for non-existent room 998")
+	}
+
+	asset, err := svc.AddAsset(333, "fan", "FAN-333-01", "good")
+	if err != nil {
+		t.Fatalf("failed to add fan: %v", err)
+	}
+
+	err = svc.RemoveAsset(333, asset.ID)
+	if err != nil {
+		t.Fatalf("failed to remove asset: %v", err)
+	}
+
+	// Remove non-existent asset
+	err = svc.RemoveAsset(333, "non-existent-id")
+	if err == nil {
+		t.Fatalf("expected error removing non-existent asset")
+	}
+}

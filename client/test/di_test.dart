@@ -157,5 +157,61 @@ void main() {
         ),
       );
     });
+
+    test('CampusDI registers and lazily resolves singleton factory', () {
+      final di = CampusDI.instance;
+      di.reset();
+
+      int factoryCallCount = 0;
+      di.registerLazySingleton<String>(() {
+        factoryCallCount++;
+        return 'lazy_test_instance';
+      });
+
+      expect(di.isRegistered<String>(), isTrue);
+      expect(factoryCallCount, equals(0));
+
+      final firstCall = di.get<String>();
+      expect(firstCall, equals('lazy_test_instance'));
+      expect(factoryCallCount, equals(1));
+
+      final secondCall = di.get<String>();
+      expect(secondCall, equals('lazy_test_instance'));
+      expect(factoryCallCount, equals(1)); // Should be cached, not called again
+    });
+
+    test('CampusScope.updateShouldNotify accurately detects dependency changes', () {
+      final di = CampusDI.setup();
+      final facade = di.get<ICampusFacade>();
+      final storage = di.get<ICampusStorage>();
+      final api = di.get<ICampusApi>();
+
+      final scope1 = CampusScope(
+        container: di,
+        facade: facade,
+        storage: storage,
+        api: api,
+        child: const SizedBox(),
+      );
+
+      final scopeIdentical = CampusScope(
+        container: di,
+        facade: facade,
+        storage: storage,
+        api: api,
+        child: const SizedBox(),
+      );
+
+      final scopeDifferentApi = CampusScope(
+        container: di,
+        facade: facade,
+        storage: storage,
+        api: MockCampusApi(),
+        child: const SizedBox(),
+      );
+
+      expect(scope1.updateShouldNotify(scopeIdentical), isFalse);
+      expect(scope1.updateShouldNotify(scopeDifferentApi), isTrue);
+    });
   });
 }

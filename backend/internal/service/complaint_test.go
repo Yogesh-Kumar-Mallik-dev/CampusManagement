@@ -105,4 +105,36 @@ func TestComplaintServiceAnonymityAndValidation(t *testing.T) {
 	if resolved.Status != model.ComplaintStatusResolved || resolved.ResolutionRemarks != "Corrected attendance ledger in section B." {
 		t.Fatalf("unexpected updated status: %+v", resolved)
 	}
+
+	// 8. Test GetComplaint and ListComplaints
+	fetched, err := svc.GetComplaint(validStudentCmp.ID, "usr-student-3")
+	if err != nil || fetched.ID != validStudentCmp.ID {
+		t.Fatalf("expected to get complaint, got %v", fetched)
+	}
+
+	_, err = svc.GetComplaint("non-existent-id", "viewer")
+	if err == nil {
+		t.Fatalf("expected error for non-existent complaint")
+	}
+
+	listAll := svc.ListComplaints("", "", "", "viewer", nil)
+	if len(listAll) == 0 {
+		t.Fatalf("expected complaints in listAll")
+	}
+
+	listFiltered := svc.ListComplaints(model.ComplaintCategoryStudent, model.ComplaintStatusResolved, "usr-student-3", "usr-student-3", []string{model.ComplaintCategoryStudent})
+	if len(listFiltered) == 0 {
+		t.Fatalf("expected filtered complaints")
+	}
+
+	// Invalid status update
+	_, err = svc.UpdateComplaintStatus(validStudentCmp.ID, "invalid_status", "", "admin")
+	if err == nil {
+		t.Fatalf("expected error for invalid status")
+	}
+
+	_, err = svc.UpdateComplaintStatus("non-existent", model.ComplaintStatusResolved, "", "admin")
+	if err == nil {
+		t.Fatalf("expected error for non-existent complaint update")
+	}
 }

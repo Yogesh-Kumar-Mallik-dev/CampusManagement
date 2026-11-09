@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_client/facade/campus_facade.dart';
 import 'package:campus_client/models/academic.dart';
@@ -204,6 +206,251 @@ void main() {
       );
       expect(updated.status, equals(ComplaintStatus.inProgress));
       expect(updated.resolvedBy, equals('warden_kumar'));
+    });
+
+    test('Facade comprehensive coverage for users, timetable, and attendance', () async {
+      // User lifecycle
+      final student = await facade.createStudent({
+        'first_name': 'Test',
+        'admission_year': 2026,
+        'entry_type': 'regular',
+        'program': 'BTECH',
+      });
+      expect(student.id, isNotEmpty);
+
+      final emp = await facade.createEmployee({
+        'first_name': 'Dr. Test',
+        'joining_year': 2026,
+      });
+      expect(emp.id, isNotEmpty);
+
+      final cont = await facade.createContractor({
+        'company_name': 'Test Corp',
+        'representative_name': 'Vendor',
+      });
+      expect(cont.id, isNotEmpty);
+
+      final disc = await facade.discontinueUser(
+        userId: student.id,
+        status: 'graduated',
+        reason: 'Course completed',
+        discontinuedBy: 'admin',
+      );
+      expect(disc.isActive, isFalse);
+
+      final react = await facade.reactivateUser(student.id);
+      expect(react.isActive, isTrue);
+
+      // Timetable Slot CRUD & restore
+      final slot = TimetableSlotModel(
+        id: 'slot-facade-new',
+        courseId: 'crs-1',
+        courseCode: 'CS101',
+        courseName: 'Intro',
+        scopeCode: 'sec:cse-3a',
+        instructorName: 'Teacher',
+        dayOfWeek: 3,
+        startTime: '11:00',
+        endTime: '12:00',
+        roomNumber: 'LH-1',
+        slotType: 'regular',
+      );
+      final saved = await facade.saveTimetableSlot(slot);
+      expect(saved.id, equals(slot.id));
+
+      await facade.restoreDaySchedule(dayOfWeek: 2, scopeCode: 'sec:cse-3a');
+      final deleted = await facade.deleteTimetableSlot(slot.id);
+      expect(deleted, isTrue);
+
+      // Notices & Attendance summary
+      final notices = await facade.getNotices(['global']);
+      expect(notices, isA<List<NoticeModel>>());
+
+      final summaries = await facade.getAttendanceSummary(student.id);
+      expect(summaries, isA<List<AttendanceSummaryModel>>());
+
+      // Optical attendance
+      final session = await facade.startOpticalSession(
+        courseId: 'crs-1',
+        courseCode: 'CS101',
+        courseName: 'Intro',
+        roomNumber: 'LH-1',
+        scopeCode: 'sec:cse-3a',
+        markedByUserId: 'usr-prof',
+        markedByName: 'Prof',
+      );
+      expect(session.id, isNotEmpty);
+      expect(facade.activeOpticalSession?.id, equals(session.id));
+
+      final roster = await facade.getOpticalRoster(session.id);
+      expect(roster, isA<List<AttendanceRecordModel>>());
+
+      final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      const nonce = 'a1b2c3d4';
+      final key = utf8.encode(session.sessionSecret);
+      final msgBytes = utf8.encode('${session.id}:1:$ts:$nonce');
+      final hmacSha256 = Hmac(sha256, key);
+      final digest = hmacSha256.convert(msgBytes).toString();
+      final sig = digest.length > 16 ? digest.substring(0, 16) : digest;
+
+      final packet = OpticalFramePacket(
+        sessionId: session.id,
+        courseCode: 'CS101',
+        courseName: 'Intro',
+        room: 'LH-1',
+        sequence: 1,
+        timestamp: ts,
+        nonce: nonce,
+        signature: sig,
+      );
+      final ver = await facade.verifyOpticalAttendance(
+        packet: packet,
+        student: student,
+      );
+      expect(ver.verified, isTrue);
+
+      await facade.endOpticalSession(session.id);
+      expect(facade.activeOpticalSession, isNull);
+
+      // Connectivity
+      final online = await facade.checkConnectivity(force: true);
+      expect(online, isA<bool>());
+      await facade.refreshAndSync(student.id);
+    });
+
+    test('Facade comprehensive coverage for academic hierarchy, hostel, and mess', () async {
+      // Departments & Programs
+      final depts = await facade.getDepartments(forceRefresh: true);
+      expect(depts, isNotEmpty);
+      final deptId = depts.first.id;
+
+      final deptDetail = await facade.getDepartmentDetail(deptId);
+      expect(deptDetail.department.id, equals(deptId));
+
+      final programs = await facade.getPrograms();
+      expect(programs, isNotEmpty);
+
+      final subjects = await facade.getSubjects();
+      expect(subjects, isNotEmpty);
+
+      final createdSub = await facade.createSubject({
+        'code': 'CS999',
+        'name': 'Quantum Computing',
+        'department_ids': [deptId],
+        'credits': 4,
+      });
+      expect(createdSub.code, equals('CS999'));
+
+      final audit = await facade.getSubjectSyllabusAudit(createdSub.id);
+      expect(audit, isA<List<SyllabusVersionModel>>());
+
+      final revised = await facade.reviseSubjectSyllabus({
+        'subject_id': createdSub.id,
+        'revision_code': 'Rev-2026',
+        'effective_from_year': '2026-2027',
+      });
+      expect(revised.revisionCode, equals('Rev-2026'));
+
+      // Semesters & Sections
+      final semesters = await facade.getSemesters();
+      expect(semesters, isNotEmpty);
+
+      final semDetail = await facade.getSemesterDetail(semesters.first.id);
+      expect(semDetail.semester.id, equals(semesters.first.id));
+
+      final sections = await facade.getSections(forceRefresh: true);
+      expect(sections, isNotEmpty);
+      final secId = sections.first.id;
+
+      final secDetail = await facade.getSectionDetail(secId);
+      expect(secDetail.section.id, equals(secId));
+
+      await facade.assignStudentToSection(
+        sectionId: secId,
+        studentId: 'usr-student-1',
+        programId: programs.first.id,
+      );
+
+      if (sections.length > 1) {
+        await facade.transferStudentSection(
+          studentId: 'usr-student-1',
+          targetSectionId: sections[1].id,
+        );
+        await facade.mergeSectionCohorts(
+          sourceSectionId: sections[1].id,
+          targetSectionId: secId,
+        );
+      }
+
+      // Lab Batches
+      final batches = await facade.getSectionBatches(secId);
+      expect(batches, isA<List<LabBatchModel>>());
+
+      final createdBatch = await facade.createLabBatch({
+        'section_id': secId,
+        'name': 'Batch B9',
+        'capacity': 20,
+      });
+      expect(createdBatch.id, isNotEmpty);
+
+      await facade.assignStudentBatch(
+        batchId: createdBatch.id,
+        studentId: 'usr-student-1',
+      );
+
+      final partitioned = await facade.autoPartitionBatches({
+        'section_id': secId,
+        'batch_size': 15,
+      });
+      expect(partitioned, isNotEmpty);
+
+      // Faculty Allocations
+      final allocs = await facade.getSectionFacultyAllocations(secId);
+      expect(allocs, isA<List<FacultyAllocationModel>>());
+
+      final assignedAlloc = await facade.assignFacultyAllocation({
+        'section_id': secId,
+        'teacher_id': 'usr-faculty-1',
+        'subject_id': createdSub.id,
+        'component_type': 'theory',
+        'weekly_hours': 3,
+      });
+      expect(assignedAlloc.id, isNotEmpty);
+
+      final workloads = await facade.getFacultyWorkloadSummaries();
+      expect(workloads, isA<List<FacultyWorkloadSummaryModel>>());
+
+      await facade.removeFacultyAllocation(secId, assignedAlloc.id);
+
+      // Hostel
+      final rooms = await facade.getHostelRooms(floor: 1);
+      expect(rooms, isNotEmpty);
+
+      final createdRoom = await facade.createHostelRoom(401, 'Block D');
+      expect(createdRoom.roomNumber, equals(401));
+
+      final updatedRoom = await facade.updateHostelRoom(401, 402, 'Block D');
+      expect(updatedRoom.roomNumber, equals(402));
+
+      final asset = await facade.addHostelAsset(402, 'bed', 'SN-BED-999', 'good');
+      expect(asset.id, isNotEmpty);
+
+      final updatedAsset = await facade.updateHostelAsset(402, asset.id, condition: 'repaired');
+      expect(updatedAsset.condition, equals('repaired'));
+
+      final occ = await facade.assignHostelOccupant(402, 'usr-test-1', 'test_1', 'Test One');
+      expect(occ.userId, equals('usr-test-1'));
+
+      await facade.removeHostelOccupant(402, 'usr-test-1');
+      await facade.removeHostelAsset(402, asset.id);
+
+      // Mess
+      final meals = await facade.getMessTimetable();
+      if (meals.isNotEmpty) {
+        final mealToUpdate = meals.first.copyWith(menuSummary: 'Updated Special Thali');
+        final updatedMeal = await facade.updateMessMeal(mealToUpdate);
+        expect(updatedMeal.menuSummary, equals('Updated Special Thali'));
+      }
     });
   });
 }

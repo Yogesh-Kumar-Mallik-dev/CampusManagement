@@ -54,6 +54,33 @@ func TestIDServiceGeneration(t *testing.T) {
 	if err != nil || c1 != "mukesh_2025_ext_1" {
 		t.Fatalf("expected mukesh_2025_ext_1, got %s, err: %v", c1, err)
 	}
+
+	// 5. Transfer student and fallback paths
+	t1, err := svc.NextStudentID(ctx, "", 2026, "transfer", "")
+	if err != nil || t1 != "student_2026_t_gen_1" {
+		t.Fatalf("expected student_2026_t_gen_1, got %s", t1)
+	}
+
+	// 6. NextFacultyID and NextStaffID aliases
+	f1, err := svc.NextFacultyID(ctx, "Anita", 2024)
+	if err != nil || f1 != "anita_2024_emp_1" {
+		t.Fatalf("expected anita_2024_emp_1, got %s", f1)
+	}
+
+	st1, err := svc.NextStaffID(ctx, "Suresh", 2025)
+	if err != nil || st1 != "suresh_2025_emp_1" {
+		t.Fatalf("expected suresh_2025_emp_1, got %s", st1)
+	}
+
+	extEmpty, err := svc.NextExternalID(ctx, "", 2026)
+	if err != nil || extEmpty != "external_2026_ext_1" {
+		t.Fatalf("expected external_2026_ext_1, got %s", extEmpty)
+	}
+
+	empEmpty, err := svc.NextEmployeeID(ctx, "", 2026)
+	if err != nil || empEmpty != "employee_2026_emp_1" {
+		t.Fatalf("expected employee_2026_emp_1, got %s", empEmpty)
+	}
 }
 
 func TestIDServiceConcurrency(t *testing.T) {
