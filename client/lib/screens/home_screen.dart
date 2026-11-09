@@ -1434,7 +1434,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _CampusSidebar extends StatelessWidget {
+class _CampusSidebar extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final UserModel currentUser;
@@ -1444,6 +1444,19 @@ class _CampusSidebar extends StatelessWidget {
     required this.onDestinationSelected,
     required this.currentUser,
   });
+
+  @override
+  State<_CampusSidebar> createState() => _CampusSidebarState();
+}
+
+class _CampusSidebarState extends State<_CampusSidebar> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1473,28 +1486,45 @@ class _CampusSidebar extends StatelessWidget {
           ),
         ),
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            ...List.generate(items.length, (idx) {
-              final isSelected = selectedIndex == idx;
-              final item = items[idx];
-              final isLocked = (idx == 4 && !currentUser.canManageUsers) ||
-                  (idx == 5 && !currentUser.canManageDepartments);
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalHeight = constraints.maxHeight;
+          final verticalPadding = totalHeight < 560 ? 4.0 : 8.0;
+          final availableHeight = totalHeight - (verticalPadding * 2);
+          final idealItemHeight = availableHeight / items.length;
+          final itemHeight = idealItemHeight.clamp(42.0, 66.0);
 
-              return _SidebarDestinationItem(
-                key: Key('nav-item-${item.label.toLowerCase()}'),
-                svg: item.svg,
-                label: item.label,
-                isSelected: isSelected,
-                isLocked: isLocked,
-                onTap: () => onDestinationSelected(idx),
-              );
-            }),
-            const SizedBox(height: 12),
-          ],
-        ),
+          return Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: false,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: const ClampingScrollPhysics(),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: verticalPadding),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(items.length, (idx) {
+                    final isSelected = widget.selectedIndex == idx;
+                    final item = items[idx];
+                    final isLocked = (idx == 4 && !widget.currentUser.canManageUsers) ||
+                        (idx == 5 && !widget.currentUser.canManageDepartments);
+
+                    return _SidebarDestinationItem(
+                      key: Key('nav-item-${item.label.toLowerCase()}'),
+                      svg: item.svg,
+                      label: item.label,
+                      isSelected: isSelected,
+                      isLocked: isLocked,
+                      itemHeight: itemHeight,
+                      onTap: () => widget.onDestinationSelected(idx),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1505,6 +1535,7 @@ class _SidebarDestinationItem extends StatefulWidget {
   final String label;
   final bool isSelected;
   final bool isLocked;
+  final double itemHeight;
   final VoidCallback onTap;
 
   const _SidebarDestinationItem({
@@ -1513,6 +1544,7 @@ class _SidebarDestinationItem extends StatefulWidget {
     required this.label,
     required this.isSelected,
     this.isLocked = false,
+    this.itemHeight = 66.0,
     required this.onTap,
   });
 
@@ -1526,93 +1558,109 @@ class _SidebarDestinationItemState extends State<_SidebarDestinationItem> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final h = widget.itemHeight;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 78,
-          height: 66,
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 54,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: widget.isSelected
-                          ? AppColors.wineRed
-                          : (_isHovered
-                              ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
-                              : Colors.transparent),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
+    final double iconBoxWidth = (h >= 58) ? 52.0 : (h >= 48 ? 46.0 : 40.0);
+    final double iconBoxHeight = (h >= 58) ? 30.0 : (h >= 48 ? 26.0 : 22.0);
+    final double iconSize = (h >= 58) ? 18.0 : (h >= 48 ? 16.0 : 14.0);
+    final double spacing = (h >= 56) ? 3.0 : 2.0;
+    final double fontSize = (h >= 58) ? 11.0 : (h >= 48 ? 10.0 : 9.0);
+
+    return Tooltip(
+      message: widget.isLocked ? '${widget.label} (Restricted)' : widget.label,
+      waitDuration: const Duration(milliseconds: 350),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 78,
+            height: widget.itemHeight,
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: iconBoxWidth,
+                      height: iconBoxHeight,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
                         color: widget.isSelected
                             ? AppColors.wineRed
                             : (_isHovered
-                                ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+                                ? (isDark ? AppColors.darkSurfaceHover : AppColors.lightSurfaceHover)
                                 : Colors.transparent),
-                        width: 1,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: widget.isSelected
+                              ? AppColors.wineRed
+                              : (_isHovered
+                                  ? (isDark ? AppColors.darkBorderHover : AppColors.lightBorderHover)
+                                  : Colors.transparent),
+                          width: 1,
+                        ),
+                      ),
+                      child: AppSvgIcon(
+                        svgString: widget.svg,
+                        size: iconSize,
+                        color: widget.isSelected
+                            ? Colors.white
+                            : (_isHovered
+                                ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
+                                : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
                       ),
                     ),
-                    child: AppSvgIcon(
-                      svgString: widget.svg,
-                      size: 18,
-                      color: widget.isSelected
-                          ? Colors.white
-                          : (_isHovered
-                              ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
-                              : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
-                    ),
-                  ),
-                  if (widget.isLocked)
-                    Positioned(
-                      top: -3,
-                      right: -3,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkSurface : Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.statusRed.withValues(alpha: 0.6),
-                            width: 1,
+                    if (widget.isLocked)
+                      Positioned(
+                        top: -2,
+                        right: -1,
+                        child: Container(
+                          padding: const EdgeInsets.all(1.5),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkSurface : Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.statusRed.withValues(alpha: 0.6),
+                              width: 1,
+                            ),
+                          ),
+                          child: AppSvgIcon(
+                            svgString: AppSvgIcon.lock,
+                            size: h >= 50 ? 9 : 8,
+                            color: AppColors.statusRed,
                           ),
                         ),
-                        child: const AppSvgIcon(
-                          svgString: AppSvgIcon.lock,
-                          size: 9,
-                          color: AppColors.statusRed,
-                        ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
-                  color: widget.isSelected
-                      ? (isDark ? Colors.white : AppColors.wineRed)
-                      : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                  ],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                SizedBox(height: spacing),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
+                        color: widget.isSelected
+                            ? (isDark ? Colors.white : AppColors.wineRed)
+                            : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

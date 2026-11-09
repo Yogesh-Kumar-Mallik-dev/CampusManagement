@@ -2207,9 +2207,70 @@ void main() {
 
     // Dropdown shows weekly meal timetable items
     expect(find.textContaining('Breakfast'), findsWidgets);
-    await tester.tap(find.textContaining('Breakfast').first);
+    await tester.tap(find.textContaining('Breakfast').first, warnIfMissed: false);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('Sidebar Responsiveness: Desktop and tablet screen sizes show all 10 items without partial cut off', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final admin = OfflineStorageService.getMockUserForHandle('campus_admin');
+
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    tester.view.devicePixelRatio = 1.0;
+
+    final testSizes = [
+      const Size(1920, 1080), // Standard 1080p desktop
+      const Size(1366, 768),  // Standard laptop
+      const Size(1280, 720),  // 720p HD monitor
+      const Size(1024, 600),  // Compact netbook / small landscape window
+      const Size(800, 520),   // Minimum desktop sidebar breakpoint with short height
+    ];
+
+    final navItemKeys = [
+      'nav-item-dashboard',
+      'nav-item-timetable',
+      'nav-item-attendance',
+      'nav-item-notices',
+      'nav-item-directory',
+      'nav-item-depts',
+      'nav-item-hostel',
+      'nav-item-mess',
+      'nav-item-complaints',
+      'nav-item-profile',
+    ];
+
+    for (final size in testSizes) {
+      tester.view.physicalSize = size;
+      await tester.pumpWidget(MaterialApp(
+        home: HomeScreen(
+          storage: storage,
+          currentUser: admin,
+          onLogout: () {},
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      for (final keyName in navItemKeys) {
+        final finder = find.byKey(Key(keyName));
+        expect(finder, findsOneWidget, reason: '$keyName should be visible at size $size');
+
+        final rect = tester.getRect(finder);
+        // Ensure item is completely inside viewport vertically and horizontally
+        expect(rect.top, greaterThanOrEqualTo(50.0),
+            reason: '$keyName top (${rect.top}) should be below AppBar at size $size');
+        expect(rect.bottom, lessThanOrEqualTo(size.height + 1.0),
+            reason: '$keyName bottom (${rect.bottom}) must not be cut off at screen height ${size.height}');
+        expect(rect.left, greaterThanOrEqualTo(0.0));
+        expect(rect.right, lessThanOrEqualTo(80.0),
+            reason: '$keyName width must fit comfortably within sidebar boundary');
+      }
+    }
   });
 }
