@@ -1633,4 +1633,180 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Hostel Room System & Asset Inventory'), findsOneWidget);
   });
+
+  testWidgets('Hostel Room Management: Warden and Admin can edit rooms and fixtures with validations, student view is strictly restricted',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final warden = OfflineStorageService.getMockUserForHandle('ramesh_2023_emp_1');
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    expect(warden.canEditHostelRoom, isTrue);
+    expect(student.canEditHostelRoom, isFalse);
+
+    // 1. Warden console view has edit buttons
+    await tester.pumpWidget(MaterialApp(
+      home: HostelScreen(
+        storage: storage,
+        currentUser: warden,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Verify room 101 has edit button
+    final editRoomBtn = find.byKey(const Key('btn-edit-room-101'));
+    expect(editRoomBtn, findsOneWidget);
+
+    // Tap edit room button
+    await tester.tap(editRoomBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-edit-hostel-room')), findsOneWidget);
+
+    // Test invalid room number boundary
+    await tester.enterText(find.byKey(const Key('input-edit-room-number')), '85');
+    await tester.tap(find.byKey(const Key('btn-save-room-edits')));
+    await tester.pumpAndSettle();
+    expect(find.text('Room number must be between 100 and 999'), findsOneWidget);
+
+    // Enter valid new room number
+    await tester.enterText(find.byKey(const Key('input-edit-room-number')), '108');
+    await tester.enterText(find.byKey(const Key('input-edit-block-name')), 'Ramanujan Block');
+    await tester.tap(find.byKey(const Key('btn-save-room-edits')));
+    await tester.pumpAndSettle();
+
+    // Dialog should be dismissed and Room 108 should appear
+    expect(find.byKey(const Key('dialog-edit-hostel-room')), findsNothing);
+    expect(find.text('ROOM 108'), findsOneWidget);
+    expect(find.textContaining('Ramanujan Block'), findsOneWidget);
+
+    // Inspect fixtures for Room 108
+    await tester.tap(find.byKey(const Key('btn-inspect-room-108')));
+    await tester.pumpAndSettle();
+
+    // Edit fixture
+    final editFixtureBtn = find.byKey(const Key('btn-edit-asset-asset-101-bed-1'));
+    expect(editFixtureBtn, findsOneWidget);
+    await tester.tap(editFixtureBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-edit-hostel-asset')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('input-edit-asset-serial')), 'BED-108-01');
+    await tester.tap(find.byKey(const Key('btn-save-asset-edits')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-edit-hostel-asset')), findsNothing);
+
+    // Re-inspect to verify updated serial
+    await tester.tap(find.byKey(const Key('btn-inspect-room-108')));
+    await tester.pumpAndSettle();
+    expect(find.text('SN: BED-108-01'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+
+    // 2. Student Resident View restricts editing rooms and fixtures
+    await tester.pumpWidget(MaterialApp(
+      home: HostelScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Student view does not show room edit buttons or add room button
+    expect(find.byKey(const Key('btn-add-hostel-room')), findsNothing);
+    expect(find.byKey(const Key('btn-edit-room-108')), findsNothing);
+    expect(find.byKey(const Key('card-my-allotted-room')), findsOneWidget);
+  });
+
+  testWidgets('Hostel Mess Menu Management: Canteen Manager and Admin can edit menus with Sunday constraints, student view cannot edit',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final canteenManager = OfflineStorageService.getMockUserForHandle('mukesh_2025_ext_1');
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    expect(canteenManager.canEditMessMenu, isTrue);
+    expect(student.canEditMessMenu, isFalse);
+
+    // 1. Canteen manager view
+    await tester.pumpWidget(MaterialApp(
+      home: MessScreen(
+        storage: storage,
+        currentUser: canteenManager,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Select Monday
+    await tester.tap(find.byKey(const Key('chip-day-monday')));
+    await tester.pumpAndSettle();
+
+    // Verify edit menu button exists on monday breakfast
+    final editMealBtn = find.byKey(const Key('btn-edit-meal-meal-monday-breakfast'));
+    expect(editMealBtn, findsOneWidget);
+
+    // Open edit dialog
+    await tester.tap(editMealBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-edit-mess-meal')), findsOneWidget);
+
+    // Edit title and items
+    await tester.enterText(find.byKey(const Key('input-edit-meal-title')), 'Special South Indian Feast');
+    await tester.enterText(find.byKey(const Key('input-edit-meal-items')), 'Mysore Masala Dosa, Idli, Medu Vada, Filter Coffee');
+    await tester.tap(find.byKey(const Key('btn-save-meal-edits')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-edit-mess-meal')), findsNothing);
+    expect(find.text('Special South Indian Feast'), findsOneWidget);
+    expect(find.text('Mysore Masala Dosa'), findsOneWidget);
+
+    // Switch to Sunday
+    await tester.tap(find.byKey(const Key('chip-day-sunday')));
+    await tester.pumpAndSettle();
+
+    // Sunday Brunch should have edit button
+    final editSundayBrunchBtn = find.byKey(const Key('btn-edit-meal-meal-sunday-brunch'));
+    expect(editSundayBrunchBtn, findsOneWidget);
+    await tester.tap(editSundayBrunchBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-edit-mess-meal')), findsOneWidget);
+    expect(find.textContaining('Sunday Schedule: Only Brunch'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // 2. Student view is read-only for editing menus
+    await tester.pumpWidget(MaterialApp(
+      home: MessScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Switch to Sunday
+    await tester.tap(find.byKey(const Key('chip-day-sunday')));
+    await tester.pumpAndSettle();
+
+    // No edit buttons for student
+    expect(find.byKey(const Key('btn-edit-meal-meal-sunday-brunch')), findsNothing);
+    // Student can still rate
+    expect(find.byKey(const Key('btn-rate-meal-meal-sunday-brunch')), findsOneWidget);
+  });
 }

@@ -38,6 +38,24 @@ class HostelAssetModel {
       'installed_at': installedAt.toIso8601String(),
     };
   }
+
+  HostelAssetModel copyWith({
+    String? id,
+    int? roomNumber,
+    String? assetType,
+    String? serialNumber,
+    String? condition,
+    DateTime? installedAt,
+  }) {
+    return HostelAssetModel(
+      id: id ?? this.id,
+      roomNumber: roomNumber ?? this.roomNumber,
+      assetType: assetType ?? this.assetType,
+      serialNumber: serialNumber ?? this.serialNumber,
+      condition: condition ?? this.condition,
+      installedAt: installedAt ?? this.installedAt,
+    );
+  }
 }
 
 class HostelOccupantModel {

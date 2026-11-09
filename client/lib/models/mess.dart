@@ -107,6 +107,28 @@ class MessMealModel {
       'items': items,
     };
   }
+
+  MessMealModel copyWith({
+    String? id,
+    String? dayOfWeek,
+    String? mealType,
+    String? startTime,
+    String? endTime,
+    String? title,
+    String? menuSummary,
+    List<String>? items,
+  }) {
+    return MessMealModel(
+      id: id ?? this.id,
+      dayOfWeek: dayOfWeek ?? this.dayOfWeek,
+      mealType: mealType ?? this.mealType,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      title: title ?? this.title,
+      menuSummary: menuSummary ?? this.menuSummary,
+      items: items ?? this.items,
+    );
+  }
 }
 
 class MessRatingModel {

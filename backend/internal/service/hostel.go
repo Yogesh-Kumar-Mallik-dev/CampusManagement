@@ -252,6 +252,92 @@ func (s *HostelService) RemoveOccupant(roomNumber int, identifier string) error 
 	return nil
 }
 
+// UpdateRoom updates room number and block name
+func (s *HostelService) UpdateRoom(originalRoomNumber int, newRoomNumber int, blockName string) (*model.HostelRoom, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := model.ValidateRoomNumber(originalRoomNumber); err != nil {
+		return nil, err
+	}
+	if err := model.ValidateRoomNumber(newRoomNumber); err != nil {
+		return nil, err
+	}
+
+	room, exists := s.rooms[originalRoomNumber]
+	if !exists {
+		return nil, fmt.Errorf("hostel room %d not found", originalRoomNumber)
+	}
+
+	if newRoomNumber != originalRoomNumber {
+		if _, alreadyExists := s.rooms[newRoomNumber]; alreadyExists {
+			return nil, fmt.Errorf("hostel room %d already exists", newRoomNumber)
+		}
+		delete(s.rooms, originalRoomNumber)
+		room.RoomNumber = newRoomNumber
+		room.ID = fmt.Sprintf("room-%d", newRoomNumber)
+		room.Floor = newRoomNumber / 100
+		for i := range room.Assets {
+			room.Assets[i].RoomNumber = newRoomNumber
+			s.serials[room.Assets[i].SerialNumber] = newRoomNumber
+		}
+		s.rooms[newRoomNumber] = room
+	}
+
+	if strings.TrimSpace(blockName) != "" {
+		room.BlockName = strings.TrimSpace(blockName)
+	}
+	room.UpdatedAt = time.Now().UTC()
+
+	return room, nil
+}
+
+// UpdateAsset updates an asset fixture's serial number and condition
+func (s *HostelService) UpdateAsset(roomNumber int, assetID string, newSerialNumber string, condition string) (*model.HostelAsset, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	room, exists := s.rooms[roomNumber]
+	if !exists {
+		return nil, fmt.Errorf("hostel room %d not found", roomNumber)
+	}
+
+	foundIdx := -1
+	for i, a := range room.Assets {
+		if a.ID == assetID || a.SerialNumber == assetID {
+			foundIdx = i
+			break
+		}
+	}
+	if foundIdx == -1 {
+		return nil, fmt.Errorf("asset '%s' not found in room %d", assetID, roomNumber)
+	}
+
+	trimmedSerial := strings.TrimSpace(newSerialNumber)
+	if trimmedSerial != "" {
+		if err := model.ValidateSerialNumber(trimmedSerial); err != nil {
+			return nil, err
+		}
+		oldSerial := room.Assets[foundIdx].SerialNumber
+		if trimmedSerial != oldSerial {
+			if existingRoom, exists := s.serials[trimmedSerial]; exists && existingRoom != roomNumber {
+				return nil, fmt.Errorf("serial number '%s' is already assigned to room %d", trimmedSerial, existingRoom)
+			}
+			delete(s.serials, oldSerial)
+			s.serials[trimmedSerial] = roomNumber
+			room.Assets[foundIdx].SerialNumber = trimmedSerial
+		}
+	}
+
+	if strings.TrimSpace(condition) != "" {
+		room.Assets[foundIdx].Condition = strings.TrimSpace(condition)
+	}
+	room.UpdatedAt = time.Now().UTC()
+
+	assetCopy := room.Assets[foundIdx]
+	return &assetCopy, nil
+}
+
 // SeedDefaultRooms populates default compliant rooms within the 100-999 range
 func (s *HostelService) SeedDefaultRooms() {
 	// Room 101: Ground/First floor, fully furnished, 2 occupants

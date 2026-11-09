@@ -237,6 +237,40 @@ func (s *MessService) GetMealByID(id string) (*model.MessMeal, error) {
 	return &mCopy, nil
 }
 
+// UpdateMeal updates a meal's title, menu summary, items, and start/end times.
+func (s *MessService) UpdateMeal(meal model.MessMeal) (*model.MessMeal, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	existing, exists := s.meals[meal.ID]
+	if !exists {
+		return nil, fmt.Errorf("mess meal '%s' not found", meal.ID)
+	}
+
+	if err := model.ValidateMealForDay(meal.DayOfWeek, meal.MealType); err != nil {
+		return nil, err
+	}
+
+	if strings.TrimSpace(meal.Title) != "" {
+		existing.Title = strings.TrimSpace(meal.Title)
+	}
+	if strings.TrimSpace(meal.MenuSummary) != "" {
+		existing.MenuSummary = strings.TrimSpace(meal.MenuSummary)
+	}
+	if len(meal.Items) > 0 {
+		existing.Items = meal.Items
+	}
+	if strings.TrimSpace(meal.StartTime) != "" {
+		existing.StartTime = strings.TrimSpace(meal.StartTime)
+	}
+	if strings.TrimSpace(meal.EndTime) != "" {
+		existing.EndTime = strings.TrimSpace(meal.EndTime)
+	}
+
+	mCopy := *existing
+	return &mCopy, nil
+}
+
 // SubmitRatingRequest defines payload for submitting student meal feedback.
 type SubmitRatingRequest struct {
 	MealID       string            `json:"meal_id"`

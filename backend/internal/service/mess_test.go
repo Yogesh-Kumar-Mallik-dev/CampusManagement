@@ -199,3 +199,48 @@ func TestMessRatingSystemAndCompulsoryMessageRules(t *testing.T) {
 		t.Errorf("expected feedback messages in report")
 	}
 }
+
+func TestMessUpdateMeal(t *testing.T) {
+	svc := NewMessService(nil, nil)
+
+	// Update Monday Breakfast menu
+	original, err := svc.GetMealByID("meal-monday-breakfast")
+	if err != nil {
+		t.Fatalf("failed to get meal: %v", err)
+	}
+
+	updatedReq := *original
+	updatedReq.Title = "Executive South Indian Breakfast"
+	updatedReq.MenuSummary = "Ghee Podi Idli, Medu Vada, Filter Coffee"
+	updatedReq.Items = []string{"Ghee Podi Idli", "Crispy Vada", "Filter Coffee"}
+
+	updated, err := svc.UpdateMeal(updatedReq)
+	if err != nil {
+		t.Fatalf("failed to update meal: %v", err)
+	}
+
+	if updated.Title != "Executive South Indian Breakfast" || updated.MenuSummary != "Ghee Podi Idli, Medu Vada, Filter Coffee" {
+		t.Errorf("expected updated title and summary, got %s / %s", updated.Title, updated.MenuSummary)
+	}
+
+	// Verify persistence in service
+	persisted, err := svc.GetMealByID("meal-monday-breakfast")
+	if err != nil {
+		t.Fatalf("failed to fetch updated meal: %v", err)
+	}
+	if persisted.Title != "Executive South Indian Breakfast" {
+		t.Errorf("expected persisted title, got %s", persisted.Title)
+	}
+
+	// Sunday validation rule must still hold (cannot make Sunday into breakfast)
+	invalidSundayMeal := model.MessMeal{
+		ID:        "meal-sunday-brunch",
+		DayOfWeek: "sunday",
+		MealType:  model.MealBreakfast, // Invalid for Sunday
+		Title:     "Sunday Breakfast",
+	}
+	_, err = svc.UpdateMeal(invalidSundayMeal)
+	if err == nil {
+		t.Errorf("expected updating Sunday meal to breakfast to fail, but succeeded")
+	}
+}

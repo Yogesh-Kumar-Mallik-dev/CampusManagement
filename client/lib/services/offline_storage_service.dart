@@ -199,7 +199,7 @@ class OfflineStorageService {
             scopeCode: 'facility:gate-1',
           ),
         ],
-        permissions: ['gatepass:approve', 'room:inspect', 'hostel:manage'],
+        permissions: ['gatepass:approve', 'room:inspect', 'hostel:manage', 'hostel:edit_room'],
       );
     } else if (clean.contains('mukesh') || clean.contains('ext_1') || clean.contains('canteen')) {
       return UserModel(
@@ -217,12 +217,19 @@ class OfflineStorageService {
           UserRoleAssignmentModel(
             id: 'assign-mukesh-1',
             userId: 'usr-mukesh_2025_ext_1',
-            roleCode: 'vendor_staff',
-            roleName: 'Contractor Staff',
+            roleCode: 'canteen_manager',
+            roleName: 'Canteen Manager',
             scopeCode: 'building:canteen',
           ),
         ],
-        permissions: ['gatepass:present', 'profile:view_self', 'canteen:operate'],
+        permissions: [
+          'gatepass:present',
+          'profile:view_self',
+          'canteen:operate',
+          'mess:edit_menu',
+          'mess:manage',
+          'menu:update',
+        ],
       );
     }
     return UserModel(
@@ -479,6 +486,8 @@ class OfflineStorageService {
         permissions: [
           'gatepass:approve',
           'room:inspect',
+          'hostel:manage',
+          'hostel:edit_room',
         ],
         employeeRecord: {
           'joining_date': '2023-06-01T00:00:00Z',
@@ -535,8 +544,8 @@ class OfflineStorageService {
           UserRoleAssignmentModel(
             id: 'assign-mukesh-1',
             userId: 'usr-mukesh_2025_ext_1',
-            roleCode: 'vendor_staff',
-            roleName: 'Contractor Staff',
+            roleCode: 'canteen_manager',
+            roleName: 'Canteen Manager',
             scopeCode: 'building:canteen',
           ),
         ],
@@ -544,6 +553,9 @@ class OfflineStorageService {
           'gatepass:present',
           'profile:view_self',
           'canteen:operate',
+          'mess:edit_menu',
+          'mess:manage',
+          'menu:update',
         ],
         contractorProfile: {
           'onboarding_year': 2025,
@@ -3391,6 +3403,50 @@ class OfflineStorageService {
     return room;
   }
 
+  Future<HostelRoomModel> updateHostelRoom(int originalRoomNumber, int newRoomNumber, String blockName) async {
+    _seedDefaultHostelRoomsIfEmpty();
+    final roomIdx = _cachedHostelRooms.indexWhere((r) => r.roomNumber == originalRoomNumber);
+    if (roomIdx == -1) {
+      throw Exception('Hostel room $originalRoomNumber not found');
+    }
+
+    final err = HostelRoomModel.validateRoomNumber(newRoomNumber);
+    if (err != null) {
+      throw Exception(err);
+    }
+
+    if (newRoomNumber != originalRoomNumber && _cachedHostelRooms.any((r) => r.roomNumber == newRoomNumber)) {
+      throw Exception('Hostel room $newRoomNumber already exists');
+    }
+
+    final originalRoom = _cachedHostelRooms[roomIdx];
+    final cleanBlock = blockName.trim().isNotEmpty ? blockName.trim() : originalRoom.blockName;
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final updated = await api.updateHostelRoom(
+          originalRoomNumber: originalRoomNumber,
+          newRoomNumber: newRoomNumber,
+          blockName: cleanBlock,
+        );
+        _cachedHostelRooms[roomIdx] = updated;
+        return updated;
+      } catch (_) {}
+    }
+
+    final updatedAssets = originalRoom.assets.map((a) => a.copyWith(roomNumber: newRoomNumber)).toList();
+    final updatedRoom = originalRoom.copyWith(
+      roomNumber: newRoomNumber,
+      blockName: cleanBlock,
+      floor: newRoomNumber ~/ 100,
+      assets: updatedAssets,
+      updatedAt: DateTime.now(),
+    );
+    _cachedHostelRooms[roomIdx] = updatedRoom;
+    return updatedRoom;
+  }
+
   Future<HostelAssetModel> addHostelAsset(int roomNumber, String assetType, String serialNumber, String condition) async {
     _seedDefaultHostelRoomsIfEmpty();
 
@@ -3464,6 +3520,64 @@ class OfflineStorageService {
     final room = _cachedHostelRooms[roomIdx];
     final updatedAssets = room.assets.where((a) => a.id != assetId && a.serialNumber != assetId).toList();
     _cachedHostelRooms[roomIdx] = room.copyWith(assets: updatedAssets, updatedAt: DateTime.now());
+  }
+
+  Future<HostelAssetModel> updateHostelAsset(int roomNumber, String assetId, {String? serialNumber, String? condition}) async {
+    _seedDefaultHostelRoomsIfEmpty();
+    final roomIdx = _cachedHostelRooms.indexWhere((r) => r.roomNumber == roomNumber);
+    if (roomIdx == -1) {
+      throw Exception('Hostel room $roomNumber not found');
+    }
+
+    final room = _cachedHostelRooms[roomIdx];
+    final assetIdx = room.assets.indexWhere((a) => a.id == assetId || a.serialNumber == assetId);
+    if (assetIdx == -1) {
+      throw Exception('Asset $assetId not found in room $roomNumber');
+    }
+
+    final currentAsset = room.assets[assetIdx];
+    final newSerial = (serialNumber != null && serialNumber.trim().isNotEmpty) ? serialNumber.trim() : currentAsset.serialNumber;
+    final newCondition = (condition != null && condition.trim().isNotEmpty) ? condition.trim() : currentAsset.condition;
+
+    final serialErr = HostelRoomModel.validateSerialNumber(newSerial);
+    if (serialErr != null) {
+      throw Exception(serialErr);
+    }
+
+    if (newSerial.toLowerCase() != currentAsset.serialNumber.toLowerCase()) {
+      for (final r in _cachedHostelRooms) {
+        for (final a in r.assets) {
+          if (a.id != currentAsset.id && a.serialNumber.toLowerCase() == newSerial.toLowerCase()) {
+            throw Exception('Serial number \'$newSerial\' is already assigned to room ${r.roomNumber}');
+          }
+        }
+      }
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final updated = await api.updateHostelAsset(
+          roomNumber: roomNumber,
+          assetId: currentAsset.id,
+          serialNumber: newSerial,
+          condition: newCondition,
+        );
+        final assets = List<HostelAssetModel>.from(room.assets);
+        assets[assetIdx] = updated;
+        _cachedHostelRooms[roomIdx] = room.copyWith(assets: assets, updatedAt: DateTime.now());
+        return updated;
+      } catch (_) {}
+    }
+
+    final updatedAsset = currentAsset.copyWith(
+      serialNumber: newSerial,
+      condition: newCondition,
+    );
+    final assets = List<HostelAssetModel>.from(room.assets);
+    assets[assetIdx] = updatedAsset;
+    _cachedHostelRooms[roomIdx] = room.copyWith(assets: assets, updatedAt: DateTime.now());
+    return updatedAsset;
   }
 
   Future<HostelOccupantModel> assignHostelOccupant(int roomNumber, String userId, String handle, String name) async {
@@ -3697,6 +3811,41 @@ class OfflineStorageService {
     }
 
     return List.unmodifiable(_cachedMessMeals);
+  }
+
+  Future<MessMealModel> updateMessMeal(MessMealModel updatedMeal) async {
+    _seedDefaultMessDataIfEmpty();
+    final day = updatedMeal.dayOfWeek.trim().toLowerCase();
+    final type = updatedMeal.mealType.trim().toLowerCase();
+
+    if (day == 'sunday') {
+      if (type != 'brunch' && type != 'dinner') {
+        throw Exception('On Sunday only brunch and dinner can be served');
+      }
+    } else {
+      if (type == 'brunch') {
+        throw Exception('Brunch is only allowed on Sunday');
+      }
+    }
+
+    final idx = _cachedMessMeals.indexWhere(
+      (m) => m.id == updatedMeal.id || (m.dayOfWeek.toLowerCase() == day && m.mealType.toLowerCase() == type),
+    );
+    if (idx == -1) {
+      throw Exception('Mess meal ${updatedMeal.id} not found');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.updateMessMeal(updatedMeal);
+        _cachedMessMeals[idx] = res;
+        return res;
+      } catch (_) {}
+    }
+
+    _cachedMessMeals[idx] = updatedMeal;
+    return updatedMeal;
   }
 
   Future<MessReportSummary> getMessRatingsReport({String? mealId, String? rating}) async {

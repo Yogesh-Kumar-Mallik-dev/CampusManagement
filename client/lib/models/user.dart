@@ -171,10 +171,36 @@ class UserModel {
       hasRole('warden') ||
       hasRole('hostel_warden') ||
       hasPermission('hostel:manage') ||
+      hasPermission('hostel:edit_room') ||
       permissions.contains('*') ||
       (isEmployee && !isAcademic);
 
+  bool get canEditHostelRoom =>
+      canManageHostel ||
+      hasPermission('hostel:edit_room');
+
   bool get isWarden => hasRole('warden') || hasRole('hostel_warden') || hasPermission('hostel:manage');
+
+  bool get canManageMess =>
+      isAdmin ||
+      hasRole('mess_manager') ||
+      hasRole('canteen_manager') ||
+      hasPermission('mess:manage') ||
+      hasPermission('mess:edit_menu') ||
+      hasPermission('menu:update') ||
+      permissions.contains('*') ||
+      (isContractor && (permittedScopes.contains('building:canteen') || activeScopes.contains('building:canteen')));
+
+  bool get canEditMessMenu =>
+      canManageMess ||
+      hasPermission('mess:edit_menu') ||
+      hasPermission('menu:update');
+
+  bool get isMessManager =>
+      hasRole('mess_manager') ||
+      hasRole('canteen_manager') ||
+      hasPermission('mess:manage') ||
+      hasPermission('mess:edit_menu');
 
   bool canEditTimetable([String? targetScope]) =>
       isAdmin ||

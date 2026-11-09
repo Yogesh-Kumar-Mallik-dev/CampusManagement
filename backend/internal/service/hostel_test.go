@@ -180,3 +180,48 @@ func TestHostelCapacityLimits(t *testing.T) {
 		t.Fatalf("failed to assign occupant after removal: %v", err)
 	}
 }
+
+func TestHostelEditRoomAndAsset(t *testing.T) {
+	svc := NewHostelService(nil, nil)
+
+	// Create room 450
+	_, err := svc.CreateRoom(450, "Old Block")
+	if err != nil {
+		t.Fatalf("failed to create room: %v", err)
+	}
+
+	asset, err := svc.AddAsset(450, model.HostelAssetBed, "BED-450-01", "operational")
+	if err != nil {
+		t.Fatalf("failed to add asset: %v", err)
+	}
+
+	// 1. Edit Room Details (change block name and room number to 455)
+	updatedRoom, err := svc.UpdateRoom(450, 455, "Ramanujan Block")
+	if err != nil {
+		t.Fatalf("failed to update room: %v", err)
+	}
+	if updatedRoom.RoomNumber != 455 || updatedRoom.BlockName != "Ramanujan Block" {
+		t.Errorf("expected room 455 in Ramanujan Block, got %d in %s", updatedRoom.RoomNumber, updatedRoom.BlockName)
+	}
+
+	// 2. Edit Asset Serial & Condition
+	updatedAsset, err := svc.UpdateAsset(455, asset.ID, "BED-455-01", "maintenance_needed")
+	if err != nil {
+		t.Fatalf("failed to update asset: %v", err)
+	}
+	if updatedAsset.SerialNumber != "BED-455-01" || updatedAsset.Condition != "maintenance_needed" {
+		t.Errorf("expected updated asset BED-455-01 with maintenance_needed, got %s / %s", updatedAsset.SerialNumber, updatedAsset.Condition)
+	}
+
+	// 3. Serial validation during update
+	_, err = svc.UpdateAsset(455, asset.ID, "INVALID_SERIAL_TOO_LONG_12345", "operational")
+	if err == nil {
+		t.Errorf("expected invalid serial update to fail, but succeeded")
+	}
+
+	// 4. Duplicate serial during update must fail
+	_, err = svc.UpdateAsset(455, asset.ID, "BED-101-01", "operational")
+	if err == nil {
+		t.Errorf("expected duplicate serial assignment to fail, but succeeded")
+	}
+}

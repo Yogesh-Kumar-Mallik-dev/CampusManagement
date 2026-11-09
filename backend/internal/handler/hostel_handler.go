@@ -82,12 +82,32 @@ func (h *HostelHandler) HandleRooms(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(room)
 
+	case http.MethodPut:
+		var req struct {
+			OriginalRoomNumber int    `json:"original_room_number"`
+			NewRoomNumber      int    `json:"new_room_number"`
+			BlockName          string `json:"block_name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid request payload"}`, http.StatusBadRequest)
+			return
+		}
+		if req.OriginalRoomNumber == 0 {
+			req.OriginalRoomNumber = req.NewRoomNumber
+		}
+		room, err := h.hostelService.UpdateRoom(req.OriginalRoomNumber, req.NewRoomNumber, req.BlockName)
+		if err != nil {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(room)
+
 	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
 }
 
-// HandleAssets handles POST /api/v1/hostel/rooms/assets and DELETE /api/v1/hostel/rooms/assets
+// HandleAssets handles POST, PUT, DELETE /api/v1/hostel/rooms/assets
 func (h *HostelHandler) HandleAssets(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -111,6 +131,25 @@ func (h *HostelHandler) HandleAssets(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(asset)
+
+	case http.MethodPut:
+		var req struct {
+			RoomNumber   int    `json:"room_number"`
+			AssetID      string `json:"asset_id"`
+			SerialNumber string `json:"serial_number"`
+			Condition    string `json:"condition"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid request payload"}`, http.StatusBadRequest)
+			return
+		}
+
+		asset, err := h.hostelService.UpdateAsset(req.RoomNumber, req.AssetID, req.SerialNumber, req.Condition)
+		if err != nil {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
 		_ = json.NewEncoder(w).Encode(asset)
 
 	case http.MethodDelete:

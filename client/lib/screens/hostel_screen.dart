@@ -43,7 +43,7 @@ class _HostelScreenState extends State<HostelScreen> {
   }
 
   List<HostelRoomModel> get _filteredRooms {
-    final canManage = widget.currentUser?.canManageHostel ?? false;
+    final canManage = (widget.currentUser?.canManageHostel ?? false) || (widget.currentUser?.canEditHostelRoom ?? false);
     if (!canManage) {
       if (widget.currentUser == null) return [];
       return _rooms.where((r) => r.occupants.any((o) =>
@@ -165,6 +165,220 @@ class _HostelScreenState extends State<HostelScreen> {
                   }
                 },
                 child: const Text('Register Room'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEditRoomDialog(HostelRoomModel room) {
+    final roomCtrl = TextEditingController(text: room.roomNumber.toString());
+    final blockCtrl = TextEditingController(text: room.blockName);
+    String? errorText;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return AlertDialog(
+            key: const Key('dialog-edit-hostel-room'),
+            title: Text('Edit Room ${room.roomNumber}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: 380,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Modify room number (100 - 999) and block allocation. All registered fixtures and residents will transition to the updated room identifier.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('input-edit-room-number'),
+                    controller: roomCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Room Number (100 - 999)',
+                      hintText: 'e.g. 105, 204, 308',
+                      border: const OutlineInputBorder(),
+                      errorText: errorText,
+                      isDense: true,
+                    ),
+                    onChanged: (val) {
+                      final n = int.tryParse(val.trim());
+                      setDialogState(() {
+                        errorText = HostelRoomModel.validateRoomNumber(n);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('input-edit-block-name'),
+                    controller: blockCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Block / Hall Name',
+                      hintText: 'Aryabhatta Block',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                key: const Key('btn-save-room-edits'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final num = int.tryParse(roomCtrl.text.trim());
+                  final err = HostelRoomModel.validateRoomNumber(num);
+                  if (err != null) {
+                    setDialogState(() => errorText = err);
+                    return;
+                  }
+
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await widget.storage.updateHostelRoom(room.roomNumber, num!, blockCtrl.text.trim());
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    await _loadRooms();
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Hostel room $num successfully updated.')),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => errorText = e.toString().replaceAll('Exception: ', ''));
+                  }
+                },
+                child: const Text('Save Changes'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEditAssetDialog(HostelRoomModel room, HostelAssetModel asset) {
+    final serialCtrl = TextEditingController(text: asset.serialNumber);
+    String condition = asset.condition;
+    String? errorText;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return AlertDialog(
+            key: const Key('dialog-edit-hostel-asset'),
+            title: Text('Edit Fixture ${asset.assetType.toUpperCase()}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: 380,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Update serial number (alphanumeric, max 14 characters) and operational condition.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('input-edit-asset-serial'),
+                    controller: serialCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Serial Number (<= 14 chars)',
+                      hintText: 'e.g. BED-101-01',
+                      border: const OutlineInputBorder(),
+                      errorText: errorText,
+                      isDense: true,
+                    ),
+                    onChanged: (val) {
+                      setDialogState(() {
+                        errorText = HostelRoomModel.validateSerialNumber(val.trim());
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    key: const Key('select-edit-asset-condition'),
+                    initialValue: condition,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Operational Condition',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'operational', child: Text('Operational (In Good Standing)')),
+                      DropdownMenuItem(value: 'maintenance_needed', child: Text('Maintenance Needed')),
+                      DropdownMenuItem(value: 'damaged', child: Text('Damaged / Defective')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => condition = val);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                key: const Key('btn-save-asset-edits'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final serialErr = HostelRoomModel.validateSerialNumber(serialCtrl.text.trim());
+                  if (serialErr != null) {
+                    setDialogState(() => errorText = serialErr);
+                    return;
+                  }
+
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await widget.storage.updateHostelAsset(
+                      room.roomNumber,
+                      asset.id,
+                      serialNumber: serialCtrl.text.trim(),
+                      condition: condition,
+                    );
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    await _loadRooms();
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Fixture ${asset.assetType} successfully updated.')),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => errorText = e.toString().replaceAll('Exception: ', ''));
+                  }
+                },
+                child: const Text('Save Fixture'),
               ),
             ],
           );
@@ -529,7 +743,7 @@ class _HostelScreenState extends State<HostelScreen> {
           builder: (context, setSheetState) {
             final currentRoom = _rooms.firstWhere((r) => r.roomNumber == room.roomNumber, orElse: () => room);
 
-            final canManage = widget.currentUser?.canManageHostel ?? false;
+            final canManage = (widget.currentUser?.canManageHostel ?? false) || (widget.currentUser?.canEditHostelRoom ?? false);
 
             return Container(
               height: MediaQuery.of(context).size.height * 0.85,
@@ -571,6 +785,18 @@ class _HostelScreenState extends State<HostelScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
+                      if (canManage) ...[
+                        IconButton(
+                          key: Key('btn-modal-edit-room-${currentRoom.roomNumber}'),
+                          icon: const Icon(Icons.edit, size: 16),
+                          tooltip: 'Edit Room',
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showEditRoomDialog(currentRoom);
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                      ],
                       if (!canManage)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -759,8 +985,18 @@ class _HostelScreenState extends State<HostelScreen> {
                                       ),
                                     ),
                                     if (canManage) ...[
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 4),
                                       IconButton(
+                                        key: Key('btn-edit-asset-${a.id}'),
+                                        icon: const Icon(Icons.edit, size: 16),
+                                        tooltip: 'Edit Fixture',
+                                        onPressed: () {
+                                          Navigator.pop(ctx);
+                                          _showEditAssetDialog(currentRoom, a);
+                                        },
+                                      ),
+                                      IconButton(
+                                        key: Key('btn-delete-asset-${a.id}'),
                                         icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.statusRed),
                                         tooltip: 'Remove Asset',
                                         onPressed: () async {
@@ -807,7 +1043,7 @@ class _HostelScreenState extends State<HostelScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final canManage = widget.currentUser?.canManageHostel ?? false;
+    final canManage = (widget.currentUser?.canManageHostel ?? false) || (widget.currentUser?.canEditHostelRoom ?? false);
 
     HostelRoomModel? myRoom;
     if (widget.currentUser != null) {
@@ -969,7 +1205,7 @@ class _HostelScreenState extends State<HostelScreen> {
                               crossAxisCount: crossAxisCount,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 16,
-                              mainAxisExtent: constraints.maxWidth < 500 ? 360 : 310,
+                              mainAxisExtent: constraints.maxWidth < 500 ? 470 : (constraints.maxWidth < 750 ? 350 : 335),
                             ),
                             itemCount: _filteredRooms.length,
                             itemBuilder: (context, idx) {
@@ -1966,22 +2202,35 @@ class _HostelScreenState extends State<HostelScreen> {
 
           // Actions
           if (canManage)
-            Row(
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    key: Key('btn-inspect-room-${room.roomNumber}'),
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                IconButton(
+                  key: Key('btn-edit-room-${room.roomNumber}'),
+                  icon: const Icon(Icons.edit, size: 16),
+                  tooltip: 'Edit Room',
+                  style: IconButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
                       side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
-                    onPressed: () => _showInspectRoomModal(room),
-                    child: const Text('Inspect Fixtures', style: TextStyle(fontSize: 11)),
                   ),
+                  onPressed: () => _showEditRoomDialog(room),
                 ),
-                const SizedBox(width: 6),
+                OutlinedButton(
+                  key: Key('btn-inspect-room-${room.roomNumber}'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: () => _showInspectRoomModal(room),
+                  child: const Text('Inspect Fixtures', style: TextStyle(fontSize: 11)),
+                ),
                 OutlinedButton(
                   key: Key('btn-add-asset-${room.roomNumber}'),
                   style: OutlinedButton.styleFrom(
@@ -1994,7 +2243,6 @@ class _HostelScreenState extends State<HostelScreen> {
                   onPressed: () => _showAddAssetDialog(room),
                   child: const Text('+ Asset', style: TextStyle(fontSize: 11)),
                 ),
-                const SizedBox(width: 6),
                 ElevatedButton(
                   key: Key('btn-assign-occupant-${room.roomNumber}'),
                   style: ElevatedButton.styleFrom(

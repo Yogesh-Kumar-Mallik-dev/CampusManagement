@@ -301,6 +301,196 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _showEditMealDialog(MessMealModel meal) {
+    final titleCtrl = TextEditingController(text: meal.title);
+    final summaryCtrl = TextEditingController(text: meal.menuSummary);
+    final itemsCtrl = TextEditingController(text: meal.items.join(', '));
+    final startCtrl = TextEditingController(text: meal.startTime);
+    final endCtrl = TextEditingController(text: meal.endTime);
+    String? validationError;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final isSunday = meal.dayOfWeek.toLowerCase() == 'sunday';
+
+          return AlertDialog(
+            key: const Key('dialog-edit-mess-meal'),
+            title: Text(
+              'Edit Mess Menu • ${meal.dayOfWeek.toUpperCase()} ${meal.mealType.toUpperCase()}',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: 440,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSunday
+                          ? 'Sunday Schedule: Only Brunch (10:00 - 13:00) and Dinner (19:30 - 21:30) are permitted.'
+                          : 'Standard Schedule: Breakfast, Lunch, and Dinner menus may be updated.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isSunday ? const Color(0xFFD97706) : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Meal Title
+                    TextField(
+                      key: const Key('input-edit-meal-title'),
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Meal Title',
+                        hintText: 'e.g. Continental & South Indian Breakfast',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Timings (Start - End)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const Key('input-edit-meal-start-time'),
+                            controller: startCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Start Time',
+                              hintText: '07:30',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            key: const Key('input-edit-meal-end-time'),
+                            controller: endCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'End Time',
+                              hintText: '09:30',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Menu Summary
+                    TextField(
+                      key: const Key('input-edit-meal-summary'),
+                      controller: summaryCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Menu Summary Description',
+                        hintText: 'Brief summary of the meal offering',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Items (Comma-separated)
+                    TextField(
+                      key: const Key('input-edit-meal-items'),
+                      controller: itemsCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Menu Items (Comma-separated)',
+                        hintText: 'e.g. Masala Dosa, Sambar, Coconut Chutney, Tea / Coffee',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+
+                    if (validationError != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.statusRed.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.statusRed),
+                        ),
+                        child: Text(
+                          validationError!,
+                          style: const TextStyle(fontSize: 11, color: AppColors.statusRed),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                key: const Key('btn-save-meal-edits'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final cleanTitle = titleCtrl.text.trim();
+                  if (cleanTitle.isEmpty) {
+                    setDialogState(() => validationError = 'Meal title cannot be empty');
+                    return;
+                  }
+
+                  final parsedItems = itemsCtrl.text
+                      .split(',')
+                      .map((s) => s.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList();
+
+                  if (parsedItems.isEmpty) {
+                    setDialogState(() => validationError = 'At least one menu item must be specified');
+                    return;
+                  }
+
+                  final updatedMeal = meal.copyWith(
+                    title: cleanTitle,
+                    menuSummary: summaryCtrl.text.trim(),
+                    items: parsedItems,
+                    startTime: startCtrl.text.trim().isNotEmpty ? startCtrl.text.trim() : meal.startTime,
+                    endTime: endCtrl.text.trim().isNotEmpty ? endCtrl.text.trim() : meal.endTime,
+                  );
+
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    await widget.storage.updateMessMeal(updatedMeal);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    await _loadData();
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Menu for ${meal.title} successfully updated.')),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => validationError = e.toString().replaceAll('Exception: ', ''));
+                  }
+                },
+                child: const Text('Save Menu'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Color _colorForRating(String rating, bool isDark) {
     switch (rating.toLowerCase()) {
       case 'very_good':
@@ -498,6 +688,7 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
 
   Widget _buildMealSlotCard(MessMealModel meal, bool isDark) {
     final isSundayBrunch = meal.isSundayBrunch;
+    final canEditMenu = widget.currentUser?.canEditMessMenu ?? false;
 
     return Container(
       key: Key('card-meal-${meal.id}'),
@@ -602,22 +793,43 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
 
           // Action
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton.icon(
-                key: Key('btn-rate-meal-${meal.id}'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  side: const BorderSide(color: AppColors.wineRed),
-                  foregroundColor: AppColors.wineRed,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            children: const [],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.end,
+              children: [
+                if (canEditMenu)
+                  OutlinedButton.icon(
+                    key: Key('btn-edit-meal-${meal.id}'),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: () => _showEditMealDialog(meal),
+                    icon: const Icon(Icons.edit, size: 14),
+                    label: const Text('Edit Menu', style: TextStyle(fontSize: 11)),
+                  ),
+                OutlinedButton.icon(
+                  key: Key('btn-rate-meal-${meal.id}'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    side: const BorderSide(color: AppColors.wineRed),
+                    foregroundColor: AppColors.wineRed,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: () => _showRatingDialog(targetMeal: meal),
+                  icon: const Icon(Icons.rate_review_outlined, size: 14),
+                  label: const Text('Rate This Meal', style: TextStyle(fontSize: 11)),
                 ),
-                onPressed: () => _showRatingDialog(targetMeal: meal),
-                icon: const Icon(Icons.rate_review_outlined, size: 14),
-                label: const Text('Rate This Meal', style: TextStyle(fontSize: 11)),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

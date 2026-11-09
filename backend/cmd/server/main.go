@@ -161,6 +161,7 @@ func main() {
 
 	// Mess Meal Timetable (6 days x 3 meals, Sunday Brunch + Dinner) & Rating Feedback
 	mux.HandleFunc("/api/v1/mess/timetable", messHandler.HandleTimetable)
+	mux.HandleFunc("/api/v1/mess/meals", messHandler.HandleMeals)
 	mux.HandleFunc("/api/v1/mess/ratings", messHandler.HandleRatings)
 
 	// Delta Sync Endpoint (Protected by Resilient Cache + Singleflight)
@@ -358,6 +359,8 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 		Permissions: []model.Permission{
 			{Code: "gatepass:approve"},
 			{Code: "room:inspect"},
+			{Code: "hostel:manage"},
+			{Code: "hostel:edit_room"},
 		},
 	})
 
@@ -372,14 +375,26 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 		},
 	})
 
-	// 9. Canteen Manager
+	// 9. Canteen & Mess Manager
 	svc.AddMemoryRole(model.Role{
 		Code: "canteen_manager",
-		Name: "Canteen Manager",
+		Name: "Canteen & Mess Manager",
 		Permissions: []model.Permission{
 			{Code: "menu:update"},
+			{Code: "mess:edit_menu"},
+			{Code: "mess:manage"},
 			{Code: "coupon:redeem"},
 			{Code: "sales:view"},
+		},
+	})
+
+	svc.AddMemoryRole(model.Role{
+		Code: "mess_manager",
+		Name: "Hostel Mess Manager",
+		Permissions: []model.Permission{
+			{Code: "menu:update"},
+			{Code: "mess:edit_menu"},
+			{Code: "mess:manage"},
 		},
 	})
 

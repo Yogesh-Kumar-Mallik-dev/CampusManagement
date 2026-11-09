@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"campus/backend/internal/model"
 	"campus/backend/internal/service"
 )
 
@@ -13,6 +14,31 @@ type MessHandler struct {
 
 func NewMessHandler(svc *service.MessService) *MessHandler {
 	return &MessHandler{messService: svc}
+}
+
+// HandleMeals handles PUT /api/v1/mess/meals
+func (h *MessHandler) HandleMeals(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodPut, http.MethodPost:
+		var req model.MessMeal
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid request payload"}`, http.StatusBadRequest)
+			return
+		}
+
+		updated, err := h.messService.UpdateMeal(req)
+		if err != nil {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(updated)
+
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
 }
 
 // HandleTimetable returns the weekly mess timetable (6 days x 3 meals + Sunday Brunch & Dinner).

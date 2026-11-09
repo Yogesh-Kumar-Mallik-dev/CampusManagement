@@ -711,6 +711,26 @@ class ApiService {
     throw Exception('Failed to create hostel room: ${res.body}');
   }
 
+  Future<HostelRoomModel> updateHostelRoom({
+    required int originalRoomNumber,
+    required int newRoomNumber,
+    required String blockName,
+  }) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/v1/hostel/rooms'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'original_room_number': originalRoomNumber,
+        'new_room_number': newRoomNumber,
+        'block_name': blockName,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return HostelRoomModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to update hostel room: ${res.body}');
+  }
+
   Future<HostelAssetModel> addHostelAsset(int roomNumber, String assetType, String serialNumber, String condition) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/v1/hostel/rooms/assets'),
@@ -735,6 +755,28 @@ class ApiService {
     if (res.statusCode != 200) {
       throw Exception('Failed to remove asset: ${res.body}');
     }
+  }
+
+  Future<HostelAssetModel> updateHostelAsset({
+    required int roomNumber,
+    required String assetId,
+    required String serialNumber,
+    required String condition,
+  }) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/v1/hostel/rooms/assets'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'room_number': roomNumber,
+        'asset_id': assetId,
+        'serial_number': serialNumber,
+        'condition': condition,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return HostelAssetModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to update asset: ${res.body}');
   }
 
   Future<HostelOccupantModel> assignHostelOccupant(int roomNumber, String userId, String handle, String name) async {
@@ -774,6 +816,18 @@ class ApiService {
       return data.map((e) => MessMealModel.fromJson(e)).toList();
     }
     throw Exception('Failed to fetch mess timetable (${res.statusCode})');
+  }
+
+  Future<MessMealModel> updateMessMeal(MessMealModel meal) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/v1/mess/meals'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(meal.toJson()),
+    );
+    if (res.statusCode == 200) {
+      return MessMealModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to update mess meal: ${res.body}');
   }
 
   Future<MessReportSummary> fetchMessRatingsReport({String? mealId, String? rating}) async {
