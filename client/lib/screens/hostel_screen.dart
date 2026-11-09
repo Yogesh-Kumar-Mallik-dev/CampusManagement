@@ -6,6 +6,7 @@ import '../screens/complaints_screen.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_dropdown.dart';
 
 class HostelScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -320,19 +321,14 @@ class _HostelScreenState extends State<HostelScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  AppDropdown<String>(
                     key: const Key('select-edit-asset-condition'),
-                    initialValue: condition,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Operational Condition',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                    labelText: 'Operational Condition',
+                    value: condition,
                     items: const [
-                      DropdownMenuItem(value: 'operational', child: Text('Operational (In Good Standing)')),
-                      DropdownMenuItem(value: 'maintenance_needed', child: Text('Maintenance Needed')),
-                      DropdownMenuItem(value: 'damaged', child: Text('Damaged / Defective')),
+                      AppDropdownItem(value: 'operational', label: 'Operational (In Good Standing)'),
+                      AppDropdownItem(value: 'maintenance_needed', label: 'Maintenance Needed'),
+                      AppDropdownItem(value: 'damaged', label: 'Damaged / Defective'),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -438,34 +434,26 @@ class _HostelScreenState extends State<HostelScreen> {
                   const SizedBox(height: 14),
 
                   // Asset Type Dropdown
-                  InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Fixture Type',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedType,
-                        isDense: true,
-                        items: const [
-                          DropdownMenuItem(value: 'bed', child: Text('Bed (Max 3)')),
-                          DropdownMenuItem(value: 'table', child: Text('Study Table (Max 3)')),
-                          DropdownMenuItem(value: 'chair', child: Text('Study Chair (Max 3)')),
-                          DropdownMenuItem(value: 'tubelight', child: Text('Tubelight (Max 2)')),
-                          DropdownMenuItem(value: 'fan', child: Text('Ceiling Fan (Max 2)')),
-                          DropdownMenuItem(value: 'locker', child: Text('Wardrobe / Locker (Max 3)')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() {
-                              selectedType = val;
-                              errorText = null;
-                            });
-                          }
-                        },
-                      ),
-                    ),
+                  AppDropdown<String>(
+                    key: const Key('select-add-asset-type'),
+                    labelText: 'Fixture Type',
+                    value: selectedType,
+                    items: const [
+                      AppDropdownItem(value: 'bed', label: 'Bed (Max 3)'),
+                      AppDropdownItem(value: 'table', label: 'Study Table (Max 3)'),
+                      AppDropdownItem(value: 'chair', label: 'Study Chair (Max 3)'),
+                      AppDropdownItem(value: 'tubelight', label: 'Tubelight (Max 2)'),
+                      AppDropdownItem(value: 'fan', label: 'Ceiling Fan (Max 2)'),
+                      AppDropdownItem(value: 'locker', label: 'Wardrobe / Locker (Max 3)'),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedType = val;
+                          errorText = null;
+                        });
+                      }
+                    },
                   ),
                   const SizedBox(height: 8),
 
@@ -528,28 +516,20 @@ class _HostelScreenState extends State<HostelScreen> {
                   const SizedBox(height: 8),
 
                   // Condition
-                  InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Initial Fixture Condition',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: condition,
-                        isDense: true,
-                        items: const [
-                          DropdownMenuItem(value: 'operational', child: Text('Operational / New')),
-                          DropdownMenuItem(value: 'maintenance_needed', child: Text('Maintenance Needed')),
-                          DropdownMenuItem(value: 'damaged', child: Text('Damaged / Decommissioned')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => condition = val);
-                          }
-                        },
-                      ),
-                    ),
+                  AppDropdown<String>(
+                    key: const Key('select-add-asset-condition'),
+                    labelText: 'Initial Fixture Condition',
+                    value: condition,
+                    items: const [
+                      AppDropdownItem(value: 'operational', label: 'Operational / New'),
+                      AppDropdownItem(value: 'maintenance_needed', label: 'Maintenance Needed'),
+                      AppDropdownItem(value: 'damaged', label: 'Damaged / Decommissioned'),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => condition = val);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -657,37 +637,24 @@ class _HostelScreenState extends State<HostelScreen> {
                       ),
                     ),
                   ],
-                  InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Select Student Resident',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<UserModel>(
-                        value: selectedStudent,
-                        isDense: true,
-                        isExpanded: true,
-                        items: students.map((s) {
-                          return DropdownMenuItem<UserModel>(
-                            value: s,
-                            child: Text(
-                              '${s.fullName} (@${s.campusHandle})',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() {
-                              selectedStudent = val;
-                              errorText = null;
-                            });
-                          }
-                        },
-                      ),
-                    ),
+                  AppDropdown<UserModel>(
+                    key: const Key('select-assign-resident'),
+                    labelText: 'Select Student Resident',
+                    value: selectedStudent,
+                    items: students.map((s) {
+                      return AppDropdownItem<UserModel>(
+                        value: s,
+                        label: '${s.fullName} (@${s.campusHandle})',
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedStudent = val;
+                          errorText = null;
+                        });
+                      }
+                    },
                   ),
                 ],
               ),

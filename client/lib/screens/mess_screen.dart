@@ -6,6 +6,7 @@ import '../screens/complaints_screen.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_dropdown.dart';
 
 class MessScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -112,37 +113,25 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Target Meal Dropdown
-                    InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Select Meal Slot',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedMeal.id,
-                          isDense: true,
-                          isExpanded: true,
-                          items: _timetable.map((m) {
-                            final dayCap = '${m.dayOfWeek[0].toUpperCase()}${m.dayOfWeek.substring(1)}';
-                            return DropdownMenuItem<String>(
-                              value: m.id,
-                              child: Text(
-                                '$dayCap • ${m.title} (${m.startTime} - ${m.endTime})',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              final found = _timetable.firstWhere((m) => m.id == val);
-                              setDialogState(() {
-                                selectedMeal = found;
-                              });
-                            }
-                          },
-                        ),
-                      ),
+                    AppDropdown<String>(
+                      key: const Key('select-rate-meal-slot'),
+                      labelText: 'Select Meal Slot',
+                      value: selectedMeal.id,
+                      items: _timetable.map((m) {
+                        final dayCap = '${m.dayOfWeek[0].toUpperCase()}${m.dayOfWeek.substring(1)}';
+                        return AppDropdownItem<String>(
+                          value: m.id,
+                          label: '$dayCap • ${m.title} (${m.startTime} - ${m.endTime})',
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          final found = _timetable.firstWhere((m) => m.id == val);
+                          setDialogState(() {
+                            selectedMeal = found;
+                          });
+                        }
+                      },
                     ),
                     const SizedBox(height: 16),
 

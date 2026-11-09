@@ -24,6 +24,7 @@ class AppDropdownItem<T> {
 /// offset, constant 1.0px border, themed surface background, bounded scroll height,
 /// and clear hover states.
 class AppDropdown<T> extends StatelessWidget {
+  final String? labelText;
   final T? value;
   final List<AppDropdownItem<T>> items;
   final ValueChanged<T?> onChanged;
@@ -37,6 +38,7 @@ class AppDropdown<T> extends StatelessWidget {
 
   const AppDropdown({
     super.key,
+    this.labelText,
     required this.items,
     required this.onChanged,
     this.value,
@@ -85,7 +87,7 @@ class AppDropdown<T> extends StatelessWidget {
       );
     }
 
-    return LayoutBuilder(
+    final dropdownWidget = LayoutBuilder(
       builder: (context, constraints) {
         final effectiveWidth = width ?? (isExpanded ? constraints.maxWidth : null);
 
@@ -191,6 +193,27 @@ class AppDropdown<T> extends StatelessWidget {
           ),
         );
       },
+    );
+
+    if (labelText == null) {
+      return dropdownWidget;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          labelText!,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        dropdownWidget,
+      ],
     );
   }
 }

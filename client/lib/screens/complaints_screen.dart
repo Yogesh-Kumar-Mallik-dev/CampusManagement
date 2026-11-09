@@ -3,6 +3,7 @@ import '../models/complaint.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_dropdown.dart';
 
 class ComplaintsScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -60,21 +61,17 @@ class ComplaintsScreen extends StatefulWidget {
                     const SizedBox(height: 14),
 
                     // Category Selection
-                    DropdownButtonFormField<String>(
+                    AppDropdown<String>(
                       key: const Key('select-complaint-category'),
-                      initialValue: category,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Complaint Domain / Category',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                      labelText: 'Complaint Domain / Category',
+                      value: category,
                       items: ComplaintCategory.all.map((cat) {
-                        return DropdownMenuItem(
+                        return AppDropdownItem<String>(
                           value: cat,
+                          label: ComplaintCategory.displayName(cat),
                           child: Row(
                             children: [
-                              Icon(ComplaintCategory.iconFor(cat), size: 16, color: AppColors.wineRed),
+                              Icon(ComplaintCategory.iconFor(cat), size: 15, color: AppColors.wineRed),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -102,19 +99,15 @@ class ComplaintsScreen extends StatefulWidget {
                     const SizedBox(height: 12),
 
                     // Urgency Selection
-                    DropdownButtonFormField<String>(
+                    AppDropdown<String>(
                       key: const Key('select-complaint-urgency'),
-                      initialValue: urgency,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Urgency / Severity Level',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                      labelText: 'Urgency / Severity Level',
+                      value: urgency,
                       items: ComplaintUrgency.all.map((urg) {
                         final color = ComplaintUrgency.colorFor(urg);
-                        return DropdownMenuItem(
+                        return AppDropdownItem<String>(
                           value: urg,
+                          label: ComplaintUrgency.displayName(urg),
                           child: Row(
                             children: [
                               Container(
@@ -453,19 +446,15 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                     const SizedBox(height: 16),
 
                     // Status Dropdown
-                    DropdownButtonFormField<String>(
+                    AppDropdown<String>(
                       key: const Key('select-new-status'),
-                      initialValue: newStatus,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Investigation / Resolution Status',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                      labelText: 'Investigation / Resolution Status',
+                      value: newStatus,
                       items: ComplaintStatus.all.map((st) {
                         final color = ComplaintStatus.colorFor(st);
-                        return DropdownMenuItem(
+                        return AppDropdownItem<String>(
                           value: st,
+                          label: ComplaintStatus.displayName(st),
                           child: Row(
                             children: [
                               Container(
@@ -747,85 +736,75 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
   }
 
   Widget _buildFilters(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Category Chips
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              'Domain:',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+      ),
+      child: Wrap(
+        spacing: 14,
+        runSpacing: 10,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        children: [
+          SizedBox(
+            width: 240,
+            child: AppDropdown<String>(
+              key: const Key('filter-complaints-domain'),
+              labelText: 'Domain Filter',
+              value: _selectedCategory,
+              items: [
+                const AppDropdownItem(value: 'all', label: 'All Domains / Categories'),
+                ...ComplaintCategory.all.map((cat) => AppDropdownItem(
+                  value: cat,
+                  label: ComplaintCategory.displayName(cat),
+                )),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedCategory = val);
+              },
+            ),
+          ),
+          SizedBox(
+            width: 200,
+            child: AppDropdown<String>(
+              key: const Key('filter-complaints-status'),
+              labelText: 'Status Filter',
+              value: _selectedStatus,
+              items: [
+                const AppDropdownItem(value: 'all', label: 'All Statuses'),
+                ...ComplaintStatus.all.map((st) => AppDropdownItem(
+                  value: st,
+                  label: ComplaintStatus.displayName(st),
+                )),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedStatus = val);
+              },
+            ),
+          ),
+          if (_selectedCategory != 'all' || _selectedStatus != 'all')
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: OutlinedButton.icon(
+                key: const Key('btn-reset-complaint-filters'),
+                icon: const Icon(Icons.clear, size: 14),
+                label: const Text('Reset Filters', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.wineRed,
+                  side: const BorderSide(color: AppColors.wineRed, width: 1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                onPressed: () => setState(() {
+                  _selectedCategory = 'all';
+                  _selectedStatus = 'all';
+                }),
               ),
             ),
-            _buildCategoryChip('all', 'All Categories', isDark),
-            _buildCategoryChip(ComplaintCategory.hostel, 'Hostel & Mess', isDark),
-            _buildCategoryChip(ComplaintCategory.campus, 'Campus', isDark),
-            _buildCategoryChip(ComplaintCategory.student, 'Student', isDark),
-            _buildCategoryChip(ComplaintCategory.employee, 'Employee', isDark),
-            _buildCategoryChip(ComplaintCategory.contractor, 'Contractor', isDark),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // Status Chips
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              'Status:',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-              ),
-            ),
-            _buildStatusChip('all', 'All Statuses', isDark),
-            _buildStatusChip(ComplaintStatus.open, 'Open', isDark),
-            _buildStatusChip(ComplaintStatus.inProgress, 'In Progress', isDark),
-            _buildStatusChip(ComplaintStatus.resolved, 'Resolved', isDark),
-            _buildStatusChip(ComplaintStatus.rejected, 'Rejected', isDark),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryChip(String cat, String label, bool isDark) {
-    final isSelected = _selectedCategory == cat;
-    return ChoiceChip(
-      key: Key('chip-category-$cat'),
-      label: Text(label, style: const TextStyle(fontSize: 11)),
-      selected: isSelected,
-      selectedColor: AppColors.wineRed,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ],
       ),
-      onSelected: (_) => setState(() => _selectedCategory = cat),
-    );
-  }
-
-  Widget _buildStatusChip(String stat, String label, bool isDark) {
-    final isSelected = _selectedStatus == stat;
-    return ChoiceChip(
-      key: Key('chip-status-$stat'),
-      label: Text(label, style: const TextStyle(fontSize: 11)),
-      selected: isSelected,
-      selectedColor: AppColors.wineRed,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      ),
-      onSelected: (_) => setState(() => _selectedStatus = stat),
     );
   }
 

@@ -2117,4 +2117,99 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
   });
+
+  testWidgets('Every Dropdown in App: AppDropdown sub-anchor positioning in Complaints filters, Hostel and Mess dialogs',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final admin = OfflineStorageService.getMockUserForHandle('campus_admin');
+
+    // 1. Complaints Screen: Domain & Status filter dropdowns
+    await tester.pumpWidget(MaterialApp(
+      home: ComplaintsScreen(
+        storage: storage,
+        currentUser: admin,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('filter-complaints-domain')), findsOneWidget);
+    expect(find.byKey(const Key('filter-complaints-status')), findsOneWidget);
+
+    // Tap domain filter dropdown
+    await tester.tap(find.byKey(const Key('filter-complaints-domain')));
+    await tester.pumpAndSettle();
+
+    // Verify all domain options drop down
+    expect(find.text('Hostel & Mess'), findsWidgets);
+    expect(find.text('Campus Infrastructure'), findsOneWidget);
+    expect(find.text('Contractor & Vendor Operations'), findsOneWidget);
+
+    // Select Hostel & Mess
+    await tester.tap(find.text('Hostel & Mess').last);
+    await tester.pumpAndSettle();
+
+    // Reset button appears
+    expect(find.byKey(const Key('btn-reset-complaint-filters')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-reset-complaint-filters')));
+    await tester.pumpAndSettle();
+
+    // 2. Hostel Screen: Add Asset Dialog fixture type dropdown
+    await tester.pumpWidget(MaterialApp(
+      home: HostelScreen(
+        storage: storage,
+        currentUser: admin,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final inspect101 = find.byKey(const Key('btn-inspect-room-101'));
+    await tester.ensureVisible(inspect101);
+    await tester.tap(inspect101);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('btn-modal-add-fixture')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('select-add-asset-type')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('select-add-asset-type')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Study Table (Max 3)'), findsOneWidget);
+    expect(find.text('Wardrobe / Locker (Max 3)'), findsOneWidget);
+    await tester.tap(find.text('Study Table (Max 3)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // 3. Mess Screen: Rate Meal Dialog slot dropdown
+    await tester.pumpWidget(MaterialApp(
+      home: MessScreen(
+        storage: storage,
+        currentUser: admin,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('btn-open-rate-meal-dialog')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('select-rate-meal-slot')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('select-rate-meal-slot')));
+    await tester.pumpAndSettle();
+
+    // Dropdown shows weekly meal timetable items
+    expect(find.textContaining('Breakfast'), findsWidgets);
+    await tester.tap(find.textContaining('Breakfast').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+  });
 }
