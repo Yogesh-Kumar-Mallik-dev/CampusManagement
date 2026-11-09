@@ -20,6 +20,9 @@ class SmoothThemeToggle extends StatelessWidget {
         final isDark = mode == ThemeMode.dark;
         return IconButton(
           tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
           icon: AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             transitionBuilder: (child, anim) => RotationTransition(

@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import '../theme/app_colors.dart';
 
 /// Ultra-smooth Telegram-style circular theme reveal transition.
 ///
@@ -31,7 +30,6 @@ class CircularThemeRevealState extends State<CircularThemeReveal>
   ui.Image? _snapshot;
   Offset? _center;
   bool _isAnimating = false;
-  bool _isNextDark = false;
 
   @override
   void initState() {
@@ -77,7 +75,6 @@ class CircularThemeRevealState extends State<CircularThemeReveal>
       _snapshot = captured;
       _center = center;
       _isAnimating = true;
-      _isNextDark = isNextDark;
     });
 
     // Wait until the overlay paints the captured snapshot
@@ -101,9 +98,12 @@ class CircularThemeRevealState extends State<CircularThemeReveal>
         _snapshot = null;
         _center = null;
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _controller.reset();
+        }
+      });
     }
-
-    _controller.reset();
   }
 
   Future<ui.Image?> _captureSnapshot() async {
@@ -149,7 +149,6 @@ class CircularThemeRevealState extends State<CircularThemeReveal>
                       image: _snapshot!,
                       center: _center!,
                       progress: _animation.value,
-                      isNextDark: _isNextDark,
                     ),
                     size: Size.infinite,
                   );
@@ -166,13 +165,11 @@ class _CircularRevealPainter extends CustomPainter {
   final ui.Image image;
   final Offset center;
   final double progress;
-  final bool isNextDark;
 
   _CircularRevealPainter({
     required this.image,
     required this.center,
     required this.progress,
-    required this.isNextDark,
   });
 
   @override
@@ -202,21 +199,6 @@ class _CircularRevealPainter extends CustomPainter {
 
     // Restore layer to screen canvas
     canvas.restore();
-
-    // 3. Crisp luminous wavefront ring at the leading boundary
-    if (currentRadius > 0 && currentRadius < maxRadius) {
-      final ringColor = isNextDark
-          ? const Color(0xFFF0883E)
-          : AppColors.wineRed;
-      final ringAlpha = (1.0 - progress).clamp(0.2, 0.85);
-
-      final Paint ringPaint = Paint()
-        ..color = ringColor.withValues(alpha: ringAlpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5;
-
-      canvas.drawCircle(center, currentRadius, ringPaint);
-    }
   }
 
   double _calculateMaxRadius(Offset center, Size size) {
