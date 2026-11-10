@@ -847,5 +847,44 @@ void main() {
       expect(AppTheme.darkTheme.hintColor, equals(AppColors.darkTextPlaceholder));
       expect(darkInput.hintStyle?.color, equals(AppColors.darkTextPlaceholder));
     });
+
+    test('UserModel supports emergency contact, blood group, address serialization and copyWith', () {
+      final user = UserModel(
+        id: 'usr-harish',
+        campusHandle: 'harish_2025',
+        firstName: 'Harish',
+        lastName: 'Kumar',
+        email: 'harish@campus.edu',
+        personalEmail: 'harish.k@example.com',
+        phone: '+91 98765 43210',
+        emergencyContactName: 'Suresh Kumar',
+        emergencyContactPhone: '+91 98765 00112',
+        bloodGroup: 'O+',
+        address: 'Room 204, Aryabhatta Hostel',
+        archetype: 'student',
+      );
+
+      final json = user.toJson();
+      expect(json['emergency_contact_name'], equals('Suresh Kumar'));
+      expect(json['emergency_contact_phone'], equals('+91 98765 00112'));
+      expect(json['blood_group'], equals('O+'));
+      expect(json['address'], equals('Room 204, Aryabhatta Hostel'));
+
+      final fromJson = UserModel.fromJson(json);
+      expect(fromJson.emergencyContactName, equals('Suresh Kumar'));
+      expect(fromJson.emergencyContactPhone, equals('+91 98765 00112'));
+      expect(fromJson.bloodGroup, equals('O+'));
+      expect(fromJson.address, equals('Room 204, Aryabhatta Hostel'));
+
+      final updated = fromJson.copyWith(
+        personalEmail: 'harish.new@example.com',
+        bloodGroup: 'A+',
+        address: 'Flat 101, Campus View',
+      );
+      expect(updated.personalEmail, equals('harish.new@example.com'));
+      expect(updated.bloodGroup, equals('A+'));
+      expect(updated.address, equals('Flat 101, Campus View'));
+      expect(updated.emergencyContactName, equals('Suresh Kumar'));
+    });
   });
 }

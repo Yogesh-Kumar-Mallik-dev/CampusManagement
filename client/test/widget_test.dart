@@ -13,6 +13,8 @@ import 'package:campus_client/screens/hostel_screen.dart';
 import 'package:campus_client/screens/library_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/screens/mess_screen.dart';
+import 'package:campus_client/screens/user_profile_screen.dart';
+import 'package:campus_client/theme/app_theme.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
 import 'package:campus_client/widgets/app_dropdown.dart';
@@ -3324,5 +3326,113 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('verified and accepted. Catalog copy incremented.'), findsOneWidget);
+  });
+
+  testWidgets('Enhanced UserProfileScreen: Digital Smart ID pass modal, Campus Life snapshot, contact editing, and theme toggle', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.light,
+      home: UserProfileScreen(
+        storage: storage,
+        userIdentifier: 'usr-harish_2025_l_btech_1',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Digital ID Card
+    expect(find.text('Harish Kumar'), findsWidgets);
+    expect(find.text('harish_2025_l_btech_1'), findsWidgets);
+    expect(find.text('ACTIVE'), findsWidgets);
+    expect(find.text('STUDENT'), findsWidgets);
+    expect(find.text('Digital ID Pass'), findsOneWidget);
+
+    // 2. Open Digital ID pass modal
+    await tester.tap(find.text('Digital ID Pass'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CAMPUS DIGITAL PASS'), findsOneWidget);
+    expect(find.text('CAMPUS-NFC-VERIFIED'), findsOneWidget);
+    expect(find.text('Close'), findsOneWidget);
+
+    // Close modal
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('CAMPUS DIGITAL PASS'), findsNothing);
+
+    // 3. Campus Life Snapshot & Activity Metrics
+    expect(find.text('Campus Life Snapshot & Activity'), findsOneWidget);
+    expect(find.text('Attendance Standing'), findsOneWidget);
+    expect(find.text('Library Standing'), findsOneWidget);
+    expect(find.text('Hostel & Residence'), findsOneWidget);
+    expect(find.text('Institutional Fees'), findsOneWidget);
+
+    // 4. Contact & Emergency Information Card
+    expect(find.text('Official Identity & Verification'), findsOneWidget);
+    expect(find.text('Contact & Emergency Directory'), findsOneWidget);
+    expect(find.text('Edit Details'), findsOneWidget);
+
+    // 5. Open Edit Contact Details dialog
+    await tester.tap(find.text('Edit Details'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Update Contact Details'), findsOneWidget);
+    expect(find.text('Personal Email'), findsWidgets);
+    expect(find.text('Emergency Contact Name'), findsOneWidget);
+    expect(find.text('Save Details'), findsOneWidget);
+
+    // Edit fields
+    final phoneFinder = find.widgetWithText(TextField, '+91 98765 43210');
+    if (phoneFinder.evaluate().isNotEmpty) {
+      await tester.enterText(phoneFinder, '+91 99999 88888');
+    }
+    await tester.tap(find.text('Save Details'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Contact details updated successfully.'), findsOneWidget);
+
+    // 6. Theme toggle
+    await tester.ensureVisible(find.text('Switch to Dark'));
+    await tester.pumpAndSettle();
+    expect(find.text('Application Theme Preference'), findsOneWidget);
+    expect(find.text('Switch to Dark'), findsOneWidget);
+
+    await tester.tap(find.text('Switch to Dark'));
+    await tester.pumpAndSettle();
+
+    expect(AppTheme.themeModeNotifier.value, equals(ThemeMode.dark));
+
+    await tester.ensureVisible(find.text('Switch to Light'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Switch to Light'));
+    await tester.pumpAndSettle();
+
+    expect(AppTheme.themeModeNotifier.value, equals(ThemeMode.light));
+  });
+
+  testWidgets('Small Screen Responsiveness: UserProfileScreen standalone on 360x640 without overflow', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(MaterialApp(
+      home: UserProfileScreen(
+        storage: storage,
+        userIdentifier: 'usr-harish_2025_l_btech_1',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Harish Kumar'), findsWidgets);
+    expect(find.text('Digital ID Pass'), findsOneWidget);
   });
 }

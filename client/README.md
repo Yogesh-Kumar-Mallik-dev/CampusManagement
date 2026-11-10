@@ -33,6 +33,7 @@ Multiplatform client for the CampusManagement Operating System built with **Flut
   - **Institutional Fine Portal**: Penalty tracking, fine settlement, appeal submission, and administrator waivers.
   - **Institutional Library Subsystem**: Physical catalog with quota decrement, digital infinite e-books reader, and Library In-Charge Approvals counter for checkouts, renewals, and returns.
   - **Institutional Dispute System**: Contextual dispute modals for fees, fines, and exam marks leveraging complaints infrastructure.
+  - **Enhanced Profile & Digital Smart ID**: Scannable digital credential pass modal with barcode and QR, campus life KPI metrics (attendance 75% margin, active loans, fees, hostel), self-service contact details editing (personal email, phone, emergency contact, blood group, address), and live theme toggle.
 
 ---
 

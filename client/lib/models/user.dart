@@ -54,6 +54,10 @@ class UserModel {
   final String email;
   final String? personalEmail;
   final String? phone;
+  final String? emergencyContactName;
+  final String? emergencyContactPhone;
+  final String? bloodGroup;
+  final String? address;
   final String archetype; // 'student', 'employee', 'external'
   final String? universityRollNo;
   final String? admissionApplicationNo;
@@ -81,6 +85,10 @@ class UserModel {
     required this.email,
     this.personalEmail,
     this.phone,
+    this.emergencyContactName,
+    this.emergencyContactPhone,
+    this.bloodGroup,
+    this.address,
     required this.archetype,
     this.universityRollNo,
     this.admissionApplicationNo,
@@ -326,6 +334,10 @@ class UserModel {
       email: json['email'] ?? '',
       personalEmail: json['personal_email'],
       phone: json['phone'],
+      emergencyContactName: json['emergency_contact_name'],
+      emergencyContactPhone: json['emergency_contact_phone'],
+      bloodGroup: json['blood_group'] ?? json['bloodGroup'],
+      address: json['address'],
       archetype: json['archetype'] ?? 'student',
       universityRollNo: json['university_roll_no'],
       admissionApplicationNo: json['admission_application_no'],
@@ -356,6 +368,10 @@ class UserModel {
       'email': email,
       'personal_email': personalEmail,
       'phone': phone,
+      'emergency_contact_name': emergencyContactName,
+      'emergency_contact_phone': emergencyContactPhone,
+      'blood_group': bloodGroup,
+      'address': address,
       'archetype': archetype,
       'university_roll_no': universityRollNo,
       'admission_application_no': admissionApplicationNo,
@@ -383,6 +399,10 @@ class UserModel {
     String? email,
     String? personalEmail,
     String? phone,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+    String? bloodGroup,
+    String? address,
     String? archetype,
     String? universityRollNo,
     String? admissionApplicationNo,
@@ -408,6 +428,10 @@ class UserModel {
       email: email ?? this.email,
       personalEmail: personalEmail ?? this.personalEmail,
       phone: phone ?? this.phone,
+      emergencyContactName: emergencyContactName ?? this.emergencyContactName,
+      emergencyContactPhone: emergencyContactPhone ?? this.emergencyContactPhone,
+      bloodGroup: bloodGroup ?? this.bloodGroup,
+      address: address ?? this.address,
       archetype: archetype ?? this.archetype,
       universityRollNo: universityRollNo ?? this.universityRollNo,
       admissionApplicationNo: admissionApplicationNo ?? this.admissionApplicationNo,

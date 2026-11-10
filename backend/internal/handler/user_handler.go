@@ -62,6 +62,10 @@ func (h *UserHandler) seedDefaultUsers() {
 		Email:                  "harish_2025_l_btech_1@campus.edu",
 		PersonalEmail:          "harish.kumar@example.com",
 		Phone:                  "+91 98765 43210",
+		EmergencyContactName:   "Suresh Kumar (Father)",
+		EmergencyContactPhone:  "+91 98765 00112",
+		BloodGroup:             "O+",
+		Address:                "Room 204, Aryabhatta Hostel Block, Campus North",
 		Archetype:              model.ArchetypeStudent,
 		AdmissionApplicationNo: "APP-2025-0819",
 		UniversityRollNo:       "2025-CS-042",
@@ -734,6 +738,65 @@ func (h *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(profileResp)
+}
+
+// UpdateUserProfile updates self-service editable contact fields for a user
+func (h *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.UpdateUserProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid JSON body: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	req.UserID = strings.TrimSpace(req.UserID)
+	if req.UserID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	user, exists := h.users[req.UserID]
+	if !exists {
+		if id, ok := h.handleToID[req.UserID]; ok {
+			user, exists = h.users[id]
+		}
+	}
+	if !exists {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	if req.PersonalEmail != "" {
+		user.PersonalEmail = strings.TrimSpace(req.PersonalEmail)
+	}
+	if req.Phone != "" {
+		user.Phone = strings.TrimSpace(req.Phone)
+	}
+	if req.EmergencyContactName != "" {
+		user.EmergencyContactName = strings.TrimSpace(req.EmergencyContactName)
+	}
+	if req.EmergencyContactPhone != "" {
+		user.EmergencyContactPhone = strings.TrimSpace(req.EmergencyContactPhone)
+	}
+	if req.BloodGroup != "" {
+		user.BloodGroup = strings.TrimSpace(req.BloodGroup)
+	}
+	if req.Address != "" {
+		user.Address = strings.TrimSpace(req.Address)
+	}
+	user.UpdatedAt = time.Now().UTC()
+
+	h.users[user.ID] = user
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 type DiscontinueUserRequest struct {

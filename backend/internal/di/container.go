@@ -248,6 +248,7 @@ func (c *Container) BuildMux() *http.ServeMux {
 	if c.UserHandler != nil {
 		mux.HandleFunc("/api/v1/users", c.UserHandler.HandleUsers)
 		mux.HandleFunc("/api/v1/users/profile", c.UserHandler.GetUserProfile)
+		mux.HandleFunc("/api/v1/users/profile/update", c.UserHandler.UpdateUserProfile)
 		mux.HandleFunc("/api/v1/users/roles", c.UserHandler.GetUserRoles)
 		mux.HandleFunc("/api/v1/users/student", c.UserHandler.CreateStudent)
 		mux.HandleFunc("/api/v1/users/employee", c.UserHandler.CreateEmployee)

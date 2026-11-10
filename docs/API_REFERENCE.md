@@ -192,7 +192,47 @@ Onboards third-party staff, issues security gate pass, and assigns zone access.
 
 ---
 
-### 2.5 Discontinue / Offboard User
+### 2.5 Self-Service User Profile Update
+Updates personal contact details and emergency information for a user.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/users/profile/update`
+
+**Request Body:**
+```json
+{
+  "user_id": "usr-harish_2025_l_btech_1",
+  "personal_email": "harish.personal@example.com",
+  "phone": "+91 98765 43210",
+  "emergency_contact_name": "Suresh Kumar (Father)",
+  "emergency_contact_phone": "+91 98765 00112",
+  "blood_group": "O+",
+  "address": "Room 204, Aryabhatta Hostel Block, Campus North"
+}
+```
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "id": "usr-harish_2025_l_btech_1",
+  "campus_handle": "harish_2025_l_btech_1",
+  "first_name": "Harish",
+  "last_name": "Kumar",
+  "email": "harish_2025_l_btech_1@campus.edu",
+  "personal_email": "harish.personal@example.com",
+  "phone": "+91 98765 43210",
+  "emergency_contact_name": "Suresh Kumar (Father)",
+  "emergency_contact_phone": "+91 98765 00112",
+  "blood_group": "O+",
+  "address": "Room 204, Aryabhatta Hostel Block, Campus North",
+  "archetype": "student",
+  "status": "active"
+}
+```
+
+---
+
+### 2.6 Discontinue / Offboard User
 Transitions user lifecycle to discontinued and revokes access.
 
 - **Method**: `POST`

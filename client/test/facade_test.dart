@@ -667,5 +667,29 @@ void main() {
       expect(ebooks.first.isInfiniteBorrow, isTrue);
       expect(String.fromCharCodes(pdfBytes).startsWith('%PDF-1.4'), isTrue);
     });
+
+    test('updateUserProfile delegates to storage and updates cached user details', () async {
+      final updated = await facade.updateUserProfile(
+        userId: 'usr-harish_2025_l_btech_1',
+        personalEmail: 'harish.custom@example.com',
+        phone: '+91 91234 56789',
+        emergencyContactName: 'Anita Kumar (Mother)',
+        emergencyContactPhone: '+91 91234 00000',
+        bloodGroup: 'B+',
+        address: 'Aryabhatta Block Room 301',
+      );
+
+      expect(updated.personalEmail, equals('harish.custom@example.com'));
+      expect(updated.phone, equals('+91 91234 56789'));
+      expect(updated.emergencyContactName, equals('Anita Kumar (Mother)'));
+      expect(updated.emergencyContactPhone, equals('+91 91234 00000'));
+      expect(updated.bloodGroup, equals('B+'));
+      expect(updated.address, equals('Aryabhatta Block Room 301'));
+
+      final retrieved = await facade.getUserProfile('usr-harish_2025_l_btech_1');
+      expect(retrieved.personalEmail, equals('harish.custom@example.com'));
+      expect(retrieved.emergencyContactName, equals('Anita Kumar (Mother)'));
+      expect(retrieved.bloodGroup, equals('B+'));
+    });
   });
 }

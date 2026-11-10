@@ -234,6 +234,10 @@ class ApiService implements ICampusApi {
         email: userMap['email'] ?? '',
         personalEmail: userMap['personal_email'],
         phone: userMap['phone'],
+        emergencyContactName: userMap['emergency_contact_name'],
+        emergencyContactPhone: userMap['emergency_contact_phone'],
+        bloodGroup: userMap['blood_group'] ?? userMap['bloodGroup'],
+        address: userMap['address'],
         archetype: userMap['archetype'] ?? 'student',
         universityRollNo: userMap['university_roll_no'],
         admissionApplicationNo: userMap['admission_application_no'],
@@ -254,6 +258,38 @@ class ApiService implements ICampusApi {
       );
     }
     throw Exception('Failed to load user profile (${res.statusCode})');
+  }
+
+  @override
+  Future<UserModel> updateUserProfile({
+    required String userId,
+    String? personalEmail,
+    String? phone,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+    String? bloodGroup,
+    String? address,
+  }) async {
+    final payload = <String, dynamic>{
+      'user_id': userId,
+    };
+    if (personalEmail != null) payload['personal_email'] = personalEmail;
+    if (phone != null) payload['phone'] = phone;
+    if (emergencyContactName != null) payload['emergency_contact_name'] = emergencyContactName;
+    if (emergencyContactPhone != null) payload['emergency_contact_phone'] = emergencyContactPhone;
+    if (bloodGroup != null) payload['blood_group'] = bloodGroup;
+    if (address != null) payload['address'] = address;
+
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/users/profile/update'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      final userMap = jsonDecode(res.body) as Map<String, dynamic>;
+      return UserModel.fromJson(userMap);
+    }
+    throw Exception('Failed to update user profile (${res.statusCode})');
   }
 
   Future<UserModel> createStudent(Map<String, dynamic> req) async {

@@ -100,6 +100,7 @@ Conforming to engineering standards (`./script.sh <command>` or `.\script.ps1 <c
 | `GET` / `POST` | `/api/v1/notices` | Fetch targeted notices by user scopes / publish announcement |
 | `GET` | `/api/v1/sync` | Delta sync replication for offline SQLite clients |
 | `GET` | `/api/v1/users` | List campus directory with search and archetype filtering |
+| `POST` | `/api/v1/users/profile/update` | Self-service update of user contact info, emergency contacts & blood group |
 | `POST` | `/api/v1/users/student` | Onboard student & mint canonical handle (`{name}_{year}_{entry}_{prog}_{seq}`) |
 | `POST` | `/api/v1/users/employee` | Onboard employee & mint unified handle (`{name}_{year}_emp_{seq}`) |
 | `POST` | `/api/v1/users/discontinue` | Discontinue / offboard campus identity |

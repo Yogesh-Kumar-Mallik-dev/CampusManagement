@@ -24,6 +24,15 @@ abstract class ICampusFacade {
   Future<UserModel> login(String identifier, String password);
   void logout();
   Future<UserModel> getUserProfile(String idOrHandle);
+  Future<UserModel> updateUserProfile({
+    required String userId,
+    String? personalEmail,
+    String? phone,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+    String? bloodGroup,
+    String? address,
+  });
   Future<List<UserModel>> getUsers({
     String? status,
     String? archetype,
@@ -291,6 +300,26 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<UserModel> getUserProfile(String idOrHandle) =>
       storage.getUserProfile(idOrHandle);
+
+  @override
+  Future<UserModel> updateUserProfile({
+    required String userId,
+    String? personalEmail,
+    String? phone,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+    String? bloodGroup,
+    String? address,
+  }) =>
+      storage.updateUserProfile(
+        userId: userId,
+        personalEmail: personalEmail,
+        phone: phone,
+        emergencyContactName: emergencyContactName,
+        emergencyContactPhone: emergencyContactPhone,
+        bloodGroup: bloodGroup,
+        address: address,
+      );
 
   @override
   Future<List<UserModel>> getUsers({

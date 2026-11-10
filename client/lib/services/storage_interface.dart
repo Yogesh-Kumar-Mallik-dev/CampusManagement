@@ -48,6 +48,15 @@ abstract class ICampusApi {
     String? search,
   });
   Future<UserModel> fetchUserProfile(String idOrHandle);
+  Future<UserModel> updateUserProfile({
+    required String userId,
+    String? personalEmail,
+    String? phone,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+    String? bloodGroup,
+    String? address,
+  });
   Future<UserModel> createStudent(Map<String, dynamic> req);
   Future<UserModel> createEmployee(Map<String, dynamic> req);
   Future<UserModel> createContractor(Map<String, dynamic> req);
@@ -272,6 +281,15 @@ abstract class ICampusStorage {
     bool forceRefresh = false,
   });
   Future<UserModel> getUserProfile(String idOrHandle);
+  Future<UserModel> updateUserProfile({
+    required String userId,
+    String? personalEmail,
+    String? phone,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+    String? bloodGroup,
+    String? address,
+  });
   Future<UserModel> createStudent(Map<String, dynamic> req);
   Future<UserModel> createEmployee(Map<String, dynamic> req);
   Future<UserModel> createContractor(Map<String, dynamic> req);

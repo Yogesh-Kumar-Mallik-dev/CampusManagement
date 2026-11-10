@@ -19,6 +19,10 @@ type User struct {
 	Email                  string     `json:"email"`
 	PersonalEmail          string     `json:"personal_email,omitempty"`
 	Phone                  string     `json:"phone,omitempty"`
+	EmergencyContactName   string     `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone  string     `json:"emergency_contact_phone,omitempty"`
+	BloodGroup             string     `json:"blood_group,omitempty"`
+	Address                string     `json:"address,omitempty"`
 	Archetype              Archetype  `json:"archetype"`
 	AdmissionApplicationNo string     `json:"admission_application_no,omitempty"`
 	UniversityRollNo       string     `json:"university_roll_no,omitempty"`
@@ -49,6 +53,17 @@ type UserProfileResponse struct {
 	AdministrativeProfile *AdministrativeProfile `json:"administrative_profile,omitempty"`
 	ContractorProfile     *ContractorProfile     `json:"contractor_profile,omitempty"`
 	AssignedRoles         []UserRoleAssignment   `json:"assigned_roles,omitempty"`
+}
+
+// UpdateUserProfileRequest holds self-service editable contact fields
+type UpdateUserProfileRequest struct {
+	UserID                string `json:"user_id"`
+	PersonalEmail         string `json:"personal_email,omitempty"`
+	Phone                 string `json:"phone,omitempty"`
+	EmergencyContactName  string `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone string `json:"emergency_contact_phone,omitempty"`
+	BloodGroup            string `json:"blood_group,omitempty"`
+	Address               string `json:"address,omitempty"`
 }
 
 // StudentProfile holds academic admission facts

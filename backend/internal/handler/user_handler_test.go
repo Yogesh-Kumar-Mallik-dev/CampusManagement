@@ -333,3 +333,45 @@ func TestGetUserRolesEndpoint(t *testing.T) {
 		t.Fatalf("expected permissions for campus_admin, got %v", res["permissions"])
 	}
 }
+
+func TestUpdateUserProfile(t *testing.T) {
+	idSvc := idgen.NewIDService(nil)
+	permSvc := service.NewPermissionService(nil, nil)
+	h := NewUserHandler(idSvc, permSvc)
+
+	// Update Harish's contact info
+	updateBody := `{
+		"user_id": "usr-harish_2025_l_btech_1",
+		"personal_email": "harish.new@example.com",
+		"phone": "+91 99887 76655",
+		"emergency_contact_name": "Anita Kumar (Mother)",
+		"emergency_contact_phone": "+91 99887 00011",
+		"bloodGroup": "O+",
+		"address": "Flat 302, Green Valley Apartments"
+	}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/profile/update", bytes.NewBufferString(updateBody))
+	h.UpdateUserProfile(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	var user model.User
+	if err := json.Unmarshal(rec.Body.Bytes(), &user); err != nil {
+		t.Fatalf("failed decoding json: %v", err)
+	}
+
+	if user.PersonalEmail != "harish.new@example.com" {
+		t.Fatalf("expected personal_email harish.new@example.com, got %s", user.PersonalEmail)
+	}
+	if user.Phone != "+91 99887 76655" {
+		t.Fatalf("expected phone +91 99887 76655, got %s", user.Phone)
+	}
+	if user.EmergencyContactName != "Anita Kumar (Mother)" {
+		t.Fatalf("expected emergency contact name Anita Kumar (Mother), got %s", user.EmergencyContactName)
+	}
+	if user.Address != "Flat 302, Green Valley Apartments" {
+		t.Fatalf("expected address Flat 302, Green Valley Apartments, got %s", user.Address)
+	}
+}

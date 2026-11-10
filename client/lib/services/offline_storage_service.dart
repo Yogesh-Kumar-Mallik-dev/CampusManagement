@@ -384,6 +384,10 @@ class OfflineStorageService implements ICampusStorage {
         email: 'harish_2025_l_btech_1@campus.edu',
         personalEmail: 'harish.kumar@example.com',
         phone: '+91 98765 43210',
+        emergencyContactName: 'Suresh Kumar (Father)',
+        emergencyContactPhone: '+91 98765 00112',
+        bloodGroup: 'O+',
+        address: 'Room 204, Aryabhatta Hostel Block, Campus North',
         archetype: 'student',
         universityRollNo: '2025-CS-042',
         admissionApplicationNo: 'APP-2025-0819',
@@ -674,6 +678,68 @@ class OfflineStorageService implements ICampusStorage {
       ),
     );
     return cached;
+  }
+
+  @override
+  Future<UserModel> updateUserProfile({
+    required String userId,
+    String? personalEmail,
+    String? phone,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+    String? bloodGroup,
+    String? address,
+  }) async {
+    _seedDefaultUsersIfEmpty();
+    await checkConnectivity();
+
+    UserModel? updated;
+    if (isOnline) {
+      try {
+        updated = await api.updateUserProfile(
+          userId: userId,
+          personalEmail: personalEmail,
+          phone: phone,
+          emergencyContactName: emergencyContactName,
+          emergencyContactPhone: emergencyContactPhone,
+          bloodGroup: bloodGroup,
+          address: address,
+        );
+      } catch (_) {}
+    }
+
+    final idx = _cachedUsers.indexWhere((u) => u.id == userId || u.campusHandle == userId);
+    if (idx != -1) {
+      final current = _cachedUsers[idx];
+      updated ??= current.copyWith(
+        personalEmail: personalEmail ?? current.personalEmail,
+        phone: phone ?? current.phone,
+        emergencyContactName: emergencyContactName ?? current.emergencyContactName,
+        emergencyContactPhone: emergencyContactPhone ?? current.emergencyContactPhone,
+        bloodGroup: bloodGroup ?? current.bloodGroup,
+        address: address ?? current.address,
+      );
+      _cachedUsers[idx] = updated;
+    } else if (updated != null) {
+      _cachedUsers.add(updated);
+    } else {
+      updated = UserModel(
+        id: userId,
+        campusHandle: userId,
+        firstName: 'Campus',
+        lastName: 'Member',
+        email: '$userId@campus.edu',
+        personalEmail: personalEmail,
+        phone: phone,
+        emergencyContactName: emergencyContactName,
+        emergencyContactPhone: emergencyContactPhone,
+        bloodGroup: bloodGroup,
+        address: address,
+        archetype: 'student',
+      );
+      _cachedUsers.add(updated);
+    }
+    return updated;
   }
 
   Future<UserModel> createStudent(Map<String, dynamic> req) async {

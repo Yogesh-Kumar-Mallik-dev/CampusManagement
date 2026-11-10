@@ -212,3 +212,20 @@ To avoid user confusion between pre-filled placeholder text and user-entered val
 ### 9.3 Contextual Dispute System
 - Reusable dispute submission modal launched directly from invoice items, fine penalties, or exam results.
 - Enforces authenticated user identity, verified record ID binding, and transparent resolution tracking via the institutional grievance pipeline.
+
+### 9.4 Enhanced User Profile Hub & Digital Identity System
+- **Interactive Digital Smart ID Card**:
+  - Vector QR code, high-contrast barcode rendering, and "CAMPUS-NFC-VERIFIED" emblem.
+  - Dedicated full-screen / modal credential dialog (`_showDigitalIdModal`) with scannable vector graphics, designed for library turnstiles, dining entry, and exam halls.
+- **Campus Life Snapshot & Activity Metrics**:
+  - 4 responsive KPI cards for students: Attendance standing (with 75% regulatory margin warning/safe indicator), Library standing (active loans count and fine balance), Hostel residence assignment, and Institutional fee balance.
+- **Self-Service Contact & Emergency Directory**:
+  - Structured personal directory displaying institutional email, personal email, phone number, emergency contact name/relationship, emergency phone, blood group, and residential address.
+  - Interactive self-service update dialog (`_showEditContactDialog`) with lighter placeholder contrast and instant cache/server synchronization.
+- **Academic & Employment Portfolio**:
+  - Adaptive metadata display presenting academic cohort/semester/advisor for students, academic track/cabin/departments/office for faculty, and vendor/gate pass/supervisors for external contractors.
+- **Security, Scopes & Theme Preferences**:
+  - Scoped RBAC chips for granted roles, boundaries, and rights.
+  - Live Theme Mode switcher supporting instant Light/Dark mode toggling.
+- **Small Screen Responsiveness**:
+  - Tested and verified down to 360x640 mobile viewports with zero horizontal overflow.
