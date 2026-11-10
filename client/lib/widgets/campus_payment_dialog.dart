@@ -82,14 +82,16 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
     _tabController = TabController(
       length: 4,
       vsync: this,
-      animationDuration: const Duration(milliseconds: 150),
+      animationDuration: Duration.zero,
     );
     _tabController.addListener(() {
-      final method = _methodForIndex(_tabController.index);
-      if (_selectedPaymentMethod != method) {
-        setState(() {
-          _selectedPaymentMethod = method;
-        });
+      if (!_tabController.indexIsChanging) {
+        final method = _methodForIndex(_tabController.index);
+        if (_selectedPaymentMethod != method) {
+          setState(() {
+            _selectedPaymentMethod = method;
+          });
+        }
       }
     });
 
@@ -360,7 +362,7 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
                       _buildAmountAndChannelBar(isDark),
                       _buildChannelTabs(isDark),
                       Expanded(
-                        child: _FadingIndexedStack(
+                        child: IndexedStack(
                           index: _tabController.index,
                           children: [
                             _buildUpiTab(isDark),
@@ -414,11 +416,13 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
               ],
               onChanged: (val) {
                 if (val != null) {
-                  setState(() => _selectedPaymentMethod = val);
                   final tabIdx = ['upi', 'card', 'netbanking', 'challan'].indexOf(val);
-                  if (tabIdx >= 0 && _tabController.index != tabIdx) {
-                    _tabController.animateTo(tabIdx);
-                  }
+                  setState(() {
+                    _selectedPaymentMethod = val;
+                    if (tabIdx >= 0) {
+                      _tabController.index = tabIdx;
+                    }
+                  });
                 }
               },
             ),
@@ -542,11 +546,10 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
         isScrollable: false,
         onTap: (index) {
           final method = _methodForIndex(index);
-          if (_selectedPaymentMethod != method) {
-            setState(() {
-              _selectedPaymentMethod = method;
-            });
-          }
+          setState(() {
+            _tabController.index = index;
+            _selectedPaymentMethod = method;
+          });
         },
         labelColor: AppColors.wineRed,
         unselectedLabelColor: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -1203,63 +1206,6 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// High-performance tab content stack that switches instantly without
-/// horizontal slide jank or layout thrashing of offscreen pages, while
-/// preserving internal widget state, scroll positions, and form input.
-class _FadingIndexedStack extends StatefulWidget {
-  final int index;
-  final List<Widget> children;
-
-  const _FadingIndexedStack({
-    required this.index,
-    required this.children,
-  });
-
-  @override
-  State<_FadingIndexedStack> createState() => _FadingIndexedStackState();
-}
-
-class _FadingIndexedStackState extends State<_FadingIndexedStack> with SingleTickerProviderStateMixin {
-  static const Duration _fadeDuration = Duration(milliseconds: 140);
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  int _currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.index;
-    _controller = AnimationController(vsync: this, duration: _fadeDuration, value: 1.0);
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-  }
-
-  @override
-  void didUpdateWidget(_FadingIndexedStack oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.index != _currentIndex) {
-      _currentIndex = widget.index;
-      _controller.forward(from: 0.0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _animation,
-      child: IndexedStack(
-        index: _currentIndex,
-        children: widget.children,
       ),
     );
   }

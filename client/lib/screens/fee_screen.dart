@@ -31,9 +31,9 @@ class FeeScreen extends StatefulWidget {
 
 class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
-  final dateFmt = DateFormat('dd MMM yyyy');
-  final dateTimeFmt = DateFormat('dd MMM yyyy, hh:mm a');
+  static final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+  static final dateFmt = DateFormat('dd MMM yyyy');
+  static final dateTimeFmt = DateFormat('dd MMM yyyy, hh:mm a');
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -45,7 +45,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
 
   String _invoiceFilter = 'all';
   String _fineFilter = 'all';
-  String _paymentSearch = '';
+  final _paymentSearchNotifier = ValueNotifier<String>('');
 
   ICampusFacade get _facade {
     if (widget.facade != null) return widget.facade!;
@@ -74,13 +74,23 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      animationDuration: Duration.zero,
+    );
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && mounted) {
+        setState(() {});
+      }
+    });
     _loadFeeData();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _paymentSearchNotifier.dispose();
     super.dispose();
   }
 
@@ -152,6 +162,11 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          onTap: (index) {
+            setState(() {
+              _tabController.index = index;
+            });
+          },
           labelColor: AppColors.wineRed,
           unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
           indicatorColor: AppColors.wineRed,
@@ -237,8 +252,8 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
             const Divider(height: 1),
             // Subsystem Tab Views
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
+              child: IndexedStack(
+                index: _tabController.index,
                 children: [
                   _buildInvoicesPortal(isDark, isMobile),
                   _buildFinesPortal(isDark, isMobile),
@@ -987,104 +1002,109 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
   // ----------------------------------------------------
 
   Widget _buildLedgerPortal(bool isDark, bool isMobile) {
-    final filtered = _payments.where((p) {
-      if (_paymentSearch.isEmpty) return true;
-      final q = _paymentSearch.toLowerCase();
-      return p.receiptNumber.toLowerCase().contains(q) ||
-          p.transactionRef.toLowerCase().contains(q) ||
-          p.paymentMethod.toLowerCase().contains(q);
-    }).toList();
+    return ValueListenableBuilder<String>(
+      valueListenable: _paymentSearchNotifier,
+      builder: (context, searchQuery, _) {
+        final filtered = _payments.where((p) {
+          if (searchQuery.isEmpty) return true;
+          final q = searchQuery.toLowerCase();
+          return p.receiptNumber.toLowerCase().contains(q) ||
+              p.transactionRef.toLowerCase().contains(q) ||
+              p.paymentMethod.toLowerCase().contains(q);
+        }).toList();
 
-    return Column(
-      children: [
-        // Search & Filter
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: isMobile
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      key: const Key('input-search-payments'),
-                      decoration: InputDecoration(
-                        hintText: 'Search by Receipt Number, Ref ID, or Payment Mode...',
-                        prefixIcon: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-                          child: AppSvgIcon(
-                            svgString: AppSvgIcon.search,
-                            size: 13,
-                            strokeWidth: 1.5,
-                            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+        return Column(
+          children: [
+            // Search & Filter
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          key: const Key('input-search-payments'),
+                          decoration: InputDecoration(
+                            hintText: 'Search by Receipt Number, Ref ID, or Payment Mode...',
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                              child: AppSvgIcon(
+                                svgString: AppSvgIcon.search,
+                                size: 13,
+                                strokeWidth: 1.5,
+                                color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                              ),
+                            ),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            isDense: true,
+                          ),
+                          onChanged: (val) {
+                            _paymentSearchNotifier.value = val.trim();
+                          },
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${filtered.length} receipts found',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                           ),
                         ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        isDense: true,
-                      ),
-                      onChanged: (val) {
-                        setState(() => _paymentSearch = val.trim());
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const Key('input-search-payments'),
+                            decoration: InputDecoration(
+                              hintText: 'Search by Receipt Number, Ref ID, or Payment Mode...',
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                                child: AppSvgIcon(
+                                  svgString: AppSvgIcon.search,
+                                  size: 13,
+                                  strokeWidth: 1.5,
+                                  color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                                ),
+                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              isDense: true,
+                            ),
+                            onChanged: (val) {
+                              _paymentSearchNotifier.value = val.trim();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${filtered.length} receipts found',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: filtered.isEmpty
+                  ? _buildEmptyState('No payment transactions or receipts found', isDark)
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        return _buildPaymentRecordCard(filtered[index], isDark);
                       },
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${filtered.length} receipts found',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        key: const Key('input-search-payments'),
-                        decoration: InputDecoration(
-                          hintText: 'Search by Receipt Number, Ref ID, or Payment Mode...',
-                          prefixIcon: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-                            child: AppSvgIcon(
-                              svgString: AppSvgIcon.search,
-                              size: 13,
-                              strokeWidth: 1.5,
-                              color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
-                            ),
-                          ),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          isDense: true,
-                        ),
-                        onChanged: (val) {
-                          setState(() => _paymentSearch = val.trim());
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '${filtered.length} receipts found',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: filtered.isEmpty
-              ? _buildEmptyState('No payment transactions or receipts found', isDark)
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    return _buildPaymentRecordCard(filtered[index], isDark);
-                  },
-                ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
