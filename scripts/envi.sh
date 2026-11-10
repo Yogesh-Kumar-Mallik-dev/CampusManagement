@@ -10,7 +10,7 @@ echo "==> [envi] Initializing environment configuration..."
 if [ ! -f "$ROOT_DIR/.env" ]; then
   if [ -f "$ROOT_DIR/.env.example" ]; then
     cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
-    echo "✅ [envi] Created .env from .env.example"
+    echo "[envi] Created .env from .env.example"
   fi
 fi
 
@@ -30,10 +30,10 @@ if command -v docker >/dev/null 2>&1; then
   done
 
   if docker compose up -d postgres redis; then
-    echo "✅ [envi] Infrastructure containers started successfully."
+    echo "[envi] Infrastructure containers started successfully."
   else
-    echo "⚠️ [envi] Docker compose encountered a non-fatal warning. Continuing if local services are active..."
+    echo "[warning] [envi] Docker compose encountered a non-fatal warning. Continuing if local services are active..."
   fi
 else
-  echo "⚠️ [envi] Docker not found. Ensure PostgreSQL (5432) and Redis (6379) are running locally."
+  echo "[warning] [envi] Docker not found. Ensure PostgreSQL (5432) and Redis (6379) are running locally."
 fi

@@ -22,4 +22,4 @@ if command -v docker >/dev/null 2>&1; then
   fi
 fi
 
-echo "✅ [flush] PostgreSQL and Redis flushed successfully."
+echo "[flush] PostgreSQL and Redis flushed successfully."

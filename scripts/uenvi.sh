@@ -15,5 +15,5 @@ if command -v docker >/dev/null 2>&1; then
       docker rm -f "$CNAME" >/dev/null 2>&1 || true
     fi
   done
-  echo "✅ [uenvi] Containers stopped and cleaned up."
+  echo "[uenvi] Containers stopped and cleaned up."
 fi

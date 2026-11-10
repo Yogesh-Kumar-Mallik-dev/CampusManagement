@@ -52,7 +52,7 @@ BACKEND_PID=$!
 sleep 1
 
 echo "=================================================================="
-echo "  🏛️  CampusManagement Platform is running in dev mode!"
+echo "  CampusManagement Platform is running in dev mode!"
 echo "  Backend API: http://localhost:8080"
 echo "  Health:      http://localhost:8080/api/health"
 echo "  Delta Sync:  http://localhost:8080/api/v1/sync"

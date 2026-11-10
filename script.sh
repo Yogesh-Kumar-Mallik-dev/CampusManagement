@@ -12,7 +12,7 @@ shift || true
 
 function show_help() {
   echo "=================================================================="
-  echo "  🏛️  CampusManagement Platform Lifecycle Orchestrator"
+  echo "  CampusManagement Platform Lifecycle Orchestrator"
   echo "=================================================================="
   echo "Usage: ./script.sh <command> [args...]"
   echo ""

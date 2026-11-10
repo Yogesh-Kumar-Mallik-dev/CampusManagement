@@ -10,16 +10,16 @@ A resilient, multiplatform Campus Operating System powered by:
 
 ---
 
-## 📚 Documentation Index
+## Documentation Index
 
-Comprehensive technical documentation is maintained in the [`docs/`](file:///home/yogesh/Projects/CampusManagement/docs/README.md) directory:
+Comprehensive technical documentation is maintained in the [`docs/`](docs/README.md) directory:
 
-- [**System Architecture & Caching**](file:///home/yogesh/Projects/CampusManagement/docs/ARCHITECTURE.md): Dual-tier caching, singleflight deduplication, database connection pooling, and offline outbox sync.
-- [**Optical Data Transfer Attendance**](file:///home/yogesh/Projects/CampusManagement/docs/OPTICAL_ATTENDANCE.md): Rapidly rolling QR protocol (1.5s refresh), HMAC-SHA256 frame packets, 6-second anti-proxy freshness window, and live podium feed.
-- [**Identity Minting & Scoped RBAC**](file:///home/yogesh/Projects/CampusManagement/docs/IDENTITY_AND_RBAC.md): Canonical handle generator (`idgen`), scoped roles (`sec:cse-3a`, `dept:cse`, `inst:*`), dual-role staff, and lifecycle states.
-- [**REST API Reference**](file:///home/yogesh/Projects/CampusManagement/docs/API_REFERENCE.md): Complete endpoint specification with JSON schemas, query parameters, error codes, and cURL commands.
-- [**UI & Design System**](file:///home/yogesh/Projects/CampusManagement/docs/UI_AND_DESIGN_SYSTEM.md): Material 3 Wine Red (`#7A1C30`) and GitHub Green (`#238636`) palette, smooth theme transitions, SVG icons, and non-scrollable viewports.
-- [**Operations & CLI Orchestrator**](file:///home/yogesh/Projects/CampusManagement/docs/OPERATIONS_AND_SCRIPTS.md): Turnkey development lifecycle runner (`./script.sh`), Docker Compose topology, and automated build pipelines.
+- [**System Architecture & Caching**](docs/ARCHITECTURE.md): Dual-tier caching, singleflight deduplication, database connection pooling, and offline outbox sync.
+- [**Optical Data Transfer Attendance**](docs/OPTICAL_ATTENDANCE.md): Rapidly rolling QR protocol (1.5s refresh), HMAC-SHA256 frame packets, 6-second anti-proxy freshness window, and live podium feed.
+- [**Identity Minting & Scoped RBAC**](docs/IDENTITY_AND_RBAC.md): Canonical handle generator (`idgen`), scoped roles (`sec:cse-3a`, `dept:cse`, `inst:*`), dual-role staff, and lifecycle states.
+- [**REST API Reference**](docs/API_REFERENCE.md): Complete endpoint specification with JSON schemas, query parameters, error codes, and cURL commands.
+- [**UI & Design System**](docs/UI_AND_DESIGN_SYSTEM.md): Material 3 Wine Red (`#7A1C30`) and GitHub Green (`#238636`) palette, smooth theme transitions, SVG icons, and non-scrollable viewports.
+- [**Operations & CLI Orchestrator**](docs/OPERATIONS_AND_SCRIPTS.md): Turnkey development lifecycle runner (`./script.sh`), Docker Compose topology, and automated build pipelines.
 
 ---
 
@@ -116,6 +116,25 @@ Conforming to engineering standards (`./script.sh <command>` or `.\script.ps1 <c
 | `POST` | `/api/v1/academics/sections/batches/auto-partition` | Deterministic $O(N)$ round-robin student batch auto-partitioning |
 | `GET` / `POST` / `DELETE` | `/api/v1/academics/allocations` | Assign faculty to theory, practical, or tutorial components |
 | `GET` | `/api/v1/academics/faculty/workload` | Faculty teaching hours summary with 16h overload ceiling |
+| `GET` | `/api/v1/fees/summary` | Query student fee balances, upcoming dues, and historical payment ledger |
+| `GET` / `POST` | `/api/v1/fees/invoices` | List invoices by student or status / process fee payment with receipt |
+| `GET` | `/api/v1/fees/invoices/pdf` | Generate and download compliant PDF 1.4 fee invoice document |
+| `GET` / `POST` | `/api/v1/fees/fines` | List disciplinary and library fines / pay fine |
+| `POST` | `/api/v1/fees/fines/appeal` | Submit fine appeal with official justification |
+| `POST` | `/api/v1/fees/fines/waive` | Waive fine penalties with administrator authorization |
+| `GET` | `/api/v1/library/summary` | Query library quota, active loans count, and overdue balances |
+| `GET` | `/api/v1/library/books` | Search physical catalog with remaining copies tracking |
+| `GET` / `POST` | `/api/v1/library/borrows` | List borrow records / submit book checkout request |
+| `POST` | `/api/v1/library/borrow/approve` | Library In-Charge sign-off to authorize physical copy checkout |
+| `POST` | `/api/v1/library/borrow/reject` | Reject checkout request and restore catalog inventory copy |
+| `POST` | `/api/v1/library/return` | Submit book return request (awaits counter inspection) |
+| `POST` | `/api/v1/library/return/approve` | In-Charge physical inspection verification & copy check-in |
+| `POST` | `/api/v1/library/return/reject` | Reject return (damaged copy or missing pages) |
+| `POST` | `/api/v1/library/renew` | Submit deadline extension request |
+| `POST` | `/api/v1/library/renew/approve` | In-Charge approval to extend due date by +14 calendar days |
+| `POST` | `/api/v1/library/renew/reject` | Reject renewal request |
+| `GET` | `/api/v1/library/ebooks` | Infinite concurrent borrowing digital textbook catalog |
+| `GET` / `POST` | `/api/v1/complaints` | Institutional grievance & dispute registry (Fee, Fine, Exam Result) |
 | `GET` | `/api/health` | Service health & cache readiness check |
 
 ---

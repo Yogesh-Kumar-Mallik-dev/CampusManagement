@@ -15,7 +15,7 @@ if ! command -v flutter >/dev/null 2>&1; then
 fi
 
 if ! command -v flutter >/dev/null 2>&1; then
-  echo "❌ Flutter SDK not found in PATH or ~/.local/share/flutter/bin"
+  echo "[error] Flutter SDK not found in PATH or ~/.local/share/flutter/bin"
   exit 1
 fi
 

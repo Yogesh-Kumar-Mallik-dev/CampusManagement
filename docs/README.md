@@ -4,20 +4,20 @@ Welcome to the **CampusManagement** engineering documentation. This repository h
 
 ---
 
-## 📚 Documentation Index
+## Documentation Index
 
 | Guide | Description |
 | :--- | :--- |
-| [Architecture & System Design](file:///home/yogesh/Projects/CampusManagement/docs/ARCHITECTURE.md) | High-level system topology, caching strategy, offline-first Drift/SQLite outbox, and delta sync replication. |
-| [Optical Attendance Protocol](file:///home/yogesh/Projects/CampusManagement/docs/OPTICAL_ATTENDANCE.md) | Deep dive into rolling QR codes, 1.5s ephemeral frame turnovers, HMAC-SHA256 signatures, and anti-proxy mitigations. |
-| [Identity & Scoped RBAC](file:///home/yogesh/Projects/CampusManagement/docs/IDENTITY_AND_RBAC.md) | Canonical handle generation (`idgen`), scoped roles, dual-role employees, and user lifecycle states. |
-| [API Reference](file:///home/yogesh/Projects/CampusManagement/docs/API_REFERENCE.md) | Comprehensive REST API specification with request/response schemas, error handling, and cURL examples. |
-| [UI & Design System](file:///home/yogesh/Projects/CampusManagement/docs/UI_AND_DESIGN_SYSTEM.md) | Wine Red & GitHub Green palette, smooth theme transitions, SVG icons, and non-scrollable viewports. |
-| [Operations & CLI Orchestrator](file:///home/yogesh/Projects/CampusManagement/docs/OPERATIONS_AND_SCRIPTS.md) | Universal lifecycle commands (`./script.sh`), Docker local environment, testing, and deployment. |
+| [Architecture & System Design](ARCHITECTURE.md) | High-level system topology, caching strategy, offline-first Drift/SQLite outbox, and delta sync replication. |
+| [Optical Attendance Protocol](OPTICAL_ATTENDANCE.md) | Deep dive into rolling QR codes, 1.5s ephemeral frame turnovers, HMAC-SHA256 signatures, and anti-proxy mitigations. |
+| [Identity & Scoped RBAC](IDENTITY_AND_RBAC.md) | Canonical handle generation (`idgen`), scoped roles, dual-role employees, and user lifecycle states. |
+| [API Reference](API_REFERENCE.md) | Comprehensive REST API specification with request/response schemas, error handling, and cURL examples including Fee, Fine, Library, and Dispute subsystems. |
+| [UI & Design System](UI_AND_DESIGN_SYSTEM.md) | Wine Red & GitHub Green palette, smooth theme transitions, SVG icons, desktop dropdowns, lighter placeholder standards, and non-scrollable viewports. |
+| [Operations & CLI Orchestrator](OPERATIONS_AND_SCRIPTS.md) | Universal lifecycle commands (`./script.sh`), Docker local environment, testing, and deployment. |
 
 ---
 
-## 🧭 System Overview
+## System Overview
 
 ```mermaid
 flowchart TD
@@ -61,7 +61,7 @@ flowchart TD
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ```bash
 # 1. Install all dependencies (Go modules & Flutter packages)

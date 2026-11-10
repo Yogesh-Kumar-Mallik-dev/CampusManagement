@@ -1069,3 +1069,212 @@ Retrieves workload metrics across all faculty or for an individual teacher, flag
   }
 ]
 ```
+
+---
+
+## 10. Fee & Fine Subsystems
+
+### 10.1 Fee Summary
+- **Method**: `GET`
+- **Path**: `/api/v1/fees/summary?student_id={student_id}`
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "student_id": "usr-harish_2025_l_btech_1",
+  "total_dues": 45000.0,
+  "total_paid": 95000.0,
+  "pending_invoices_count": 1,
+  "unpaid_fines_count": 0,
+  "unpaid_fines_amount": 0.0
+}
+```
+
+---
+
+### 10.2 List Fee Invoices
+- **Method**: `GET`
+- **Path**: `/api/v1/fees/invoices?student_id={student_id}&status={status}`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "inv-sem-2026-01",
+    "invoice_number": "INV-2026-00129",
+    "student_id": "usr-harish_2025_l_btech_1",
+    "student_name": "Harish Kumar",
+    "title": "Semester 4 Tuition & Lab Infrastructure",
+    "total_amount": 45000.0,
+    "paid_amount": 0.0,
+    "due_amount": 45000.0,
+    "status": "unpaid",
+    "due_date": "2026-11-30T23:59:59Z"
+  }
+]
+```
+
+---
+
+### 10.3 Process Invoice Payment
+- **Method**: `POST`
+- **Path**: `/api/v1/fees/pay`
+
+**Request Body:**
+```json
+{
+  "invoice_id": "inv-sem-2026-01",
+  "student_id": "usr-harish_2025_l_btech_1",
+  "amount": 45000.0,
+  "payment_method": "upi"
+}
+```
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "payment": {
+    "id": "pay-98124",
+    "amount": 45000.0,
+    "payment_method": "upi",
+    "receipt_number": "RCP-2026-88192"
+  },
+  "receipt": {
+    "receipt_number": "RCP-2026-88192",
+    "amount": 45000.0,
+    "status": "success"
+  }
+}
+```
+
+---
+
+### 10.4 Download Invoice PDF
+- **Method**: `GET`
+- **Path**: `/api/v1/fees/invoices/pdf?id={id}`
+- **Response**: `Content-Type: application/pdf` binary stream (PDF 1.4 specification).
+
+---
+
+### 10.5 Fine Management (List, Pay, Appeal, Waive)
+- `GET /api/v1/fees/fines?student_id={id}&status={status}`: Query institutional disciplinary and library fines.
+- `POST /api/v1/fees/fines/pay`: Settle fine amount via payment gateway or ledger adjustment.
+- `POST /api/v1/fees/fines/appeal`: Submit official appeal justification.
+- `POST /api/v1/fees/fines/waive`: Administrator waiver authorization.
+
+---
+
+## 11. Institutional Library Subsystem
+
+### 11.1 Library Summary
+- **Method**: `GET`
+- **Path**: `/api/v1/library/summary?student_id={student_id}`
+
+**Response (HTTP 200 OK):**
+```json
+{
+  "student_id": "usr-harish_2025_l_btech_1",
+  "active_loans_count": 1,
+  "overdue_loans_count": 0,
+  "max_borrow_quota": 4,
+  "total_fines_accrued": 0.0,
+  "books_borrowed_lifetime": 8
+}
+```
+
+---
+
+### 11.2 Physical Books Catalog
+- **Method**: `GET`
+- **Path**: `/api/v1/library/books?q={query}&category={category}`
+
+**Response (HTTP 200 OK):**
+```json
+[
+  {
+    "id": "bk-os-01",
+    "isbn": "978-1118063330",
+    "title": "Operating System Concepts",
+    "author": "Silberschatz, Galvin, Gagne",
+    "total_copies": 5,
+    "available_copies": 4,
+    "shelf_location": "Rack A-1"
+  }
+]
+```
+
+---
+
+### 11.3 Borrow Request & In-Charge Authorization
+- **Submit Checkout Request**: `POST /api/v1/library/borrow`
+  - Body: `{"student_id": "usr-1", "book_id": "bk-os-01"}`
+  - Status becomes `pending_approval` (available catalog copy decrements).
+- **In-Charge Approve Loan**: `POST /api/v1/library/borrow/approve`
+  - Body: `{"borrow_id": "brw-01", "approved_by": "usr-admin", "approved_by_name": "Librarian"}`
+  - Status transitions to `active` (activates 14-day checkout loan).
+- **In-Charge Reject Request**: `POST /api/v1/library/borrow/reject`
+  - Body: `{"borrow_id": "brw-01", "rejected_by": "usr-admin", "rejection_reason": "Allowance exceeded"}`
+  - Status transitions to `rejected` (restores inventory copy).
+
+---
+
+### 11.4 Loan Renewal & Return Authorization
+- **Submit Return Request**: `POST /api/v1/library/return`
+  - Body: `{"borrow_id": "brw-01", "student_id": "usr-1"}`
+  - Sets status to `pending_return` awaiting counter check-in inspection.
+- **In-Charge Approve Return**: `POST /api/v1/library/return/approve`
+  - Body: `{"borrow_id": "brw-01", "approved_by": "usr-admin", "approved_by_name": "Librarian"}`
+  - Marks status `returned`, increments catalog available copies, and syncs any overdue fines.
+- **In-Charge Reject Return**: `POST /api/v1/library/return/reject`
+  - Body: `{"borrow_id": "brw-01", "rejected_by": "usr-admin", "rejection_reason": "Damaged cover"}`
+- **Submit Renewal Request**: `POST /api/v1/library/renew`
+  - Sets status to `pending_renewal`.
+- **In-Charge Approve Renewal**: `POST /api/v1/library/renew/approve`
+  - Extends loan deadline by +14 calendar days and increments renewal count.
+- **In-Charge Reject Renewal**: `POST /api/v1/library/renew/reject`
+  - Preserves original due date with rejection notes.
+
+---
+
+### 11.5 Infinite Concurrent E-Books
+- **Method**: `GET`
+- **Path**: `/api/v1/library/ebooks?q={query}&category={category}`
+- Returns digital text assets supporting unlimited concurrent readers with built-in reader modals.
+
+---
+
+## 12. Complaints & Dispute System
+
+### 12.1 Submit Formal Dispute or Grievance
+- **Method**: `POST`
+- **Path**: `/api/v1/complaints`
+
+**Request Body (Dispute Mode):**
+```json
+{
+  "title": "Dispute against Late Return Fine on Algorithms Textbook",
+  "category": "academic",
+  "description": "Book returned before deadline at circulation desk; counter check-in delayed.",
+  "is_anonymous": false,
+  "is_dispute": true,
+  "dispute_type": "fine",
+  "dispute_record_id": "fine-lib-01",
+  "desired_resolution": "Full waiver of late fine"
+}
+```
+
+**Response (HTTP 201 Created):**
+```json
+{
+  "id": "cmp-98104",
+  "ticket_number": "CMP-2026-00412",
+  "title": "Dispute against Late Return Fine on Algorithms Textbook",
+  "status": "open",
+  "is_dispute": true,
+  "dispute_type": "fine",
+  "dispute_record_id": "fine-lib-01",
+  "desired_resolution": "Full waiver of late fine",
+  "created_at": "2026-11-10T09:30:00Z"
+}
+```

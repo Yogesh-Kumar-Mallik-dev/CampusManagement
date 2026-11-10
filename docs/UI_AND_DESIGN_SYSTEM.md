@@ -152,7 +152,7 @@ All academic management screens adhere strictly to the zero-emoji design rule. A
 
 Traditional Flutter `DropdownButton` and `DropdownButtonFormField` components use a legacy Android modal design that positions the menu centered directly *over* the anchor trigger, obscuring the clicked button and overflowing screen bounds on desktop and web interfaces.
 
-CampusManagement replaces this with [`AppDropdown<T>`](file:///home/yogesh/Projects/CampusManagement/client/lib/widgets/app_dropdown.dart) and global theme rules:
+CampusManagement replaces this with [`AppDropdown<T>`](../client/lib/widgets/app_dropdown.dart) and global theme rules:
 
 ### 7.1 Dropdown Invariants
 1. **Strict Sub-Anchor Placement**: Dropdown menus strictly open **underneath** the trigger (`PopupMenuPosition.under` with an `Offset(0, 4)` gap). The anchor button or combobox field always remains visible above the opened menu.
@@ -160,3 +160,55 @@ CampusManagement replaces this with [`AppDropdown<T>`](file:///home/yogesh/Proje
 3. **Bounded Scroll Height**: Menus are capped at `maxHeight: 280` with smooth internal scrollbars to prevent lists from spanning screen borders.
 4. **Theme & Hover States**: Rendered with constant 1.0px borders (`AppColors.lightBorder` / `AppColors.darkBorder`), themed surface fills (`#FFFFFF` / `#161B22`), mouse hover highlights, and active selection checkmarks (`AppSvgIcon.check`).
 5. **AppBar Persona Dropdown**: The header persona switcher drops down underneath the user pill, displaying avatars, campus handles, archetype badges, and checkmarks without obscuring navigation.
+
+---
+
+## 8. Input Field Placeholder & Hint Text Standards
+
+To avoid user confusion between pre-filled placeholder text and user-entered values, all input fields (`TextField`, `TextFormField`, and `InputDecorator`) enforce a dedicated lighter tone via the global theme:
+
+1. **Light Theme Placeholder Palette**:
+   - Primary Entered Text: `AppColors.lightTextPrimary` (`#0F172A`)
+   - Placeholder / Hint Text: `AppColors.lightTextPlaceholder` (`#94A3B8`, Slate-400)
+   - Font weight: `FontWeight.w400`
+   - Contrast: Meets WCAG AA against light backgrounds while remaining distinctly and visually lighter than typed text.
+
+2. **Dark Theme Placeholder Palette**:
+   - Primary Entered Text: `AppColors.darkTextPrimary` (`#F0F6FC`)
+   - Placeholder / Hint Text: `AppColors.darkTextPlaceholder` (`#64748B`, Slate-500)
+   - Font weight: `FontWeight.w400`
+   - Visual Differentiation: Dimmer and softer, preventing any illusion of populated content.
+
+3. **Global Theme Integration**:
+   Configured at the root in `AppTheme.lightTheme` and `AppTheme.darkTheme`:
+   ```dart
+   inputDecorationTheme: InputDecorationTheme(
+     hintStyle: TextStyle(
+       color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+       fontSize: 13,
+       fontWeight: FontWeight.w400,
+     ),
+   ),
+   ```
+
+---
+
+## 9. Institutional Subsystems UI Architecture
+
+### 9.1 Institutional Fee & Fine Portals
+- **Invoices Tab**: Itemized charges, payment status badges (Unpaid, Paid, Partially Paid, Overdue), and integrated payment modal.
+- **Fine Portal Tab**: Disciplinary and library fines, late fee accrual tracking, and 1-click appeal dialog.
+- **Receipts & Ledger**: Searchable historical payment ledger with tamper-evident receipt verification.
+- **Invoice PDF Generator**: Pure Dart vector PDF compiler emitting ISO compliant PDF 1.4 documents with institutional headers, line items, and signature stamps without external binary dependencies.
+
+### 9.2 Institutional Library Subsystem
+- **5-Tab Adaptive Navigation**:
+  - `Borrowed Books`: Active student loans with countdowns, renewal counters, and overdue fines.
+  - `Physical Catalog`: Real-time stock counters, remaining copies badges, and loan policy modals.
+  - `Infinite E-Books`: Digital repository allowing unlimited concurrent reading without borrowing queues.
+  - `Policy & Fine Slabs`: Institutional borrowing rules, renewal limits, and fine accrual schedules.
+  - `Borrow Approvals` (Library In-Charge & Admin only): Centralized authorization counter for checkouts, renewal extensions (+14d), and counter return inspections.
+
+### 9.3 Contextual Dispute System
+- Reusable dispute submission modal launched directly from invoice items, fine penalties, or exam results.
+- Enforces authenticated user identity, verified record ID binding, and transparent resolution tracking via the institutional grievance pipeline.
