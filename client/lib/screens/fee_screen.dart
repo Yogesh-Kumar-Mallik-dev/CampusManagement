@@ -1332,7 +1332,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Invoice PDF saved: $filename (${bytes.length} bytes)'),
+          content: Text('Invoice PDF downloaded: $filename (${bytes.length} bytes)'),
           backgroundColor: AppColors.githubGreen,
           duration: const Duration(seconds: 4),
         ),
@@ -1367,7 +1367,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Receipt PDF saved: $filename (${bytes.length} bytes)'),
+          content: Text('Receipt PDF downloaded: $filename (${bytes.length} bytes)'),
           backgroundColor: AppColors.githubGreen,
           duration: const Duration(seconds: 4),
         ),

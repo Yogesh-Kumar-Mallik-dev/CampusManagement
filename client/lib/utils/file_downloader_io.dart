@@ -1,7 +1,16 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 
-String _resolveDownloadsDirectory() {
-  final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
+String _resolveDefaultDownloadsDirectory() {
+  if (Platform.isWindows) {
+    final userProfile = Platform.environment['USERPROFILE'] ?? '.';
+    final winDownloads = Directory('$userProfile\\Downloads');
+    if (winDownloads.existsSync()) return winDownloads.path;
+    return userProfile;
+  }
+
+  final home = Platform.environment['HOME'] ?? '.';
   final xdgDownload = Platform.environment['XDG_DOWNLOAD_DIR'];
   if (xdgDownload != null && Directory(xdgDownload).existsSync()) {
     return xdgDownload;
@@ -11,6 +20,18 @@ String _resolveDownloadsDirectory() {
     return candidate.path;
   }
   return home;
+}
+
+Future<void> _openSavedDocument(String filePath) async {
+  try {
+    if (Platform.isLinux) {
+      await Process.run('xdg-open', [filePath]);
+    } else if (Platform.isMacOS) {
+      await Process.run('open', [filePath]);
+    } else if (Platform.isWindows) {
+      await Process.run('cmd', ['/c', 'start', '', filePath]);
+    }
+  } catch (_) {}
 }
 
 Future<bool> triggerPdfDownload({
@@ -24,9 +45,37 @@ Future<bool> triggerPdfDownload({
     return true;
   }
 
-  String targetPath = '${_resolveDownloadsDirectory()}/$filename';
+  // 1. Primary: Native FilePicker Save Dialog (Windows, macOS, Linux, Android, iOS)
+  try {
+    final savedUri = await FilePicker.saveFile(
+      dialogTitle: 'Save PDF Document',
+      fileName: filename,
+      mimeType: 'application/pdf',
+      bytes: Uint8List.fromList(bytes),
+    );
 
-  // On Linux desktop, offer a native save dialog via zenity if available
+    if (savedUri != null) {
+      if (savedUri.isScheme('file')) {
+        final file = File(savedUri.toFilePath());
+        if (!await file.exists() || (await file.length()) != bytes.length) {
+          await file.parent.create(recursive: true);
+          await file.writeAsBytes(bytes, flush: true);
+        }
+        await _openSavedDocument(file.path);
+      }
+      return true;
+    } else {
+      // User cancelled save dialog
+      return false;
+    }
+  } catch (_) {
+    // If native plugin channel is not registered or unsupported, proceed to shell fallbacks
+  }
+
+  // 2. Desktop Fallbacks: Native Dialogs & Direct Downloads Directory
+  final defaultDir = _resolveDefaultDownloadsDirectory();
+  String targetPath = Platform.isWindows ? '$defaultDir\\$filename' : '$defaultDir/$filename';
+
   if (Platform.isLinux) {
     try {
       final result = await Process.run('zenity', [
@@ -37,37 +86,55 @@ Future<bool> triggerPdfDownload({
         '--filename=$targetPath',
         '--file-filter=PDF Documents (*.pdf) | *.pdf',
       ]);
-
       if (result.exitCode == 0) {
         final chosen = result.stdout.toString().trim();
         if (chosen.isNotEmpty) {
-          targetPath = chosen;
-          if (!targetPath.toLowerCase().endsWith('.pdf')) {
-            targetPath += '.pdf';
-          }
+          targetPath = chosen.endsWith('.pdf') ? chosen : '$chosen.pdf';
         }
       } else if (result.exitCode == 1) {
-        // User cancelled save dialog
         return false;
       }
-    } catch (_) {
-      // zenity not available or errored, fallback to direct targetPath
-    }
+    } catch (_) {}
+  } else if (Platform.isMacOS) {
+    try {
+      final script = 'POSIX path of (choose file name with prompt "Save PDF Document" default name "$filename")';
+      final result = await Process.run('osascript', ['-e', script]);
+      if (result.exitCode == 0) {
+        final chosen = result.stdout.toString().trim();
+        if (chosen.isNotEmpty) {
+          targetPath = chosen.endsWith('.pdf') ? chosen : '$chosen.pdf';
+        }
+      } else {
+        return false;
+      }
+    } catch (_) {}
+  } else if (Platform.isWindows) {
+    try {
+      final psScript = '''
+Add-Type -AssemblyName System.Windows.Forms
+\$dialog = New-Object System.Windows.Forms.SaveFileDialog
+\$dialog.Filter = "PDF Files (*.pdf)|*.pdf"
+\$dialog.FileName = "$filename"
+\$dialog.Title = "Save PDF Document"
+if (\$dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+  Write-Output \$dialog.FileName
+}
+''';
+      final result = await Process.run('powershell', ['-NoProfile', '-Command', psScript]);
+      if (result.exitCode == 0) {
+        final chosen = result.stdout.toString().trim();
+        if (chosen.isNotEmpty) {
+          targetPath = chosen.endsWith('.pdf') ? chosen : '$chosen.pdf';
+        }
+      }
+    } catch (_) {}
   }
 
   try {
     final file = File(targetPath);
     await file.parent.create(recursive: true);
     await file.writeAsBytes(bytes, flush: true);
-
-    // Open containing folder or file in the desktop file manager
-    if (Platform.isLinux) {
-      try {
-        // Open file directly with default PDF viewer or file manager
-        await Process.run('xdg-open', [file.path]);
-      } catch (_) {}
-    }
-
+    await _openSavedDocument(file.path);
     return true;
   } catch (e) {
     return false;
