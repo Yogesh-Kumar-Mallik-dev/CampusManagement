@@ -45,7 +45,7 @@ func (s *HostelService) CreateRoom(roomNumber int, blockName string) (*model.Hos
 	}
 
 	if strings.TrimSpace(blockName) == "" {
-		blockName = "Aryabhatta Block"
+		blockName = "Block 1"
 	}
 
 	now := time.Now().UTC()
@@ -53,7 +53,7 @@ func (s *HostelService) CreateRoom(roomNumber int, blockName string) (*model.Hos
 		ID:         fmt.Sprintf("room-%d", roomNumber),
 		RoomNumber: roomNumber,
 		BlockName:  strings.TrimSpace(blockName),
-		Floor:      roomNumber / 100,
+		Floor:      model.DeriveFloor(roomNumber),
 		Assets:     make([]model.HostelAsset, 0),
 		Occupants:  make([]model.HostelOccupant, 0),
 		CreatedAt:  now,
@@ -276,7 +276,7 @@ func (s *HostelService) UpdateRoom(originalRoomNumber int, newRoomNumber int, bl
 		delete(s.rooms, originalRoomNumber)
 		room.RoomNumber = newRoomNumber
 		room.ID = fmt.Sprintf("room-%d", newRoomNumber)
-		room.Floor = newRoomNumber / 100
+		room.Floor = model.DeriveFloor(newRoomNumber)
 		for i := range room.Assets {
 			room.Assets[i].RoomNumber = newRoomNumber
 			s.serials[room.Assets[i].SerialNumber] = newRoomNumber
@@ -340,8 +340,8 @@ func (s *HostelService) UpdateAsset(roomNumber int, assetID string, newSerialNum
 
 // SeedDefaultRooms populates default compliant rooms within the 100-999 range
 func (s *HostelService) SeedDefaultRooms() {
-	// Room 101: Ground/First floor, fully furnished, 2 occupants
-	r101, _ := s.CreateRoom(101, "Aryabhatta Block")
+	// Room 101: Floor 0, Block 1, fully furnished, 2 occupants
+	r101, _ := s.CreateRoom(101, "Block 1")
 	if r101 != nil {
 		// 3 Beds (14-char serials)
 		_, _ = s.AddAsset(101, model.HostelAssetBed, "BED-101-01", "operational")
@@ -370,8 +370,8 @@ func (s *HostelService) SeedDefaultRooms() {
 		_, _ = s.AssignOccupant(101, "u-student-rohit", "rohit_2025_btech_2", "Rohit Verma")
 	}
 
-	// Room 102: First floor, 2 beds, 2 tables, 2 tubelights, 1 fan, 2 lockers, 1 occupant
-	r102, _ := s.CreateRoom(102, "Aryabhatta Block")
+	// Room 102: Floor 0, Block 1, 2 beds, 2 tables, 2 tubelights, 1 fan, 2 lockers, 1 occupant
+	r102, _ := s.CreateRoom(102, "Block 1")
 	if r102 != nil {
 		_, _ = s.AddAsset(102, model.HostelAssetBed, "BED-102-01", "operational")
 		_, _ = s.AddAsset(102, model.HostelAssetBed, "BED-102-02", "operational")
@@ -387,8 +387,8 @@ func (s *HostelService) SeedDefaultRooms() {
 		_, _ = s.AssignOccupant(102, "u-student-amit", "amit_2025_btech_3", "Amit Shah")
 	}
 
-	// Room 204: Second floor, vacant room ready for allotment
-	r204, _ := s.CreateRoom(204, "Aryabhatta Block")
+	// Room 204: Floor 1, Block 2, vacant room ready for allotment
+	r204, _ := s.CreateRoom(204, "Block 2")
 	if r204 != nil {
 		_, _ = s.AddAsset(204, model.HostelAssetBed, "BED-204-01", "operational")
 		_, _ = s.AddAsset(204, model.HostelAssetBed, "BED-204-02", "operational")
@@ -408,8 +408,8 @@ func (s *HostelService) SeedDefaultRooms() {
 		_, _ = s.AddAsset(204, model.HostelAssetLocker, "LCK-204-03", "operational")
 	}
 
-	// Room 305: Third floor
-	r305, _ := s.CreateRoom(305, "Aryabhatta Block")
+	// Room 305: Floor 2, Block 3
+	r305, _ := s.CreateRoom(305, "Block 3")
 	if r305 != nil {
 		_, _ = s.AddAsset(305, model.HostelAssetBed, "BED-305-01", "operational")
 		_, _ = s.AddAsset(305, model.HostelAssetTable, "TAB-305-01", "operational")
@@ -417,5 +417,16 @@ func (s *HostelService) SeedDefaultRooms() {
 		_, _ = s.AddAsset(305, model.HostelAssetTubelight, "TL-305-01", "operational")
 		_, _ = s.AddAsset(305, model.HostelAssetFan, "FAN-305-01", "operational")
 		_, _ = s.AddAsset(305, model.HostelAssetLocker, "LCK-305-01", "operational")
+	}
+
+	// Room 402: Floor 3, Block 4
+	r402, _ := s.CreateRoom(402, "Block 4")
+	if r402 != nil {
+		_, _ = s.AddAsset(402, model.HostelAssetBed, "BED-402-01", "operational")
+		_, _ = s.AddAsset(402, model.HostelAssetTable, "TAB-402-01", "operational")
+		_, _ = s.AddAsset(402, model.HostelAssetChair, "CHR-402-01", "operational")
+		_, _ = s.AddAsset(402, model.HostelAssetTubelight, "TL-402-01", "operational")
+		_, _ = s.AddAsset(402, model.HostelAssetFan, "FAN-402-01", "operational")
+		_, _ = s.AddAsset(402, model.HostelAssetLocker, "LCK-402-01", "operational")
 	}
 }

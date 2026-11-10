@@ -993,10 +993,10 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
 
   Widget _buildChallanTab(bool isDark) {
     final va = _currentOrder?.virtualAccount ?? _gatewayConfig?.virtualAccount;
-    final accNumber = va?.accountNumber ?? 'CAMPUSCOLLECT01';
+    final accNumber = va?.accountNumber ?? 'BBDITCOLLECT01';
     final ifsc = va?.ifscCode ?? 'SBIN0001234';
     final bank = va?.bankName ?? 'State Bank of India (SBI)';
-    final beneficiary = va?.beneficiaryName ?? 'Campus Academic Institute';
+    final beneficiary = va?.beneficiaryName ?? 'Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),

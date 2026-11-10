@@ -39,7 +39,7 @@ func TestHostelHandlerEndpoints(t *testing.T) {
 	// 2. POST /api/v1/hostel/rooms (Valid room number 505)
 	createBody := map[string]interface{}{
 		"room_number": 505,
-		"block_name":  "Aryabhatta Block",
+		"block_name":  "Block 1",
 	}
 	bodyBytes, _ := json.Marshal(createBody)
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/hostel/rooms", bytes.NewReader(bodyBytes))
@@ -53,7 +53,7 @@ func TestHostelHandlerEndpoints(t *testing.T) {
 	// 3. POST /api/v1/hostel/rooms (Invalid room number 99)
 	invalidBody := map[string]interface{}{
 		"room_number": 99,
-		"block_name":  "Aryabhatta Block",
+		"block_name":  "Block 1",
 	}
 	bodyBytes, _ = json.Marshal(invalidBody)
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/hostel/rooms", bytes.NewReader(bodyBytes))

@@ -44,6 +44,23 @@ func ValidateRoomNumber(num int) error {
 	return nil
 }
 
+// DeriveFloor computes the hostel floor (0 to 4) from the room number.
+// Floor 0: rooms 101-199
+// Floor 1: rooms 201-299
+// Floor 2: rooms 301-399
+// Floor 3: rooms 401-499
+// Floor 4: rooms 501-599
+func DeriveFloor(roomNumber int) int {
+	f := (roomNumber / 100) - 1
+	if f < 0 {
+		return 0
+	}
+	if f > 4 {
+		return 4
+	}
+	return f
+}
+
 // ValidateSerialNumber ensures alphanumeric format and maximum 14 characters
 func ValidateSerialNumber(sn string) error {
 	trimmed := strings.TrimSpace(sn)
@@ -101,8 +118,8 @@ type HostelOccupant struct {
 type HostelRoom struct {
 	ID         string           `json:"id"`
 	RoomNumber int              `json:"room_number"` // 100 to 999
-	BlockName  string           `json:"block_name"`  // e.g. "Aryabhatta Hall", "Block A"
-	Floor      int              `json:"floor"`       // derived: roomNumber / 100
+	BlockName  string           `json:"block_name"`  // e.g. "Block 1", "Block 2", "Block 3", "Block 4"
+	Floor      int              `json:"floor"`       // derived: (roomNumber / 100) - 1 (Floor 0: 101-199, Floor 1: 201-299, etc.)
 	Assets     []HostelAsset    `json:"assets"`
 	Occupants  []HostelOccupant `json:"occupants"`
 	CreatedAt  time.Time        `json:"created_at"`

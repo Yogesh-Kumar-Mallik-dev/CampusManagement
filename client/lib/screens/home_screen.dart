@@ -2143,7 +2143,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Aryabhatta Hall • Floor 1 • Curfew 22:30 IST Gate 1',
+                'BBDIT Hostel • Block 1 • Floor 0 • Curfew 22:30 IST Gate 1',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
@@ -2618,7 +2618,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _DashboardMetricCard(
             title: 'Hostel Residence',
             value: 'Room 108',
-            subtitle: 'Floor 1 • Curfew 22:30 IST',
+            subtitle: 'Floor 0 • Curfew 22:30 IST',
             iconSvg: AppSvgIcon.bed,
             color: const Color(0xFFD97706),
             onTap: () => _onDestinationSelected(6),

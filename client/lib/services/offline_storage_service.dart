@@ -393,7 +393,7 @@ class OfflineStorageService implements ICampusStorage {
         emergencyContactName: 'Suresh Kumar (Father)',
         emergencyContactPhone: '+91 98765 00112',
         bloodGroup: 'O+',
-        address: 'Room 204, Aryabhatta Hostel Block, Campus North',
+        address: 'Room 204, Block 2, BBDIT Hostel',
         archetype: 'student',
         universityRollNo: '2025-CS-042',
         admissionApplicationNo: 'APP-2025-0819',
@@ -1959,8 +1959,8 @@ class OfflineStorageService implements ICampusStorage {
       ),
       NoticeModel(
         id: 'not-3',
-        title: 'Campus Hostels Optical Fiber & Wi-Fi 6 Upgrade Complete',
-        content: 'Network bandwidth across Block A and Block B has been enhanced to 10Gbps symmetric uplink. Connect to the CampusOS-Secure network using your canonical identity.',
+        title: 'BBDIT Hostels Optical Fiber & Wi-Fi 6 Upgrade Complete',
+        content: 'Network bandwidth across Block 1 and Block 2 has been enhanced to 10Gbps symmetric uplink. Connect to the BBDIT-Secure network using your canonical identity.',
         category: 'hostel',
         targetScopeCode: 'global',
         priority: 'normal',
@@ -3398,12 +3398,12 @@ class OfflineStorageService implements ICampusStorage {
 
     final now = DateTime.now();
 
-    // Room 101: 1st floor, fully furnished, 2 occupants
+    // Room 101: Floor 0 (101-199), Block 1, fully furnished, 2 occupants
     _cachedHostelRooms.add(HostelRoomModel(
       id: 'room-101',
       roomNumber: 101,
-      blockName: 'Aryabhatta Block',
-      floor: 1,
+      blockName: 'Block 1',
+      floor: 0,
       createdAt: now.subtract(const Duration(days: 30)),
       updatedAt: now,
       assets: [
@@ -3430,12 +3430,12 @@ class OfflineStorageService implements ICampusStorage {
       ],
     ));
 
-    // Room 102: 1st floor, partially furnished, 1 occupant
+    // Room 102: Floor 0 (101-199), Block 1, partially furnished, 1 occupant
     _cachedHostelRooms.add(HostelRoomModel(
       id: 'room-102',
       roomNumber: 102,
-      blockName: 'Aryabhatta Block',
-      floor: 1,
+      blockName: 'Block 1',
+      floor: 0,
       createdAt: now.subtract(const Duration(days: 30)),
       updatedAt: now,
       assets: [
@@ -3456,12 +3456,12 @@ class OfflineStorageService implements ICampusStorage {
       ],
     ));
 
-    // Room 204: 2nd floor, fully furnished, vacant (0 occupants)
+    // Room 204: Floor 1 (201-299), Block 2, fully furnished, vacant (0 occupants)
     _cachedHostelRooms.add(HostelRoomModel(
       id: 'room-204',
       roomNumber: 204,
-      blockName: 'Aryabhatta Block',
-      floor: 2,
+      blockName: 'Block 2',
+      floor: 1,
       createdAt: now.subtract(const Duration(days: 20)),
       updatedAt: now,
       assets: [
@@ -3485,12 +3485,12 @@ class OfflineStorageService implements ICampusStorage {
       occupants: const [],
     ));
 
-    // Room 305: 3rd floor, starter fixtures
+    // Room 305: Floor 2 (301-399), Block 3, starter fixtures
     _cachedHostelRooms.add(HostelRoomModel(
       id: 'room-305',
       roomNumber: 305,
-      blockName: 'Aryabhatta Block',
-      floor: 3,
+      blockName: 'Block 3',
+      floor: 2,
       createdAt: now.subtract(const Duration(days: 10)),
       updatedAt: now,
       assets: [
@@ -3500,6 +3500,25 @@ class OfflineStorageService implements ICampusStorage {
         HostelAssetModel(id: 'asset-305-tl-1', roomNumber: 305, assetType: 'tubelight', serialNumber: 'TL-305-01', installedAt: now),
         HostelAssetModel(id: 'asset-305-fan-1', roomNumber: 305, assetType: 'fan', serialNumber: 'FAN-305-01', installedAt: now),
         HostelAssetModel(id: 'asset-305-lck-1', roomNumber: 305, assetType: 'locker', serialNumber: 'LCK-305-01', installedAt: now),
+      ],
+      occupants: const [],
+    ));
+
+    // Room 402: Floor 3 (401-499), Block 4
+    _cachedHostelRooms.add(HostelRoomModel(
+      id: 'room-402',
+      roomNumber: 402,
+      blockName: 'Block 4',
+      floor: 3,
+      createdAt: now.subtract(const Duration(days: 5)),
+      updatedAt: now,
+      assets: [
+        HostelAssetModel(id: 'asset-402-bed-1', roomNumber: 402, assetType: 'bed', serialNumber: 'BED-402-01', installedAt: now),
+        HostelAssetModel(id: 'asset-402-table-1', roomNumber: 402, assetType: 'table', serialNumber: 'TAB-402-01', installedAt: now),
+        HostelAssetModel(id: 'asset-402-chr-1', roomNumber: 402, assetType: 'chair', serialNumber: 'CHR-402-01', installedAt: now),
+        HostelAssetModel(id: 'asset-402-tl-1', roomNumber: 402, assetType: 'tubelight', serialNumber: 'TL-402-01', installedAt: now),
+        HostelAssetModel(id: 'asset-402-fan-1', roomNumber: 402, assetType: 'fan', serialNumber: 'FAN-402-01', installedAt: now),
+        HostelAssetModel(id: 'asset-402-lck-1', roomNumber: 402, assetType: 'locker', serialNumber: 'LCK-402-01', installedAt: now),
       ],
       occupants: const [],
     ));
@@ -3551,8 +3570,8 @@ class OfflineStorageService implements ICampusStorage {
     final room = HostelRoomModel(
       id: 'room-$roomNumber',
       roomNumber: roomNumber,
-      blockName: blockName.trim().isNotEmpty ? blockName.trim() : 'Aryabhatta Block',
-      floor: roomNumber ~/ 100,
+      blockName: blockName.trim().isNotEmpty ? blockName.trim() : 'Block 1',
+      floor: HostelRoomModel.deriveFloor(roomNumber),
       assets: const [],
       occupants: const [],
       createdAt: now,
@@ -3599,7 +3618,7 @@ class OfflineStorageService implements ICampusStorage {
     final updatedRoom = originalRoom.copyWith(
       roomNumber: newRoomNumber,
       blockName: cleanBlock,
-      floor: newRoomNumber ~/ 100,
+      floor: HostelRoomModel.deriveFloor(newRoomNumber),
       assets: updatedAssets,
       updatedAt: DateTime.now(),
     );
@@ -4133,8 +4152,8 @@ class OfflineStorageService implements ICampusStorage {
     _cachedComplaints.addAll([
       ComplaintModel(
         id: 'cmp-001',
-        title: 'Water leakage in Aryabhatta Block 2nd floor restroom',
-        description: 'Constant leaking pipe in 2nd floor west-wing bathroom causing water wastage and slippery tiles.',
+        title: 'Water leakage in Block 2 Floor 1 restroom',
+        description: 'Constant leaking pipe in Floor 1 Block 2 restroom causing water wastage and slippery tiles.',
         category: ComplaintCategory.hostel,
         urgency: ComplaintUrgency.high,
         isAnonymous: true,
@@ -4515,7 +4534,7 @@ class OfflineStorageService implements ICampusStorage {
       academicYear: '2026-2027',
       semesterNumber: 3,
       feeType: FeeType.hostel,
-      title: 'Hostel Residency & Maintenance (Aryabhatta Block)',
+      title: 'Hostel Residency & Maintenance (BBDIT Hostel)',
       totalAmount: 25000,
       paidAmount: 0,
       dueAmount: 25000,
@@ -5093,17 +5112,17 @@ class OfflineStorageService implements ICampusStorage {
     return const PaymentGatewayConfigModel(
       provider: 'sandbox',
       keyId: 'sandbox_inst_key_campus_9901',
-      merchantName: 'Campus Academic & Technology Institute',
-      merchantVpa: 'campuscollect@sbi',
+      merchantName: 'Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy',
+      merchantVpa: 'bbditfees@sbi',
       environment: 'sandbox',
       supportedMethods: ['upi', 'debit_card', 'credit_card', 'net_banking', 'challan'],
       virtualAccount: VirtualAccountModel(
-        beneficiaryName: 'Campus Academic & Technology Institute',
+        beneficiaryName: 'Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy',
         bankName: 'State Bank of India (SBI)',
-        accountNumber: 'CAMPUSCOLLECT01',
+        accountNumber: 'BBDITCOLLECT01',
         ifscCode: 'SBIN0001234',
         branchName: 'Institutional Campus Branch',
-        referenceVan: 'CAMPUS-GENERIC-VAN',
+        referenceVan: 'BBDIT-GENERIC-VAN',
       ),
     );
   }
@@ -5130,20 +5149,20 @@ class OfflineStorageService implements ICampusStorage {
     }
 
     final now = DateTime.now();
-    final orderId = 'order_campus_${now.millisecondsSinceEpoch}';
+    final orderId = 'order_bbdit_${now.millisecondsSinceEpoch}';
     final cleanStudent = studentId.replaceAll('-', '').toUpperCase();
     final studentTail = cleanStudent.length > 8 ? cleanStudent.substring(cleanStudent.length - 8) : cleanStudent;
-    final van = 'CAMPUS$studentTail${now.millisecondsSinceEpoch % 10000}';
+    final van = 'BBDIT$studentTail${now.millisecondsSinceEpoch % 10000}';
 
     final upiUri = Uri(
       scheme: 'upi',
       host: 'pay',
       queryParameters: {
-        'pa': 'campuscollect@sbi',
-        'pn': 'Campus Academic & Technology Institute',
+        'pa': 'bbditfees@sbi',
+        'pn': 'Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy',
         'am': amount.toStringAsFixed(2),
         'tr': 'TXN-${now.millisecondsSinceEpoch % 10000000}',
-        'tn': 'Campus fee settlement for $entityId',
+        'tn': 'BBDIT fee settlement for $entityId',
         'cu': 'INR',
       },
     );
@@ -5162,7 +5181,7 @@ class OfflineStorageService implements ICampusStorage {
       gatewayKeyId: 'sandbox_inst_key_campus_9901',
       upiLink: upiUri.toString(),
       virtualAccount: VirtualAccountModel(
-        beneficiaryName: 'Campus Academic & Technology Institute',
+        beneficiaryName: 'Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy',
         bankName: 'State Bank of India (SBI)',
         accountNumber: van,
         ifscCode: 'SBIN0001234',

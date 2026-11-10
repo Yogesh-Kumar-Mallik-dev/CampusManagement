@@ -1539,7 +1539,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Tamper-evident proof of settlement issued by Campus Treasury Operations.',
+                      'Tamper-evident proof of settlement issued by BBDIT & BBDIT College of Pharmacy Treasury Operations.',
                       style: TextStyle(fontSize: 10, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
                     ),
                   ],

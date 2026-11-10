@@ -1692,14 +1692,14 @@ void main() {
 
     // Enter valid new room number
     await tester.enterText(find.byKey(const Key('input-edit-room-number')), '108');
-    await tester.enterText(find.byKey(const Key('input-edit-block-name')), 'Ramanujan Block');
+    await tester.enterText(find.byKey(const Key('input-edit-block-name')), 'Block 3');
     await tester.tap(find.byKey(const Key('btn-save-room-edits')));
     await tester.pumpAndSettle();
 
     // Dialog should be dismissed and Room 108 should appear
     expect(find.byKey(const Key('dialog-edit-hostel-room')), findsNothing);
     expect(find.text('ROOM 108'), findsOneWidget);
-    expect(find.textContaining('Ramanujan Block'), findsOneWidget);
+    expect(find.text('Floor 0 • Block 3'), findsOneWidget);
 
     // Inspect fixtures for Room 108
     await tester.tap(find.byKey(const Key('btn-inspect-room-108')));
@@ -2496,7 +2496,7 @@ void main() {
 
     // Verify invoice cards exist
     expect(find.byKey(const Key('invoice-card-inv-hostel-2026-sem3')), findsOneWidget);
-    expect(find.text('Hostel Residency & Maintenance (Aryabhatta Block)'), findsOneWidget);
+    expect(find.text('Hostel Residency & Maintenance (BBDIT Hostel)'), findsOneWidget);
     expect(find.text('Itemized Fee Head Breakdown'), findsWidgets);
 
     // 3. Test Download Invoice PDF
@@ -2654,7 +2654,7 @@ void main() {
 
     expect(find.byKey(const Key('dialog-view-receipt')), findsOneWidget);
     expect(find.text('Official Settlement Receipt'), findsOneWidget);
-    expect(find.text('Tamper-evident proof of settlement issued by Campus Treasury Operations.'), findsOneWidget);
+    expect(find.text('Tamper-evident proof of settlement issued by BBDIT & BBDIT College of Pharmacy Treasury Operations.'), findsOneWidget);
 
     // Close Dialog
     await tester.tap(find.text('Close'));

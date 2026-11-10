@@ -17,12 +17,12 @@ class VirtualAccountModel {
 
   factory VirtualAccountModel.fromJson(Map<String, dynamic> json) {
     return VirtualAccountModel(
-      beneficiaryName: json['beneficiary_name'] as String? ?? 'Campus Academic Institute',
+      beneficiaryName: json['beneficiary_name'] as String? ?? 'Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy',
       bankName: json['bank_name'] as String? ?? 'State Bank of India (SBI)',
-      accountNumber: json['account_number'] as String? ?? 'CAMPUSCOLLECT01',
+      accountNumber: json['account_number'] as String? ?? 'BBDITCOLLECT01',
       ifscCode: json['ifsc_code'] as String? ?? 'SBIN0001234',
       branchName: json['branch_name'] as String? ?? 'Main Branch',
-      referenceVan: json['reference_van'] as String? ?? 'CAMPUS-VAN',
+      referenceVan: json['reference_van'] as String? ?? 'BBDIT-VAN',
     );
   }
 
@@ -61,8 +61,8 @@ class PaymentGatewayConfigModel {
     return PaymentGatewayConfigModel(
       provider: json['provider'] as String? ?? 'sandbox',
       keyId: json['key_id'] as String? ?? 'sandbox_inst_key_campus_9901',
-      merchantName: json['merchant_name'] as String? ?? 'Campus Academic Institute',
-      merchantVpa: json['merchant_vpa'] as String? ?? 'campuscollect@sbi',
+      merchantName: json['merchant_name'] as String? ?? 'Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy',
+      merchantVpa: json['merchant_vpa'] as String? ?? 'bbditfees@sbi',
       environment: json['environment'] as String? ?? 'sandbox',
       supportedMethods: (json['supported_methods'] as List<dynamic>?)
               ?.map((e) => e.toString())

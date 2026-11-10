@@ -496,7 +496,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       controller: addressCtrl,
                       maxLines: 2,
                       decoration: InputDecoration(
-                        hintText: 'e.g. Room 204, Aryabhatta Hostel Block, Campus North',
+                        hintText: 'e.g. Room 204, Block 2, BBDIT Hostel',
                         hintStyle: TextStyle(
                           fontSize: 12,
                           color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
@@ -1282,7 +1282,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final totalDues = _feeSummary?.totalDues ?? 0.0;
     final overdueInvoices = _feeSummary?.overdueInvoices ?? 0;
 
-    final addressText = _user.address ?? 'Room 204, Aryabhatta Hostel';
+    final addressText = _user.address ?? 'Room 204, Block 2, BBDIT Hostel';
     final roomBrief = addressText.contains('Room') ? addressText.split(',').first : addressText;
 
     return LayoutBuilder(
@@ -1437,7 +1437,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       (label: 'Emergency Contact', value: _user.emergencyContactName ?? 'Suresh Kumar (Father)', icon: AppSvgIcon.user),
       (label: 'Emergency Phone', value: _user.emergencyContactPhone ?? '+91 98765 00112', icon: AppSvgIcon.phone),
       (label: 'Blood Group', value: _user.bloodGroup ?? 'O+', icon: AppSvgIcon.shield),
-      (label: 'Residential / Room Address', value: _user.address ?? 'Room 204, Aryabhatta Hostel Block, Campus North', icon: AppSvgIcon.mapPin),
+      (label: 'Residential / Room Address', value: _user.address ?? 'Room 204, Block 2, BBDIT Hostel', icon: AppSvgIcon.mapPin),
       (label: 'University Roll No', value: _user.universityRollNo ?? 'Pending allocation', icon: AppSvgIcon.shield),
       (label: 'Registration / Application', value: _user.admissionApplicationNo ?? _user.universityRegNo ?? 'Verified Direct', icon: AppSvgIcon.info),
       (label: 'System ID Anchor', value: _user.id, icon: AppSvgIcon.qrCode),

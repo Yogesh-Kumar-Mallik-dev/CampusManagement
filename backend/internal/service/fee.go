@@ -106,7 +106,7 @@ func (s *FeeService) seedDefaults() {
 		AcademicYear:   "2026-2027",
 		SemesterNumber: 3,
 		FeeType:        model.FeeTypeHostel,
-		Title:          "Hostel Residency & Maintenance (Aryabhatta Block)",
+		Title:          "Hostel Residency & Maintenance (BBDIT Hostel)",
 		TotalAmount:    25000,
 		PaidAmount:     0,
 		DueAmount:      25000,

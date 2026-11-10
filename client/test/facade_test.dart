@@ -477,23 +477,23 @@ void main() {
       final rooms = await facade.getHostelRooms(floor: 1);
       expect(rooms, isNotEmpty);
 
-      final createdRoom = await facade.createHostelRoom(401, 'Block D');
+      final createdRoom = await facade.createHostelRoom(401, 'Block 4');
       expect(createdRoom.roomNumber, equals(401));
 
-      final updatedRoom = await facade.updateHostelRoom(401, 402, 'Block D');
-      expect(updatedRoom.roomNumber, equals(402));
+      final updatedRoom = await facade.updateHostelRoom(401, 405, 'Block 4');
+      expect(updatedRoom.roomNumber, equals(405));
 
-      final asset = await facade.addHostelAsset(402, 'bed', 'SN-BED-999', 'good');
+      final asset = await facade.addHostelAsset(405, 'bed', 'SN-BED-999', 'good');
       expect(asset.id, isNotEmpty);
 
-      final updatedAsset = await facade.updateHostelAsset(402, asset.id, condition: 'repaired');
+      final updatedAsset = await facade.updateHostelAsset(405, asset.id, condition: 'repaired');
       expect(updatedAsset.condition, equals('repaired'));
 
-      final occ = await facade.assignHostelOccupant(402, 'usr-test-1', 'test_1', 'Test One');
+      final occ = await facade.assignHostelOccupant(405, 'usr-test-1', 'test_1', 'Test One');
       expect(occ.userId, equals('usr-test-1'));
 
-      await facade.removeHostelOccupant(402, 'usr-test-1');
-      await facade.removeHostelAsset(402, asset.id);
+      await facade.removeHostelOccupant(405, 'usr-test-1');
+      await facade.removeHostelAsset(405, asset.id);
 
       // Mess
       final meals = await facade.getMessTimetable();
@@ -676,7 +676,7 @@ void main() {
         emergencyContactName: 'Anita Kumar (Mother)',
         emergencyContactPhone: '+91 91234 00000',
         bloodGroup: 'B+',
-        address: 'Aryabhatta Block Room 301',
+        address: 'Block 2 Room 204, BBDIT Hostel',
       );
 
       expect(updated.personalEmail, equals('harish.custom@example.com'));
@@ -684,7 +684,7 @@ void main() {
       expect(updated.emergencyContactName, equals('Anita Kumar (Mother)'));
       expect(updated.emergencyContactPhone, equals('+91 91234 00000'));
       expect(updated.bloodGroup, equals('B+'));
-      expect(updated.address, equals('Aryabhatta Block Room 301'));
+      expect(updated.address, equals('Block 2 Room 204, BBDIT Hostel'));
 
       final retrieved = await facade.getUserProfile('usr-harish_2025_l_btech_1');
       expect(retrieved.personalEmail, equals('harish.custom@example.com'));

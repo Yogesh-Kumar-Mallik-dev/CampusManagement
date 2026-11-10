@@ -63,12 +63,12 @@ func NewPaymentService(feeService FeeServiceInterface) *PaymentService {
 
 	merchantName := strings.TrimSpace(os.Getenv("PAYMENT_MERCHANT_NAME"))
 	if merchantName == "" {
-		merchantName = "Campus Academic & Technology Institute"
+		merchantName = "Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy"
 	}
 
 	merchantVPA := strings.TrimSpace(os.Getenv("PAYMENT_MERCHANT_VPA"))
 	if merchantVPA == "" {
-		merchantVPA = "campuscollect@sbi"
+		merchantVPA = "bbditcollect@sbi"
 	}
 
 	bankName := strings.TrimSpace(os.Getenv("PAYMENT_BANK_NAME"))

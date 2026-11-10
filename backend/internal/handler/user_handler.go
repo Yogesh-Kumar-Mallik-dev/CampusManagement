@@ -65,7 +65,7 @@ func (h *UserHandler) seedDefaultUsers() {
 		EmergencyContactName:   "Suresh Kumar (Father)",
 		EmergencyContactPhone:  "+91 98765 00112",
 		BloodGroup:             "O+",
-		Address:                "Room 204, Aryabhatta Hostel Block, Campus North",
+		Address:                "Room 204, Block 2, BBDIT Hostel",
 		Archetype:              model.ArchetypeStudent,
 		AdmissionApplicationNo: "APP-2025-0819",
 		UniversityRollNo:       "2025-CS-042",

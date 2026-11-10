@@ -137,6 +137,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
+                            'Babu Banarasi Das Institute of Technology & BBDIT College of Pharmacy',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
                             'Enter your canonical campus handle or email',
                             textAlign: TextAlign.center,
                             style: TextStyle(

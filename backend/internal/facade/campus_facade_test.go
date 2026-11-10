@@ -196,8 +196,8 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 		t.Fatalf("remove occupant failed: %v", err)
 	}
 
-	updatedRoom, err := facade.UpdateRoom(199, 199, "Updated Aryabhatta Block")
-	if err != nil || updatedRoom.BlockName != "Updated Aryabhatta Block" {
+	updatedRoom, err := facade.UpdateRoom(199, 199, "Block 2")
+	if err != nil || updatedRoom.BlockName != "Block 2" {
 		t.Fatalf("update room failed: %v", err)
 	}
 

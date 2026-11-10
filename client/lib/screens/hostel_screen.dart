@@ -77,7 +77,7 @@ class _HostelScreenState extends State<HostelScreen> {
 
   void _showCreateRoomDialog() {
     final roomCtrl = TextEditingController();
-    final blockCtrl = TextEditingController(text: 'Aryabhatta Block');
+    final blockCtrl = TextEditingController(text: 'Block 1');
     String? errorText;
 
     showDialog(
@@ -95,7 +95,7 @@ class _HostelScreenState extends State<HostelScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Room numbers are strictly bounded between 100 and 999. Floor is auto-derived from the hundreds digit.',
+                    'Room numbers are strictly bounded between 100 and 999. Single hostel with Floors 0-4 (Floor 0: 101-199, Floor 1: 201-299, etc.) and Blocks 1-4.',
                     style: TextStyle(
                       fontSize: 11.5,
                       color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -125,8 +125,8 @@ class _HostelScreenState extends State<HostelScreen> {
                     key: const Key('input-hostel-block-name'),
                     controller: blockCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'Block / Hall Name',
-                      hintText: 'Aryabhatta Block',
+                      labelText: 'Block Name (e.g. Block 1, Block 2, Block 3, Block 4)',
+                      hintText: 'Block 1',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -226,8 +226,8 @@ class _HostelScreenState extends State<HostelScreen> {
                     key: const Key('input-edit-block-name'),
                     controller: blockCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'Block / Hall Name',
-                      hintText: 'Aryabhatta Block',
+                      labelText: 'Block Name (e.g. Block 1, Block 2, Block 3, Block 4)',
+                      hintText: 'Block 1',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -1154,9 +1154,11 @@ class _HostelScreenState extends State<HostelScreen> {
                           runSpacing: 6,
                           children: [
                             _buildFloorChip(null, 'All Floors', isDark),
-                            _buildFloorChip(1, 'Floor 1 (100-199)', isDark),
-                            _buildFloorChip(2, 'Floor 2 (200-299)', isDark),
-                            _buildFloorChip(3, 'Floor 3 (300-399)', isDark),
+                            _buildFloorChip(0, 'Floor 0 (101-199)', isDark),
+                            _buildFloorChip(1, 'Floor 1 (201-299)', isDark),
+                            _buildFloorChip(2, 'Floor 2 (301-399)', isDark),
+                            _buildFloorChip(3, 'Floor 3 (401-499)', isDark),
+                            _buildFloorChip(4, 'Floor 4 (501-599)', isDark),
                           ],
                         ),
                         SizedBox(
@@ -1391,7 +1393,7 @@ class _HostelScreenState extends State<HostelScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            '1. Ensure tuition and hostel accommodation fees are cleared for the current academic session.\n2. Submit room preference (Aryabhatta Block, Floor 1-3) at the Warden Office (Gate 1, Room G-04).\n3. Room allotments are capped at 3 occupants and 16 serial-tracked fixtures per room.',
+            '1. Ensure tuition and hostel accommodation fees are cleared for the current academic session.\n2. Submit room preference (BBDIT Hostel, Block 1-4, Floor 0-4) at the Warden Office (Gate 1, Room G-04).\n3. Room allotments are capped at 3 occupants and 16 serial-tracked fixtures per room.',
             style: TextStyle(
               fontSize: 12,
               height: 1.6,
@@ -1844,10 +1846,10 @@ class _HostelScreenState extends State<HostelScreen> {
           iconColor: const Color(0xFF0969DA),
           isDark: isDark,
           items: [
-            ('Wi-Fi Network', 'Aryabhatta-Res-5G (WPA2-Enterprise 1 Gbps)'),
-            ('Laundromat', 'Ground Floor West Wing • 06:00 - 22:00'),
+            ('Wi-Fi Network', 'BBDIT-Hostel-5G (WPA2-Enterprise 1 Gbps)'),
+            ('Laundromat', 'Floor 0 West Wing • 06:00 - 22:00'),
             ('Drinking Water', 'Central RO + UV cooler station on Floor ${myRoom.floor}'),
-            ('Study Lounge', '2nd Floor Central Atrium (24/7 Access)'),
+            ('Study Lounge', 'Floor 1 Central Atrium (24/7 Access)'),
           ],
         ),
         const SizedBox(height: 16),

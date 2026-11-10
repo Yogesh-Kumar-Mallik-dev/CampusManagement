@@ -117,7 +117,7 @@ class HostelRoomModel {
   const HostelRoomModel({
     required this.id,
     required this.roomNumber,
-    this.blockName = 'Aryabhatta Block',
+    this.blockName = 'Block 1',
     required this.floor,
     this.assets = const [],
     this.occupants = const [],
@@ -195,6 +195,19 @@ class HostelRoomModel {
     return null;
   }
 
+  /// Derives the hostel floor (0 to 4) from the room number.
+  /// Floor 0: 101 - 199
+  /// Floor 1: 201 - 299
+  /// Floor 2: 301 - 399
+  /// Floor 3: 401 - 499
+  /// Floor 4: 501 - 599
+  static int deriveFloor(int roomNumber) {
+    final floor = (roomNumber ~/ 100) - 1;
+    if (floor < 0) return 0;
+    if (floor > 4) return 4;
+    return floor;
+  }
+
   static String? validateSerialNumber(String? serial) {
     final trimmed = serial?.trim() ?? '';
     if (trimmed.isEmpty) {
@@ -211,11 +224,12 @@ class HostelRoomModel {
   }
 
   factory HostelRoomModel.fromJson(Map<String, dynamic> json) {
+    final roomNum = json['room_number'] as int? ?? 100;
     return HostelRoomModel(
       id: json['id'] as String? ?? '',
-      roomNumber: json['room_number'] as int? ?? 100,
-      blockName: json['block_name'] as String? ?? 'Aryabhatta Block',
-      floor: json['floor'] as int? ?? ((json['room_number'] as int? ?? 100) ~/ 100),
+      roomNumber: roomNum,
+      blockName: json['block_name'] as String? ?? 'Block 1',
+      floor: json['floor'] as int? ?? deriveFloor(roomNum),
       assets: (json['assets'] as List<dynamic>? ?? [])
           .map((e) => HostelAssetModel.fromJson(e as Map<String, dynamic>))
           .toList(),

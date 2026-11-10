@@ -196,12 +196,12 @@ func TestHostelEditRoomAndAsset(t *testing.T) {
 	}
 
 	// 1. Edit Room Details (change block name and room number to 455)
-	updatedRoom, err := svc.UpdateRoom(450, 455, "Ramanujan Block")
+	updatedRoom, err := svc.UpdateRoom(450, 455, "Block 3")
 	if err != nil {
 		t.Fatalf("failed to update room: %v", err)
 	}
-	if updatedRoom.RoomNumber != 455 || updatedRoom.BlockName != "Ramanujan Block" {
-		t.Errorf("expected room 455 in Ramanujan Block, got %d in %s", updatedRoom.RoomNumber, updatedRoom.BlockName)
+	if updatedRoom.RoomNumber != 455 || updatedRoom.BlockName != "Block 3" || updatedRoom.Floor != 3 {
+		t.Errorf("expected room 455 in Block 3 on floor 3, got %d in %s on floor %d", updatedRoom.RoomNumber, updatedRoom.BlockName, updatedRoom.Floor)
 	}
 
 	// 2. Edit Asset Serial & Condition
@@ -229,7 +229,7 @@ func TestHostelEditRoomAndAsset(t *testing.T) {
 func TestHostelQueriesAndRemoval(t *testing.T) {
 	svc := NewHostelService(nil, nil)
 
-	_, err := svc.CreateRoom(333, "Aryabhata Block")
+	_, err := svc.CreateRoom(333, "Block 2")
 	if err != nil {
 		t.Fatalf("failed to create room 333: %v", err)
 	}
@@ -264,5 +264,35 @@ func TestHostelQueriesAndRemoval(t *testing.T) {
 	err = svc.RemoveAsset(333, "non-existent-id")
 	if err == nil {
 		t.Fatalf("expected error removing non-existent asset")
+	}
+}
+
+func TestHostelFloorDerivation(t *testing.T) {
+	cases := []struct {
+		roomNum  int
+		expected int
+	}{
+		{101, 0},
+		{150, 0},
+		{199, 0},
+		{201, 1},
+		{204, 1},
+		{299, 1},
+		{301, 2},
+		{305, 2},
+		{399, 2},
+		{401, 3},
+		{402, 3},
+		{499, 3},
+		{501, 4},
+		{550, 4},
+		{599, 4},
+	}
+
+	for _, tc := range cases {
+		actual := model.DeriveFloor(tc.roomNum)
+		if actual != tc.expected {
+			t.Errorf("DeriveFloor(%d): expected floor %d, got %d", tc.roomNum, tc.expected, actual)
+		}
 	}
 }

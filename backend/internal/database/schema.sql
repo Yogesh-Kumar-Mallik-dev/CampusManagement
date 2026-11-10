@@ -459,8 +459,8 @@ CREATE INDEX IF NOT EXISTS idx_faculty_alloc_subject ON faculty_subject_allocati
 CREATE TABLE IF NOT EXISTS hostel_rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     room_number INT NOT NULL CHECK (room_number >= 100 AND room_number <= 999),
-    block_name VARCHAR(64) NOT NULL DEFAULT 'Aryabhatta Block',
-    floor INT NOT NULL DEFAULT 1,
+    block_name VARCHAR(64) NOT NULL DEFAULT 'Block 1',
+    floor INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     is_deleted BOOLEAN DEFAULT FALSE,

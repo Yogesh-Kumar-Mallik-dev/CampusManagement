@@ -885,7 +885,7 @@ void main() {
         emergencyContactName: 'Suresh Kumar',
         emergencyContactPhone: '+91 98765 00112',
         bloodGroup: 'O+',
-        address: 'Room 204, Aryabhatta Hostel',
+        address: 'Room 204, Block 2, BBDIT Hostel',
         archetype: 'student',
       );
 
@@ -893,13 +893,13 @@ void main() {
       expect(json['emergency_contact_name'], equals('Suresh Kumar'));
       expect(json['emergency_contact_phone'], equals('+91 98765 00112'));
       expect(json['blood_group'], equals('O+'));
-      expect(json['address'], equals('Room 204, Aryabhatta Hostel'));
+      expect(json['address'], equals('Room 204, Block 2, BBDIT Hostel'));
 
       final fromJson = UserModel.fromJson(json);
       expect(fromJson.emergencyContactName, equals('Suresh Kumar'));
       expect(fromJson.emergencyContactPhone, equals('+91 98765 00112'));
       expect(fromJson.bloodGroup, equals('O+'));
-      expect(fromJson.address, equals('Room 204, Aryabhatta Hostel'));
+      expect(fromJson.address, equals('Room 204, Block 2, BBDIT Hostel'));
 
       final updated = fromJson.copyWith(
         personalEmail: 'harish.new@example.com',
@@ -910,6 +910,29 @@ void main() {
       expect(updated.bloodGroup, equals('A+'));
       expect(updated.address, equals('Flat 101, Campus View'));
       expect(updated.emergencyContactName, equals('Suresh Kumar'));
+    });
+
+    test('HostelRoomModel derives floors 0-4 correctly for BBDIT single hostel building', () {
+      expect(HostelRoomModel.deriveFloor(101), equals(0));
+      expect(HostelRoomModel.deriveFloor(199), equals(0));
+      expect(HostelRoomModel.deriveFloor(201), equals(1));
+      expect(HostelRoomModel.deriveFloor(204), equals(1));
+      expect(HostelRoomModel.deriveFloor(299), equals(1));
+      expect(HostelRoomModel.deriveFloor(301), equals(2));
+      expect(HostelRoomModel.deriveFloor(305), equals(2));
+      expect(HostelRoomModel.deriveFloor(399), equals(2));
+      expect(HostelRoomModel.deriveFloor(401), equals(3));
+      expect(HostelRoomModel.deriveFloor(402), equals(3));
+      expect(HostelRoomModel.deriveFloor(499), equals(3));
+      expect(HostelRoomModel.deriveFloor(501), equals(4));
+      expect(HostelRoomModel.deriveFloor(550), equals(4));
+
+      final room = HostelRoomModel.fromJson({
+        'id': 'room-105',
+        'room_number': 105,
+      });
+      expect(room.floor, equals(0));
+      expect(room.blockName, equals('Block 1'));
     });
   });
 }

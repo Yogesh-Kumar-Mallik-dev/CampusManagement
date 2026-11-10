@@ -45,7 +45,7 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
       valueListenable: AppTheme.themeModeNotifier,
       builder: (context, themeMode, _) {
         return MaterialApp(
-          title: 'CampusOS',
+          title: 'BBDIT & BBDIT College of Pharmacy',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
