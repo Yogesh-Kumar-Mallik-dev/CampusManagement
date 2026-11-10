@@ -5,6 +5,7 @@ import '../facade/campus_facade.dart';
 import '../models/library.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
+import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_dropdown.dart';
 
@@ -2346,7 +2347,15 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       key: const Key('input-book-search'),
                       decoration: InputDecoration(
                         hintText: 'Search title, author, ISBN, shelf...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                          child: AppSvgIcon(
+                            svgString: AppSvgIcon.search,
+                            size: 13,
+                            strokeWidth: 1.5,
+                            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                          ),
+                        ),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -2378,7 +2387,15 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       key: const Key('input-book-search'),
                       decoration: InputDecoration(
                         hintText: 'Search title, author, ISBN, shelf...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                          child: AppSvgIcon(
+                            svgString: AppSvgIcon.search,
+                            size: 13,
+                            strokeWidth: 1.5,
+                            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                          ),
+                        ),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -2668,7 +2685,15 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       key: const Key('input-ebook-search'),
                       decoration: InputDecoration(
                         hintText: 'Search digital textbooks, authors, topics...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                          child: AppSvgIcon(
+                            svgString: AppSvgIcon.search,
+                            size: 13,
+                            strokeWidth: 1.5,
+                            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                          ),
+                        ),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -2700,7 +2725,15 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       key: const Key('input-ebook-search'),
                       decoration: InputDecoration(
                         hintText: 'Search digital textbooks, authors, topics...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                          child: AppSvgIcon(
+                            svgString: AppSvgIcon.search,
+                            size: 13,
+                            strokeWidth: 1.5,
+                            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                          ),
+                        ),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

@@ -1166,7 +1166,15 @@ class _HostelScreenState extends State<HostelScreen> {
                             key: const Key('input-search-hostel-room'),
                             decoration: InputDecoration(
                               hintText: 'Search room, resident, SN...',
-                              prefixIcon: const Icon(Icons.search, size: 16),
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                                child: AppSvgIcon(
+                                  svgString: AppSvgIcon.search,
+                                  size: 13,
+                                  strokeWidth: 1.5,
+                                  color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                                ),
+                              ),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                               isDense: true,

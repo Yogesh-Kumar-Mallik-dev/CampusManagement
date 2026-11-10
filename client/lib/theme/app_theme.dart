@@ -94,6 +94,10 @@ class AppTheme {
         isDense: true,
         filled: true,
         fillColor: AppColors.lightSurface,
+        prefixIconColor: AppColors.lightTextPlaceholder,
+        suffixIconColor: AppColors.lightTextPlaceholder,
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        suffixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
           borderSide: const BorderSide(color: AppColors.lightBorder, width: 1),
@@ -253,6 +257,10 @@ class AppTheme {
         isDense: true,
         filled: true,
         fillColor: AppColors.darkSurface,
+        prefixIconColor: AppColors.darkTextPlaceholder,
+        suffixIconColor: AppColors.darkTextPlaceholder,
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        suffixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
           borderSide: const BorderSide(color: AppColors.darkBorder, width: 1),

@@ -200,11 +200,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: InputDecoration(
                               hintText: 'e.g. harish_2025_l_btech_1',
                               prefixIcon: Padding(
-                                padding: const EdgeInsets.all(11),
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
                                 child: AppSvgIcon(
                                   svgString: AppSvgIcon.user,
-                                  size: 15,
-                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                  size: 13,
+                                  strokeWidth: 1.5,
+                                  color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
                                 ),
                               ),
                             ),
@@ -233,18 +234,22 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: InputDecoration(
                               hintText: 'Enter account password',
                               prefixIcon: Padding(
-                                padding: const EdgeInsets.all(11),
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
                                 child: AppSvgIcon(
                                   svgString: AppSvgIcon.lock,
-                                  size: 15,
-                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                  size: 13,
+                                  strokeWidth: 1.5,
+                                  color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
                                 ),
                               ),
                               suffixIcon: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                 icon: AppSvgIcon(
                                   svgString: _obscurePassword ? AppSvgIcon.eye : AppSvgIcon.eyeOff,
-                                  size: 15,
-                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                  size: 13,
+                                  strokeWidth: 1.5,
+                                  color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
                                 ),
                                 onPressed: () {
                                   setState(() => _obscurePassword = !_obscurePassword);

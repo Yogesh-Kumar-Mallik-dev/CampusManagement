@@ -697,11 +697,12 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
           ),
           prefixIcon: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
             child: AppSvgIcon(
               svgString: AppSvgIcon.search,
-              size: 16,
-              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+              size: 13,
+              strokeWidth: 1.5,
+              color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
             ),
           ),
           suffixIcon: _searchQuery.isNotEmpty

@@ -842,10 +842,35 @@ void main() {
       final lightInput = AppTheme.lightTheme.inputDecorationTheme;
       expect(AppTheme.lightTheme.hintColor, equals(AppColors.lightTextPlaceholder));
       expect(lightInput.hintStyle?.color, equals(AppColors.lightTextPlaceholder));
+      expect(lightInput.prefixIconColor, equals(AppColors.lightTextPlaceholder));
+      expect(lightInput.suffixIconColor, equals(AppColors.lightTextPlaceholder));
+      expect(lightInput.prefixIconConstraints?.minWidth, equals(32));
+      expect(lightInput.prefixIconConstraints?.minHeight, equals(32));
 
       final darkInput = AppTheme.darkTheme.inputDecorationTheme;
       expect(AppTheme.darkTheme.hintColor, equals(AppColors.darkTextPlaceholder));
       expect(darkInput.hintStyle?.color, equals(AppColors.darkTextPlaceholder));
+      expect(darkInput.prefixIconColor, equals(AppColors.darkTextPlaceholder));
+      expect(darkInput.suffixIconColor, equals(AppColors.darkTextPlaceholder));
+      expect(darkInput.prefixIconConstraints?.minWidth, equals(32));
+      expect(darkInput.prefixIconConstraints?.minHeight, equals(32));
+    });
+
+    testWidgets('AppSvgIcon supports strokeWidth customization for input icons', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: AppSvgIcon(
+              svgString: AppSvgIcon.search,
+              size: 13,
+              strokeWidth: 1.5,
+              color: AppColors.lightTextPlaceholder,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(AppSvgIcon), findsOneWidget);
     });
 
     test('UserModel supports emergency contact, blood group, address serialization and copyWith', () {

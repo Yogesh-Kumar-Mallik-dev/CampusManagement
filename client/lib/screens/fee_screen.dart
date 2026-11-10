@@ -7,6 +7,7 @@ import '../models/fee.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/svg_icons.dart';
 import '../utils/file_downloader.dart';
 import '../widgets/app_dropdown.dart';
 import 'complaints_screen.dart';
@@ -1006,7 +1007,15 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
                       key: const Key('input-search-payments'),
                       decoration: InputDecoration(
                         hintText: 'Search by Receipt Number, Ref ID, or Payment Mode...',
-                        prefixIcon: const Icon(Icons.search, size: 18),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                          child: AppSvgIcon(
+                            svgString: AppSvgIcon.search,
+                            size: 13,
+                            strokeWidth: 1.5,
+                            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                          ),
+                        ),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         isDense: true,
@@ -1032,7 +1041,15 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
                         key: const Key('input-search-payments'),
                         decoration: InputDecoration(
                           hintText: 'Search by Receipt Number, Ref ID, or Payment Mode...',
-                          prefixIcon: const Icon(Icons.search, size: 18),
+                          prefixIcon: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                            child: AppSvgIcon(
+                              svgString: AppSvgIcon.search,
+                              size: 13,
+                              strokeWidth: 1.5,
+                              color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                            ),
+                          ),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           isDense: true,

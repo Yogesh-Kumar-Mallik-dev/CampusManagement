@@ -183,6 +183,10 @@ To avoid user confusion between pre-filled placeholder text and user-entered val
    Configured at the root in `AppTheme.lightTheme` and `AppTheme.darkTheme`:
    ```dart
    inputDecorationTheme: InputDecorationTheme(
+     prefixIconColor: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+     suffixIconColor: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+     prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+     suffixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
      hintStyle: TextStyle(
        color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
        fontSize: 13,
@@ -190,6 +194,13 @@ To avoid user confusion between pre-filled placeholder text and user-entered val
      ),
    ),
    ```
+
+4. **Input Field Icon Sizing & Weight Standards**:
+   - Icons within input fields (`prefixIcon` and `suffixIcon`) must never appear thick, dark, or dominate the input field.
+   - Sizing: Compact `size: 13` (down from 18-20px).
+   - Line weight: Refined vector stroke `strokeWidth: 1.5` (via `AppSvgIcon.strokeWidth`).
+   - Color: Lighter muted tone matching `AppColors.lightTextPlaceholder` / `AppColors.darkTextPlaceholder` rather than saturated or bold black text colors.
+   - Padding & Constraints: Constrained to `minWidth: 32, minHeight: 32` with symmetrical `EdgeInsets.symmetric(horizontal: 9, vertical: 9)` padding.
 
 ---
 

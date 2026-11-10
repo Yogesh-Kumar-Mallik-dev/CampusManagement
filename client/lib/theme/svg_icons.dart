@@ -5,20 +5,25 @@ class AppSvgIcon extends StatelessWidget {
   final String svgString;
   final double size;
   final Color? color;
+  final double? strokeWidth;
 
   const AppSvgIcon({
     super.key,
     required this.svgString,
     this.size = 20,
     this.color,
+    this.strokeWidth,
   });
 
   @override
   Widget build(BuildContext context) {
     final effectiveColor = color ?? IconTheme.of(context).color ?? Colors.black;
+    final svgData = strokeWidth != null
+        ? svgString.replaceAll('stroke-width="2"', 'stroke-width="$strokeWidth"')
+        : svgString;
     return RepaintBoundary(
       child: SvgPicture.string(
-        svgString,
+        svgData,
         width: size,
         height: size,
         colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
