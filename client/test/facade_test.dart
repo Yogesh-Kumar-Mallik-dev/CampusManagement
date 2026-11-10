@@ -591,13 +591,22 @@ void main() {
       );
       expect(returnedOverdue.isReturned, isTrue);
 
-      // Now borrow an available book
+      // Now borrow an available book (creates loan pending library in-charge approval)
       final availableBook = books.firstWhere((b) => b.isAvailable);
       final newBorrow = await facade.borrowBook(
         studentId: studentId,
         bookId: availableBook.id,
       );
-      expect(newBorrow.isActive, isTrue);
+      expect(newBorrow.isPendingApproval, isTrue);
+
+      // Library In-Charge approves the physical book loan
+      final approvedLoan = await facade.approveBorrowRequest(
+        borrowId: newBorrow.id,
+        approvedBy: 'usr-incharge-lib',
+        approvedByName: 'Dr. Library Incharge',
+      );
+      expect(approvedLoan.isActive, isTrue);
+      expect(approvedLoan.approvedBy, equals('usr-incharge-lib'));
 
       final renewed = await facade.renewBook(
         borrowId: newBorrow.id,
@@ -610,6 +619,27 @@ void main() {
         studentId: studentId,
       );
       expect(returnedNew.isReturned, isTrue);
+
+      // Rejection workflow: borrow another book and reject
+      final bookToReject = books.firstWhere((b) => b.isAvailable && b.id != availableBook.id);
+      final currentBook = await facade.getBookById(bookToReject.id);
+      final initialCopies = currentBook!.availableCopies;
+      final rejectedReq = await facade.borrowBook(
+        studentId: studentId,
+        bookId: bookToReject.id,
+      );
+      expect(rejectedReq.isPendingApproval, isTrue);
+
+      final rejectedRecord = await facade.rejectBorrowRequest(
+        borrowId: rejectedReq.id,
+        rejectedBy: 'usr-incharge-lib',
+        rejectionReason: 'Book reserved for post-graduate laboratory reference',
+      );
+      expect(rejectedRecord.isRejected, isTrue);
+      expect(rejectedRecord.rejectionReason, contains('post-graduate laboratory'));
+
+      final restoredBook = await facade.getBookById(bookToReject.id);
+      expect(restoredBook?.availableCopies, equals(initialCopies));
 
       final ebooks = await facade.getEBooks();
       expect(ebooks.isNotEmpty, isTrue);

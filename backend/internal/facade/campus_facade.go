@@ -73,6 +73,8 @@ type CampusFacadeInterface interface {
 	GetBookByID(ctx context.Context, id string) (*model.PhysicalBook, error)
 	GetBorrowRecords(ctx context.Context, studentID, status string) ([]model.BorrowRecord, error)
 	BorrowBook(ctx context.Context, req model.BorrowBookRequest) (*model.BorrowRecord, error)
+	ApproveBorrow(ctx context.Context, req model.ApproveBorrowRequest) (*model.BorrowRecord, error)
+	RejectBorrow(ctx context.Context, req model.RejectBorrowRequest) (*model.BorrowRecord, error)
 	ReturnBook(ctx context.Context, req model.ReturnBookRequest) (*model.BorrowRecord, error)
 	RenewBook(ctx context.Context, req model.RenewBookRequest) (*model.BorrowRecord, error)
 	GetEBooks(ctx context.Context, query, category string) ([]model.EBook, error)
@@ -474,6 +476,20 @@ func (f *CampusFacade) BorrowBook(ctx context.Context, req model.BorrowBookReque
 		return nil, fmt.Errorf("library service unavailable")
 	}
 	return f.library.BorrowBook(ctx, req)
+}
+
+func (f *CampusFacade) ApproveBorrow(ctx context.Context, req model.ApproveBorrowRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.ApproveBorrow(ctx, req)
+}
+
+func (f *CampusFacade) RejectBorrow(ctx context.Context, req model.RejectBorrowRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.RejectBorrow(ctx, req)
 }
 
 func (f *CampusFacade) ReturnBook(ctx context.Context, req model.ReturnBookRequest) (*model.BorrowRecord, error) {

@@ -574,10 +574,14 @@ void main() {
 
       // 1. BorrowStatus & BookCategory
       expect(BorrowStatus.displayName(BorrowStatus.active), equals('Active Loan'));
+      expect(BorrowStatus.displayName(BorrowStatus.pendingApproval), equals('Pending Approval'));
+      expect(BorrowStatus.displayName(BorrowStatus.rejected), equals('Rejected'));
       expect(BorrowStatus.displayName(BorrowStatus.overdue), equals('Overdue'));
       expect(BorrowStatus.displayName(BorrowStatus.returned), equals('Returned'));
       expect(BorrowStatus.displayName('unknown'), equals('Unknown'));
       expect(BorrowStatus.statusColor(BorrowStatus.active), isA<Color>());
+      expect(BorrowStatus.statusColor(BorrowStatus.pendingApproval), isA<Color>());
+      expect(BorrowStatus.statusColor(BorrowStatus.rejected), isA<Color>());
       expect(BookCategory.catalogCategories.contains(BookCategory.cse), isTrue);
 
       // 2. PhysicalBookModel
@@ -660,6 +664,35 @@ void main() {
       );
       expect(returnedBorrow.isReturned, isTrue);
       expect(returnedBorrow.canRenew, isFalse);
+
+      final pendingBorrow = borrow.copyWith(
+        status: BorrowStatus.pendingApproval,
+      );
+      expect(pendingBorrow.isPendingApproval, isTrue);
+      expect(pendingBorrow.canRenew, isFalse);
+
+      final approvedBorrow = pendingBorrow.copyWith(
+        status: BorrowStatus.active,
+        approvedBy: 'usr-incharge-lib',
+        approvedByName: 'Dr. Library Incharge',
+        approvedAt: now,
+      );
+      expect(approvedBorrow.isActive, isTrue);
+      expect(approvedBorrow.approvedBy, equals('usr-incharge-lib'));
+      expect(approvedBorrow.approvedByName, equals('Dr. Library Incharge'));
+      expect(approvedBorrow.approvedAt, isNotNull);
+
+      final rejectedBorrow = pendingBorrow.copyWith(
+        status: BorrowStatus.rejected,
+        rejectionReason: 'Exceeded borrow allowance',
+      );
+      expect(rejectedBorrow.isRejected, isTrue);
+      expect(rejectedBorrow.rejectionReason, equals('Exceeded borrow allowance'));
+      expect(rejectedBorrow.canRenew, isFalse);
+
+      final repParsed = BorrowRecordModel.fromJson(approvedBorrow.toJson());
+      expect(repParsed.approvedBy, equals('usr-incharge-lib'));
+      expect(repParsed.approvedByName, equals('Dr. Library Incharge'));
 
       // 4. EBookModel
       final ebook = EBookModel(

@@ -197,7 +197,23 @@ abstract class ICampusFacade {
   Future<List<PhysicalBookModel>> getPhysicalBooks({String? query, String? category});
   Future<PhysicalBookModel?> getBookById(String id);
   Future<List<BorrowRecordModel>> getBorrowRecords({String? studentId, String? status});
-  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId});
+  Future<BorrowRecordModel> borrowBook({
+    required String studentId,
+    required String bookId,
+    String? approvedBy,
+    String? approvedByName,
+  });
+  Future<BorrowRecordModel> approveBorrowRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  });
+  Future<BorrowRecordModel> rejectBorrowRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  });
   Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId});
   Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId});
   Future<List<EBookModel>> getEBooks({String? query, String? category});
@@ -704,8 +720,44 @@ class CampusFacade implements ICampusFacade {
       storage.getBorrowRecords(studentId: studentId, status: status);
 
   @override
-  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId}) =>
-      storage.borrowBook(studentId: studentId, bookId: bookId);
+  Future<BorrowRecordModel> borrowBook({
+    required String studentId,
+    required String bookId,
+    String? approvedBy,
+    String? approvedByName,
+  }) =>
+      storage.borrowBook(
+        studentId: studentId,
+        bookId: bookId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+      );
+
+  @override
+  Future<BorrowRecordModel> approveBorrowRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) =>
+      storage.approveBorrowRequest(
+        borrowId: borrowId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+        remarks: remarks,
+      );
+
+  @override
+  Future<BorrowRecordModel> rejectBorrowRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) =>
+      storage.rejectBorrowRequest(
+        borrowId: borrowId,
+        rejectedBy: rejectedBy,
+        rejectionReason: rejectionReason,
+      );
 
   @override
   Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId}) =>

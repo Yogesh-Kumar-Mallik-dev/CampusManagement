@@ -5130,7 +5130,29 @@ class OfflineStorageService implements ICampusStorage {
       updatedAt: now.subtract(const Duration(days: 32)),
     );
 
-    _cachedBorrowRecords.addAll([loan1, loan2, loan3]);
+    // Seed a pending borrow request awaiting Library In-Charge approval
+    final loan4 = BorrowRecordModel(
+      id: 'brw-net-01',
+      bookId: 'bk-net-01',
+      bookTitle: 'Computer Networks: A Systems Approach',
+      bookAuthor: 'Larry L. Peterson, Bruce S. Davie',
+      bookIsbn: '978-0123850591',
+      shelfLocation: 'Rack D-2, 2nd Floor Central Wing',
+      studentId: 'usr-priya_2024_emp_1',
+      studentName: 'Dr. Priya Nair',
+      campusHandle: 'priya_2024_emp_1',
+      borrowedAt: now.subtract(const Duration(hours: 4)),
+      dueDate: now.add(const Duration(days: 14)),
+      status: BorrowStatus.pendingApproval,
+      renewalCount: 0,
+      maxRenewals: 2,
+      finePerDay: 10.0,
+      accruedLateFine: 0.0,
+      createdAt: now.subtract(const Duration(hours: 4)),
+      updatedAt: now.subtract(const Duration(hours: 4)),
+    );
+
+    _cachedBorrowRecords.addAll([loan1, loan2, loan3, loan4]);
 
     // Ensure overdue fine is synchronized into the Institutional Fine Portal
     _seedDefaultFeesIfEmpty();
@@ -5284,9 +5306,13 @@ class OfflineStorageService implements ICampusStorage {
     for (int i = 0; i < _cachedBorrowRecords.length; i++) {
       final rec = _cachedBorrowRecords[i];
       if (studentId.isNotEmpty && rec.studentId != studentId) continue;
+      if (rec.isRejected) continue;
 
       if (rec.isReturned) {
         returnedBorrows++;
+      } else if (rec.isPendingApproval) {
+        // Pending approval counts towards quota reservation
+        activeBorrows++;
       } else {
         // Active or overdue
         if (now.isAfter(rec.dueDate)) {
@@ -5395,7 +5421,7 @@ class OfflineStorageService implements ICampusStorage {
     // Synchronize overdue status dynamically
     for (int i = 0; i < _cachedBorrowRecords.length; i++) {
       final rec = _cachedBorrowRecords[i];
-      if (!rec.isReturned && now.isAfter(rec.dueDate)) {
+      if (rec.isActive && now.isAfter(rec.dueDate)) {
         final days = now.difference(rec.dueDate).inDays;
         final fineDays = days > 0 ? days : 1;
         final accrued = fineDays * rec.finePerDay;
@@ -5417,19 +5443,31 @@ class OfflineStorageService implements ICampusStorage {
         if (cleanStatus == 'active' && !r.isActive) return false;
         if (cleanStatus == 'overdue' && !r.isOverdue) return false;
         if (cleanStatus == 'returned' && !r.isReturned) return false;
+        if ((cleanStatus == 'pending_approval' || cleanStatus == 'pending approval') && !r.isPendingApproval) return false;
+        if (cleanStatus == 'rejected' && !r.isRejected) return false;
       }
       return true;
     }).toList();
   }
 
   @override
-  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId}) async {
+  Future<BorrowRecordModel> borrowBook({
+    required String studentId,
+    required String bookId,
+    String? approvedBy,
+    String? approvedByName,
+  }) async {
     _seedDefaultLibraryIfEmpty();
 
     await checkConnectivity();
     if (isOnline) {
       try {
-        final res = await api.borrowBook(studentId: studentId, bookId: bookId);
+        final res = await api.borrowBook(
+          studentId: studentId,
+          bookId: bookId,
+          approvedBy: approvedBy,
+          approvedByName: approvedByName,
+        );
         _cachedBorrowRecords.insert(0, res);
         // decrement local copy
         final bIdx = _cachedPhysicalBooks.indexWhere((b) => b.id == bookId);
@@ -5452,8 +5490,8 @@ class OfflineStorageService implements ICampusStorage {
     int activeBorrowsCount = 0;
     bool hasOverdue = false;
     for (final rec in _cachedBorrowRecords) {
-      if (rec.studentId == studentId && !rec.isReturned) {
-        if (now.isAfter(rec.dueDate)) {
+      if (rec.studentId == studentId && !rec.isReturned && !rec.isRejected) {
+        if (rec.isActive && now.isAfter(rec.dueDate)) {
           hasOverdue = true;
         }
         activeBorrowsCount++;
@@ -5477,12 +5515,13 @@ class OfflineStorageService implements ICampusStorage {
       throw Exception("All copies of '${book.title}' are currently checked out");
     }
 
-    // Decrement available copies
+    // Decrement available copies (reserved)
     _cachedPhysicalBooks[bookIdx] = book.copyWith(
       availableCopies: book.availableCopies - 1,
       updatedAt: now,
     );
 
+    final isAutoApproved = approvedBy != null && approvedBy.isNotEmpty;
     final borrowId = 'brw-${DateTime.now().millisecondsSinceEpoch}';
     final newBorrow = BorrowRecordModel(
       id: borrowId,
@@ -5496,7 +5535,10 @@ class OfflineStorageService implements ICampusStorage {
       campusHandle: _currentUser?.campusHandle ?? studentId,
       borrowedAt: now,
       dueDate: now.add(const Duration(days: 14)),
-      status: BorrowStatus.active,
+      status: isAutoApproved ? BorrowStatus.active : BorrowStatus.pendingApproval,
+      approvedBy: isAutoApproved ? approvedBy : null,
+      approvedByName: isAutoApproved ? approvedByName : null,
+      approvedAt: isAutoApproved ? now : null,
       renewalCount: 0,
       maxRenewals: 2,
       finePerDay: 10.0,
@@ -5507,6 +5549,121 @@ class OfflineStorageService implements ICampusStorage {
 
     _cachedBorrowRecords.insert(0, newBorrow);
     return newBorrow;
+  }
+
+  @override
+  Future<BorrowRecordModel> approveBorrowRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.approveBorrowRequest(
+          borrowId: borrowId,
+          approvedBy: approvedBy,
+          approvedByName: approvedByName,
+          remarks: remarks,
+        );
+        final idx = _cachedBorrowRecords.indexWhere((r) => r.id == borrowId);
+        if (idx != -1) _cachedBorrowRecords[idx] = res;
+        return res;
+      } catch (e) {
+        rethrow;
+      }
+    }
+
+    final idx = _cachedBorrowRecords.indexWhere((r) => r.id == borrowId);
+    if (idx == -1) {
+      throw Exception('Borrow request record not found');
+    }
+
+    final record = _cachedBorrowRecords[idx];
+    if (record.status != BorrowStatus.pendingApproval) {
+      throw Exception('Cannot approve borrow request that is not in pending approval status');
+    }
+
+    final now = DateTime.now();
+    final updated = record.copyWith(
+      status: BorrowStatus.active,
+      approvedBy: approvedBy,
+      approvedByName: approvedByName,
+      approvedAt: now,
+      borrowedAt: now,
+      dueDate: now.add(const Duration(days: 14)),
+      updatedAt: now,
+    );
+
+    _cachedBorrowRecords[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<BorrowRecordModel> rejectBorrowRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.rejectBorrowRequest(
+          borrowId: borrowId,
+          rejectedBy: rejectedBy,
+          rejectionReason: rejectionReason,
+        );
+        final idx = _cachedBorrowRecords.indexWhere((r) => r.id == borrowId);
+        if (idx != -1) _cachedBorrowRecords[idx] = res;
+        // restore copy
+        final bIdx = _cachedPhysicalBooks.indexWhere((b) => b.id == res.bookId);
+        if (bIdx != -1) {
+          final b = _cachedPhysicalBooks[bIdx];
+          _cachedPhysicalBooks[bIdx] = b.copyWith(
+            availableCopies: (b.availableCopies + 1).clamp(0, b.totalCopies),
+          );
+        }
+        return res;
+      } catch (e) {
+        rethrow;
+      }
+    }
+
+    final idx = _cachedBorrowRecords.indexWhere((r) => r.id == borrowId);
+    if (idx == -1) {
+      throw Exception('Borrow request record not found');
+    }
+
+    final record = _cachedBorrowRecords[idx];
+    if (record.status != BorrowStatus.pendingApproval) {
+      throw Exception('Cannot reject borrow request that is not in pending approval status');
+    }
+
+    final now = DateTime.now();
+    final updated = record.copyWith(
+      status: BorrowStatus.rejected,
+      rejectionReason: rejectionReason,
+      updatedAt: now,
+    );
+
+    _cachedBorrowRecords[idx] = updated;
+
+    // Restore available copies
+    final bIdx = _cachedPhysicalBooks.indexWhere((b) => b.id == record.bookId);
+    if (bIdx != -1) {
+      final b = _cachedPhysicalBooks[bIdx];
+      _cachedPhysicalBooks[bIdx] = b.copyWith(
+        availableCopies: (b.availableCopies + 1).clamp(0, b.totalCopies),
+        updatedAt: now,
+      );
+    }
+
+    return updated;
   }
 
   @override

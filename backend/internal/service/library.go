@@ -22,6 +22,8 @@ type LibraryServiceInterface interface {
 	GetBookByID(ctx context.Context, id string) (*model.PhysicalBook, error)
 	GetBorrowRecords(ctx context.Context, studentID string, status string) ([]model.BorrowRecord, error)
 	BorrowBook(ctx context.Context, req model.BorrowBookRequest) (*model.BorrowRecord, error)
+	ApproveBorrow(ctx context.Context, req model.ApproveBorrowRequest) (*model.BorrowRecord, error)
+	RejectBorrow(ctx context.Context, req model.RejectBorrowRequest) (*model.BorrowRecord, error)
 	ReturnBook(ctx context.Context, req model.ReturnBookRequest) (*model.BorrowRecord, error)
 	RenewBook(ctx context.Context, req model.RenewBookRequest) (*model.BorrowRecord, error)
 	GetEBooks(ctx context.Context, query string, category string) ([]model.EBook, error)
@@ -324,16 +326,18 @@ func (s *LibraryService) GetLibrarySummary(ctx context.Context, studentID string
 			continue
 		}
 
-		if b.Status == model.BorrowStatusReturned {
-			totalRead++
+		if b.Status == model.BorrowStatusReturned || b.Status == model.BorrowStatusRejected {
+			if b.Status == model.BorrowStatusReturned {
+				totalRead++
+			}
 			continue
 		}
 
-		// Active or Overdue
+		// Active, Overdue, or Pending Approval
 		activeCount++
 
-		// Recalculate overdue status dynamically
-		if b.DueDate.Before(now) {
+		// Recalculate overdue status dynamically only for active loans past due date
+		if b.Status != model.BorrowStatusPendingApproval && b.DueDate.Before(now) {
 			b.Status = model.BorrowStatusOverdue
 			overdueCount++
 			daysOverdue := math.Ceil(now.Sub(b.DueDate).Hours() / 24.0)
@@ -421,8 +425,8 @@ func (s *LibraryService) GetBorrowRecords(ctx context.Context, studentID string,
 			continue
 		}
 
-		// Dynamically assess overdue fines if still unreturned and past deadline
-		if b.Status != model.BorrowStatusReturned && b.DueDate.Before(now) {
+		// Dynamically assess overdue fines if still unreturned and past deadline (active loans only)
+		if b.Status != model.BorrowStatusReturned && b.Status != model.BorrowStatusRejected && b.Status != model.BorrowStatusPendingApproval && b.DueDate.Before(now) {
 			b.Status = model.BorrowStatusOverdue
 			days := math.Ceil(now.Sub(b.DueDate).Hours() / 24.0)
 			if days > 0 {
@@ -466,9 +470,9 @@ func (s *LibraryService) BorrowBook(ctx context.Context, req model.BorrowBookReq
 	activeCount := 0
 	hasOverdue := false
 	for _, b := range s.borrows {
-		if b.StudentID == req.StudentID && b.Status != model.BorrowStatusReturned {
+		if b.StudentID == req.StudentID && b.Status != model.BorrowStatusReturned && b.Status != model.BorrowStatusRejected {
 			activeCount++
-			if b.DueDate.Before(time.Now().UTC()) {
+			if (b.Status == model.BorrowStatusActive || b.Status == model.BorrowStatusOverdue) && b.DueDate.Before(time.Now().UTC()) {
 				hasOverdue = true
 			}
 		}
@@ -489,6 +493,13 @@ func (s *LibraryService) BorrowBook(ctx context.Context, req model.BorrowBookReq
 	book.AvailableCopies--
 	book.UpdatedAt = now
 
+	status := model.BorrowStatusPendingApproval
+	var approvedAt *time.Time
+	if req.ApprovedBy != "" {
+		status = model.BorrowStatusActive
+		approvedAt = &now
+	}
+
 	borrow := &model.BorrowRecord{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        fmt.Sprintf("brw-%d", now.UnixNano()),
@@ -505,14 +516,100 @@ func (s *LibraryService) BorrowBook(ctx context.Context, req model.BorrowBookReq
 		CampusHandle:    req.CampusHandle,
 		BorrowedAt:      now,
 		DueDate:         dueDate,
-		Status:          model.BorrowStatusActive,
+		Status:          status,
 		RenewalCount:    0,
 		MaxRenewals:     2,
 		FinePerDay:      10.0,
 		AccruedLateFine: 0.0,
+		ApprovedBy:      req.ApprovedBy,
+		ApprovedByName:  req.ApprovedByName,
+		ApprovedAt:      approvedAt,
 	}
 
 	s.borrows[borrow.ID] = borrow
+	copy := *borrow
+	return &copy, nil
+}
+
+func (s *LibraryService) ApproveBorrow(ctx context.Context, req model.ApproveBorrowRequest) (*model.BorrowRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if req.BorrowID == "" {
+		return nil, errors.New("borrow_id is required")
+	}
+	if req.ApprovedBy == "" {
+		return nil, errors.New("approved_by (library in-charge identity) is required")
+	}
+
+	borrow, ok := s.borrows[req.BorrowID]
+	if !ok || borrow == nil {
+		return nil, fmt.Errorf("borrow request '%s' not found", req.BorrowID)
+	}
+
+	if borrow.Status == model.BorrowStatusActive {
+		return nil, errors.New("loan is already approved and active")
+	}
+	if borrow.Status == model.BorrowStatusReturned {
+		return nil, errors.New("cannot approve an already returned loan")
+	}
+
+	now := time.Now().UTC()
+	borrow.Status = model.BorrowStatusActive
+	borrow.ApprovedBy = req.ApprovedBy
+	borrow.ApprovedByName = req.ApprovedByName
+	borrow.ApprovedAt = &now
+	borrow.BorrowedAt = now
+	borrow.DueDate = now.Add(14 * 24 * time.Hour) // 14-day loan starts upon in-charge approval
+	if req.Remarks != "" {
+		borrow.Remarks = req.Remarks
+	}
+	borrow.UpdatedAt = now
+
+	copy := *borrow
+	return &copy, nil
+}
+
+func (s *LibraryService) RejectBorrow(ctx context.Context, req model.RejectBorrowRequest) (*model.BorrowRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if req.BorrowID == "" {
+		return nil, errors.New("borrow_id is required")
+	}
+	if req.RejectedBy == "" {
+		return nil, errors.New("rejected_by (library in-charge identity) is required")
+	}
+
+	borrow, ok := s.borrows[req.BorrowID]
+	if !ok || borrow == nil {
+		return nil, fmt.Errorf("borrow request '%s' not found", req.BorrowID)
+	}
+
+	if borrow.Status == model.BorrowStatusActive {
+		return nil, errors.New("cannot reject an already active loan; return the book instead")
+	}
+	if borrow.Status == model.BorrowStatusReturned {
+		return nil, errors.New("cannot reject an already returned loan")
+	}
+
+	now := time.Now().UTC()
+	borrow.Status = model.BorrowStatusRejected
+	reason := req.RejectionReason
+	if strings.TrimSpace(reason) == "" {
+		reason = "Declined by Library In-Charge"
+	}
+	borrow.RejectionReason = reason
+	borrow.UpdatedAt = now
+
+	// Restore physical copy back to catalog
+	if book, exists := s.books[borrow.BookID]; exists && book != nil {
+		if book.AvailableCopies < book.TotalCopies {
+			book.AvailableCopies++
+			book.UpdatedAt = now
+		}
+	}
+
 	copy := *borrow
 	return &copy, nil
 }

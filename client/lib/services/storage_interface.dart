@@ -199,7 +199,23 @@ abstract class ICampusApi {
   Future<List<PhysicalBookModel>> getPhysicalBooks({String? query, String? category});
   Future<PhysicalBookModel?> getBookById(String id);
   Future<List<BorrowRecordModel>> getBorrowRecords({String? studentId, String? status});
-  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId});
+  Future<BorrowRecordModel> borrowBook({
+    required String studentId,
+    required String bookId,
+    String? approvedBy,
+    String? approvedByName,
+  });
+  Future<BorrowRecordModel> approveBorrowRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  });
+  Future<BorrowRecordModel> rejectBorrowRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  });
   Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId});
   Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId});
   Future<List<EBookModel>> getEBooks({String? query, String? category});
@@ -395,7 +411,23 @@ abstract class ICampusStorage {
   Future<List<PhysicalBookModel>> getPhysicalBooks({String? query, String? category});
   Future<PhysicalBookModel?> getBookById(String id);
   Future<List<BorrowRecordModel>> getBorrowRecords({String? studentId, String? status});
-  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId});
+  Future<BorrowRecordModel> borrowBook({
+    required String studentId,
+    required String bookId,
+    String? approvedBy,
+    String? approvedByName,
+  });
+  Future<BorrowRecordModel> approveBorrowRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  });
+  Future<BorrowRecordModel> rejectBorrowRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  });
   Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId});
   Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId});
   Future<List<EBookModel>> getEBooks({String? query, String? category});

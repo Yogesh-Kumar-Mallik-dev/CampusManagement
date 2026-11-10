@@ -100,7 +100,45 @@ func TestLibraryHandlerEndpoints(t *testing.T) {
 	var newBorrow model.BorrowRecord
 	_ = json.Unmarshal(rrBorrow.Body.Bytes(), &newBorrow)
 
-	// 5. HandleRenewBook
+	// 5. HandleApproveBorrow
+	approveBody, _ := json.Marshal(model.ApproveBorrowRequest{
+		BorrowID:       newBorrow.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
+	reqApprove := httptest.NewRequest(http.MethodPost, "/api/v1/library/borrow/approve", bytes.NewReader(approveBody))
+	rrApprove := httptest.NewRecorder()
+	h.HandleApproveBorrow(rrApprove, reqApprove)
+	if rrApprove.Code != http.StatusOK {
+		t.Fatalf("expected 200 from HandleApproveBorrow, got %d (%s)", rrApprove.Code, rrApprove.Body.String())
+	}
+
+	// Test HandleRejectBorrow on a separate request
+	rejectBorrowReq, _ := json.Marshal(model.BorrowBookRequest{
+		BookID:       "bk-db-01",
+		StudentID:    "usr-rejected-student",
+		StudentName:  "Test Reject",
+		CampusHandle: "test_reject",
+	})
+	reqBorrowForReject := httptest.NewRequest(http.MethodPost, "/api/v1/library/borrow", bytes.NewReader(rejectBorrowReq))
+	rrBorrowForReject := httptest.NewRecorder()
+	h.HandleBorrowBook(rrBorrowForReject, reqBorrowForReject)
+	var borrowToReject model.BorrowRecord
+	_ = json.Unmarshal(rrBorrowForReject.Body.Bytes(), &borrowToReject)
+
+	rejectBody, _ := json.Marshal(model.RejectBorrowRequest{
+		BorrowID:        borrowToReject.ID,
+		RejectedBy:      "usr-librarian-01",
+		RejectionReason: "Reference copy only",
+	})
+	reqReject := httptest.NewRequest(http.MethodPost, "/api/v1/library/borrow/reject", bytes.NewReader(rejectBody))
+	rrReject := httptest.NewRecorder()
+	h.HandleRejectBorrow(rrReject, reqReject)
+	if rrReject.Code != http.StatusOK {
+		t.Fatalf("expected 200 from HandleRejectBorrow, got %d (%s)", rrReject.Code, rrReject.Body.String())
+	}
+
+	// 6. HandleRenewBook
 	renewBody, _ := json.Marshal(model.RenewBookRequest{
 		BorrowID:  newBorrow.ID,
 		StudentID: "usr-fresh-student",

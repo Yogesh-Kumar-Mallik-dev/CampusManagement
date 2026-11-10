@@ -1189,20 +1189,77 @@ class ApiService implements ICampusApi {
   }
 
   @override
-  Future<BorrowRecordModel> borrowBook({required String studentId, required String bookId}) async {
+  Future<BorrowRecordModel> borrowBook({
+    required String studentId,
+    required String bookId,
+    String? approvedBy,
+    String? approvedByName,
+  }) async {
+    final payload = <String, dynamic>{
+      'student_id': studentId,
+      'book_id': bookId,
+    };
+    if (approvedBy != null) payload['approved_by'] = approvedBy;
+    if (approvedByName != null) payload['approved_by_name'] = approvedByName;
+
     final res = await http.post(
       Uri.parse('$baseUrl/api/v1/library/borrow'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'student_id': studentId,
-        'book_id': bookId,
-      }),
+      body: jsonEncode(payload),
     );
     if (res.statusCode == 201 || res.statusCode == 200) {
       return BorrowRecordModel.fromJson(jsonDecode(res.body));
     }
     final err = jsonDecode(res.body);
     throw Exception(err['error'] ?? 'Failed to borrow book');
+  }
+
+  @override
+  Future<BorrowRecordModel> approveBorrowRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) async {
+    final payload = <String, dynamic>{
+      'borrow_id': borrowId,
+      'approved_by': approvedBy,
+      'approved_by_name': approvedByName,
+    };
+    if (remarks != null) payload['remarks'] = remarks;
+
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/borrow/approve'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to approve borrow request');
+  }
+
+  @override
+  Future<BorrowRecordModel> rejectBorrowRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/borrow/reject'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'borrow_id': borrowId,
+        'rejected_by': rejectedBy,
+        'rejection_reason': rejectionReason,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to reject borrow request');
   }
 
   @override

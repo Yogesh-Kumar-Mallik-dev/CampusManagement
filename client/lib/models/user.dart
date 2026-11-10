@@ -202,6 +202,16 @@ class UserModel {
       hasPermission('mess:manage') ||
       hasPermission('mess:edit_menu');
 
+  bool get isLibraryInCharge =>
+      isAdmin ||
+      hasRole('library_incharge') ||
+      hasRole('librarian') ||
+      hasPermission('library:approve') ||
+      hasPermission('library:manage') ||
+      permissions.contains('*');
+
+  bool get canManageLibrary => isLibraryInCharge;
+
   bool canManageComplaintsFor(String category) {
     final cat = category.trim().toLowerCase();
     if (isAdmin || permissions.contains('*') || hasPermission('complaints:manage')) {

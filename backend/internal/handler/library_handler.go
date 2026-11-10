@@ -128,6 +128,52 @@ func (h *LibraryHandler) HandleBorrowBook(w http.ResponseWriter, r *http.Request
 	_ = json.NewEncoder(w).Encode(borrow)
 }
 
+// HandleApproveBorrow handles POST /api/v1/library/borrow/approve
+func (h *LibraryHandler) HandleApproveBorrow(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.ApproveBorrowRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	borrow, err := h.libService.ApproveBorrow(r.Context(), req)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(borrow)
+}
+
+// HandleRejectBorrow handles POST /api/v1/library/borrow/reject
+func (h *LibraryHandler) HandleRejectBorrow(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.RejectBorrowRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	borrow, err := h.libService.RejectBorrow(r.Context(), req)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(borrow)
+}
+
 // HandleReturnBook handles POST /api/v1/library/return
 func (h *LibraryHandler) HandleReturnBook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

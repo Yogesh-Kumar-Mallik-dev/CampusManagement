@@ -26,7 +26,7 @@ class LibraryScreen extends StatefulWidget {
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
+class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   final dateFmt = DateFormat('dd MMM yyyy');
   final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
@@ -38,6 +38,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   List<BorrowRecordModel> _borrows = [];
   List<PhysicalBookModel> _books = [];
   List<EBookModel> _ebooks = [];
+  List<BorrowRecordModel> _pendingApprovals = [];
 
   String _borrowStatusFilter = 'all';
   String _bookCategoryFilter = 'All Categories';
@@ -51,6 +52,13 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       return CampusDI.instance.get<ICampusFacade>();
     }
     return CampusFacade(storage: widget.storage, api: widget.storage.api);
+  }
+
+  bool get _canManageLibrary {
+    if (widget.currentUser != null) {
+      return widget.currentUser!.canManageLibrary;
+    }
+    return false;
   }
 
   String get _currentStudentId {
@@ -67,8 +75,22 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: _canManageLibrary ? 5 : 4, vsync: this);
     _loadLibraryData();
+  }
+
+  @override
+  void didUpdateWidget(covariant LibraryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldLength = oldWidget.currentUser?.canManageLibrary == true ? 5 : 4;
+    final newLength = _canManageLibrary ? 5 : 4;
+    if (oldLength != newLength) {
+      _tabController.dispose();
+      _tabController = TabController(length: newLength, vsync: this);
+      _loadLibraryData();
+    } else if (oldWidget.currentUser?.id != widget.currentUser?.id) {
+      _loadLibraryData();
+    }
   }
 
   @override
@@ -89,6 +111,10 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       final borrows = await _facade.getBorrowRecords(studentId: studentId);
       final books = await _facade.getPhysicalBooks();
       final ebooks = await _facade.getEBooks();
+      List<BorrowRecordModel> pendingApprovals = [];
+      if (_canManageLibrary) {
+        pendingApprovals = await _facade.getBorrowRecords(status: 'pending_approval');
+      }
 
       if (mounted) {
         setState(() {
@@ -96,6 +122,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           _borrows = borrows;
           _books = books;
           _ebooks = ebooks;
+          _pendingApprovals = pendingApprovals;
           _isLoading = false;
         });
       }
@@ -133,7 +160,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               Text('Available Copies: ${book.availableCopies} of ${book.totalCopies}'),
               const Divider(height: 24),
               const Text(
-                'Standard Loan Policy:\n• Loan duration: 14 calendar days\n• Up to 2 renewals allowed\n• Late fine rate: ₹10/day',
+                'Standard Loan Policy:\n• Loan duration: 14 calendar days\n• Up to 2 renewals allowed\n• Late fine rate: ₹10/day\n• Approval Rule: Physical loan requires Library In-Charge authorization before pickup at circulation counter.',
                 style: TextStyle(fontSize: 13, height: 1.4),
               ),
             ],
@@ -155,18 +182,207 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     if (confirmed != true) return;
 
     try {
+      final isLibrarian = widget.currentUser?.canManageLibrary == true;
+      final approvedBy = isLibrarian ? widget.currentUser!.id : null;
+      final approvedByName = isLibrarian ? widget.currentUser!.fullName : null;
+
       final newBorrow = await _facade.borrowBook(
         studentId: _currentStudentId,
         bookId: book.id,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
       );
 
       if (mounted) {
+        final message = newBorrow.isPendingApproval
+            ? "Successfully borrowed request submitted for '${newBorrow.bookTitle}'. Awaiting approval from Library In-Charge."
+            : "Successfully borrowed '${newBorrow.bookTitle}'. Due on ${dateFmt.format(newBorrow.dueDate)}.";
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleApproveBorrow(BorrowRecordModel record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Approve Borrow Request'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                record.bookTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 6),
+              Text('Student: ${record.studentName} (${record.campusHandle})'),
+              Text('Shelf Location: ${record.shelfLocation}'),
+              const SizedBox(height: 12),
+              const Text(
+                'Authorizing this checkout will activate the 14-day loan period starting today and permit physical copy release to the student.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-approve-borrow'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Approve Loan'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final inChargeId = widget.currentUser?.id ?? 'incharge-lib';
+      final inChargeName = widget.currentUser?.fullName ?? 'Library In-Charge';
+      await _facade.approveBorrowRequest(
+        borrowId: record.id,
+        approvedBy: inChargeId,
+        approvedByName: inChargeName,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Successfully borrowed '${newBorrow.bookTitle}'. Due on ${dateFmt.format(newBorrow.dueDate)}.",
+              "Borrow request for '${record.bookTitle}' approved successfully. Loan is now active.",
             ),
             backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleRejectBorrow(BorrowRecordModel record) async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Reject Borrow Request'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.bookTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 6),
+                Text('Student: ${record.studentName} (${record.campusHandle})'),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('input-rejection-reason'),
+                  controller: reasonController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Rejection Reason *',
+                    hintText: 'Enter reason for rejecting request',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Rejection reason is required';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Rejecting this request will restore the physical book copy back to the catalog.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-reject-borrow'),
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(ctx).pop(true);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Reject Request'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final inChargeId = widget.currentUser?.id ?? 'incharge-lib';
+      await _facade.rejectBorrowRequest(
+        borrowId: record.id,
+        rejectedBy: inChargeId,
+        rejectionReason: reasonController.text.trim(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Borrow request for '${record.bookTitle}' has been rejected. Catalog copy restored.",
+            ),
+            backgroundColor: const Color(0xFFDC2626),
           ),
         );
         await _loadLibraryData();
@@ -259,6 +475,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       );
 
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -289,6 +506,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       );
 
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -560,23 +778,28 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           labelColor: const Color(0xFF2563EB),
           unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
           indicatorColor: const Color(0xFF2563EB),
-          tabs: const [
-            Tab(
+          tabs: [
+            const Tab(
               key: Key('tab-borrowed-books'),
               text: 'Borrowed Books & Loans',
             ),
-            Tab(
+            const Tab(
               key: Key('tab-books-catalog'),
               text: 'Physical Catalog',
             ),
-            Tab(
+            const Tab(
               key: Key('tab-infinite-ebooks'),
               text: 'Infinite E-Books',
             ),
-            Tab(
+            const Tab(
               key: Key('tab-library-policy'),
               text: 'Policy & Fine Slabs',
             ),
+            if (_canManageLibrary)
+              const Tab(
+                key: Key('tab-borrow-approvals'),
+                text: 'Borrow Approvals',
+              ),
           ],
         ),
       ),
@@ -591,6 +814,8 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                     _buildPhysicalCatalogTab(),
                     _buildInfiniteEBooksTab(),
                     _buildLibraryPolicyTab(),
+                    if (_canManageLibrary)
+                      _buildBorrowApprovalsTab(),
                   ],
                 ),
     );
@@ -629,8 +854,10 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     final filteredBorrows = _borrows.where((r) {
       if (_borrowStatusFilter == 'all') return true;
       if (_borrowStatusFilter == 'active') return r.isActive;
+      if (_borrowStatusFilter == 'pending_approval') return r.isPendingApproval;
       if (_borrowStatusFilter == 'overdue') return r.isOverdue;
       if (_borrowStatusFilter == 'returned') return r.isReturned;
+      if (_borrowStatusFilter == 'rejected') return r.isRejected;
       return true;
     }).toList();
 
@@ -668,6 +895,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                       items: const [
                         AppDropdownItem(value: 'all', label: 'All Loans'),
                         AppDropdownItem(value: 'active', label: 'Active Loans'),
+                        AppDropdownItem(value: 'pending_approval', label: 'Pending Approval'),
                         AppDropdownItem(value: 'overdue', label: 'Overdue Loans'),
                         AppDropdownItem(value: 'returned', label: 'Returned History'),
                       ],
@@ -696,6 +924,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                       items: const [
                         AppDropdownItem(value: 'all', label: 'All Loans'),
                         AppDropdownItem(value: 'active', label: 'Active Loans'),
+                        AppDropdownItem(value: 'pending_approval', label: 'Pending Approval'),
                         AppDropdownItem(value: 'overdue', label: 'Overdue Loans'),
                         AppDropdownItem(value: 'returned', label: 'Returned History'),
                       ],
@@ -956,7 +1185,13 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     Color badgeColor;
     String badgeText;
 
-    if (loan.isReturned) {
+    if (loan.isPendingApproval) {
+      badgeColor = const Color(0xFFD97706);
+      badgeText = 'Pending Approval';
+    } else if (loan.isRejected) {
+      badgeColor = const Color(0xFF6B7280);
+      badgeText = 'Rejected';
+    } else if (loan.isReturned) {
       badgeColor = const Color(0xFF16A34A);
       badgeText = 'Returned';
     } else if (loan.isOverdue) {
@@ -977,9 +1212,11 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
         border: Border.all(
           color: loan.isOverdue
               ? const Color(0xFFF87171)
-              : isDark
-                  ? const Color(0xFF334155)
-                  : const Color(0xFFE2E8F0),
+              : loan.isPendingApproval
+                  ? const Color(0xFFF59E0B)
+                  : isDark
+                      ? const Color(0xFF334155)
+                      : const Color(0xFFE2E8F0),
         ),
       ),
       child: Column(
@@ -994,7 +1231,11 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   color: badgeColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.menu_book, color: badgeColor, size: 22),
+                child: Icon(
+                  loan.isPendingApproval ? Icons.hourglass_top : Icons.menu_book,
+                  color: badgeColor,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1036,6 +1277,62 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             ],
           ),
 
+          if (loan.isPendingApproval) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF59E0B)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Color(0xFFB45309)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pending approval from Library In-Charge. Physical copy cannot be issued until authorized.',
+                      style: TextStyle(
+                        color: Color(0xFF92400E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (loan.isRejected) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFEF4444)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.cancel_outlined, size: 16, color: Color(0xFFDC2626)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Request Rejected: ${loan.rejectionReason ?? "No reason specified"}',
+                      style: const TextStyle(
+                        color: Color(0xFF991B1B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 12),
@@ -1050,6 +1347,8 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               _buildDetailItem('Borrowed On', dateFmt.format(loan.borrowedAt), isDark),
               _buildDetailItem('Due Date', dateFmt.format(loan.dueDate), isDark),
               _buildDetailItem('Renewals', '${loan.renewalCount} of ${loan.maxRenewals}', isDark),
+              if (loan.approvedByName != null)
+                _buildDetailItem('Authorized By', loan.approvedByName!, isDark),
             ],
           ),
 
@@ -1083,30 +1382,260 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           const SizedBox(height: 12),
 
           // Action Buttons
-          if (!loan.isReturned)
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  key: Key('btn-renew-${loan.id}'),
-                  icon: const Icon(Icons.replay, size: 16),
-                  label: const Text('Renew Loan (+14d)'),
-                  onPressed: loan.canRenew ? () => _handleRenewBook(loan) : null,
+          if (!loan.isReturned && !loan.isRejected) ...[
+            if (loan.isPendingApproval) ...[
+              if (_canManageLibrary)
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      key: Key('btn-reject-borrow-${loan.id}'),
+                      icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                      label: const Text('Reject', style: TextStyle(color: Color(0xFFDC2626))),
+                      onPressed: () => _handleRejectBorrow(loan),
+                    ),
+                    ElevatedButton.icon(
+                      key: Key('btn-approve-borrow-${loan.id}'),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Approve Loan'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A34A),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => _handleApproveBorrow(loan),
+                    ),
+                  ],
                 ),
-                ElevatedButton.icon(
-                  key: Key('btn-return-${loan.id}'),
-                  icon: const Icon(Icons.assignment_return_outlined, size: 16),
-                  label: const Text('Return Book'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
-                    foregroundColor: Colors.white,
+            ] else ...[
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    key: Key('btn-renew-${loan.id}'),
+                    icon: const Icon(Icons.replay, size: 16),
+                    label: const Text('Renew Loan (+14d)'),
+                    onPressed: loan.canRenew ? () => _handleRenewBook(loan) : null,
                   ),
-                  onPressed: () => _handleReturnBook(loan),
+                  ElevatedButton.icon(
+                    key: Key('btn-return-${loan.id}'),
+                    icon: const Icon(Icons.assignment_return_outlined, size: 16),
+                    label: const Text('Return Book'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => _handleReturnBook(loan),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  // TAB 5: BORROW APPROVALS (LIBRARY IN-CHARGE / ADMIN)
+  Widget _buildBorrowApprovalsTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return RefreshIndicator(
+      onRefresh: _loadLibraryData,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.rule_folder_outlined, color: Color(0xFFD97706), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Borrow Approvals Counter (${_pendingApprovals.length} Pending)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'As Library In-Charge, verify student eligibility and authorize book checkouts before physical copy dispatch.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Pending Authorization Requests (${_pendingApprovals.length})',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          if (_pendingApprovals.isEmpty)
+            _buildEmptyApprovalsState(isDark)
+          else
+            ..._pendingApprovals.map((req) => _buildApprovalRequestCard(req, isDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApprovalRequestCard(BorrowRecordModel req, bool isDark) {
+    return Container(
+      key: Key('card-approval-${req.id}'),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.hourglass_top, color: Color(0xFFD97706), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      req.bookTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Author: ${req.bookAuthor}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFF59E0B)),
+                      ),
+                      child: const Text(
+                        'Awaiting In-Charge Approval',
+                        style: TextStyle(
+                          color: Color(0xFFB45309),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 24,
+            runSpacing: 8,
+            children: [
+              _buildDetailItem('Student Name', req.studentName, isDark),
+              _buildDetailItem('Campus Handle', req.campusHandle, isDark),
+              _buildDetailItem('Shelf Location', req.shelfLocation, isDark),
+              _buildDetailItem('Requested On', dateFmt.format(req.borrowedAt), isDark),
+              _buildDetailItem('Standard Term', '14 Days from Approval', isDark),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                key: Key('btn-reject-borrow-${req.id}'),
+                icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                label: const Text('Reject Request', style: TextStyle(color: Color(0xFFDC2626))),
+                onPressed: () => _handleRejectBorrow(req),
+              ),
+              ElevatedButton.icon(
+                key: Key('btn-approve-borrow-${req.id}'),
+                icon: const Icon(Icons.check, size: 16),
+                label: const Text('Approve Loan'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => _handleApproveBorrow(req),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyApprovalsState(bool isDark) {
+    return Container(
+      key: const Key('empty-approvals-state'),
+      padding: const EdgeInsets.all(48),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Icon(
+            Icons.done_all_rounded,
+            size: 48,
+            color: isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'All Clear! No Pending Approvals',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'New physical book borrowing requests from students will appear here for verification.',
+            style: TextStyle(fontSize: 13, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );

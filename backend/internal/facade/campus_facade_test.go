@@ -429,6 +429,15 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 		t.Fatalf("borrow book failed: %v", err)
 	}
 
+	approvedBorrow, err := facade.ApproveBorrow(ctx, model.ApproveBorrowRequest{
+		BorrowID:       newBorrow.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
+	if err != nil || approvedBorrow.Status != model.BorrowStatusActive {
+		t.Fatalf("approve borrow failed: %v", err)
+	}
+
 	renewedBorrow, err := facade.RenewBook(ctx, model.RenewBookRequest{
 		BorrowID:  newBorrow.ID,
 		StudentID: studentID,
@@ -599,6 +608,12 @@ func TestCampusFacadeNilSafety(t *testing.T) {
 		t.Fatal("expected error on nil library")
 	}
 	if _, err := facade.BorrowBook(ctx, model.BorrowBookRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.ApproveBorrow(ctx, model.ApproveBorrowRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.RejectBorrow(ctx, model.RejectBorrowRequest{}); err == nil {
 		t.Fatal("expected error on nil library")
 	}
 	if _, err := facade.ReturnBook(ctx, model.ReturnBookRequest{}); err == nil {

@@ -85,7 +85,7 @@ func TestLibraryServiceOperations(t *testing.T) {
 		t.Fatalf("expected error borrowing while having an overdue loan")
 	}
 
-	// Another student with clean record borrows
+	// Another student with clean record requests to borrow
 	const newStudent = "usr-clean-student"
 	borrowedRecord, err := libSvc.BorrowBook(ctx, model.BorrowBookRequest{
 		BookID:       availBook,
@@ -96,11 +96,53 @@ func TestLibraryServiceOperations(t *testing.T) {
 	if err != nil || borrowedRecord == nil {
 		t.Fatalf("failed to borrow book: %v", err)
 	}
+	if borrowedRecord.Status != model.BorrowStatusPendingApproval {
+		t.Fatalf("expected pending_approval status, got %s", borrowedRecord.Status)
+	}
 
 	// Verify available copies remaining was decremented
 	updatedBook, _ := libSvc.GetBookByID(ctx, availBook)
 	if updatedBook.AvailableCopies != initialAvail-1 {
 		t.Fatalf("expected available copies to be %d, got %d", initialAvail-1, updatedBook.AvailableCopies)
+	}
+
+	// Library In-Charge reviews and approves the loan
+	approvedRecord, err := libSvc.ApproveBorrow(ctx, model.ApproveBorrowRequest{
+		BorrowID:       borrowedRecord.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma (Library In-Charge)",
+		Remarks:        "Verified student identity card and approved loan",
+	})
+	if err != nil || approvedRecord.Status != model.BorrowStatusActive {
+		t.Fatalf("failed to approve borrow request: %v", err)
+	}
+	if approvedRecord.ApprovedBy != "usr-librarian-01" || approvedRecord.ApprovedByName == "" {
+		t.Fatalf("expected approved_by metadata to be set")
+	}
+
+	// Test rejection flow for a different request
+	availBook2 := "bk-db-01"
+	book2Before, _ := libSvc.GetBookByID(ctx, availBook2)
+	req2, err := libSvc.BorrowBook(ctx, model.BorrowBookRequest{
+		BookID:       availBook2,
+		StudentID:    "usr-rejected-student",
+		StudentName:  "Vikram Rao",
+		CampusHandle: "vikram_rao",
+	})
+	if err != nil {
+		t.Fatalf("failed to create second borrow request: %v", err)
+	}
+	rejectedRecord, err := libSvc.RejectBorrow(ctx, model.RejectBorrowRequest{
+		BorrowID:        req2.ID,
+		RejectedBy:      "usr-librarian-01",
+		RejectionReason: "Course reference copy reserved for in-library reading",
+	})
+	if err != nil || rejectedRecord.Status != model.BorrowStatusRejected {
+		t.Fatalf("failed to reject borrow request: %v", err)
+	}
+	book2After, _ := libSvc.GetBookByID(ctx, availBook2)
+	if book2After.AvailableCopies != book2Before.AvailableCopies {
+		t.Fatalf("expected copies restored on rejection")
 	}
 
 	// 5. Renew Book

@@ -2,20 +2,26 @@ import 'package:flutter/material.dart';
 
 /// Borrow status enumeration matching backend service
 class BorrowStatus {
+  static const String pendingApproval = 'pending_approval';
   static const String active = 'active';
   static const String overdue = 'overdue';
   static const String returned = 'returned';
+  static const String rejected = 'rejected';
 
-  static const List<String> all = [active, overdue, returned];
+  static const List<String> all = [pendingApproval, active, overdue, returned, rejected];
 
   static String displayName(String status) {
     switch (status.trim().toLowerCase()) {
+      case pendingApproval:
+        return 'Pending Approval';
       case active:
         return 'Active Loan';
       case overdue:
         return 'Overdue';
       case returned:
         return 'Returned';
+      case rejected:
+        return 'Rejected';
       default:
         return 'Unknown';
     }
@@ -23,12 +29,16 @@ class BorrowStatus {
 
   static Color statusColor(String status) {
     switch (status.trim().toLowerCase()) {
+      case pendingApproval:
+        return const Color(0xFFD97706); // Amber
       case active:
         return const Color(0xFF2563EB); // Royal Blue
       case overdue:
         return const Color(0xFFDC2626); // Crimson Red
       case returned:
         return const Color(0xFF16A34A); // Emerald Green
+      case rejected:
+        return const Color(0xFF6B7280); // Neutral Grey
       default:
         return const Color(0xFF6B7280);
     }
@@ -187,6 +197,10 @@ class BorrowRecordModel {
   final double finePerDay;
   final double accruedLateFine;
   final String? finePortalFeeId;
+  final String? approvedBy;
+  final String? approvedByName;
+  final DateTime? approvedAt;
+  final String? rejectionReason;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -209,15 +223,21 @@ class BorrowRecordModel {
     this.finePerDay = 10.0,
     this.accruedLateFine = 0.0,
     this.finePortalFeeId,
+    this.approvedBy,
+    this.approvedByName,
+    this.approvedAt,
+    this.rejectionReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
   bool get isActive => status == BorrowStatus.active;
-  bool get isOverdue => status == BorrowStatus.overdue || (returnedAt == null && DateTime.now().isAfter(dueDate));
+  bool get isPendingApproval => status == BorrowStatus.pendingApproval;
+  bool get isRejected => status == BorrowStatus.rejected;
+  bool get isOverdue => status == BorrowStatus.overdue || (returnedAt == null && status != BorrowStatus.pendingApproval && status != BorrowStatus.rejected && DateTime.now().isAfter(dueDate));
   bool get isReturned => status == BorrowStatus.returned || returnedAt != null;
-  bool get canRenew => !isReturned && !isOverdue && renewalCount < maxRenewals;
+  bool get canRenew => isActive && !isOverdue && renewalCount < maxRenewals;
   bool get hasLateFine => accruedLateFine > 0.0;
 
   int get daysUntilDue {
@@ -252,6 +272,10 @@ class BorrowRecordModel {
       finePerDay: (json['fine_per_day'] as num?)?.toDouble() ?? 10.0,
       accruedLateFine: (json['accrued_late_fine'] as num?)?.toDouble() ?? 0.0,
       finePortalFeeId: json['fine_portal_fee_id'] as String?,
+      approvedBy: json['approved_by'] as String?,
+      approvedByName: json['approved_by_name'] as String?,
+      approvedAt: json['approved_at'] != null ? DateTime.parse(json['approved_at'] as String) : null,
+      rejectionReason: json['rejection_reason'] as String?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
     );
@@ -277,6 +301,10 @@ class BorrowRecordModel {
       'fine_per_day': finePerDay,
       'accrued_late_fine': accruedLateFine,
       'fine_portal_fee_id': finePortalFeeId,
+      'approved_by': approvedBy,
+      'approved_by_name': approvedByName,
+      'approved_at': approvedAt?.toIso8601String(),
+      'rejection_reason': rejectionReason,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -301,6 +329,10 @@ class BorrowRecordModel {
     double? finePerDay,
     double? accruedLateFine,
     String? finePortalFeeId,
+    String? approvedBy,
+    String? approvedByName,
+    DateTime? approvedAt,
+    String? rejectionReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -323,6 +355,10 @@ class BorrowRecordModel {
       finePerDay: finePerDay ?? this.finePerDay,
       accruedLateFine: accruedLateFine ?? this.accruedLateFine,
       finePortalFeeId: finePortalFeeId ?? this.finePortalFeeId,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedByName: approvedByName ?? this.approvedByName,
+      approvedAt: approvedAt ?? this.approvedAt,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

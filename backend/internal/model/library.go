@@ -44,9 +44,11 @@ func (b *PhysicalBook) Validate() error {
 
 // BorrowStatus enumeration
 const (
-	BorrowStatusActive   = "active"
-	BorrowStatusOverdue  = "overdue"
-	BorrowStatusReturned = "returned"
+	BorrowStatusPendingApproval = "pending_approval"
+	BorrowStatusActive          = "active"
+	BorrowStatusOverdue         = "overdue"
+	BorrowStatusReturned        = "returned"
+	BorrowStatusRejected        = "rejected"
 )
 
 // BorrowRecord represents an institutional loan transaction of a physical book
@@ -63,12 +65,16 @@ type BorrowRecord struct {
 	BorrowedAt         time.Time  `json:"borrowed_at"`
 	DueDate            time.Time  `json:"due_date"`
 	ReturnedAt         *time.Time `json:"returned_at,omitempty"`
-	Status             string     `json:"status"` // active, overdue, returned
+	Status             string     `json:"status"` // pending_approval, active, overdue, returned, rejected
 	RenewalCount       int        `json:"renewal_count"`
 	MaxRenewals        int        `json:"max_renewals"`
 	FinePerDay         float64    `json:"fine_per_day"`
 	AccruedLateFine    float64    `json:"accrued_late_fine"`
 	LinkedFineRecordID string     `json:"linked_fine_record_id,omitempty"`
+	ApprovedBy         string     `json:"approved_by,omitempty"`
+	ApprovedByName     string     `json:"approved_by_name,omitempty"`
+	ApprovedAt         *time.Time `json:"approved_at,omitempty"`
+	RejectionReason    string     `json:"rejection_reason,omitempty"`
 	Remarks            string     `json:"remarks,omitempty"`
 }
 
@@ -127,10 +133,27 @@ type LibrarySummary struct {
 
 // BorrowBookRequest payload for borrowing a physical book
 type BorrowBookRequest struct {
-	BookID       string `json:"book_id"`
-	StudentID    string `json:"student_id"`
-	StudentName  string `json:"student_name"`
-	CampusHandle string `json:"campus_handle"`
+	BookID         string `json:"book_id"`
+	StudentID      string `json:"student_id"`
+	StudentName    string `json:"student_name"`
+	CampusHandle   string `json:"campus_handle"`
+	ApprovedBy     string `json:"approved_by,omitempty"`
+	ApprovedByName string `json:"approved_by_name,omitempty"`
+}
+
+// ApproveBorrowRequest payload for Library In-Charge authorizing a loan
+type ApproveBorrowRequest struct {
+	BorrowID       string `json:"borrow_id"`
+	ApprovedBy     string `json:"approved_by"`
+	ApprovedByName string `json:"approved_by_name"`
+	Remarks        string `json:"remarks,omitempty"`
+}
+
+// RejectBorrowRequest payload for Library In-Charge declining a loan
+type RejectBorrowRequest struct {
+	BorrowID        string `json:"borrow_id"`
+	RejectedBy      string `json:"rejected_by"`
+	RejectionReason string `json:"rejection_reason"`
 }
 
 // ReturnBookRequest payload for returning a physical book

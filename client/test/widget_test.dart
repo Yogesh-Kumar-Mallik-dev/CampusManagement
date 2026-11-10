@@ -3127,4 +3127,98 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('dialog-raise-dispute')), findsNothing);
   });
+
+  testWidgets('Institutional Library: Library In-Charge Approval workflow for physical book borrowing', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+    final librarian = OfflineStorageService.getMockUserForHandle('admin');
+
+    // 1. Student views Library: no Approvals tab
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('tab-borrow-approvals')), findsNothing);
+
+    // Return overdue loan first so Harish has borrowing eligibility
+    await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('btn-return-brw-os-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-return-brw-os-01')));
+    await tester.pumpAndSettle();
+    expect(find.text('Late Return Notice'), findsOneWidget);
+    await tester.tap(find.text('Return Copy'));
+    await tester.pumpAndSettle();
+
+    // Switch to physical catalog and search for Database System Concepts
+    await tester.tap(find.byKey(const Key('tab-books-catalog')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('input-book-search')), 'Database');
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-borrow-bk-db-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-borrow-bk-db-01')));
+    await tester.pumpAndSettle();
+
+    // Dialog with approval policy notice
+    expect(find.text('Confirm Book Checkout'), findsOneWidget);
+    expect(find.textContaining('Approval Rule: Physical loan requires Library In-Charge authorization'), findsOneWidget);
+
+    await tester.tap(find.text('Confirm Checkout'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Awaiting approval from Library In-Charge'), findsOneWidget);
+
+    // Switch back to borrowed books tab
+    await tester.tap(find.byKey(const Key('tab-borrowed-books')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pending Approval'), findsWidgets);
+    expect(find.textContaining('Pending approval from Library In-Charge'), findsWidgets);
+
+    // 2. Library In-Charge (Admin) views Library: Approvals tab present
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: librarian,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('tab-borrow-approvals')), findsOneWidget);
+    await tester.drag(find.byType(TabBar), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tab-borrow-approvals')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Borrow Approvals Counter'), findsOneWidget);
+    expect(find.textContaining('Database System Concepts'), findsWidgets);
+    expect(find.text('Approve Loan'), findsWidgets);
+
+    // Tap Approve Loan on the request
+    final approveBtn = find.text('Approve Loan').first;
+    await tester.tap(approveBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Approve Borrow Request'), findsOneWidget);
+    expect(find.byKey(const Key('btn-confirm-approve-borrow')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('btn-confirm-approve-borrow')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('approved successfully. Loan is now active.'), findsOneWidget);
+  });
 }
