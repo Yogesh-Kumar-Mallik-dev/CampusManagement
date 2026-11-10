@@ -5,6 +5,7 @@ import '../facade/campus_facade.dart';
 import '../models/complaint.dart';
 import '../models/fee.dart';
 import '../models/user.dart';
+import '../services/app_cache.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
@@ -17,12 +18,16 @@ class FeeScreen extends StatefulWidget {
   final OfflineStorageService storage;
   final UserModel? currentUser;
   final ICampusFacade? facade;
+  final int? initialTabIndex;
+  final bool restoreCachedTab;
 
   const FeeScreen({
     super.key,
     required this.storage,
     this.currentUser,
     this.facade,
+    this.initialTabIndex,
+    this.restoreCachedTab = false,
   });
 
   @override
@@ -74,13 +79,22 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    int initialTab = widget.initialTabIndex ?? 0;
+    if (widget.initialTabIndex == null && widget.restoreCachedTab) {
+      final cachedTab = AppCache.instance.getLastFeeTab(userHandle: widget.currentUser?.campusHandle);
+      if (cachedTab != null && cachedTab >= 0 && cachedTab < 4) {
+        initialTab = cachedTab;
+      }
+    }
     _tabController = TabController(
       length: 4,
       vsync: this,
+      initialIndex: initialTab,
       animationDuration: Duration.zero,
     );
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging && mounted) {
+        AppCache.instance.setLastFeeTab(_tabController.index, userHandle: widget.currentUser?.campusHandle);
         setState(() {});
       }
     });
@@ -166,6 +180,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
             setState(() {
               _tabController.index = index;
             });
+            AppCache.instance.setLastFeeTab(index, userHandle: widget.currentUser?.campusHandle);
           },
           labelColor: AppColors.wineRed,
           unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -1326,6 +1341,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
         invoice: invoice,
         facade: _facade,
         studentId: _currentStudentId,
+        restorePreferredMethod: widget.restoreCachedTab,
         onPaymentSuccess: _loadFeeData,
       ),
     );
@@ -1338,6 +1354,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
         fine: fine,
         facade: _facade,
         studentId: _currentStudentId,
+        restorePreferredMethod: widget.restoreCachedTab,
         onPaymentSuccess: _loadFeeData,
       ),
     );

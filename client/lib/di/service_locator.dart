@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import '../facade/campus_facade.dart';
 import '../services/api_service.dart';
+import '../services/app_cache.dart';
 import '../services/offline_storage_service.dart';
 import '../services/storage_interface.dart';
 
@@ -59,10 +60,15 @@ class CampusDI {
     ICampusApi? api,
     ICampusStorage? storage,
     ICampusFacade? facade,
+    AppCache? cache,
     String defaultBaseUrl = 'http://localhost:8080',
   }) {
     final di = CampusDI.instance;
     di.reset();
+
+    final effectiveCache = cache ?? AppCache.instance;
+    effectiveCache.init();
+    di.registerSingleton<AppCache>(effectiveCache);
 
     final effectiveApi = api ?? ApiService(baseUrl: defaultBaseUrl);
     di.registerSingleton<ICampusApi>(effectiveApi);
@@ -92,6 +98,7 @@ class CampusScope extends InheritedWidget {
   final ICampusFacade facade;
   final ICampusStorage storage;
   final ICampusApi api;
+  final AppCache cache;
 
   CampusScope({
     super.key,
@@ -100,10 +107,15 @@ class CampusScope extends InheritedWidget {
     ICampusFacade? facade,
     ICampusStorage? storage,
     ICampusApi? api,
+    AppCache? cache,
   })  : container = container ?? CampusDI.instance,
         facade = facade ?? (container ?? CampusDI.instance).get<ICampusFacade>(),
         storage = storage ?? (container ?? CampusDI.instance).get<ICampusStorage>(),
-        api = api ?? (container ?? CampusDI.instance).get<ICampusApi>();
+        api = api ?? (container ?? CampusDI.instance).get<ICampusApi>(),
+        cache = cache ??
+            ((container ?? CampusDI.instance).isRegistered<AppCache>()
+                ? (container ?? CampusDI.instance).get<AppCache>()
+                : (AppCache.instance..init()));
 
   static CampusScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<CampusScope>();
@@ -119,12 +131,14 @@ class CampusScope extends InheritedWidget {
   static ICampusFacade facadeOf(BuildContext context) => of(context).facade;
   static ICampusStorage storageOf(BuildContext context) => of(context).storage;
   static ICampusApi apiOf(BuildContext context) => of(context).api;
+  static AppCache cacheOf(BuildContext context) => of(context).cache;
 
   @override
   bool updateShouldNotify(CampusScope oldWidget) {
     return container != oldWidget.container ||
         facade != oldWidget.facade ||
         storage != oldWidget.storage ||
-        api != oldWidget.api;
+        api != oldWidget.api ||
+        cache != oldWidget.cache;
   }
 }

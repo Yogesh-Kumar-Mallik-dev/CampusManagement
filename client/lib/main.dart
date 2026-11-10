@@ -4,6 +4,7 @@ import 'facade/campus_facade.dart';
 import 'models/user.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'services/app_cache.dart';
 import 'services/offline_storage_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/svg_icons.dart';
@@ -12,6 +13,10 @@ import 'widgets/circular_theme_reveal.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AppSvgIcon.prewarmCoreIcons();
+
+  // Initialize application-level cache and restore preferred theme
+  AppCache.instance.init();
+  AppTheme.initFromCache();
 
   // Initialize unified IoC container and decoupled dependencies
   final di = CampusDI.setup(defaultBaseUrl: 'http://localhost:8080');
@@ -22,15 +27,23 @@ void main() {
     CampusScope(
       facade: facade,
       storage: storage,
-      child: CampusManagementApp(storage: storage),
+      child: CampusManagementApp(
+        storage: storage,
+        restoreCachedTab: true,
+      ),
     ),
   );
 }
 
 class CampusManagementApp extends StatefulWidget {
   final OfflineStorageService storage;
+  final bool restoreCachedTab;
 
-  const CampusManagementApp({super.key, required this.storage});
+  const CampusManagementApp({
+    super.key,
+    required this.storage,
+    this.restoreCachedTab = false,
+  });
 
   @override
   State<CampusManagementApp> createState() => _CampusManagementAppState();
@@ -66,6 +79,7 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
               : HomeScreen(
                   storage: widget.storage,
                   currentUser: _loggedInUser,
+                  restoreCachedTab: widget.restoreCachedTab,
                   onLogout: () {
                     setState(() => _loggedInUser = null);
                   },

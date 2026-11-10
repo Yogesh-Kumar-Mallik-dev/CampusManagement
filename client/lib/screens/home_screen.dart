@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
+import '../services/app_cache.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
@@ -24,6 +25,8 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onLogout;
   final Set<int> maintenancePages;
   final Set<int> showcasePages;
+  final int? initialTab;
+  final bool restoreCachedTab;
 
   const HomeScreen({
     super.key,
@@ -32,6 +35,8 @@ class HomeScreen extends StatefulWidget {
     this.onLogout,
     this.maintenancePages = const {},
     this.showcasePages = const {},
+    this.initialTab,
+    this.restoreCachedTab = false,
   });
 
   @override
@@ -62,7 +67,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onDestinationSelected(int index) {
     if ((index >= 1 && index <= 10) || index == 12) {
       _slot3PageIndex = index;
+      AppCache.instance.setSlot3PageIndex(index, userHandle: _currentUser.campusHandle);
     }
+    AppCache.instance.setLastActiveNavIndex(index, userHandle: _currentUser.campusHandle);
     if (_currentIndex == index) return;
     setState(() {
       _currentIndex = index;
@@ -167,12 +174,14 @@ class _HomeScreenState extends State<HomeScreen> {
             key: ValueKey('tab-fees-${_currentUser.id}'),
             storage: widget.storage,
             currentUser: _currentUser,
+            restoreCachedTab: widget.restoreCachedTab,
           );
         case 10:
           return LibraryScreen(
             key: ValueKey('tab-library-${_currentUser.id}'),
             storage: widget.storage,
             currentUser: _currentUser,
+            restoreCachedTab: widget.restoreCachedTab,
             onNavigateToTab: _onDestinationSelected,
           );
         case 11:
@@ -814,6 +823,24 @@ class _HomeScreenState extends State<HomeScreen> {
       _personas.insert(0, initial);
     }
     _currentUser = _personas.firstWhere((p) => p == initial);
+
+    int effectiveIndex = widget.initialTab ?? 0;
+    if (widget.initialTab == null && widget.restoreCachedTab) {
+      final cached = AppCache.instance.getLastActiveNavIndex(userHandle: _currentUser.campusHandle);
+      if (cached != null && _isPageAccessible(cached)) {
+        effectiveIndex = cached;
+      }
+    }
+    _currentIndex = effectiveIndex;
+    _loadedTabs.add(effectiveIndex);
+
+    if (widget.restoreCachedTab) {
+      final cachedSlot3 = AppCache.instance.getSlot3PageIndex(userHandle: _currentUser.campusHandle);
+      if (cachedSlot3 != null && _isPageAccessible(cachedSlot3)) {
+        _slot3PageIndex = cachedSlot3;
+      }
+    }
+
     _checkServer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {

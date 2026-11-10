@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../facade/campus_facade.dart';
 import '../models/fee.dart';
 import '../models/payment_order.dart';
+import '../services/app_cache.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_dropdown.dart';
 
@@ -15,6 +16,8 @@ class CampusPaymentDialog extends StatefulWidget {
   final ICampusFacade facade;
   final String studentId;
   final VoidCallback onPaymentSuccess;
+  final String? initialMethod;
+  final bool restorePreferredMethod;
 
   const CampusPaymentDialog({
     super.key,
@@ -23,6 +26,8 @@ class CampusPaymentDialog extends StatefulWidget {
     required this.facade,
     required this.studentId,
     required this.onPaymentSuccess,
+    this.initialMethod,
+    this.restorePreferredMethod = false,
   }) : assert(invoice != null || fine != null, 'Either invoice or fine must be provided');
 
   @override
@@ -79,9 +84,23 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
   @override
   void initState() {
     super.initState();
+    String method = widget.initialMethod ?? 'upi';
+    if (widget.initialMethod == null && widget.restorePreferredMethod) {
+      final cachedMethod = AppCache.instance.getPreferredPaymentMethod();
+      if (cachedMethod != null) {
+        final idx = ['upi', 'card', 'netbanking', 'challan'].indexOf(cachedMethod);
+        if (idx >= 0) {
+          method = cachedMethod;
+        }
+      }
+    }
+    _selectedPaymentMethod = method;
+    final initialTab = ['upi', 'card', 'netbanking', 'challan'].indexOf(_selectedPaymentMethod);
+
     _tabController = TabController(
       length: 4,
       vsync: this,
+      initialIndex: initialTab >= 0 ? initialTab : 0,
       animationDuration: Duration.zero,
     );
     _tabController.addListener(() {
@@ -91,6 +110,7 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
           setState(() {
             _selectedPaymentMethod = method;
           });
+          AppCache.instance.setPreferredPaymentMethod(method);
         }
       }
     });
@@ -423,6 +443,7 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
                       _tabController.index = tabIdx;
                     }
                   });
+                  AppCache.instance.setPreferredPaymentMethod(val);
                 }
               },
             ),
@@ -550,6 +571,7 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
             _tabController.index = index;
             _selectedPaymentMethod = method;
           });
+          AppCache.instance.setPreferredPaymentMethod(method);
         },
         labelColor: AppColors.wineRed,
         unselectedLabelColor: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,

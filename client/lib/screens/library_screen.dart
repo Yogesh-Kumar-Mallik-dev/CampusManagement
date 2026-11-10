@@ -4,6 +4,7 @@ import '../di/service_locator.dart';
 import '../facade/campus_facade.dart';
 import '../models/library.dart';
 import '../models/user.dart';
+import '../services/app_cache.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
@@ -14,6 +15,8 @@ class LibraryScreen extends StatefulWidget {
   final UserModel? currentUser;
   final ICampusFacade? facade;
   final void Function(int)? onNavigateToTab;
+  final int? initialTabIndex;
+  final bool restoreCachedTab;
 
   const LibraryScreen({
     super.key,
@@ -21,6 +24,8 @@ class LibraryScreen extends StatefulWidget {
     this.currentUser,
     this.facade,
     this.onNavigateToTab,
+    this.initialTabIndex,
+    this.restoreCachedTab = false,
   });
 
   @override
@@ -76,7 +81,24 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _canManageLibrary ? 5 : 4, vsync: this);
+    final totalLength = _canManageLibrary ? 5 : 4;
+    int initialIndex = widget.initialTabIndex ?? 0;
+    if (widget.initialTabIndex == null && widget.restoreCachedTab) {
+      final cached = AppCache.instance.getLastLibraryTab(userHandle: widget.currentUser?.campusHandle);
+      if (cached != null && cached >= 0 && cached < totalLength) {
+        initialIndex = cached;
+      }
+    }
+    _tabController = TabController(
+      length: totalLength,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        AppCache.instance.setLastLibraryTab(_tabController.index, userHandle: widget.currentUser?.campusHandle);
+      }
+    });
     _loadLibraryData();
   }
 
@@ -1334,6 +1356,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          onTap: (index) => AppCache.instance.setLastLibraryTab(index, userHandle: widget.currentUser?.campusHandle),
           labelColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
           unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
           indicatorColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,

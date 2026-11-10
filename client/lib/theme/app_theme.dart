@@ -1,13 +1,29 @@
 import 'package:flutter/material.dart';
+import '../services/app_cache.dart';
 import 'app_colors.dart';
 
 class AppTheme {
   // Global Theme Controller for smooth 60fps/120fps animated transitions
   static final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(ThemeMode.light);
 
+  /// Initializes the active theme from application-level cache if present.
+  static void initFromCache() {
+    final cached = AppCache.instance.getPreferredThemeMode();
+    if (cached != null) {
+      themeModeNotifier.value = cached;
+    }
+  }
+
+  /// Sets the active theme and persists it to application-level cache.
+  static void setTheme(ThemeMode mode) {
+    themeModeNotifier.value = mode;
+    AppCache.instance.setPreferredThemeMode(mode);
+  }
+
+  /// Toggles between light and dark themes and persists preference.
   static void toggleTheme() {
-    themeModeNotifier.value =
-        themeModeNotifier.value == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+    final next = themeModeNotifier.value == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+    setTheme(next);
   }
 
   // Smooth 60fps/120fps Theme Transition Constants
