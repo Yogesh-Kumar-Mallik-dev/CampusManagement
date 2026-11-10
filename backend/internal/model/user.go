@@ -66,26 +66,43 @@ type UpdateUserProfileRequest struct {
 	Address               string `json:"address,omitempty"`
 }
 
+// VerifiedDocument represents a government-verified digital credential from DigiLocker / NAD
+type VerifiedDocument struct {
+	DocumentType     string `json:"document_type"`     // 'class_x', 'class_xii', 'aadhaar_kyc', 'apaar_abc', 'domicile'
+	DocumentTitle    string `json:"document_title"`    // e.g. 'Class X Secondary School Certificate'
+	Issuer           string `json:"issuer"`            // e.g. 'Central Board of Secondary Education (CBSE)'
+	DocRefMasked     string `json:"doc_ref_masked"`    // e.g. 'ROLL-21109841' or 'XXXX-XXXX-4091'
+	IssuedYear       int    `json:"issued_year"`
+	IsVerified       bool   `json:"is_verified"`
+	VerificationHash string `json:"verification_hash"` // Cryptographic SHA256 digest
+	VerifiedAt       string `json:"verified_at"`
+	Status           string `json:"status"`            // 'verified', 'pending', 'revoked'
+}
+
 // StudentProfile holds academic admission facts
 type StudentProfile struct {
-	UserID                string  `json:"user_id"`
-	AdmissionYear         int     `json:"admission_year"`
-	EntryType             string  `json:"entry_type"` // 'regular', 'lateral', 'transfer'
-	Program               string  `json:"program"`    // 'btech', 'mtech', 'phd'
-	ProgramID             *string `json:"program_id,omitempty"` // Degree program e.g. 'prog-btech-cse'
-	ProgramCode           string  `json:"program_code,omitempty"`
-	ProgramName           string  `json:"program_name,omitempty"`
-	CurrentSemester       int     `json:"current_semester"`
-	BatchYear             int     `json:"batch_year"`
-	SectionScope          string  `json:"section_scope,omitempty"` // e.g. 'sec:cse-3a'
-	SectionID             *string `json:"section_id,omitempty"`    // Cross-program section cohort e.g. 'sec-sem3-b'
-	SectionName           string  `json:"section_name,omitempty"`
-	SemesterID            *string `json:"semester_id,omitempty"`
-	AdvisorName           string  `json:"advisor_name,omitempty"`
-	HostelBlock           string  `json:"hostel_block,omitempty"`
-	RoomNumber            string  `json:"room_number,omitempty"`
-	EmergencyContactName  string  `json:"emergency_contact_name,omitempty"`
-	EmergencyContactPhone string  `json:"emergency_contact_phone,omitempty"`
+	UserID                string             `json:"user_id"`
+	AdmissionYear         int                `json:"admission_year"`
+	EntryType             string             `json:"entry_type"` // 'regular', 'lateral', 'transfer'
+	Program               string             `json:"program"`    // 'btech', 'mtech', 'phd'
+	ProgramID             *string            `json:"program_id,omitempty"` // Degree program e.g. 'prog-btech-cse'
+	ProgramCode           string             `json:"program_code,omitempty"`
+	ProgramName           string             `json:"program_name,omitempty"`
+	CurrentSemester       int                `json:"current_semester"`
+	BatchYear             int                `json:"batch_year"`
+	SectionScope          string             `json:"section_scope,omitempty"` // e.g. 'sec:cse-3a'
+	SectionID             *string            `json:"section_id,omitempty"`    // Cross-program section cohort e.g. 'sec-sem3-b'
+	SectionName           string             `json:"section_name,omitempty"`
+	SemesterID            *string            `json:"semester_id,omitempty"`
+	AdvisorName           string             `json:"advisor_name,omitempty"`
+	HostelBlock           string             `json:"hostel_block,omitempty"`
+	RoomNumber            string             `json:"room_number,omitempty"`
+	EmergencyContactName  string             `json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone string             `json:"emergency_contact_phone,omitempty"`
+	ABCID                 string             `json:"abc_id,omitempty"` // 12-digit APAAR / ABC ID
+	DigiLockerVerified    bool               `json:"digilocker_verified"`
+	DigiLockerVerifiedAt  *time.Time         `json:"digilocker_verified_at,omitempty"`
+	VerifiedDocuments     []VerifiedDocument `json:"verified_documents,omitempty"`
 }
 
 // EmployeeRecord holds HR and institutional employment anchor

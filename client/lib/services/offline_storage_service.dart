@@ -7,6 +7,7 @@ import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
 import '../models/mess.dart';
+import '../models/sessional.dart';
 import '../models/user.dart';
 import '../utils/invoice_pdf_generator.dart';
 import 'storage_interface.dart';
@@ -36,6 +37,8 @@ class OfflineStorageService implements ICampusStorage {
   final List<PhysicalBookModel> _cachedPhysicalBooks = [];
   final List<BorrowRecordModel> _cachedBorrowRecords = [];
   final List<EBookModel> _cachedEBooks = [];
+  final List<InternalAssessmentModel> _cachedSessionalRecords = [];
+  final List<SessionalScheduleModel> _cachedSessionalSchedules = [];
   final Map<String, String> _studentSectionMap = {};
   final Map<String, String> _studentProgramMap = {};
   final Map<String, List<SectionSubjectAllocationModel>> _sectionAllocations = {};
@@ -67,6 +70,7 @@ class OfflineStorageService implements ICampusStorage {
     _seedDefaultNoticesIfEmpty();
     _seedDefaultHostelRoomsIfEmpty();
     _seedDefaultLibraryIfEmpty();
+    _seedDefaultSessionalIfEmpty();
     if (_cachedSummaries.isEmpty) {
       _cachedSummaries.addAll(_getDefaultStudentSummaries());
     }
@@ -427,6 +431,66 @@ class OfflineStorageService implements ICampusStorage {
           'current_semester': 3,
           'batch_year': 2029,
           'section_scope': 'sec:cse-3a',
+          'abc_id': '8912-3456-7890',
+          'digilocker_verified': true,
+          'digilocker_verified_at': '2025-08-15T10:30:00Z',
+          'verified_documents': [
+            {
+              'document_type': 'apaar_abc',
+              'document_title': 'APAAR / Academic Bank of Credits (ABC) ID',
+              'issuer': 'National Academic Depository (NAD) / MeitY',
+              'doc_ref_masked': '8912-XXXX-7890',
+              'issued_year': 2023,
+              'is_verified': true,
+              'verification_hash': 'sha256:7b4f539e28f3a5dc1093c0d801e7492cbf3a41e97d10c7104b901a1e0b53ad62',
+              'verified_at': '2025-08-15 10:30 IST',
+              'status': 'verified',
+            },
+            {
+              'document_type': 'class_x',
+              'document_title': 'Secondary School Certificate (Class X)',
+              'issuer': 'Central Board of Secondary Education (CBSE)',
+              'doc_ref_masked': 'ROLL-12894104',
+              'issued_year': 2021,
+              'is_verified': true,
+              'verification_hash': 'sha256:a18f23c907b8d145e69eef71410294b810938f2940ba19028e34891209384fa1',
+              'verified_at': '2025-08-15 10:31 IST',
+              'status': 'verified',
+            },
+            {
+              'document_type': 'class_xii',
+              'document_title': 'Senior School Certificate (Class XII - PCM)',
+              'issuer': 'Central Board of Secondary Education (CBSE)',
+              'doc_ref_masked': 'ROLL-61928401',
+              'issued_year': 2023,
+              'is_verified': true,
+              'verification_hash': 'sha256:3948af019284baef71829340ab19284091823749812739481928374918273948',
+              'verified_at': '2025-08-15 10:31 IST',
+              'status': 'verified',
+            },
+            {
+              'document_type': 'aadhaar_kyc',
+              'document_title': 'Aadhaar Identity Verification',
+              'issuer': 'Unique Identification Authority of India (UIDAI)',
+              'doc_ref_masked': 'XXXX-XXXX-4091',
+              'issued_year': 2024,
+              'is_verified': true,
+              'verification_hash': 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+              'verified_at': '2025-08-15 10:32 IST',
+              'status': 'verified',
+            },
+            {
+              'document_type': 'domicile',
+              'document_title': 'Uttar Pradesh State Domicile Certificate',
+              'issuer': 'Revenue Department, Govt of Uttar Pradesh',
+              'doc_ref_masked': 'UP-DOM-2023-90812',
+              'issued_year': 2023,
+              'is_verified': true,
+              'verification_hash': 'sha256:f52f82c471829038471928409182374981729384019283749182739481729384',
+              'verified_at': '2025-08-15 10:33 IST',
+              'status': 'verified',
+            },
+          ],
         },
       ),
       UserModel(
@@ -6171,5 +6235,581 @@ class OfflineStorageService implements ICampusStorage {
       }
       return true;
     }).toList();
+  }
+
+  // =========================================================================
+  // AKTU Sessional & Continuous Internal Evaluation Subsystem
+  // =========================================================================
+
+  void _seedDefaultSessionalIfEmpty() {
+    if (_cachedSessionalRecords.isNotEmpty) return;
+
+    _cachedSessionalSchedules.addAll([
+      SessionalScheduleModel(
+        id: 'sch-ct1-cs301',
+        examType: 'CT-1',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        semesterNumber: 5,
+        examDate: '2025-11-24',
+        timeSlot: '10:00 AM - 11:30 AM',
+        hallNumber: 'LT-101',
+        totalCapacity: 60,
+        invigilatorName: 'Prof. Neha Sharma',
+        rollRange: '2100970100001 - 2100970100060',
+      ),
+      SessionalScheduleModel(
+        id: 'sch-ct1-cs302',
+        examType: 'CT-1',
+        subjectCode: 'CS302',
+        subjectName: 'Database Management Systems',
+        semesterNumber: 5,
+        examDate: '2025-11-25',
+        timeSlot: '10:00 AM - 11:30 AM',
+        hallNumber: 'LT-101',
+        totalCapacity: 60,
+        invigilatorName: 'Dr. Arun Kumar (HOD)',
+        rollRange: '2100970100001 - 2100970100060',
+      ),
+      SessionalScheduleModel(
+        id: 'sch-ct1-cs303',
+        examType: 'CT-1',
+        subjectCode: 'CS303',
+        subjectName: 'Design & Analysis of Algorithms',
+        semesterNumber: 5,
+        examDate: '2025-11-26',
+        timeSlot: '10:00 AM - 11:30 AM',
+        hallNumber: 'LT-102',
+        totalCapacity: 60,
+        invigilatorName: 'Prof. Neha Sharma',
+        rollRange: '2100970100001 - 2100970100060',
+      ),
+      SessionalScheduleModel(
+        id: 'sch-ct2-cs301',
+        examType: 'CT-2',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        semesterNumber: 5,
+        examDate: '2025-12-15',
+        timeSlot: '02:00 PM - 03:30 PM',
+        hallNumber: 'LT-101',
+        totalCapacity: 60,
+        invigilatorName: 'Prof. Neha Sharma',
+        rollRange: '2100970100001 - 2100970100060',
+      ),
+      SessionalScheduleModel(
+        id: 'sch-put-cs301',
+        examType: 'PUT',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems (Pre-University Test)',
+        semesterNumber: 5,
+        examDate: '2026-01-05',
+        timeSlot: '09:30 AM - 12:30 PM',
+        hallNumber: 'Auditorium Hall A',
+        totalCapacity: 120,
+        invigilatorName: 'Dr. Arun Kumar (HOD)',
+        rollRange: '2100970100001 - 2100970100120',
+      ),
+    ]);
+
+    final students = [
+      ('usr-harish_2025_l_btech_1', 'Harish Kumar', '2100970100045'),
+      ('usr-priya_singh_cse', 'Priya Singh', '2100970100046'),
+      ('usr-rahul_verma_cse', 'Rahul Verma', '2100970100047'),
+      ('usr-ananya_gupta_cse', 'Ananya Gupta', '2100970100048'),
+      ('usr-vikas_yadav_cse', 'Vikas Yadav', '2100970100049'),
+    ];
+
+    final subjects = [
+      ('CS301', 'Operating Systems', false),
+      ('CS302', 'Database Management Systems', false),
+      ('CS303', 'Design & Analysis of Algorithms', false),
+      ('CS301L', 'Operating Systems Lab', true),
+    ];
+
+    final Map<String, Map<String, List<double>>> scoreMap = {
+      'usr-harish_2025_l_btech_1': {
+        'CS301': [26.0, 24.0, 78.0, 8.5],
+        'CS302': [28.0, 27.0, 82.0, 9.0],
+        'CS303': [22.0, 25.0, 70.0, 8.0],
+        'CS301L': [18.0, 17.5, 9.0],
+      },
+      'usr-priya_singh_cse': {
+        'CS301': [29.0, 28.5, 91.0, 9.5],
+        'CS302': [27.0, 26.0, 84.0, 9.0],
+        'CS303': [28.0, 29.0, 88.0, 9.5],
+        'CS301L': [19.0, 19.0, 9.5],
+      },
+      'usr-rahul_verma_cse': {
+        'CS301': [18.0, 16.0, 52.0, 7.0],
+        'CS302': [19.0, 15.0, 48.0, 6.5],
+        'CS303': [14.0, 16.0, 45.0, 6.0],
+        'CS301L': [14.0, 13.0, 7.5],
+      },
+      'usr-ananya_gupta_cse': {
+        'CS301': [25.0, 23.0, 75.0, 8.0],
+        'CS302': [26.0, 24.0, 76.0, 8.5],
+        'CS303': [24.0, 22.0, 72.0, 8.0],
+        'CS301L': [17.0, 18.0, 8.5],
+      },
+      'usr-vikas_yadav_cse': {
+        'CS301': [12.0, 10.0, 34.0, 5.0],
+        'CS302': [11.0, 9.0, 30.0, 4.5],
+        'CS303': [10.0, 8.0, 28.0, 4.0],
+        'CS301L': [11.0, 10.0, 6.0],
+      },
+    };
+
+    for (final st in students) {
+      for (final sub in subjects) {
+        final code = sub.$1;
+        final name = sub.$2;
+        final isPrac = sub.$3;
+        final scores = scoreMap[st.$1]?[code] ?? [0.0, 0.0, 0.0, 0.0];
+
+        double calcSessional = 0.0;
+        double totalInternal = 0.0;
+        String formula = '';
+
+        if (isPrac) {
+          final labCont = scores[0];
+          final labViva = scores[1];
+          final labAtt = scores[2];
+          final tot = (labCont + labViva + labAtt);
+          calcSessional = double.parse(tot.toStringAsFixed(1));
+          totalInternal = calcSessional;
+          formula = 'Lab Continuous (20) + Viva (20) + Lab Conduct (10) [Max 50]';
+        } else {
+          final ct1 = scores[0];
+          final ct2 = scores[1];
+          final ta = scores[3];
+          final sessional20 = ((ct1 + ct2) / 3.0);
+          calcSessional = double.parse(sessional20.toStringAsFixed(1));
+          final tot = calcSessional + ta;
+          totalInternal = double.parse(tot.toStringAsFixed(1));
+          formula = '((CT1 + CT2) / 2) * (20/30) + Teacher Assessment (10) [Max 30]';
+        }
+
+        _cachedSessionalRecords.add(InternalAssessmentModel(
+          id: 'rec-$code-${st.$3}',
+          studentId: st.$1,
+          studentName: st.$2,
+          universityRollNo: st.$3,
+          subjectCode: code,
+          subjectName: name,
+          semesterNumber: 5,
+          section: 'Section B',
+          isPractical: isPrac,
+          ct1Score: isPrac ? 0.0 : scores[0],
+          ct2Score: isPrac ? 0.0 : scores[1],
+          putScore: isPrac ? 0.0 : scores[2],
+          taScore: isPrac ? 0.0 : scores[3],
+          labContinuousScore: isPrac ? scores[0] : 0.0,
+          labVivaScore: isPrac ? scores[1] : 0.0,
+          labAttendanceScore: isPrac ? scores[2] : 0.0,
+          calculatedSessional: calcSessional,
+          totalInternalMarks: totalInternal,
+          maxInternalMarks: isPrac ? 50.0 : 30.0,
+          formulaUsed: formula,
+          isFrozen: false,
+          status: 'submitted',
+        ));
+      }
+    }
+  }
+
+  @override
+  Future<List<InternalAssessmentModel>> getSessionalRecords({
+    String? studentId,
+    String? subjectCode,
+    int? semester,
+  }) async {
+    _seedDefaultSessionalIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.fetchSessionalRecords(
+          studentId: studentId,
+          subjectCode: subjectCode,
+          semester: semester,
+        );
+        for (final r in list) {
+          final idx = _cachedSessionalRecords.indexWhere((e) => e.id == r.id);
+          if (idx >= 0) {
+            _cachedSessionalRecords[idx] = r;
+          } else {
+            _cachedSessionalRecords.add(r);
+          }
+        }
+        return list;
+      } catch (_) {}
+    }
+
+    return _cachedSessionalRecords.where((r) {
+      if (studentId != null &&
+          studentId.isNotEmpty &&
+          r.studentId != studentId &&
+          r.universityRollNo != studentId) {
+        return false;
+      }
+      if (subjectCode != null && subjectCode.isNotEmpty && r.subjectCode != subjectCode) {
+        return false;
+      }
+      if (semester != null && semester > 0 && r.semesterNumber != semester) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Future<InternalAssessmentModel> updateSessionalMarks(Map<String, dynamic> payload) async {
+    _seedDefaultSessionalIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final updated = await api.updateSessionalMarks(payload);
+        final idx = _cachedSessionalRecords.indexWhere((e) => e.id == updated.id);
+        if (idx >= 0) {
+          _cachedSessionalRecords[idx] = updated;
+        }
+        return updated;
+      } catch (_) {}
+    }
+
+    final recordId = payload['record_id']?.toString() ?? '';
+    final subjectCode = payload['subject_code']?.toString() ?? '';
+    final studentId = payload['student_id']?.toString() ?? '';
+
+    final idx = _cachedSessionalRecords.indexWhere((r) {
+      if (recordId.isNotEmpty && r.id == recordId) return true;
+      if (subjectCode.isNotEmpty &&
+          r.subjectCode == subjectCode &&
+          (r.studentId == studentId || r.universityRollNo == studentId)) {
+        return true;
+      }
+      return false;
+    });
+
+    if (idx < 0) {
+      throw Exception('Assessment record not found');
+    }
+
+    final target = _cachedSessionalRecords[idx];
+    if (target.isFrozen) {
+      throw Exception('Marks are frozen and cannot be modified');
+    }
+
+    double ct1 = payload['ct1_score'] != null ? (payload['ct1_score'] as num).toDouble() : target.ct1Score;
+    double ct2 = payload['ct2_score'] != null ? (payload['ct2_score'] as num).toDouble() : target.ct2Score;
+    double put = payload['put_score'] != null ? (payload['put_score'] as num).toDouble() : target.putScore;
+    double ta = payload['ta_score'] != null ? (payload['ta_score'] as num).toDouble() : target.taScore;
+    double labCont = payload['lab_continuous_score'] != null ? (payload['lab_continuous_score'] as num).toDouble() : target.labContinuousScore;
+    double labViva = payload['lab_viva_score'] != null ? (payload['lab_viva_score'] as num).toDouble() : target.labVivaScore;
+    double labAtt = payload['lab_attendance_score'] != null ? (payload['lab_attendance_score'] as num).toDouble() : target.labAttendanceScore;
+
+    double calcSessional = 0.0;
+    double totalInternal = 0.0;
+
+    if (target.isPractical) {
+      labCont = labCont.clamp(0.0, 20.0);
+      labViva = labViva.clamp(0.0, 20.0);
+      labAtt = labAtt.clamp(0.0, 10.0);
+      final tot = labCont + labViva + labAtt;
+      calcSessional = double.parse(tot.toStringAsFixed(1));
+      totalInternal = calcSessional;
+    } else {
+      ct1 = ct1.clamp(0.0, 30.0);
+      ct2 = ct2.clamp(0.0, 30.0);
+      ta = ta.clamp(0.0, 10.0);
+      final sessional20 = ((ct1 + ct2) / 3.0).clamp(0.0, 20.0);
+      calcSessional = double.parse(sessional20.toStringAsFixed(1));
+      final tot = (calcSessional + ta).clamp(0.0, 30.0);
+      totalInternal = double.parse(tot.toStringAsFixed(1));
+    }
+
+    final updated = target.copyWith(
+      ct1Score: ct1,
+      ct2Score: ct2,
+      putScore: put,
+      taScore: ta,
+      labContinuousScore: labCont,
+      labVivaScore: labViva,
+      labAttendanceScore: labAtt,
+      calculatedSessional: calcSessional,
+      totalInternalMarks: totalInternal,
+      remarks: payload['remarks']?.toString() ?? target.remarks,
+    );
+
+    _cachedSessionalRecords[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<AKTUInternalAwardListModel> freezeSessionalMarks(Map<String, dynamic> payload) async {
+    _seedDefaultSessionalIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.freezeSessionalMarks(payload);
+        for (final r in res.records) {
+          final idx = _cachedSessionalRecords.indexWhere((e) => e.id == r.id);
+          if (idx >= 0) {
+            _cachedSessionalRecords[idx] = r;
+          }
+        }
+        return res;
+      } catch (_) {}
+    }
+
+    final subjectCode = payload['subject_code']?.toString() ?? '';
+    final semester = payload['semester'] is int
+        ? payload['semester'] as int
+        : int.tryParse(payload['semester']?.toString() ?? '5') ?? 5;
+    final frozenBy = payload['frozen_by']?.toString() ?? 'dr_arun_kumar';
+    final nowStr = DateTime.now().toIso8601String();
+
+    final matched = <InternalAssessmentModel>[];
+    for (int i = 0; i < _cachedSessionalRecords.length; i++) {
+      final r = _cachedSessionalRecords[i];
+      if (r.subjectCode == subjectCode && (semester <= 0 || r.semesterNumber == semester)) {
+        final frozenRec = r.copyWith(
+          isFrozen: true,
+          frozenBy: frozenBy,
+          frozenAt: nowStr,
+          status: 'frozen',
+          remarks: payload['remarks']?.toString() ?? r.remarks,
+        );
+        _cachedSessionalRecords[i] = frozenRec;
+        matched.add(frozenRec);
+      }
+    }
+
+    if (matched.isEmpty) {
+      throw Exception('No records found for subject $subjectCode');
+    }
+
+    return _compileAwardList(subjectCode, semester, matched, frozenBy, nowStr);
+  }
+
+  @override
+  Future<List<SessionalScheduleModel>> getSessionalSchedules({
+    int? semester,
+    String? examType,
+  }) async {
+    _seedDefaultSessionalIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.fetchSessionalSchedules(semester: semester, examType: examType);
+        _cachedSessionalSchedules.clear();
+        _cachedSessionalSchedules.addAll(list);
+        return list;
+      } catch (_) {}
+    }
+
+    return _cachedSessionalSchedules.where((s) {
+      if (semester != null && semester > 0 && s.semesterNumber != semester) {
+        return false;
+      }
+      if (examType != null && examType.isNotEmpty && s.examType != examType) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Future<List<DeskSeatingModel>> getSeatingLayout({
+    String? hallNumber,
+    String? examType,
+  }) async {
+    _seedDefaultSessionalIfEmpty();
+
+    final hall = hallNumber ?? 'LT-101';
+    final exam = examType ?? 'CT-1';
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.fetchSeatingLayout(hallNumber: hall, examType: exam);
+      } catch (_) {}
+    }
+
+    return [
+      DeskSeatingModel(
+        deskNumber: 'D-01',
+        hallNumber: hall,
+        seatIndex: 1,
+        studentRollNo: '2100970100045',
+        studentName: 'Harish Kumar',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        examType: exam,
+      ),
+      DeskSeatingModel(
+        deskNumber: 'D-02',
+        hallNumber: hall,
+        seatIndex: 2,
+        studentRollNo: '2100970100046',
+        studentName: 'Priya Singh',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        examType: exam,
+      ),
+      DeskSeatingModel(
+        deskNumber: 'D-03',
+        hallNumber: hall,
+        seatIndex: 3,
+        studentRollNo: '2100970100047',
+        studentName: 'Rahul Verma',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        examType: exam,
+      ),
+      DeskSeatingModel(
+        deskNumber: 'D-04',
+        hallNumber: hall,
+        seatIndex: 4,
+        studentRollNo: '2100970100048',
+        studentName: 'Ananya Gupta',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        examType: exam,
+      ),
+      DeskSeatingModel(
+        deskNumber: 'D-05',
+        hallNumber: hall,
+        seatIndex: 5,
+        studentRollNo: '2100970100049',
+        studentName: 'Vikas Yadav',
+        subjectCode: 'CS301',
+        subjectName: 'Operating Systems',
+        examType: exam,
+      ),
+    ];
+  }
+
+  @override
+  Future<AKTUInternalAwardListModel> getAwardList({
+    required String subjectCode,
+    int? semester,
+  }) async {
+    _seedDefaultSessionalIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.fetchAwardList(subjectCode: subjectCode, semester: semester);
+      } catch (_) {}
+    }
+
+    final matched = _cachedSessionalRecords.where((r) {
+      if (r.subjectCode != subjectCode) return false;
+      if (semester != null && semester > 0 && r.semesterNumber != semester) return false;
+      return true;
+    }).toList();
+
+    if (matched.isEmpty) {
+      throw Exception('No records found for subject $subjectCode');
+    }
+
+    final frozenBy = matched.first.frozenBy ?? '';
+    final frozenAt = matched.first.frozenAt ?? '';
+
+    return _compileAwardList(subjectCode, semester ?? 5, matched, frozenBy, frozenAt);
+  }
+
+  AKTUInternalAwardListModel _compileAwardList(
+    String subjectCode,
+    int semester,
+    List<InternalAssessmentModel> list,
+    String frozenBy,
+    String frozenAt,
+  ) {
+    final total = list.length;
+    final isPractical = list.isNotEmpty && list.first.isPractical;
+    final subjectName = list.isNotEmpty ? list.first.subjectName : subjectCode;
+    final maxMarks = isPractical ? 50.0 : 30.0;
+    final passThreshold = maxMarks * 0.40;
+
+    double sum = 0.0;
+    double highest = -1.0;
+    double lowest = 999.0;
+    int passCount = 0;
+    int deficitCount = 0;
+    bool isAllFrozen = true;
+
+    for (final r in list) {
+      final score = r.totalInternalMarks;
+      sum += score;
+      if (score > highest) highest = score;
+      if (score < lowest) lowest = score;
+      if (score >= passThreshold) {
+        passCount++;
+      } else {
+        deficitCount++;
+      }
+      if (!r.isFrozen) isAllFrozen = false;
+    }
+
+    if (lowest > highest) lowest = 0.0;
+    if (highest < 0) highest = 0.0;
+
+    final avg = total > 0 ? double.parse((sum / total).toStringAsFixed(1)) : 0.0;
+    final passPct = total > 0 ? double.parse(((passCount / total) * 100).toStringAsFixed(1)) : 0.0;
+
+    // Cryptographic signature
+    final sigRaw = '$subjectCode|$semester|$frozenBy|$frozenAt|${list.map((e) => '${e.universityRollNo}:${e.totalInternalMarks}').join('|')}';
+    final signature = sha256.convert(utf8.encode(sigRaw)).toString();
+
+    return AKTUInternalAwardListModel(
+      departmentCode: 'CSE',
+      departmentName: 'Computer Science & Engineering',
+      programName: 'B.Tech Computer Science',
+      semesterNumber: semester,
+      subjectCode: subjectCode,
+      subjectName: subjectName,
+      academicSession: '2025-2026',
+      isPractical: isPractical,
+      maxInternalMarks: maxMarks,
+      totalStudents: total,
+      passCount: passCount,
+      failCount: total - passCount,
+      passPercentage: passPct,
+      averageMarks: avg,
+      highestMarks: highest,
+      lowestMarks: lowest,
+      deficitCount: deficitCount,
+      isFrozen: isAllFrozen,
+      frozenBy: frozenBy.isNotEmpty ? frozenBy : null,
+      frozenAt: frozenAt.isNotEmpty ? frozenAt : null,
+      digitalSignature: isAllFrozen ? signature : null,
+      records: list,
+    );
+  }
+
+  @override
+  Future<UserModel> syncDigiLocker(String userId) async {
+    _seedDefaultUsersIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final synced = await api.syncDigiLocker(userId);
+        final idx = _cachedUsers.indexWhere((u) => u.id == userId || u.campusHandle == userId);
+        if (idx >= 0) {
+          _cachedUsers[idx] = synced;
+        }
+        return synced;
+      } catch (_) {}
+    }
+
+    final user = await getUserProfile(userId);
+    return user;
   }
 }

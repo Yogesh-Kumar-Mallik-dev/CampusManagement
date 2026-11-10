@@ -4,6 +4,7 @@ import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
 import '../models/mess.dart';
+import '../models/sessional.dart';
 import '../models/user.dart';
 
 /// ICampusApi abstracts remote network transport and API communication.
@@ -260,6 +261,28 @@ abstract class ICampusApi {
     required String rejectionReason,
   });
   Future<List<EBookModel>> getEBooks({String? query, String? category});
+
+  // AKTU Sessional & Internal Assessment Subsystem
+  Future<List<InternalAssessmentModel>> fetchSessionalRecords({
+    String? studentId,
+    String? subjectCode,
+    int? semester,
+  });
+  Future<InternalAssessmentModel> updateSessionalMarks(Map<String, dynamic> payload);
+  Future<AKTUInternalAwardListModel> freezeSessionalMarks(Map<String, dynamic> payload);
+  Future<List<SessionalScheduleModel>> fetchSessionalSchedules({
+    int? semester,
+    String? examType,
+  });
+  Future<List<DeskSeatingModel>> fetchSeatingLayout({
+    String? hallNumber,
+    String? examType,
+  });
+  Future<AKTUInternalAwardListModel> fetchAwardList({
+    required String subjectCode,
+    int? semester,
+  });
+  Future<UserModel> syncDigiLocker(String userId);
 }
 
 /// ICampusStorage abstracts local persistence, offline caching, and outbox synchronization.
@@ -513,4 +536,26 @@ abstract class ICampusStorage {
     required String rejectionReason,
   });
   Future<List<EBookModel>> getEBooks({String? query, String? category});
+
+  // AKTU Sessional & Internal Assessment Subsystem
+  Future<List<InternalAssessmentModel>> getSessionalRecords({
+    String? studentId,
+    String? subjectCode,
+    int? semester,
+  });
+  Future<InternalAssessmentModel> updateSessionalMarks(Map<String, dynamic> payload);
+  Future<AKTUInternalAwardListModel> freezeSessionalMarks(Map<String, dynamic> payload);
+  Future<List<SessionalScheduleModel>> getSessionalSchedules({
+    int? semester,
+    String? examType,
+  });
+  Future<List<DeskSeatingModel>> getSeatingLayout({
+    String? hallNumber,
+    String? examType,
+  });
+  Future<AKTUInternalAwardListModel> getAwardList({
+    required String subjectCode,
+    int? semester,
+  });
+  Future<UserModel> syncDigiLocker(String userId);
 }

@@ -6,6 +6,7 @@ import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
 import '../models/mess.dart';
+import '../models/sessional.dart';
 import '../models/user.dart';
 import 'storage_interface.dart';
 
@@ -1458,5 +1459,108 @@ class ApiService implements ICampusApi {
       return list.map((e) => EBookModel.fromJson(e as Map<String, dynamic>)).toList();
     }
     throw Exception('Failed to get e-books (${res.statusCode}): ${res.body}');
+  }
+
+  // AKTU Sessional & Continuous Assessment Subsystem
+  @override
+  Future<List<InternalAssessmentModel>> fetchSessionalRecords({
+    String? studentId,
+    String? subjectCode,
+    int? semester,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/sessional/records').replace(queryParameters: {
+      if (studentId != null && studentId.isNotEmpty) 'student_id': studentId,
+      if (subjectCode != null && subjectCode.isNotEmpty) 'subject_code': subjectCode,
+      if (semester != null && semester > 0) 'semester': semester.toString(),
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.map((e) => InternalAssessmentModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to fetch sessional records (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<InternalAssessmentModel> updateSessionalMarks(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/sessional/marks'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return InternalAssessmentModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to update sessional marks');
+  }
+
+  @override
+  Future<AKTUInternalAwardListModel> freezeSessionalMarks(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/sessional/freeze'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return AKTUInternalAwardListModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to freeze marks');
+  }
+
+  @override
+  Future<List<SessionalScheduleModel>> fetchSessionalSchedules({
+    int? semester,
+    String? examType,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/sessional/schedule').replace(queryParameters: {
+      if (semester != null && semester > 0) 'semester': semester.toString(),
+      if (examType != null && examType.isNotEmpty) 'exam_type': examType,
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.map((e) => SessionalScheduleModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to fetch sessional schedules (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<List<DeskSeatingModel>> fetchSeatingLayout({
+    String? hallNumber,
+    String? examType,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/sessional/seating').replace(queryParameters: {
+      if (hallNumber != null && hallNumber.isNotEmpty) 'hall_number': hallNumber,
+      if (examType != null && examType.isNotEmpty) 'exam_type': examType,
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.map((e) => DeskSeatingModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to fetch seating layout (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<AKTUInternalAwardListModel> fetchAwardList({
+    required String subjectCode,
+    int? semester,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/sessional/award-list').replace(queryParameters: {
+      'subject_code': subjectCode,
+      if (semester != null && semester > 0) 'semester': semester.toString(),
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      return AKTUInternalAwardListModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to fetch award list (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<UserModel> syncDigiLocker(String userId) async {
+    return fetchUserProfile(userId);
   }
 }

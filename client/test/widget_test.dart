@@ -13,6 +13,7 @@ import 'package:campus_client/screens/hostel_screen.dart';
 import 'package:campus_client/screens/library_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/screens/mess_screen.dart';
+import 'package:campus_client/screens/sessional_exam_screen.dart';
 import 'package:campus_client/screens/user_profile_screen.dart';
 import 'package:campus_client/theme/app_colors.dart';
 import 'package:campus_client/theme/app_theme.dart';
@@ -3489,5 +3490,162 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Harish Kumar'), findsWidgets);
     expect(find.text('Digital ID Pass'), findsOneWidget);
+  });
+
+  testWidgets('AKTU Sessional & Continuous Internal Evaluation: Scorecard, AKTU formula breakdown, and Dispute linkage', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final harish = await storage.getUserProfile('usr-harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: SessionalExamScreen(
+        storage: storage,
+        currentUser: harish,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Verify Header and Institutional Context
+    expect(find.text('AKTU Sessional & Internal Assessment'), findsOneWidget);
+    expect(find.text('AKTU Affiliated'), findsOneWidget);
+    expect(find.textContaining('internal theory marks are derived from Class Tests'), findsOneWidget);
+
+    // 2. Verify Subject Cards
+    expect(find.text('CS301'), findsWidgets);
+    expect(find.text('Operating Systems'), findsWidgets);
+    expect(find.text('CS301L'), findsWidgets);
+    expect(find.text('Practical Lab'), findsOneWidget);
+
+    // 3. Verify AKTU Formula chips
+    expect(find.text('CT-1 Score'), findsWidgets);
+    expect(find.text('CT-2 Score'), findsWidgets);
+    expect(find.text('Sessional Scaled'), findsWidgets);
+    expect(find.text('Total Theory Internal'), findsWidgets);
+    expect(find.text('Total Practical Internal'), findsOneWidget);
+
+    // 4. Test Dispute linkage
+    final disputeBtn = find.byKey(const Key('btn-dispute-sessional-CS301'));
+    await tester.ensureVisible(disputeBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(disputeBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-raise-dispute')), findsOneWidget);
+    expect(find.text('Raise Official Dispute'), findsOneWidget);
+    expect(find.text('CS301'), findsWidgets);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('AKTU Sessional & Continuous Internal Evaluation: Faculty Mark Entry, Datesheet, Seating, and HOD Freeze', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final hod = await storage.getUserProfile('usr-priya_2024_emp_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: SessionalExamScreen(
+        storage: storage,
+        currentUser: hod,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Switch to Faculty Mark Entry tab
+    await tester.tap(find.text('Faculty Mark Entry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select Course:'), findsOneWidget);
+    expect(find.text('CS301'), findsWidgets);
+    expect(find.text('Save Marks'), findsWidgets);
+
+    // 2. Switch to Datesheet & Seating tab
+    await tester.tap(find.text('Datesheet & Seating'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Official Sessional Schedule'), findsOneWidget);
+    expect(find.text('Interactive Hall Seating Layout'), findsOneWidget);
+    expect(find.text('D-01'), findsOneWidget);
+    expect(find.text('Seat 1'), findsOneWidget);
+
+    // 3. Switch to AKTU Award List tab
+    await tester.tap(find.text('AKTU Award List & HOD'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Export AKTU CSV'), findsOneWidget);
+    expect(find.text('Class Average'), findsOneWidget);
+    expect(find.text('Pass Percentage'), findsOneWidget);
+
+    // Export CSV
+    await tester.tap(find.byKey(const Key('btn-export-aktu-csv')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('AKTU Award List CSV Export'), findsOneWidget);
+    expect(find.text('Copy CSV'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('DigiLocker & APAAR / ABC ID Integration: Verified Credentials, ABC Card, Cryptographic Hash Inspection', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    await tester.pumpWidget(MaterialApp(
+      home: UserProfileScreen(
+        storage: storage,
+        userIdentifier: 'usr-harish_2025_l_btech_1',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Verify DigiLocker Section
+    expect(find.text('DigiLocker & Academic Bank of Credits (ABC) Vault'), findsOneWidget);
+    expect(find.text('DigiLocker Verified'), findsOneWidget);
+    expect(find.text('Sync DigiLocker'), findsOneWidget);
+
+    // 2. Verify APAAR / ABC ID
+    expect(find.text('8912-3456-7890'), findsOneWidget);
+    expect(find.byKey(const Key('btn-copy-abc-id')), findsOneWidget);
+
+    // 3. Verify Verified Credentials List
+    expect(find.text('Secondary School Certificate (Class X)'), findsOneWidget);
+    expect(find.text('Senior School Certificate (Class XII - PCM)'), findsOneWidget);
+    expect(find.text('Aadhaar Identity Verification'), findsOneWidget);
+
+    // 4. Test Cryptographic Hash Inspection dialog
+    final inspectBtn = find.byKey(const Key('btn-view-doc-class_x'));
+    await tester.ensureVisible(inspectBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(inspectBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('DigiLocker Cryptographic Proof'), findsOneWidget);
+    expect(find.text('SHA-256 Tamper-Evident Hash:'), findsOneWidget);
+    expect(find.text('Copy Hash'), findsOneWidget);
+
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Small Screen Responsiveness: SessionalExamScreen standalone on 360x640 with zero overflow', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final harish = await storage.getUserProfile('usr-harish_2025_l_btech_1');
+
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(MaterialApp(
+      home: SessionalExamScreen(
+        storage: storage,
+        currentUser: harish,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('AKTU Sessional & Internal Assessment'), findsOneWidget);
+    expect(find.text('Student Scorecard'), findsOneWidget);
   });
 }

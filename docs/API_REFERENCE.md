@@ -1318,3 +1318,73 @@ Retrieves workload metrics across all faculty or for an individual teacher, flag
   "created_at": "2026-11-10T09:30:00Z"
 }
 ```
+
+---
+
+## 13. AKTU Sessional & Continuous Internal Evaluation
+
+Under Dr. A.P.J. Abdul Kalam Technical University (AKTU) guidelines, affiliated colleges do not evaluate final university end-semester theory papers. The college conducts continuous internal evaluations (CT-1, CT-2, PUT, Teacher Assessment, and Lab Practicals) and submits frozen award lists to the university portal.
+
+### 13.1 Fetch Student Sessional Records
+- **Method**: `GET`
+- **Path**: `/api/v1/sessional/records?student_id={id}&subject_code={code}&semester={sem}`
+- **Response**: Array of `InternalAssessmentRecord` objects with full itemized breakdowns (CT1, CT2, PUT, TA, Sessional Scaled /20, Total Internal /30 for Theory; Lab Continuous /20, Viva /20, Lab Attendance /10, Total Internal /50 for Practical).
+
+### 13.2 Update Faculty Marks
+- **Method**: `POST`
+- **Path**: `/api/v1/sessional/marks`
+- **Request Body**:
+```json
+{
+  "subject_code": "CS301",
+  "student_id": "usr-harish_2025_l_btech_1",
+  "ct1_score": 28.0,
+  "ct2_score": 27.0,
+  "put_score": 85.0,
+  "ta_score": 9.0,
+  "entered_by": "dr_arun_kumar"
+}
+```
+- **Validation**: Enforces strict AKTU range bounds (CT1/CT2 <= 30, PUT <= 100, TA <= 10, Lab Continuous <= 20, Lab Viva <= 20, Lab Attendance <= 10). Rejects mutations if records have been officially frozen by HOD with `HTTP 409 Conflict`.
+
+### 13.3 Freeze & Digitally Sign Marks (HOD / Exam Controller)
+- **Method**: `POST`
+- **Path**: `/api/v1/sessional/freeze`
+- **Request Body**:
+```json
+{
+  "subject_code": "CS301",
+  "semester": 5,
+  "frozen_by": "dr_arun_kumar",
+  "remarks": "Approved and signed for AKTU portal upload"
+}
+```
+- Generates a tamper-proof SHA-256 digital signature over all student marks in the cohort and locks the cohort.
+
+### 13.4 Fetch Datesheet & Seating Layout
+- **Schedule**: `GET /api/v1/sessional/schedule?semester={sem}&exam_type={CT-1|CT-2|PUT}`
+- **Seating**: `GET /api/v1/sessional/seating?hall_number={hall}&exam_type={CT-1|CT-2|PUT}`
+
+### 13.5 Fetch AKTU Award List & Class Analytics
+- **Method**: `GET`
+- **Path**: `/api/v1/sessional/award-list?subject_code={code}&semester={sem}`
+- Returns class statistical KPIs: Average Score, Pass %, Top Score, Lowest Score, Deficit Count (<40%), HOD digital signature, and export-ready CSV records.
+
+---
+
+## 14. DigiLocker & APAAR / ABC ID Subsystem
+
+Integrated with India's National Academic Depository (NAD) and Ministry of Electronics and Information Technology (MeitY) DigiLocker infrastructure.
+
+### 14.1 Sync Credentials
+- **Method**: `POST` or `GET /api/v1/user/profile?id={userId}`
+- Returns verified student profile containing:
+  - 12-Digit APAAR / Academic Bank of Credits (ABC) ID (e.g. `8912-3456-7890`)
+  - DigiLocker verification badge with MeitY / NAD verification timestamp
+  - Government educational and identity credentials:
+    1. Secondary School Certificate (Class X - CBSE)
+    2. Senior School Certificate (Class XII - CBSE PCM)
+    3. Aadhaar Identity Verification (Masked: `XXXX-XXXX-4091`)
+    4. APAAR / ABC Depository Certificate
+    5. State Domicile Certificate
+  - SHA-256 cryptographic hashes for each credential guaranteeing tamper-evidence.

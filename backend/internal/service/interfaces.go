@@ -103,6 +103,16 @@ type ComplaintServiceInterface interface {
 	ListDisputes(targetType, status, submittedBy, viewerID string, allowedCategories []string) []model.Complaint
 }
 
+// SessionalServiceInterface abstracts continuous internal evaluation, AKTU marks calculations, datesheets, and freeze audits
+type SessionalServiceInterface interface {
+	GetRecords(ctx context.Context, studentID, subjectCode string, semester int) ([]model.InternalAssessmentRecord, error)
+	RecordMarks(ctx context.Context, req model.UpdateMarksRequest) (*model.InternalAssessmentRecord, error)
+	FreezeMarks(ctx context.Context, req model.FreezeInternalMarksRequest) (*model.AKTUInternalAwardList, error)
+	GetSchedules(ctx context.Context, semester int, examType string) ([]model.SessionalExamSchedule, error)
+	GetSeatingLayout(ctx context.Context, hallNumber, examType string) ([]model.DeskSeatingAllocation, error)
+	GetAwardList(ctx context.Context, subjectCode string, semester int) (*model.AKTUInternalAwardList, error)
+}
+
 // Ensure concrete services satisfy interfaces at compile-time
 var (
 	_ PermissionServiceInterface = (*PermissionService)(nil)
@@ -110,4 +120,5 @@ var (
 	_ HostelServiceInterface     = (*HostelService)(nil)
 	_ MessServiceInterface       = (*MessService)(nil)
 	_ ComplaintServiceInterface  = (*ComplaintService)(nil)
+	_ SessionalServiceInterface  = (*SessionalService)(nil)
 )

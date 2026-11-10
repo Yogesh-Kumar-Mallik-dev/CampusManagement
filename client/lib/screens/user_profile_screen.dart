@@ -993,6 +993,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           _buildContactAndEmergencyCard(isDark),
                           const SizedBox(height: 24),
 
+                          // 4b. DigiLocker & Academic Bank of Credits (ABC) Vault
+                          if (_user.archetype == 'student') ...[
+                            _buildSectionHeader('DigiLocker & Academic Bank of Credits (ABC) Vault', AppSvgIcon.cloudCheck),
+                            const SizedBox(height: 10),
+                            _buildDigiLockerVaultCard(isDark),
+                            const SizedBox(height: 24),
+                          ],
+
                           // 5. Institutional Standing & Roles
                           _buildSectionHeader(
                             _user.archetype == 'student'
@@ -1524,6 +1532,378 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 }).toList(),
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDigiLockerVaultCard(bool isDark) {
+    final abcId = _user.abcId ?? '8912-3456-7890';
+    final docs = _user.verifiedDocuments.isNotEmpty
+        ? _user.verifiedDocuments
+        : [
+            VerifiedDocumentModel(
+              documentType: 'apaar_abc',
+              documentTitle: 'APAAR / Academic Bank of Credits (ABC) ID',
+              issuer: 'National Academic Depository (NAD) / MeitY',
+              docRefMasked: '8912-XXXX-7890',
+              issuedYear: 2023,
+              isVerified: true,
+              verificationHash: 'sha256:7b4f539e28f3a5dc1093c0d801e7492cbf3a41e97d10c7104b901a1e0b53ad62',
+              verifiedAt: '2025-08-15 10:30 IST',
+            ),
+            VerifiedDocumentModel(
+              documentType: 'class_x',
+              documentTitle: 'Secondary School Certificate (Class X)',
+              issuer: 'Central Board of Secondary Education (CBSE)',
+              docRefMasked: 'ROLL-12894104',
+              issuedYear: 2021,
+              isVerified: true,
+              verificationHash: 'sha256:a18f23c907b8d145e69eef71410294b810938f2940ba19028e34891209384fa1',
+              verifiedAt: '2025-08-15 10:31 IST',
+            ),
+            VerifiedDocumentModel(
+              documentType: 'class_xii',
+              documentTitle: 'Senior School Certificate (Class XII - PCM)',
+              issuer: 'Central Board of Secondary Education (CBSE)',
+              docRefMasked: 'ROLL-61928401',
+              issuedYear: 2023,
+              isVerified: true,
+              verificationHash: 'sha256:3948af019284baef71829340ab19284091823749812739481928374918273948',
+              verifiedAt: '2025-08-15 10:31 IST',
+            ),
+            VerifiedDocumentModel(
+              documentType: 'aadhaar_kyc',
+              documentTitle: 'Aadhaar Identity Verification',
+              issuer: 'Unique Identification Authority of India (UIDAI)',
+              docRefMasked: 'XXXX-XXXX-4091',
+              issuedYear: 2024,
+              isVerified: true,
+              verificationHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+              verifiedAt: '2025-08-15 10:32 IST',
+            ),
+            VerifiedDocumentModel(
+              documentType: 'domicile',
+              documentTitle: 'Uttar Pradesh State Domicile Certificate',
+              issuer: 'Revenue Department, Govt of Uttar Pradesh',
+              docRefMasked: 'UP-DOM-2023-90812',
+              issuedYear: 2023,
+              isVerified: true,
+              verificationHash: 'sha256:f52f82c471829038471928409182374981729384019283749182739481729384',
+              verifiedAt: '2025-08-15 10:33 IST',
+            ),
+          ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.greenBadge(isDark).background,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.greenBadge(isDark).text.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.verified, size: 14, color: AppColors.greenBadge(isDark).text),
+                        const SizedBox(width: 6),
+                        Text(
+                          'DigiLocker Verified',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.greenBadge(isDark).text,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    'MeitY / NAD',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                ],
+              ),
+              OutlinedButton.icon(
+                key: const Key('btn-sync-digilocker'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
+                onPressed: () async {
+                  await widget.storage.syncDigiLocker(_user.id);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('DigiLocker credentials synchronized and verified successfully.'),
+                        backgroundColor: AppColors.wineRed,
+                      ),
+                    );
+                  }
+                },
+                icon: const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 12),
+                label: const Text('Sync DigiLocker', style: TextStyle(fontSize: 11)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // APAAR / ABC ID Box
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '12-Digit APAAR / Academic Bank of Credits (ABC) ID',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        abcId,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'National Academic Depository (NAD) Government of India registry anchor',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  key: const Key('btn-copy-abc-id'),
+                  tooltip: 'Copy APAAR / ABC ID',
+                  icon: const Icon(Icons.copy, size: 18),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: abcId));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Copied APAAR / ABC ID: $abcId')),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          const Text(
+            'Government Verified Educational & Identity Credentials',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+
+          ...docs.map((doc) => _buildVerifiedDocTile(doc, isDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerifiedDocTile(VerifiedDocumentModel doc, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.greenBadge(isDark).background,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(Icons.verified_outlined, size: 14, color: AppColors.greenBadge(isDark).text),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        doc.documentTitle,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      'Issued ${doc.issuedYear}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${doc.issuer} | Ref: ${doc.docRefMasked}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            key: Key('btn-view-doc-${doc.documentType}'),
+            tooltip: 'Inspect Cryptographic Proof',
+            icon: const Icon(Icons.shield_outlined, size: 16),
+            onPressed: () => _showDocumentProofDialog(doc, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDocumentProofDialog(VerifiedDocumentModel doc, bool isDark) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.verified, size: 18, color: AppColors.greenBadge(isDark).text),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'DigiLocker Cryptographic Proof',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                doc.documentTitle,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Issuer: ${doc.issuer}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Text(
+                'Document Ref: ${doc.docRefMasked} (Issued ${doc.issuedYear})',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Text(
+                'Verified At: ${doc.verifiedAt}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('SHA-256 Tamper-Evident Hash:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: SelectableText(
+                  doc.verificationHash,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.wineRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: doc.verificationHash));
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cryptographic hash copied to clipboard.'),
+                  backgroundColor: AppColors.wineRed,
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 14),
+            label: const Text('Copy Hash', style: TextStyle(fontSize: 11)),
           ),
         ],
       ),

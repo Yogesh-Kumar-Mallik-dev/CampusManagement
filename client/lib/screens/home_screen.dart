@@ -13,6 +13,7 @@ import 'hostel_screen.dart';
 import 'library_screen.dart';
 import 'mess_screen.dart';
 import 'notices_screen.dart';
+import 'sessional_exam_screen.dart';
 import 'timetable_screen.dart';
 import 'user_management_screen.dart';
 import 'user_profile_screen.dart';
@@ -190,6 +191,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               }
             },
+          );
+        case 12:
+          return SessionalExamScreen(
+            key: ValueKey('tab-sessional-${_currentUser.id}'),
+            storage: widget.storage,
+            currentUser: _currentUser,
           );
         default:
           return const SizedBox.shrink();
@@ -1304,6 +1311,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return (label: 'Library', svgIcon: AppSvgIcon.book);
       case 11:
         return (label: 'Profile', svgIcon: AppSvgIcon.user);
+      case 12:
+        return (label: 'Sessionals', svgIcon: AppSvgIcon.academicCap);
       default:
         return (label: 'Timetable', svgIcon: AppSvgIcon.calendar);
     }
@@ -1380,6 +1389,13 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Library & Knowledge Portal',
         subtitle: 'Borrowed books, return dates, late fines & infinite e-books',
         svgIcon: AppSvgIcon.book,
+      ),
+      (
+        index: 12,
+        keyName: 'sessional',
+        label: 'Sessional & Internal Exams',
+        subtitle: 'AKTU internal marks, datesheet, hall seating & award list',
+        svgIcon: AppSvgIcon.academicCap,
       ),
     ];
 
@@ -2908,6 +2924,14 @@ class _HomeScreenState extends State<HomeScreen> {
             color: const Color(0xFF2563EB),
             onTap: () => _onDestinationSelected(10),
           ),
+          _buildOperationCard(
+            key: const Key('card-quick-sessional'),
+            title: 'AKTU Sessional & Internal Exams',
+            subtitle: 'Continuous assessment scorecards, datesheet, seating & award list',
+            iconSvg: AppSvgIcon.academicCap,
+            color: const Color(0xFF7C3AED),
+            onTap: () => _onDestinationSelected(12),
+          ),
         ];
         break;
 
@@ -3254,6 +3278,14 @@ class _HomeScreenState extends State<HomeScreen> {
             color: const Color(0xFF2563EB),
             onTap: () => _onDestinationSelected(10),
           ),
+          _buildOperationCard(
+            key: const Key('card-quick-sessional-student'),
+            title: 'AKTU Sessional & Internal Exams',
+            subtitle: 'Class test scores, lab viva, datesheet & internal marks breakdown',
+            iconSvg: AppSvgIcon.academicCap,
+            color: const Color(0xFF7C3AED),
+            onTap: () => _onDestinationSelected(12),
+          ),
         ];
         break;
     }
@@ -3485,6 +3517,7 @@ class _CampusSidebarState extends State<_CampusSidebar> {
       (index: 6, svg: AppSvgIcon.bed, label: 'Hostel'),
       (index: 7, svg: AppSvgIcon.utensils, label: 'Mess'),
       (index: 10, svg: AppSvgIcon.book, label: 'Library'),
+      (index: 12, svg: AppSvgIcon.academicCap, label: 'Exams'),
       (index: 11, svg: AppSvgIcon.user, label: 'Profile'),
     ];
 

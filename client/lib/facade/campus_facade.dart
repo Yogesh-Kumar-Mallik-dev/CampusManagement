@@ -4,6 +4,7 @@ import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
 import '../models/mess.dart';
+import '../models/sessional.dart';
 import '../models/user.dart';
 import '../services/storage_interface.dart';
 
@@ -258,6 +259,28 @@ abstract class ICampusFacade {
     required String rejectionReason,
   });
   Future<List<EBookModel>> getEBooks({String? query, String? category});
+
+  // AKTU Sessional & Continuous Internal Evaluation
+  Future<List<InternalAssessmentModel>> getSessionalRecords({
+    String? studentId,
+    String? subjectCode,
+    int? semester,
+  });
+  Future<InternalAssessmentModel> updateSessionalMarks(Map<String, dynamic> payload);
+  Future<AKTUInternalAwardListModel> freezeSessionalMarks(Map<String, dynamic> payload);
+  Future<List<SessionalScheduleModel>> getSessionalSchedules({
+    int? semester,
+    String? examType,
+  });
+  Future<List<DeskSeatingModel>> getSeatingLayout({
+    String? hallNumber,
+    String? examType,
+  });
+  Future<AKTUInternalAwardListModel> getAwardList({
+    required String subjectCode,
+    int? semester,
+  });
+  Future<UserModel> syncDigiLocker(String userId);
 }
 
 /// CampusFacade is the production implementation of ICampusFacade.
@@ -903,4 +926,59 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<List<EBookModel>> getEBooks({String? query, String? category}) =>
       storage.getEBooks(query: query, category: category);
+
+  // AKTU Sessional & Continuous Internal Evaluation
+  @override
+  Future<List<InternalAssessmentModel>> getSessionalRecords({
+    String? studentId,
+    String? subjectCode,
+    int? semester,
+  }) =>
+      storage.getSessionalRecords(
+        studentId: studentId,
+        subjectCode: subjectCode,
+        semester: semester,
+      );
+
+  @override
+  Future<InternalAssessmentModel> updateSessionalMarks(Map<String, dynamic> payload) =>
+      storage.updateSessionalMarks(payload);
+
+  @override
+  Future<AKTUInternalAwardListModel> freezeSessionalMarks(Map<String, dynamic> payload) =>
+      storage.freezeSessionalMarks(payload);
+
+  @override
+  Future<List<SessionalScheduleModel>> getSessionalSchedules({
+    int? semester,
+    String? examType,
+  }) =>
+      storage.getSessionalSchedules(
+        semester: semester,
+        examType: examType,
+      );
+
+  @override
+  Future<List<DeskSeatingModel>> getSeatingLayout({
+    String? hallNumber,
+    String? examType,
+  }) =>
+      storage.getSeatingLayout(
+        hallNumber: hallNumber,
+        examType: examType,
+      );
+
+  @override
+  Future<AKTUInternalAwardListModel> getAwardList({
+    required String subjectCode,
+    int? semester,
+  }) =>
+      storage.getAwardList(
+        subjectCode: subjectCode,
+        semester: semester,
+      );
+
+  @override
+  Future<UserModel> syncDigiLocker(String userId) =>
+      storage.syncDigiLocker(userId);
 }

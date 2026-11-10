@@ -300,6 +300,18 @@ class UserModel {
   int? get currentSemester => studentProfile?['current_semester'];
   String? get sectionScope => studentProfile?['section_scope'];
   String? get advisorName => studentProfile?['advisor_name'];
+  String? get abcId => studentProfile?['abc_id']?.toString();
+  bool get isDigiLockerVerified => studentProfile?['digilocker_verified'] == true;
+  String? get digiLockerVerifiedAt => studentProfile?['digilocker_verified_at']?.toString();
+  List<VerifiedDocumentModel> get verifiedDocuments {
+    final docs = studentProfile?['verified_documents'];
+    if (docs is List) {
+      return docs
+          .map((d) => VerifiedDocumentModel.fromJson(Map<String, dynamic>.from(d)))
+          .toList();
+    }
+    return [];
+  }
 
   // Employee convenience getters
   bool get isEmployee => archetype == 'employee';
@@ -460,4 +472,58 @@ class UserModel {
 
   @override
   int get hashCode => id.isNotEmpty ? id.hashCode : campusHandle.hashCode;
+}
+
+class VerifiedDocumentModel {
+  final String documentType;
+  final String documentTitle;
+  final String issuer;
+  final String docRefMasked;
+  final int issuedYear;
+  final bool isVerified;
+  final String verificationHash;
+  final String verifiedAt;
+  final String status;
+
+  VerifiedDocumentModel({
+    required this.documentType,
+    required this.documentTitle,
+    required this.issuer,
+    required this.docRefMasked,
+    this.issuedYear = 2023,
+    this.isVerified = true,
+    required this.verificationHash,
+    required this.verifiedAt,
+    this.status = 'verified',
+  });
+
+  factory VerifiedDocumentModel.fromJson(Map<String, dynamic> json) {
+    return VerifiedDocumentModel(
+      documentType: json['document_type'] ?? '',
+      documentTitle: json['document_title'] ?? '',
+      issuer: json['issuer'] ?? '',
+      docRefMasked: json['doc_ref_masked'] ?? '',
+      issuedYear: json['issued_year'] is int
+          ? json['issued_year']
+          : int.tryParse(json['issued_year']?.toString() ?? '2023') ?? 2023,
+      isVerified: json['is_verified'] ?? true,
+      verificationHash: json['verification_hash'] ?? '',
+      verifiedAt: json['verified_at'] ?? '',
+      status: json['status'] ?? 'verified',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'document_type': documentType,
+      'document_title': documentTitle,
+      'issuer': issuer,
+      'doc_ref_masked': docRefMasked,
+      'issued_year': issuedYear,
+      'is_verified': isVerified,
+      'verification_hash': verificationHash,
+      'verified_at': verifiedAt,
+      'status': status,
+    };
+  }
 }

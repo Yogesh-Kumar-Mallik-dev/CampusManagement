@@ -45,6 +45,7 @@ type Container struct {
 	ComplaintService  service.ComplaintServiceInterface
 	FeeService        service.FeeServiceInterface
 	LibraryService    service.LibraryServiceInterface
+	SessionalService  service.SessionalServiceInterface
 
 	Facade facade.CampusFacadeInterface
 
@@ -57,6 +58,7 @@ type Container struct {
 	ComplaintHandler  *handler.ComplaintHandler
 	FeeHandler        *handler.FeeHandler
 	LibraryHandler    *handler.LibraryHandler
+	SessionalHandler  *handler.SessionalHandler
 }
 
 // Option allows customizing/mocking dependencies during container initialization
@@ -123,6 +125,12 @@ func WithLibraryService(svc service.LibraryServiceInterface) Option {
 	}
 }
 
+func WithSessionalService(svc service.SessionalServiceInterface) Option {
+	return func(c *Container) {
+		c.SessionalService = svc
+	}
+}
+
 func WithFacade(f facade.CampusFacadeInterface) Option {
 	return func(c *Container) {
 		c.Facade = f
@@ -171,6 +179,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.ComplaintService = service.NewComplaintService()
 	c.FeeService = service.NewFeeService(c.DBPool, permSvc)
 	c.LibraryService = service.NewLibraryService(c.DBPool, c.FeeService)
+	c.SessionalService = service.NewSessionalService(permSvc)
 
 	// Apply overrides/mocks
 	for _, opt := range opts {
@@ -216,6 +225,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.ComplaintHandler = handler.NewComplaintHandler(c.ComplaintService)
 	c.FeeHandler = handler.NewFeeHandler(c.FeeService)
 	c.LibraryHandler = handler.NewLibraryHandler(c.LibraryService)
+	c.SessionalHandler = handler.NewSessionalHandler(c.SessionalService)
 
 	return c, nil
 }
@@ -345,6 +355,16 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/library/renew/approve", c.LibraryHandler.HandleApproveRenewal)
 		mux.HandleFunc("/api/v1/library/renew/reject", c.LibraryHandler.HandleRejectRenewal)
 		mux.HandleFunc("/api/v1/library/ebooks", c.LibraryHandler.HandleEBooks)
+	}
+
+	// AKTU Sessional & Continuous Internal Evaluation
+	if c.SessionalHandler != nil {
+		mux.HandleFunc("/api/v1/sessional/records", c.SessionalHandler.HandleRecords)
+		mux.HandleFunc("/api/v1/sessional/marks", c.SessionalHandler.HandleMarks)
+		mux.HandleFunc("/api/v1/sessional/freeze", c.SessionalHandler.HandleFreeze)
+		mux.HandleFunc("/api/v1/sessional/schedule", c.SessionalHandler.HandleSchedule)
+		mux.HandleFunc("/api/v1/sessional/seating", c.SessionalHandler.HandleSeating)
+		mux.HandleFunc("/api/v1/sessional/award-list", c.SessionalHandler.HandleAwardList)
 	}
 
 	return mux
