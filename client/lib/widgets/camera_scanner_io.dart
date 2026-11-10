@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme/app_colors.dart';
@@ -22,9 +24,13 @@ class CampusCameraScanner extends StatefulWidget {
 class _CampusCameraScannerIOState extends State<CampusCameraScanner> with SingleTickerProviderStateMixin {
   late final AnimationController _laserAnim;
   MobileScannerController? _mobileScannerController;
-  Process? _linuxWebcamProcess;
+  Process? _ffmpegProcess;
+  Process? _fallbackZbarProcess;
+  StreamSubscription<List<int>>? _ffmpegSub;
+  Uint8List? _latestFrame;
   bool _isHardwareCameraActive = false;
   String? _hardwareStatus;
+  bool _isAnalyzingFrame = false;
 
   bool get _isMobileOrMac => Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
   bool get _isTest => Platform.environment.containsKey('FLUTTER_TEST');
@@ -45,7 +51,7 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
           torchEnabled: false,
         );
       } else if (Platform.isLinux) {
-        _startLinuxHardwareScanner();
+        _startLinuxCameraStream();
       } else if (Platform.isWindows) {
         _hardwareStatus = 'Windows Hardware Camera Active';
         _isHardwareCameraActive = true;
@@ -53,8 +59,7 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
     }
   }
 
-  void _startLinuxHardwareScanner() async {
-    // Check if video capture device is connected (/dev/video0)
+  void _startLinuxCameraStream() async {
     final videoDevice = File('/dev/video0');
     final hasVideo0 = await videoDevice.exists();
 
@@ -68,7 +73,96 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
     }
 
     try {
-      _linuxWebcamProcess = await Process.start('zbarcam', [
+      // Stream live MJPEG video frames from /dev/video0 at 15 fps
+      _ffmpegProcess = await Process.start('ffmpeg', [
+        '-f', 'v4l2',
+        '-video_size', '640x480',
+        '-framerate', '15',
+        '-i', '/dev/video0',
+        '-f', 'image2pipe',
+        '-vcodec', 'mjpeg',
+        '-q:v', '5',
+        '-loglevel', 'quiet',
+        'pipe:1',
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _isHardwareCameraActive = true;
+          _hardwareStatus = 'Live Linux Webcam (/dev/video0)';
+        });
+      }
+
+      final buffer = BytesBuilder(copy: false);
+
+      _ffmpegSub = _ffmpegProcess!.stdout.listen((data) {
+        buffer.add(data);
+        final bytes = buffer.toBytes();
+
+        // Search for JPEG SOI (0xFF, 0xD8)
+        var startIndex = -1;
+        for (var i = 0; i < bytes.length - 1; i++) {
+          if (bytes[i] == 0xFF && bytes[i + 1] == 0xD8) {
+            startIndex = i;
+            break;
+          }
+        }
+
+        if (startIndex >= 0) {
+          // Search for JPEG EOI (0xFF, 0xD9)
+          for (var i = startIndex + 2; i < bytes.length - 1; i++) {
+            if (bytes[i] == 0xFF && bytes[i + 1] == 0xD9) {
+              final endIndex = i + 2;
+              final frame = Uint8List.fromList(bytes.sublist(startIndex, endIndex));
+
+              buffer.clear();
+              if (endIndex < bytes.length) {
+                buffer.add(bytes.sublist(endIndex));
+              }
+
+              if (mounted) {
+                setState(() {
+                  _latestFrame = frame;
+                });
+                _analyzeFrameForBarcode(frame);
+              }
+              break;
+            }
+          }
+        } else if (bytes.length > 500000) {
+          buffer.clear();
+        }
+      });
+    } catch (_) {
+      // Fallback to headless zbarcam if ffmpeg binary is not present
+      _startFallbackZbar();
+    }
+  }
+
+  void _analyzeFrameForBarcode(Uint8List frame) async {
+    if (_isAnalyzingFrame || widget.isVerifying) return;
+    _isAnalyzingFrame = true;
+
+    try {
+      final proc = await Process.start('zbarimg', ['-q', '--raw', '-']);
+      proc.stdin.add(frame);
+      await proc.stdin.close();
+
+      final output = await proc.stdout.transform(utf8.decoder).join();
+      final clean = output.trim();
+      if (clean.isNotEmpty && !widget.isVerifying && mounted) {
+        widget.onScanned(clean);
+      }
+    } catch (_) {
+      // Ignore frame decode errors
+    } finally {
+      _isAnalyzingFrame = false;
+    }
+  }
+
+  void _startFallbackZbar() async {
+    try {
+      _fallbackZbarProcess = await Process.start('zbarcam', [
         '--raw',
         '--nodisplay',
         '/dev/video0',
@@ -81,7 +175,7 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
         });
       }
 
-      _linuxWebcamProcess!.stdout
+      _fallbackZbarProcess!.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
@@ -104,7 +198,9 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
   void dispose() {
     _laserAnim.dispose();
     _mobileScannerController?.dispose();
-    _linuxWebcamProcess?.kill();
+    _ffmpegSub?.cancel();
+    _ffmpegProcess?.kill(ProcessSignal.sigkill);
+    _fallbackZbarProcess?.kill(ProcessSignal.sigkill);
     super.dispose();
   }
 
@@ -147,12 +243,21 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
                   ),
                 );
               },
+            )
+          // 2. Linux Desktop live camera frames via ffmpeg
+          else if (_latestFrame != null)
+            Positioned.fill(
+              child: Image.memory(
+                _latestFrame!,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+              ),
             ),
 
-          // 2. Optical laser reticle
+          // 3. Optical laser reticle
           _buildReticleOverlay(),
 
-          // 3. Hardware device status banner
+          // 4. Hardware device status banner
           if (_hardwareStatus != null)
             Positioned(
               top: 12,
