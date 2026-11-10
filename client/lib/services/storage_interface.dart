@@ -282,6 +282,21 @@ abstract class ICampusApi {
     required String rejectionReason,
   });
   Future<List<EBookModel>> getEBooks({String? query, String? category});
+  Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book);
+  Future<void> deletePhysicalBook(String id);
+  Future<EBookModel> createEBook(EBookModel ebook);
+  Future<EBookModel> approveEBook({
+    required String ebookId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  });
+  Future<EBookModel> rejectEBook({
+    required String ebookId,
+    required String rejectedBy,
+    required String rejectionReason,
+  });
+  Future<void> deleteEBook(String id);
 
   // AKTU Sessional & Internal Assessment Subsystem
   Future<List<InternalAssessmentModel>> fetchSessionalRecords({
@@ -590,6 +605,21 @@ abstract class ICampusStorage {
     required String rejectionReason,
   });
   Future<List<EBookModel>> getEBooks({String? query, String? category});
+  Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book);
+  Future<void> deletePhysicalBook(String id);
+  Future<EBookModel> createEBook(EBookModel ebook);
+  Future<EBookModel> approveEBook({
+    required String ebookId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  });
+  Future<EBookModel> rejectEBook({
+    required String ebookId,
+    required String rejectedBy,
+    required String rejectionReason,
+  });
+  Future<void> deleteEBook(String id);
 
   // AKTU Sessional & Internal Assessment Subsystem
   Future<List<InternalAssessmentModel>> getSessionalRecords({

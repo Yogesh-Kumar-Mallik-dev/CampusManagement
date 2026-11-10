@@ -101,22 +101,37 @@ func (r *BorrowRecord) Validate() error {
 	return nil
 }
 
+// EBookStatus enumeration
+const (
+	EBookStatusApproved = "approved"
+	EBookStatusPending  = "pending_approval"
+	EBookStatusRejected = "rejected"
+)
+
 // EBook represents a digital asset with infinite concurrent institutional borrowing
 type EBook struct {
 	BaseSyncModel
-	Title             string   `json:"title"`
-	Author            string   `json:"author"`
-	Category          string   `json:"category"`
-	Publisher         string   `json:"publisher"`
-	Format            string   `json:"format"` // PDF, EPUB
-	FileSize          string   `json:"file_size"`
-	TotalReaders      int      `json:"total_readers"`
-	DownloadURL       string   `json:"download_url"`
-	ReadURL           string   `json:"read_url"`
-	IsInfiniteBorrow  bool     `json:"is_infinite_borrow"`
-	Description       string   `json:"description"`
-	RequiredSemesters []int    `json:"required_semesters,omitempty"`
-	Tags              []string `json:"tags,omitempty"`
+	Title             string     `json:"title"`
+	Author            string     `json:"author"`
+	Category          string     `json:"category"`
+	Publisher         string     `json:"publisher"`
+	Format            string     `json:"format"` // PDF, EPUB
+	FileSize          string     `json:"file_size"`
+	TotalReaders      int        `json:"total_readers"`
+	DownloadURL       string     `json:"download_url"`
+	ReadURL           string     `json:"read_url"`
+	IsInfiniteBorrow  bool       `json:"is_infinite_borrow"`
+	Description       string     `json:"description"`
+	RequiredSemesters []int      `json:"required_semesters,omitempty"`
+	Tags              []string   `json:"tags,omitempty"`
+	Status            string     `json:"status"` // approved, pending_approval, rejected
+	SubmittedBy       string     `json:"submitted_by,omitempty"`
+	SubmittedByName   string     `json:"submitted_by_name,omitempty"`
+	SubmittedByRole   string     `json:"submitted_by_role,omitempty"` // student, in_charge, librarian, admin
+	ApprovedBy        string     `json:"approved_by,omitempty"`
+	ApprovedByName    string     `json:"approved_by_name,omitempty"`
+	ApprovedAt        *time.Time `json:"approved_at,omitempty"`
+	RejectionReason   string     `json:"rejection_reason,omitempty"`
 }
 
 func (e *EBook) Validate() error {
@@ -208,6 +223,21 @@ type ApproveRenewalRequest struct {
 // RejectRenewalRequest payload for Library In-Charge declining loan renewal
 type RejectRenewalRequest struct {
 	BorrowID        string `json:"borrow_id"`
+	RejectedBy      string `json:"rejected_by"`
+	RejectionReason string `json:"rejection_reason"`
+}
+
+// ApproveEBookRequest payload for Library In-Charge authorizing a student-submitted PDF book
+type ApproveEBookRequest struct {
+	EBookID        string `json:"ebook_id"`
+	ApprovedBy     string `json:"approved_by"`
+	ApprovedByName string `json:"approved_by_name"`
+	Remarks        string `json:"remarks,omitempty"`
+}
+
+// RejectEBookRequest payload for Library In-Charge declining a student-submitted PDF book
+type RejectEBookRequest struct {
+	EBookID         string `json:"ebook_id"`
 	RejectedBy      string `json:"rejected_by"`
 	RejectionReason string `json:"rejection_reason"`
 }

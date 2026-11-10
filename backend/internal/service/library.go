@@ -32,7 +32,11 @@ type LibraryServiceInterface interface {
 	RejectRenewal(ctx context.Context, req model.RejectRenewalRequest) (*model.BorrowRecord, error)
 	GetEBooks(ctx context.Context, query string, category string) ([]model.EBook, error)
 	CreatePhysicalBook(ctx context.Context, book model.PhysicalBook) (*model.PhysicalBook, error)
+	DeletePhysicalBook(ctx context.Context, id string) error
 	CreateEBook(ctx context.Context, ebook model.EBook) (*model.EBook, error)
+	ApproveEBook(ctx context.Context, req model.ApproveEBookRequest) (*model.EBook, error)
+	RejectEBook(ctx context.Context, req model.RejectEBookRequest) (*model.EBook, error)
+	DeleteEBook(ctx context.Context, id string) error
 }
 
 // LibraryService implements LibraryServiceInterface with in-memory caching and Fine Portal synchronization
@@ -304,10 +308,33 @@ func (s *LibraryService) seedDefaultData() {
 			IsInfiniteBorrow: true,
 			Description:      "Classic computational philosophy emphasizing abstractions, meta-linguistic architecture, and functional programming.",
 			Tags:             []string{"scheme", "functional", "lisp", "paradigms"},
+			Status:           model.EBookStatusApproved,
+		},
+		{
+			BaseSyncModel:    model.BaseSyncModel{ID: "ebk-compilers-01", CreatedAt: now.Add(-2 * 24 * time.Hour), UpdatedAt: now},
+			Title:            "Modern Compiler Implementation in C",
+			Author:           "Andrew W. Appel",
+			Publisher:        "Cambridge University Press",
+			Category:         "Computer Science",
+			Format:           "PDF",
+			FileSize:         "14.2 MB",
+			TotalReaders:     0,
+			DownloadURL:      "/api/v1/library/ebooks/ebk-compilers-01/download",
+			ReadURL:          "/library/reader/ebk-compilers-01",
+			IsInfiniteBorrow: true,
+			Description:      "Comprehensive reference textbook on lexical analysis, parsing, semantic actions, and intermediate representations.",
+			Tags:             []string{"compilers", "c", "parsing", "lex"},
+			Status:           model.EBookStatusPending,
+			SubmittedBy:      studentID,
+			SubmittedByName:  studentName,
+			SubmittedByRole:  "student",
 		},
 	}
 
 	for _, eb := range ebooksList {
+		if eb.Status == "" {
+			eb.Status = model.EBookStatusApproved
+		}
 		s.ebooks[eb.ID] = eb
 	}
 }
@@ -921,6 +948,31 @@ func (s *LibraryService) CreatePhysicalBook(ctx context.Context, book model.Phys
 	return &copy, nil
 }
 
+func (s *LibraryService) DeletePhysicalBook(ctx context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return errors.New("book id is required")
+	}
+
+	book, ok := s.books[id]
+	if !ok || book == nil {
+		return fmt.Errorf("physical book '%s' not found", id)
+	}
+
+	// Safety check: ensure book is not checked out
+	for _, b := range s.borrows {
+		if b.BookID == id && (b.Status == model.BorrowStatusActive || b.Status == model.BorrowStatusOverdue || b.Status == model.BorrowStatusPendingApproval || b.Status == model.BorrowStatusPendingRenewal || b.Status == model.BorrowStatusPendingReturn) {
+			return fmt.Errorf("cannot remove catalogue: book '%s' currently has active or pending loans", book.Title)
+		}
+	}
+
+	delete(s.books, id)
+	return nil
+}
+
 func (s *LibraryService) CreateEBook(ctx context.Context, ebook model.EBook) (*model.EBook, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -937,7 +989,97 @@ func (s *LibraryService) CreateEBook(ctx context.Context, ebook model.EBook) (*m
 	ebook.UpdatedAt = now
 	ebook.IsInfiniteBorrow = true
 
+	if ebook.Format == "" {
+		ebook.Format = "PDF"
+	}
+	if ebook.Status == "" {
+		if strings.ToLower(ebook.SubmittedByRole) == "student" {
+			ebook.Status = model.EBookStatusPending
+		} else {
+			ebook.Status = model.EBookStatusApproved
+		}
+	}
+	if ebook.DownloadURL == "" {
+		ebook.DownloadURL = fmt.Sprintf("/api/v1/library/ebooks/%s/download", ebook.ID)
+	}
+	if ebook.ReadURL == "" {
+		ebook.ReadURL = fmt.Sprintf("/library/reader/%s", ebook.ID)
+	}
+
 	s.ebooks[ebook.ID] = &ebook
 	copy := ebook
 	return &copy, nil
+}
+
+func (s *LibraryService) ApproveEBook(ctx context.Context, req model.ApproveEBookRequest) (*model.EBook, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if strings.TrimSpace(req.EBookID) == "" {
+		return nil, errors.New("ebook_id is required")
+	}
+	if strings.TrimSpace(req.ApprovedBy) == "" {
+		return nil, errors.New("approved_by (library in-charge identity) is required")
+	}
+
+	eb, ok := s.ebooks[req.EBookID]
+	if !ok || eb == nil {
+		return nil, fmt.Errorf("ebook '%s' not found", req.EBookID)
+	}
+
+	now := time.Now().UTC()
+	eb.Status = model.EBookStatusApproved
+	eb.ApprovedBy = req.ApprovedBy
+	eb.ApprovedByName = req.ApprovedByName
+	eb.ApprovedAt = &now
+	eb.UpdatedAt = now
+
+	copy := *eb
+	return &copy, nil
+}
+
+func (s *LibraryService) RejectEBook(ctx context.Context, req model.RejectEBookRequest) (*model.EBook, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if strings.TrimSpace(req.EBookID) == "" {
+		return nil, errors.New("ebook_id is required")
+	}
+	if strings.TrimSpace(req.RejectedBy) == "" {
+		return nil, errors.New("rejected_by (library in-charge identity) is required")
+	}
+
+	eb, ok := s.ebooks[req.EBookID]
+	if !ok || eb == nil {
+		return nil, fmt.Errorf("ebook '%s' not found", req.EBookID)
+	}
+
+	now := time.Now().UTC()
+	eb.Status = model.EBookStatusRejected
+	reason := strings.TrimSpace(req.RejectionReason)
+	if reason == "" {
+		reason = "Submission declined by Library In-Charge"
+	}
+	eb.RejectionReason = reason
+	eb.UpdatedAt = now
+
+	copy := *eb
+	return &copy, nil
+}
+
+func (s *LibraryService) DeleteEBook(ctx context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return errors.New("ebook id is required")
+	}
+
+	if _, ok := s.ebooks[id]; !ok {
+		return fmt.Errorf("ebook '%s' not found", id)
+	}
+
+	delete(s.ebooks, id)
+	return nil
 }

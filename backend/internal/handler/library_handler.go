@@ -80,6 +80,18 @@ func (h *LibraryHandler) HandleBooks(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(created)
 
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, `{"error":"id query parameter is required"}`, http.StatusBadRequest)
+			return
+		}
+		if err := h.libService.DeletePhysicalBook(r.Context(), id); err != nil {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "book removed from catalog", "id": id})
+
 	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
@@ -312,7 +324,7 @@ func (h *LibraryHandler) HandleRejectRenewal(w http.ResponseWriter, r *http.Requ
 	_ = json.NewEncoder(w).Encode(borrow)
 }
 
-// HandleEBooks handles GET /api/v1/library/ebooks and POST /api/v1/library/ebooks
+// HandleEBooks handles GET /api/v1/library/ebooks, POST /api/v1/library/ebooks, and DELETE /api/v1/library/ebooks
 func (h *LibraryHandler) HandleEBooks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -341,7 +353,65 @@ func (h *LibraryHandler) HandleEBooks(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(created)
 
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, `{"error":"id query parameter is required"}`, http.StatusBadRequest)
+			return
+		}
+		if err := h.libService.DeleteEBook(r.Context(), id); err != nil {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "ebook removed", "id": id})
+
 	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
+}
+
+// HandleApproveEBook handles POST /api/v1/library/ebooks/approve
+func (h *LibraryHandler) HandleApproveEBook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.ApproveEBookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	eb, err := h.libService.ApproveEBook(r.Context(), req)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(eb)
+}
+
+// HandleRejectEBook handles POST /api/v1/library/ebooks/reject
+func (h *LibraryHandler) HandleRejectEBook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.RejectEBookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	eb, err := h.libService.RejectEBook(r.Context(), req)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(eb)
 }

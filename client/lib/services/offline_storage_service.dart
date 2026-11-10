@@ -5579,6 +5579,28 @@ class OfflineStorageService implements ICampusStorage {
         createdAt: now.subtract(const Duration(days: 120)),
         updatedAt: now,
       ),
+      EBookModel(
+        id: 'ebk-compilers-01',
+        title: 'Modern Compiler Implementation in C',
+        author: 'Andrew W. Appel',
+        category: 'Computer Science',
+        publisher: 'Cambridge University Press',
+        format: 'PDF',
+        fileSize: '14.2 MB',
+        totalReaders: 0,
+        downloadUrl: '/api/v1/library/ebooks/download/compilers.pdf',
+        readUrl: '/library/reader/compilers',
+        isInfiniteBorrow: true,
+        description: 'Comprehensive reference textbook on lexical analysis, parsing, semantic actions, and intermediate representations.',
+        requiredSemesters: [5, 6],
+        tags: ['Compilers', 'C', 'Parsing', 'Lex'],
+        status: EBookStatus.pendingApproval,
+        submittedBy: studentId,
+        submittedByName: studentName,
+        submittedByRole: 'student',
+        createdAt: now.subtract(const Duration(days: 2)),
+        updatedAt: now,
+      ),
     ]);
   }
 
@@ -6401,6 +6423,184 @@ class OfflineStorageService implements ICampusStorage {
       }
       return true;
     }).toList();
+  }
+
+  @override
+  Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book) async {
+    _seedDefaultLibraryIfEmpty();
+
+    final now = DateTime.now();
+    final withId = book.id.isEmpty
+        ? book.copyWith(
+            id: 'bk-${now.millisecondsSinceEpoch}',
+            availableCopies: book.availableCopies == 0 ? book.totalCopies : book.availableCopies,
+            createdAt: now,
+            updatedAt: now,
+          )
+        : book;
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.createPhysicalBook(withId);
+        _cachedPhysicalBooks.removeWhere((b) => b.id == res.id);
+        _cachedPhysicalBooks.insert(0, res);
+        return res;
+      } catch (_) {}
+    }
+
+    _cachedPhysicalBooks.removeWhere((b) => b.id == withId.id);
+    _cachedPhysicalBooks.insert(0, withId);
+    return withId;
+  }
+
+  @override
+  Future<void> deletePhysicalBook(String id) async {
+    _seedDefaultLibraryIfEmpty();
+
+    // Check if book has active or pending loans
+    final hasActiveLoans = _cachedBorrowRecords.any((b) =>
+        b.bookId == id &&
+        (b.isActive || b.isOverdue || b.isPendingApproval || b.isPendingRenewal || b.isPendingReturn));
+    if (hasActiveLoans) {
+      throw Exception('Cannot remove catalogue: book currently has active or pending loans');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        await api.deletePhysicalBook(id);
+      } catch (_) {}
+    }
+
+    _cachedPhysicalBooks.removeWhere((b) => b.id == id);
+  }
+
+  @override
+  Future<EBookModel> createEBook(EBookModel ebook) async {
+    _seedDefaultLibraryIfEmpty();
+
+    final now = DateTime.now();
+    final withId = ebook.id.isEmpty
+        ? ebook.copyWith(
+            id: 'ebk-${now.millisecondsSinceEpoch}',
+            format: ebook.format.isEmpty ? 'PDF' : ebook.format,
+            downloadUrl: ebook.downloadUrl.isEmpty
+                ? '/api/v1/library/ebooks/download/ebk-${now.millisecondsSinceEpoch}.pdf'
+                : ebook.downloadUrl,
+            readUrl: ebook.readUrl.isEmpty
+                ? '/library/reader/ebk-${now.millisecondsSinceEpoch}'
+                : ebook.readUrl,
+            createdAt: now,
+            updatedAt: now,
+          )
+        : ebook;
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.createEBook(withId);
+        _cachedEBooks.removeWhere((e) => e.id == res.id);
+        _cachedEBooks.insert(0, res);
+        return res;
+      } catch (_) {}
+    }
+
+    _cachedEBooks.removeWhere((e) => e.id == withId.id);
+    _cachedEBooks.insert(0, withId);
+    return withId;
+  }
+
+  @override
+  Future<EBookModel> approveEBook({
+    required String ebookId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.approveEBook(
+          ebookId: ebookId,
+          approvedBy: approvedBy,
+          approvedByName: approvedByName,
+          remarks: remarks,
+        );
+        final idx = _cachedEBooks.indexWhere((e) => e.id == ebookId);
+        if (idx != -1) _cachedEBooks[idx] = res;
+        return res;
+      } catch (_) {}
+    }
+
+    final idx = _cachedEBooks.indexWhere((e) => e.id == ebookId);
+    if (idx == -1) {
+      throw Exception('E-Book not found');
+    }
+
+    final now = DateTime.now();
+    final updated = _cachedEBooks[idx].copyWith(
+      status: EBookStatus.approved,
+      approvedBy: approvedBy,
+      approvedByName: approvedByName,
+      approvedAt: now,
+      updatedAt: now,
+    );
+    _cachedEBooks[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<EBookModel> rejectEBook({
+    required String ebookId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.rejectEBook(
+          ebookId: ebookId,
+          rejectedBy: rejectedBy,
+          rejectionReason: rejectionReason,
+        );
+        final idx = _cachedEBooks.indexWhere((e) => e.id == ebookId);
+        if (idx != -1) _cachedEBooks[idx] = res;
+        return res;
+      } catch (_) {}
+    }
+
+    final idx = _cachedEBooks.indexWhere((e) => e.id == ebookId);
+    if (idx == -1) {
+      throw Exception('E-Book not found');
+    }
+
+    final now = DateTime.now();
+    final updated = _cachedEBooks[idx].copyWith(
+      status: EBookStatus.rejected,
+      rejectionReason: rejectionReason,
+      updatedAt: now,
+    );
+    _cachedEBooks[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<void> deleteEBook(String id) async {
+    _seedDefaultLibraryIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        await api.deleteEBook(id);
+      } catch (_) {}
+    }
+
+    _cachedEBooks.removeWhere((e) => e.id == id);
   }
 
   // =========================================================================

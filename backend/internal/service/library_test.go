@@ -288,4 +288,72 @@ func TestLibraryServiceOperations(t *testing.T) {
 	if err != nil || newEb.ID == "" {
 		t.Fatalf("failed to create ebook: %v", err)
 	}
+
+	// 10. Delete Physical Book (Remove Catalogue)
+	// Try deleting a book with active/pending loans (e.g., 'bk-algo-01' has active loan b1)
+	err = libSvc.DeletePhysicalBook(ctx, "bk-algo-01")
+	if err == nil {
+		t.Fatalf("expected error deleting catalogue book with active/pending loans")
+	}
+
+	// Delete the newly created book with zero loans
+	err = libSvc.DeletePhysicalBook(ctx, newBk.ID)
+	if err != nil {
+		t.Fatalf("failed to remove catalogue book without active loans: %v", err)
+	}
+	_, err = libSvc.GetBookByID(ctx, newBk.ID)
+	if err == nil {
+		t.Fatalf("expected book to be removed from catalog")
+	}
+
+	// 11. Student PDF Book Submission & In-Charge Approval
+	studentPdf, err := libSvc.CreateEBook(ctx, model.EBook{
+		Title:           "Introduction to Compiler Design",
+		Author:          "Torben Mogensen",
+		Category:        "Computer Science",
+		Format:          "PDF",
+		FileSize:        "9.4 MB",
+		SubmittedBy:     studentID,
+		SubmittedByName: "Harish Kumar",
+		SubmittedByRole: "student",
+	})
+	if err != nil {
+		t.Fatalf("failed to submit student PDF book: %v", err)
+	}
+	if studentPdf.Status != model.EBookStatusPending {
+		t.Fatalf("expected student submitted PDF book to be pending_approval, got %s", studentPdf.Status)
+	}
+
+	// Approve PDF Book
+	approvedPdf, err := libSvc.ApproveEBook(ctx, model.ApproveEBookRequest{
+		EBookID:        studentPdf.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+		Remarks:        "Verified PDF contents and syllabus relevance",
+	})
+	if err != nil || approvedPdf.Status != model.EBookStatusApproved {
+		t.Fatalf("failed to approve student PDF book: %v", err)
+	}
+
+	// Reject another student submission
+	rejectedSubmission, err := libSvc.CreateEBook(ctx, model.EBook{
+		Title:           "Draft Notes 2024",
+		Author:          "Unknown",
+		Category:        "Computer Science",
+		Format:          "PDF",
+		SubmittedBy:     studentID,
+		SubmittedByName: "Harish Kumar",
+		SubmittedByRole: "student",
+	})
+	if err != nil {
+		t.Fatalf("failed to create student draft: %v", err)
+	}
+	rejectedPdf, err := libSvc.RejectEBook(ctx, model.RejectEBookRequest{
+		EBookID:         rejectedSubmission.ID,
+		RejectedBy:      "usr-librarian-01",
+		RejectionReason: "Incomplete notes document; missing required textbook chapters",
+	})
+	if err != nil || rejectedPdf.Status != model.EBookStatusRejected {
+		t.Fatalf("failed to reject student PDF book: %v", err)
+	}
 }

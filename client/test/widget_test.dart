@@ -3386,6 +3386,143 @@ void main() {
     expect(find.textContaining('verified and accepted. Catalog copy incremented.'), findsOneWidget);
   });
 
+  testWidgets('Institutional Library: Librarian adds physical book to catalog and removes an existing volume', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final librarian = OfflineStorageService.getMockUserForHandle('admin');
+
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: librarian,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Go to Physical Catalog tab
+    await tester.tap(find.byKey(const Key('tab-books-catalog')));
+    await tester.pumpAndSettle();
+
+    // Librarian sees "Add Book to Catalog" button
+    expect(find.byKey(const Key('btn-add-catalog')), findsOneWidget);
+
+    // 2. Tap Add Book to Catalog
+    await tester.tap(find.byKey(const Key('btn-add-catalog')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Book to Catalog'), findsWidgets);
+    expect(find.byKey(const Key('input-catalog-title')), findsOneWidget);
+    expect(find.byKey(const Key('input-catalog-author')), findsOneWidget);
+    expect(find.byKey(const Key('input-catalog-isbn')), findsOneWidget);
+
+    // Fill in book details
+    await tester.enterText(find.byKey(const Key('input-catalog-title')), 'Compiler Construction');
+    await tester.enterText(find.byKey(const Key('input-catalog-author')), 'Niklaus Wirth');
+    await tester.enterText(find.byKey(const Key('input-catalog-isbn')), '978-0201403534');
+    await tester.pumpAndSettle();
+
+    // Submit
+    await tester.tap(find.byKey(const Key('btn-submit-catalog')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining("Book 'Compiler Construction' added to catalog successfully"), findsOneWidget);
+    expect(find.text('Compiler Construction'), findsOneWidget);
+
+    // 3. Remove a catalogue book (delete the newly added book)
+    final removeBtns = find.text('Remove Catalogue');
+    expect(removeBtns, findsWidgets);
+    await tester.tap(removeBtns.first);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-confirm-remove-book')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-confirm-remove-book')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('removed from catalog'), findsOneWidget);
+  });
+
+  testWidgets('Institutional Library: Student uploads PDF book awaiting In-Charge approval, and Librarian approves student PDF book', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+    final librarian = OfflineStorageService.getMockUserForHandle('admin');
+
+    // 1. Student views Infinite E-Books tab and uploads PDF book
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('tab-infinite-ebooks')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-add-pdf-book')), findsOneWidget);
+    expect(find.text('Upload PDF E-Book'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('btn-add-pdf-book')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Upload PDF E-Book for Approval'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('input-pdf-title')), 'Computer Graphics: Principles and Practice');
+    await tester.enterText(find.byKey(const Key('input-pdf-author')), 'James D. Foley, Andries van Dam');
+    await tester.enterText(find.byKey(const Key('input-pdf-description')), 'Classic textbook on raster algorithms, 3D pipelines, and shader architecture.');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('btn-submit-pdf-book')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Awaiting Library In-Charge approval'), findsOneWidget);
+    expect(find.text('Pending In-Charge Approval'), findsWidgets);
+
+    // 2. Librarian opens Approvals tab to approve the PDF submission
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: librarian,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(TabBar), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tab-borrow-approvals')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Student-Submitted PDF Books'), findsOneWidget);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pending PDF Review'), findsWidgets);
+    expect(find.text('Approve PDF'), findsWidgets);
+
+    // Tap Approve PDF
+    await tester.tap(find.text('Approve PDF').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Approve PDF E-Book'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-confirm-approve-pdf')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('approved and added to active library collection'), findsOneWidget);
+  });
+
   testWidgets('Enhanced UserProfileScreen: Digital Smart ID pass modal, Campus Life snapshot, contact editing, and theme toggle', (tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);

@@ -201,4 +201,82 @@ func TestLibraryHandlerEndpoints(t *testing.T) {
 	if len(ebooks) == 0 {
 		t.Fatal("expected e-books in digital repository")
 	}
+
+	// 8. Add and Remove Physical Book Catalogue via HTTP
+	createBookBody, _ := json.Marshal(model.PhysicalBook{
+		Title:           "Modern Operating Systems",
+		Author:          "Andrew S. Tanenbaum",
+		ISBN:            "978-0133591620",
+		Category:        "Computer Science",
+		TotalCopies:     2,
+		AvailableCopies: 2,
+		ShelfLocation:   "Rack S-1",
+	})
+	reqCreateBook := httptest.NewRequest(http.MethodPost, "/api/v1/library/books", bytes.NewReader(createBookBody))
+	rrCreateBook := httptest.NewRecorder()
+	h.HandleBooks(rrCreateBook, reqCreateBook)
+	if rrCreateBook.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from HandleBooks POST, got %d", rrCreateBook.Code)
+	}
+
+	var createdBook model.PhysicalBook
+	_ = json.Unmarshal(rrCreateBook.Body.Bytes(), &createdBook)
+
+	// Delete newly created book
+	reqDeleteBook := httptest.NewRequest(http.MethodDelete, "/api/v1/library/books?id="+createdBook.ID, nil)
+	rrDeleteBook := httptest.NewRecorder()
+	h.HandleBooks(rrDeleteBook, reqDeleteBook)
+	if rrDeleteBook.Code != http.StatusOK {
+		t.Fatalf("expected 200 from HandleBooks DELETE, got %d", rrDeleteBook.Code)
+	}
+
+	// 9. Add PDF Book and Approve via HTTP
+	submitPdfBody, _ := json.Marshal(model.EBook{
+		Title:           "Engineering Mechanics",
+		Author:          "R.K. Bansal",
+		Category:        "Mechanical",
+		Format:          "PDF",
+		FileSize:        "15.8 MB",
+		SubmittedBy:     studentID,
+		SubmittedByName: "Harish Kumar",
+		SubmittedByRole: "student",
+	})
+	reqSubmitPdf := httptest.NewRequest(http.MethodPost, "/api/v1/library/ebooks", bytes.NewReader(submitPdfBody))
+	rrSubmitPdf := httptest.NewRecorder()
+	h.HandleEBooks(rrSubmitPdf, reqSubmitPdf)
+	if rrSubmitPdf.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from HandleEBooks POST, got %d", rrSubmitPdf.Code)
+	}
+
+	var submittedPdf model.EBook
+	_ = json.Unmarshal(rrSubmitPdf.Body.Bytes(), &submittedPdf)
+	if submittedPdf.Status != model.EBookStatusPending {
+		t.Fatalf("expected student PDF status pending_approval, got %s", submittedPdf.Status)
+	}
+
+	// Approve PDF
+	approvePdfBody, _ := json.Marshal(model.ApproveEBookRequest{
+		EBookID:        submittedPdf.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
+	reqApprovePdf := httptest.NewRequest(http.MethodPost, "/api/v1/library/ebooks/approve", bytes.NewReader(approvePdfBody))
+	rrApprovePdf := httptest.NewRecorder()
+	h.HandleApproveEBook(rrApprovePdf, reqApprovePdf)
+	if rrApprovePdf.Code != http.StatusOK {
+		t.Fatalf("expected 200 from HandleApproveEBook, got %d", rrApprovePdf.Code)
+	}
+
+	// Reject another PDF
+	rejectPdfBody, _ := json.Marshal(model.RejectEBookRequest{
+		EBookID:         submittedPdf.ID,
+		RejectedBy:      "usr-librarian-01",
+		RejectionReason: "Testing rejection handler",
+	})
+	reqRejectPdf := httptest.NewRequest(http.MethodPost, "/api/v1/library/ebooks/reject", bytes.NewReader(rejectPdfBody))
+	rrRejectPdf := httptest.NewRecorder()
+	h.HandleRejectEBook(rrRejectPdf, reqRejectPdf)
+	if rrRejectPdf.Code != http.StatusOK {
+		t.Fatalf("expected 200 from HandleRejectEBook, got %d", rrRejectPdf.Code)
+	}
 }

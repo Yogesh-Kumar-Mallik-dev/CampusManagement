@@ -425,6 +425,41 @@ class BorrowRecordModel {
   }
 }
 
+/// Status enumeration for institutional digital e-books
+class EBookStatus {
+  static const String approved = 'approved';
+  static const String pendingApproval = 'pending_approval';
+  static const String rejected = 'rejected';
+
+  static const List<String> all = [approved, pendingApproval, rejected];
+
+  static String displayName(String status) {
+    switch (status.trim().toLowerCase()) {
+      case pendingApproval:
+        return 'Pending Approval';
+      case approved:
+        return 'Approved';
+      case rejected:
+        return 'Rejected';
+      default:
+        return 'Active';
+    }
+  }
+
+  static Color statusColor(String status) {
+    switch (status.trim().toLowerCase()) {
+      case pendingApproval:
+        return const Color(0xFFD97706); // Amber
+      case approved:
+        return const Color(0xFF16A34A); // Emerald Green
+      case rejected:
+        return const Color(0xFFDC2626); // Crimson Red
+      default:
+        return const Color(0xFF2563EB);
+    }
+  }
+}
+
 /// Represents an institutional digital e-book with infinite concurrent borrowing
 class EBookModel {
   final String id;
@@ -441,6 +476,14 @@ class EBookModel {
   final String description;
   final List<int> requiredSemesters;
   final List<String> tags;
+  final String status; // approved, pending_approval, rejected
+  final String? submittedBy;
+  final String? submittedByName;
+  final String? submittedByRole;
+  final String? approvedBy;
+  final String? approvedByName;
+  final DateTime? approvedAt;
+  final String? rejectionReason;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -459,6 +502,14 @@ class EBookModel {
     required this.description,
     this.requiredSemesters = const [],
     this.tags = const [],
+    this.status = EBookStatus.approved,
+    this.submittedBy,
+    this.submittedByName,
+    this.submittedByRole,
+    this.approvedBy,
+    this.approvedByName,
+    this.approvedAt,
+    this.rejectionReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -466,6 +517,9 @@ class EBookModel {
 
   bool get isPdf => format.toUpperCase() == 'PDF';
   bool get isEpub => format.toUpperCase() == 'EPUB';
+  bool get isApproved => status.toLowerCase() == EBookStatus.approved || status.isEmpty;
+  bool get isPendingApproval => status.toLowerCase() == EBookStatus.pendingApproval;
+  bool get isRejected => status.toLowerCase() == EBookStatus.rejected;
 
   factory EBookModel.fromJson(Map<String, dynamic> json) {
     return EBookModel(
@@ -486,6 +540,14 @@ class EBookModel {
               .toList() ??
           const [],
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      status: json['status'] as String? ?? EBookStatus.approved,
+      submittedBy: json['submitted_by'] as String?,
+      submittedByName: json['submitted_by_name'] as String?,
+      submittedByRole: json['submitted_by_role'] as String?,
+      approvedBy: json['approved_by'] as String?,
+      approvedByName: json['approved_by_name'] as String?,
+      approvedAt: json['approved_at'] != null ? DateTime.parse(json['approved_at'] as String) : null,
+      rejectionReason: json['rejection_reason'] as String?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
     );
@@ -507,6 +569,14 @@ class EBookModel {
       'description': description,
       'required_semesters': requiredSemesters,
       'tags': tags,
+      'status': status,
+      if (submittedBy != null) 'submitted_by': submittedBy,
+      if (submittedByName != null) 'submitted_by_name': submittedByName,
+      if (submittedByRole != null) 'submitted_by_role': submittedByRole,
+      if (approvedBy != null) 'approved_by': approvedBy,
+      if (approvedByName != null) 'approved_by_name': approvedByName,
+      if (approvedAt != null) 'approved_at': approvedAt!.toIso8601String(),
+      if (rejectionReason != null) 'rejection_reason': rejectionReason,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -527,6 +597,14 @@ class EBookModel {
     String? description,
     List<int>? requiredSemesters,
     List<String>? tags,
+    String? status,
+    String? submittedBy,
+    String? submittedByName,
+    String? submittedByRole,
+    String? approvedBy,
+    String? approvedByName,
+    DateTime? approvedAt,
+    String? rejectionReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -545,6 +623,14 @@ class EBookModel {
       description: description ?? this.description,
       requiredSemesters: requiredSemesters ?? this.requiredSemesters,
       tags: tags ?? this.tags,
+      status: status ?? this.status,
+      submittedBy: submittedBy ?? this.submittedBy,
+      submittedByName: submittedByName ?? this.submittedByName,
+      submittedByRole: submittedByRole ?? this.submittedByRole,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedByName: approvedByName ?? this.approvedByName,
+      approvedAt: approvedAt ?? this.approvedAt,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

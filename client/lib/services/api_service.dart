@@ -1530,6 +1530,104 @@ class ApiService implements ICampusApi {
     throw Exception('Failed to get e-books (${res.statusCode}): ${res.body}');
   }
 
+  @override
+  Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/books'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(book.toJson()),
+    );
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      return PhysicalBookModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to add physical book');
+  }
+
+  @override
+  Future<void> deletePhysicalBook(String id) async {
+    final res = await http.delete(Uri.parse('$baseUrl/api/v1/library/books?id=$id'));
+    if (res.statusCode == 200 || res.statusCode == 204) {
+      return;
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to remove physical book');
+  }
+
+  @override
+  Future<EBookModel> createEBook(EBookModel ebook) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/ebooks'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(ebook.toJson()),
+    );
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      return EBookModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to add e-book');
+  }
+
+  @override
+  Future<EBookModel> approveEBook({
+    required String ebookId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) async {
+    final payload = <String, dynamic>{
+      'ebook_id': ebookId,
+      'approved_by': approvedBy,
+      'approved_by_name': approvedByName,
+    };
+    if (remarks != null) {
+      payload['remarks'] = remarks;
+    }
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/ebooks/approve'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return EBookModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to approve e-book');
+  }
+
+  @override
+  Future<EBookModel> rejectEBook({
+    required String ebookId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) async {
+    final payload = <String, dynamic>{
+      'ebook_id': ebookId,
+      'rejected_by': rejectedBy,
+      'rejection_reason': rejectionReason,
+    };
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/ebooks/reject'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return EBookModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to reject e-book');
+  }
+
+  @override
+  Future<void> deleteEBook(String id) async {
+    final res = await http.delete(Uri.parse('$baseUrl/api/v1/library/ebooks?id=$id'));
+    if (res.statusCode == 200 || res.statusCode == 204) {
+      return;
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to remove e-book');
+  }
+
   // AKTU Sessional & Continuous Assessment Subsystem
   @override
   Future<List<InternalAssessmentModel>> fetchSessionalRecords({

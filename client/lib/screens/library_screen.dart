@@ -45,6 +45,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   List<PhysicalBookModel> _books = [];
   List<EBookModel> _ebooks = [];
   List<BorrowRecordModel> _pendingApprovals = [];
+  List<EBookModel> _pendingPdfBooks = [];
 
   String _borrowStatusFilter = 'all';
   String _bookCategoryFilter = 'All Categories';
@@ -135,11 +136,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       final books = await _facade.getPhysicalBooks();
       final ebooks = await _facade.getEBooks();
       List<BorrowRecordModel> pendingApprovals = [];
+      List<EBookModel> pendingPdfBooks = [];
       if (_canManageLibrary) {
         final allBorrows = await _facade.getBorrowRecords();
         pendingApprovals = allBorrows
             .where((r) => r.isPendingApproval || r.isPendingRenewal || r.isPendingReturn)
             .toList();
+        pendingPdfBooks = ebooks.where((e) => e.isPendingApproval).toList();
       }
 
       if (mounted) {
@@ -149,6 +152,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           _books = books;
           _ebooks = ebooks;
           _pendingApprovals = pendingApprovals;
+          _pendingPdfBooks = pendingPdfBooks;
           _isLoading = false;
         });
       }
@@ -1061,6 +1065,684 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             content: Text(
               "Renewal request for '${record.bookTitle}' has been rejected.",
             ),
+            backgroundColor: AppColors.statusRed,
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.statusRed,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleRemoveCatalogue(PhysicalBookModel book) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          key: const Key('dialog-confirm-remove-book'),
+          title: const Text('Remove from Catalog?'),
+          content: Text(
+            'Are you sure you want to remove "${book.title}" from the institutional physical library catalog? This action will archive the volume.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-remove-book'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.statusRed,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Remove Book'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _facade.deletePhysicalBook(book.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Physical book '${book.title}' removed from catalog."),
+            backgroundColor: AppColors.githubGreen,
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.statusRed,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showAddCatalogDialog() async {
+    final titleController = TextEditingController();
+    final authorController = TextEditingController();
+    final isbnController = TextEditingController();
+    final publisherController = TextEditingController();
+    final editionController = TextEditingController(text: '1st Edition');
+    final copiesController = TextEditingController(text: '3');
+    final shelfController = TextEditingController(text: 'Rack C-1, 2nd Floor Central Wing');
+    final costController = TextEditingController(text: '3500');
+    String selectedCategory = BookCategory.cse;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add Book to Catalog'),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 480,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        key: const Key('input-catalog-title'),
+                        controller: titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Book Title',
+                          hintText: 'e.g. Distributed Operating Systems',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('input-catalog-author'),
+                        controller: authorController,
+                        decoration: const InputDecoration(
+                          labelText: 'Author(s)',
+                          hintText: 'e.g. Andrew S. Tanenbaum',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('input-catalog-isbn'),
+                        controller: isbnController,
+                        decoration: const InputDecoration(
+                          labelText: 'ISBN',
+                          hintText: 'e.g. 978-0132199087',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      AppDropdown<String>(
+                        key: const Key('dropdown-catalog-category'),
+                        value: selectedCategory,
+                        items: BookCategory.catalogCategories
+                            .where((c) => c != BookCategory.all)
+                            .map((c) => AppDropdownItem(value: c, label: c))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedCategory = val);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              key: const Key('input-catalog-publisher'),
+                              controller: publisherController,
+                              decoration: const InputDecoration(
+                                labelText: 'Publisher',
+                                hintText: 'e.g. Pearson',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              key: const Key('input-catalog-edition'),
+                              controller: editionController,
+                              decoration: const InputDecoration(
+                                labelText: 'Edition',
+                                hintText: 'e.g. 2nd Edition',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              key: const Key('input-catalog-copies'),
+                              controller: copiesController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Total Copies',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              key: const Key('input-catalog-cost'),
+                              controller: costController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Cost (₹)',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('input-catalog-shelf'),
+                        controller: shelfController,
+                        decoration: const InputDecoration(
+                          labelText: 'Shelf Location',
+                          hintText: 'e.g. Rack B-3, 2nd Floor',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  key: const Key('btn-submit-catalog'),
+                  onPressed: () async {
+                    final title = titleController.text.trim();
+                    final author = authorController.text.trim();
+                    final isbn = isbnController.text.trim();
+                    if (title.isEmpty || author.isEmpty || isbn.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please fill title, author, and ISBN'),
+                          backgroundColor: AppColors.statusRed,
+                        ),
+                      );
+                      return;
+                    }
+                    final copies = int.tryParse(copiesController.text.trim()) ?? 1;
+                    final cost = double.tryParse(costController.text.trim()) ?? 3000.0;
+                    final newBook = PhysicalBookModel(
+                      id: 'bk-${DateTime.now().millisecondsSinceEpoch}',
+                      title: title,
+                      author: author,
+                      isbn: isbn,
+                      category: selectedCategory,
+                      publisher: publisherController.text.trim().isNotEmpty
+                          ? publisherController.text.trim()
+                          : 'Academic Press',
+                      edition: editionController.text.trim().isNotEmpty
+                          ? editionController.text.trim()
+                          : '1st Edition',
+                      departmentId: 'dept-cse',
+                      totalCopies: copies,
+                      availableCopies: copies,
+                      shelfLocation: shelfController.text.trim().isNotEmpty
+                          ? shelfController.text.trim()
+                          : 'Rack C-1, 2nd Floor Central Wing',
+                      replacementCost: cost,
+                    );
+
+                    Navigator.of(ctx).pop();
+                    try {
+                      await _facade.createPhysicalBook(newBook);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Book '$title' added to catalog successfully."),
+                            backgroundColor: AppColors.githubGreen,
+                          ),
+                        );
+                        await _loadLibraryData();
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(e.toString().replaceFirst('Exception: ', '')),
+                            backgroundColor: AppColors.statusRed,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.wineRed,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Add to Catalog'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showAddPdfBookDialog() async {
+    final titleController = TextEditingController();
+    final authorController = TextEditingController();
+    final publisherController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final sizeController = TextEditingController(text: '12.4 MB');
+    final tagsController = TextEditingController(text: 'Textbook, Reference, Engineering');
+    String selectedCategory = BookCategory.cse;
+    final isLibrarian = _canManageLibrary;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              title: Text(isLibrarian ? 'Add PDF E-Book (In-Charge)' : 'Upload PDF E-Book for Approval'),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 480,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isLibrarian
+                            ? 'As Library In-Charge, newly added PDF e-books will immediately be published into the institutional digital collection.'
+                            : 'Submit a digital PDF textbook to the campus library. Your submission will be reviewed and approved by the Library In-Charge.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('input-pdf-title'),
+                        controller: titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'E-Book / PDF Title',
+                          hintText: 'e.g. Modern Compiler Implementation in C',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('input-pdf-author'),
+                        controller: authorController,
+                        decoration: const InputDecoration(
+                          labelText: 'Author(s)',
+                          hintText: 'e.g. Andrew W. Appel',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      AppDropdown<String>(
+                        key: const Key('dropdown-pdf-category'),
+                        value: selectedCategory,
+                        items: BookCategory.catalogCategories
+                            .where((c) => c != BookCategory.all)
+                            .map((c) => AppDropdownItem(value: c, label: c))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedCategory = val);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              key: const Key('input-pdf-publisher'),
+                              controller: publisherController,
+                              decoration: const InputDecoration(
+                                labelText: 'Publisher / Source',
+                                hintText: 'e.g. Cambridge Univ. Press',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              key: const Key('input-pdf-size'),
+                              controller: sizeController,
+                              decoration: const InputDecoration(
+                                labelText: 'PDF Size',
+                                hintText: 'e.g. 14.2 MB',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('input-pdf-tags'),
+                        controller: tagsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Tags (comma separated)',
+                          hintText: 'e.g. compilers, c, parsing',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('input-pdf-description'),
+                        controller: descriptionController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Description / Syllabus Scope',
+                          hintText: 'Brief summary of the textbook contents...',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  key: const Key('btn-submit-pdf-book'),
+                  onPressed: () async {
+                    final title = titleController.text.trim();
+                    final author = authorController.text.trim();
+                    if (title.isEmpty || author.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter book title and author'),
+                          backgroundColor: AppColors.statusRed,
+                        ),
+                      );
+                      return;
+                    }
+
+                    final now = DateTime.now();
+                    final id = 'ebk-${now.millisecondsSinceEpoch}';
+                    final tagList = tagsController.text
+                        .split(',')
+                        .map((t) => t.trim())
+                        .where((t) => t.isNotEmpty)
+                        .toList();
+
+                    final newEbook = EBookModel(
+                      id: id,
+                      title: title,
+                      author: author,
+                      category: selectedCategory,
+                      publisher: publisherController.text.trim().isNotEmpty
+                          ? publisherController.text.trim()
+                          : (isLibrarian ? 'Institutional Library' : 'Student Contribution'),
+                      format: 'PDF',
+                      fileSize: sizeController.text.trim().isNotEmpty
+                          ? sizeController.text.trim()
+                          : '12.5 MB',
+                      downloadUrl: '/api/v1/library/ebooks/download/$id.pdf',
+                      readUrl: '/library/reader/$id',
+                      isInfiniteBorrow: true,
+                      description: descriptionController.text.trim().isNotEmpty
+                          ? descriptionController.text.trim()
+                          : 'Digital PDF reference textbook available for campus scholarship.',
+                      tags: tagList.isNotEmpty ? tagList : [selectedCategory, 'PDF'],
+                      status: isLibrarian ? EBookStatus.approved : EBookStatus.pendingApproval,
+                      submittedBy: _currentStudentId,
+                      submittedByName: widget.currentUser?.fullName ?? (isLibrarian ? 'Library In-Charge' : 'Student'),
+                      submittedByRole: isLibrarian ? 'in_charge' : 'student',
+                      approvedBy: isLibrarian ? widget.currentUser?.id : null,
+                      approvedByName: isLibrarian ? widget.currentUser?.fullName : null,
+                      approvedAt: isLibrarian ? now : null,
+                      createdAt: now,
+                      updatedAt: now,
+                    );
+
+                    Navigator.of(ctx).pop();
+                    try {
+                      await _facade.createEBook(newEbook);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isLibrarian
+                                ? "PDF Book '$title' added to library collection."
+                                : "PDF Book '$title' submitted. Awaiting Library In-Charge approval."),
+                            backgroundColor: AppColors.githubGreen,
+                          ),
+                        );
+                        await _loadLibraryData();
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(e.toString().replaceFirst('Exception: ', '')),
+                            backgroundColor: AppColors.statusRed,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.wineRed,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(isLibrarian ? 'Add PDF Book' : 'Submit for Approval'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleApprovePdf(EBookModel ebook) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          title: const Text('Approve PDF E-Book'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                ebook.title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 4),
+              Text('Author: ${ebook.author} • Category: ${ebook.category}'),
+              const SizedBox(height: 6),
+              Text(
+                'Submitted by: ${ebook.submittedByName ?? "Student"} (${ebook.submittedBy ?? "N/A"})',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Approving this PDF will immediately publish it to the Infinite Digital Repository for all campus scholars.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-approve-pdf'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.githubGreen,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Approve & Publish'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final inChargeId = widget.currentUser?.id ?? 'incharge-lib';
+      final inChargeName = widget.currentUser?.fullName ?? 'Library In-Charge';
+      await _facade.approveEBook(
+        ebookId: ebook.id,
+        approvedBy: inChargeId,
+        approvedByName: inChargeName,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("PDF Book '${ebook.title}' approved and added to active library collection."),
+            backgroundColor: AppColors.githubGreen,
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.statusRed,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleRejectPdf(EBookModel ebook) async {
+    final reasonController = TextEditingController(text: 'Does not meet institutional curriculum criteria');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          title: const Text('Reject PDF Submission'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Provide reason for declining "${ebook.title}":',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: reasonController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Rejection Reason',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-reject-pdf'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.statusRed,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Decline Submission'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final inChargeId = widget.currentUser?.id ?? 'incharge-lib';
+      await _facade.rejectEBook(
+        ebookId: ebook.id,
+        rejectedBy: inChargeId,
+        rejectionReason: reasonController.text.trim(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("PDF Book submission for '${ebook.title}' declined."),
             backgroundColor: AppColors.statusRed,
           ),
         );
@@ -2260,6 +2942,21 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             _buildEmptyApprovalsState(isDark)
           else
             ..._pendingApprovals.map((req) => _buildApprovalRequestCard(req, isDark)),
+
+          const SizedBox(height: 24),
+          Text(
+            'Student-Submitted PDF Books (${_pendingPdfBooks.length})',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_pendingPdfBooks.isEmpty)
+            _buildEmptyPdfApprovalsState(isDark)
+          else
+            ..._pendingPdfBooks.map((pdf) => _buildPdfApprovalCard(pdf, isDark)),
         ],
       ),
     );
@@ -2492,6 +3189,177 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     );
   }
 
+  Widget _buildEmptyPdfApprovalsState(bool isDark) {
+    return Container(
+      key: const Key('empty-pdf-approvals-state'),
+      padding: const EdgeInsets.all(32),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.picture_as_pdf_outlined,
+            size: 40,
+            color: isDark ? AppColors.darkTextMuted : AppColors.lightBorderHover,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'No Pending PDF Submissions',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Student-donated digital PDF textbooks awaiting Library In-Charge review will appear here.',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPdfApprovalCard(EBookModel pdf, bool isDark) {
+    return Container(
+      key: Key('card-pdf-approval-${pdf.id}'),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.statusYellowDarkBorder : AppColors.statusYellowBorder,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.statusYellowDarkSubtle : AppColors.statusYellowSubtle,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.picture_as_pdf,
+                  color: isDark ? AppColors.statusYellowDarkText : AppColors.statusYellow,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pdf.title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Author: ${pdf.author} • ${pdf.publisher}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.statusYellowDarkSubtle : AppColors.statusYellowSubtle,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? AppColors.statusYellowDarkBorder : AppColors.statusYellowBorder,
+                        ),
+                      ),
+                      child: Text(
+                        'Pending PDF Review',
+                        style: TextStyle(
+                          color: isDark ? AppColors.statusYellowDarkText : AppColors.statusYellow,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            pdf.description,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 24,
+            runSpacing: 8,
+            children: [
+              _buildDetailItem('Submitted By', pdf.submittedByName ?? 'Student', isDark),
+              _buildDetailItem('Student ID', pdf.submittedBy ?? 'N/A', isDark),
+              _buildDetailItem('Category', pdf.category, isDark),
+              _buildDetailItem('File Size', pdf.fileSize, isDark),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                key: Key('btn-reject-pdf-${pdf.id}'),
+                icon: Icon(Icons.close, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                label: Text('Reject PDF', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                ),
+                onPressed: () => _handleRejectPdf(pdf),
+              ),
+              ElevatedButton.icon(
+                key: Key('btn-approve-pdf-${pdf.id}'),
+                icon: const Icon(Icons.check, size: 16),
+                label: const Text('Approve PDF'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.githubGreen,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => _handleApprovePdf(pdf),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetailItem(String label, String value, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2631,6 +3499,24 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               ],
             ),
           ),
+
+          if (_canManageLibrary) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                key: const Key('btn-add-catalog'),
+                icon: const Icon(Icons.add_circle_outline, size: 16),
+                label: const Text('Add Book to Catalog'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+                onPressed: _showAddCatalogDialog,
+              ),
+            ),
+          ],
 
           const SizedBox(height: 16),
 
@@ -2867,15 +3753,31 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                 ),
               ),
-              ElevatedButton.icon(
-                key: Key('btn-borrow-${book.id}'),
-                icon: const Icon(Icons.bookmark_add_outlined, size: 16),
-                label: const Text('Borrow Book'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.wineRed,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: isEligible ? () => _handleBorrowBook(book) : null,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (_canManageLibrary)
+                    OutlinedButton.icon(
+                      key: Key('btn-remove-book-${book.id}'),
+                      icon: Icon(Icons.delete_outline, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                      label: Text('Remove Catalogue', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                      ),
+                      onPressed: () => _handleRemoveCatalogue(book),
+                    ),
+                  ElevatedButton.icon(
+                    key: Key('btn-borrow-${book.id}'),
+                    icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+                    label: const Text('Borrow Book'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.wineRed,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: isEligible ? () => _handleBorrowBook(book) : null,
+                  ),
+                ],
               ),
             ],
           ),
@@ -2999,6 +3901,22 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              key: const Key('btn-add-pdf-book'),
+              icon: const Icon(Icons.upload_file, size: 16),
+              label: Text(_canManageLibrary ? 'Add PDF E-Book' : 'Upload PDF E-Book'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.wineRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              onPressed: _showAddPdfBookDialog,
             ),
           ),
 
@@ -3169,28 +4087,98 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: greenBadge.background,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: greenBadge.border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.all_inclusive, size: 14, color: greenBadge.text),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Infinite Borrow',
-                            style: TextStyle(
-                              color: greenBadge.text,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        if (ebook.isApproved)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: greenBadge.background,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: greenBadge.border),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.all_inclusive, size: 14, color: greenBadge.text),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Infinite Borrow',
+                                  style: TextStyle(
+                                    color: greenBadge.text,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else if (ebook.isPendingApproval)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.statusYellowDarkSubtle : AppColors.statusYellowSubtle,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isDark ? AppColors.statusYellowDarkBorder : AppColors.statusYellowBorder),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.hourglass_top, size: 14, color: isDark ? AppColors.statusYellowDarkText : AppColors.statusYellow),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Pending In-Charge Approval',
+                                  style: TextStyle(
+                                    color: isDark ? AppColors.statusYellowDarkText : AppColors.statusYellow,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else if (ebook.isRejected)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.statusRedDarkSubtle : AppColors.statusRedSubtle,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.cancel_outlined, size: 14, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Rejected',
+                                  style: TextStyle(
+                                    color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        if (ebook.submittedByName != null && ebook.submittedByName!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Submitted by: ${ebook.submittedByName}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -3252,6 +4240,27 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  if (_canManageLibrary && ebook.isPendingApproval) ...[
+                    OutlinedButton.icon(
+                      key: Key('btn-card-reject-pdf-${ebook.id}'),
+                      icon: Icon(Icons.close, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                      label: Text('Reject PDF', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                      ),
+                      onPressed: () => _handleRejectPdf(ebook),
+                    ),
+                    ElevatedButton.icon(
+                      key: Key('btn-card-approve-pdf-${ebook.id}'),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Approve PDF'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.githubGreen,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => _handleApprovePdf(ebook),
+                    ),
+                  ],
                   OutlinedButton.icon(
                     key: Key('btn-read-ebook-${ebook.id}'),
                     icon: const Icon(Icons.menu_book, size: 16),

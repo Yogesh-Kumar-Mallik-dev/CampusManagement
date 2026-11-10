@@ -280,6 +280,21 @@ abstract class ICampusFacade {
     required String rejectionReason,
   });
   Future<List<EBookModel>> getEBooks({String? query, String? category});
+  Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book);
+  Future<void> deletePhysicalBook(String id);
+  Future<EBookModel> createEBook(EBookModel ebook);
+  Future<EBookModel> approveEBook({
+    required String ebookId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  });
+  Future<EBookModel> rejectEBook({
+    required String ebookId,
+    required String rejectedBy,
+    required String rejectionReason,
+  });
+  Future<void> deleteEBook(String id);
 
   // AKTU Sessional & Continuous Internal Evaluation
   Future<List<InternalAssessmentModel>> getSessionalRecords({
@@ -1005,6 +1020,48 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<List<EBookModel>> getEBooks({String? query, String? category}) =>
       storage.getEBooks(query: query, category: category);
+
+  @override
+  Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book) =>
+      storage.createPhysicalBook(book);
+
+  @override
+  Future<void> deletePhysicalBook(String id) =>
+      storage.deletePhysicalBook(id);
+
+  @override
+  Future<EBookModel> createEBook(EBookModel ebook) =>
+      storage.createEBook(ebook);
+
+  @override
+  Future<EBookModel> approveEBook({
+    required String ebookId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) =>
+      storage.approveEBook(
+        ebookId: ebookId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+        remarks: remarks,
+      );
+
+  @override
+  Future<EBookModel> rejectEBook({
+    required String ebookId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) =>
+      storage.rejectEBook(
+        ebookId: ebookId,
+        rejectedBy: rejectedBy,
+        rejectionReason: rejectionReason,
+      );
+
+  @override
+  Future<void> deleteEBook(String id) =>
+      storage.deleteEBook(id);
 
   // AKTU Sessional & Continuous Internal Evaluation
   @override
