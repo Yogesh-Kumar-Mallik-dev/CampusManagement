@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Campus Management requires camera access to scan live classroom optical attendance QR codes.</string>
 </dict>
 </plist>

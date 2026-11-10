@@ -12,6 +12,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_skeleton.dart';
+import '../widgets/campus_camera_scanner.dart';
 
 enum AttendanceViewMode {
   summary,
@@ -2715,77 +2716,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Viewfinder Scanner Reticle Canvas
-              Container(
-                height: 280,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0D1117) : const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    width: 1,
-                  ),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Target Optical Frame Reticle
-                    Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.githubGreen, width: 2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Stack(
-                        children: [
-                          // Animated Laser Sweep Line (Isolated Repaint)
-                          RepaintBoundary(
-                            child: AnimatedBuilder(
-                              animation: _sweepAnimController,
-                              builder: (context, child) {
-                                return Align(
-                                  alignment: Alignment(0, (_sweepAnimController.value * 2) - 1),
-                                  child: Container(
-                                    height: 2,
-                                    width: double.infinity,
-                                    color: AppColors.githubGreen,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppSvgIcon(svgString: AppSvgIcon.qrCode, size: 12, color: Colors.white),
-                            SizedBox(width: 6),
-                            Text(
-                              'ALIGN RETICLE WITH CLASSROOM DISPLAY',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              // Viewfinder Scanner Reticle Canvas (Native Hardware & Web Camera Stream)
+              CampusCameraScanner(
+                onScanned: (payload) => _processOpticalPayload(payload),
+                isVerifying: _isVerifying,
               ),
               const SizedBox(height: 20),
 
