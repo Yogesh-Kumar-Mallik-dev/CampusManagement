@@ -654,87 +654,87 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          if (isDayOff)
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
+      child: isDayOff
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF381A22).withValues(alpha: 0.5)
+                    : const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
                   color: isDark
-                      ? const Color(0xFF381A22).withValues(alpha: 0.5)
-                      : const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: isDark
-                        ? AppColors.wineRed.withValues(alpha: 0.6)
-                        : const Color(0xFFFCA5A5),
-                    width: 1,
+                      ? AppColors.wineRed.withValues(alpha: 0.6)
+                      : const Color(0xFFFCA5A5),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.event_busy, color: AppColors.wineRed, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${_days[_selectedDay - 1]} is Declared Off — No academic operations scheduled for today.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? const Color(0xFFFF7B72) : const Color(0xFF991B1B),
+                      ),
+                    ),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.event_busy, color: AppColors.wineRed, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${_days[_selectedDay - 1]} is Declared Off — No academic operations scheduled for today.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? const Color(0xFFFF7B72) : const Color(0xFF991B1B),
-                        ),
-                      ),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(60, 24),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(60, 24),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      onPressed: () => _restoreDaySchedule(_selectedDay),
-                      child: const Text(
-                        'Restore',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.wineRed),
-                      ),
+                    onPressed: () => _restoreDaySchedule(_selectedDay),
+                    child: const Text(
+                      'Restore',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.wineRed),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             )
-          else ...[
-            _buildSummaryChip(
-              isDark: isDark,
-              label: '$classCount Classes',
-              sublabel: '$rectCount Double Sessions',
-              badgeColor: AppColors.wineRed,
-            ),
-            if (lunchCount > 0) ...[
-              const SizedBox(width: 8),
-              _buildSummaryChip(
-                isDark: isDark,
-                label: '$lunchCount Lunch Break',
-                sublabel: 'Cafeteria Open',
-                badgeColor: const Color(0xFFD97706),
+          : SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildSummaryChip(
+                    isDark: isDark,
+                    label: '$classCount Classes',
+                    sublabel: '$rectCount Double Sessions',
+                    badgeColor: AppColors.wineRed,
+                  ),
+                  if (lunchCount > 0) ...[
+                    const SizedBox(width: 8),
+                    _buildSummaryChip(
+                      isDark: isDark,
+                      label: '$lunchCount Lunch Break',
+                      sublabel: 'Cafeteria Open',
+                      badgeColor: const Color(0xFFD97706),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  _buildSummaryChip(
+                    isDark: isDark,
+                    label: '$freeCount Free Periods',
+                    sublabel: 'Campus Open',
+                    badgeColor: const Color(0xFF238636),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSummaryChip(
+                    isDark: isDark,
+                    label: '$offCount Declared Off',
+                    sublabel: 'Dismissed',
+                    badgeColor: const Color(0xFF64748B),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(width: 8),
-            _buildSummaryChip(
-              isDark: isDark,
-              label: '$freeCount Free Periods',
-              sublabel: 'Campus Open',
-              badgeColor: const Color(0xFF238636),
             ),
-            const SizedBox(width: 8),
-            _buildSummaryChip(
-              isDark: isDark,
-              label: '$offCount Declared Off',
-              sublabel: 'Dismissed',
-              badgeColor: const Color(0xFF64748B),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -744,58 +744,54 @@ class _TimetableScreenState extends State<TimetableScreen> {
     required String sublabel,
     required Color badgeColor,
   }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-            width: 1,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: badgeColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: Text(
-                sublabel,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  shape: BoxShape.circle,
                 ),
               ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              sublabel,
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -830,16 +826,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Row Header: Day & Operational Track
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
-              Expanded(
-                child: Text(
-                  '${_days[_selectedDay - 1]} Operational Track (09:00 - 17:00)',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                ),
+              Text(
+                '${_days[_selectedDay - 1]} Operational Track (09:00 - 17:00)',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 8),
               Text(
                 'Horizontal Row Format • 1-Hr Blocks',
                 style: TextStyle(

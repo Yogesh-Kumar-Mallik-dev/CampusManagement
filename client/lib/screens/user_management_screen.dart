@@ -230,7 +230,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             else
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 720;
+                  final isWide = constraints.maxWidth >= 800;
                   final itemWidth = isWide ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
 
                   return Wrap(
@@ -257,7 +257,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Widget _buildMetricsBar(bool isDark, int total, int active, int contractors, int discontinued) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 680;
+        final isNarrow = constraints.maxWidth < 740;
         final items = [
           _buildMetricItem('Total Identities', '$total', isDark, AppColors.wineRed),
           _buildMetricItem('Active Credentials', '$active', isDark, AppColors.githubGreen),
@@ -352,7 +352,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 840;
+        final isNarrow = constraints.maxWidth < 960;
 
         final searchField = SizedBox(
           height: 38,
@@ -711,54 +711,51 @@ class _UserDirectoryCardState extends State<_UserDirectoryCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: roleBadge.background,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: roleBadge.border, width: 1),
-                    ),
-                    child: Text(
-                      u.isContractor
-                          ? (u.vendorOrganization != null && u.vendorOrganization!.isNotEmpty
-                              ? 'CONTRACTOR • ${u.vendorOrganization}'
-                              : 'CONTRACTOR')
-                          : u.archetype.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: roleBadge.text,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: roleBadge.background,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: roleBadge.border, width: 1),
+                      ),
+                      child: Text(
+                        u.isContractor
+                            ? (u.vendorOrganization != null && u.vendorOrganization!.isNotEmpty
+                                ? 'CONTRACTOR • ${u.vendorOrganization}'
+                                : 'CONTRACTOR')
+                            : u.archetype.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: roleBadge.text,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  if (u.isContractor && u.gatePassId != null && u.gatePassId!.isNotEmpty)
-                    Text(
-                      u.gatePassId!,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      u.isContractor && u.gatePassId != null && u.gatePassId!.isNotEmpty
+                          ? u.gatePassId!
+                          : (u.universityRollNo != null && u.universityRollNo!.isNotEmpty
+                              ? u.universityRollNo!
+                              : u.email),
                       style: TextStyle(
                         fontSize: 11,
-                        fontFamily: 'monospace',
-                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                      ),
-                    )
-                  else if (u.universityRollNo != null && u.universityRollNo!.isNotEmpty)
-                    Text(
-                      u.universityRollNo!,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                      ),
-                    )
-                  else
-                    Text(
-                      u.email,
-                      style: TextStyle(
-                        fontSize: 11,
+                        fontFamily: (u.isContractor && u.gatePassId != null && u.gatePassId!.isNotEmpty) ||
+                                (u.universityRollNo != null && u.universityRollNo!.isNotEmpty)
+                            ? 'monospace'
+                            : null,
                         color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                     ),
+                  ),
                 ],
               ),
             ],

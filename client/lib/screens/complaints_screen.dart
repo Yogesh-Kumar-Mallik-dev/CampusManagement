@@ -1322,9 +1322,12 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                       children: [
                         Icon(ComplaintCategory.iconFor(complaint.category), size: 12, color: AppColors.wineRed),
                         const SizedBox(width: 4),
-                        Text(
-                          ComplaintCategory.displayName(complaint.category).toUpperCase(),
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.wineRed),
+                        Flexible(
+                          child: Text(
+                            ComplaintCategory.displayName(complaint.category).toUpperCase(),
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.wineRed),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -1370,9 +1373,12 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                           children: [
                             Icon(DisputeTargetType.iconFor(complaint.disputeTargetType), size: 11),
                             const SizedBox(width: 4),
-                            Text(
-                              '${DisputeTargetType.displayName(complaint.disputeTargetType!)}: ${complaint.disputeTargetId ?? "N/A"}',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            Flexible(
+                              child: Text(
+                                '${DisputeTargetType.displayName(complaint.disputeTargetType!)}: ${complaint.disputeTargetId ?? "N/A"}',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -1486,16 +1492,19 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.assignment_turned_in, size: 13, color: Color(0xFFD97706)),
-                      SizedBox(width: 5),
-                      Text(
-                        'REQUESTED REMEDY / SETTLEMENT:',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFD97706),
+                      const Icon(Icons.assignment_turned_in, size: 13, color: Color(0xFFD97706)),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: const Text(
+                          'REQUESTED REMEDY / SETTLEMENT:',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFD97706),
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -1534,9 +1543,12 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                     children: [
                       Icon(Icons.attachment, size: 13, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
                       const SizedBox(width: 5),
-                      const Text(
-                        'SUBMITTED EVIDENCE / GROUNDS:',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      const Flexible(
+                        child: Text(
+                          'SUBMITTED EVIDENCE / GROUNDS:',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),

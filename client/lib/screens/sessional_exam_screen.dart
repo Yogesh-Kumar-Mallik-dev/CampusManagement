@@ -763,19 +763,21 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton.icon(
-                      key: Key('btn-dispute-sessional-${record.subjectCode}'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      ),
-                      onPressed: () => _openDisputeForRecord(record),
-                      icon: const Icon(Icons.gavel, size: 14),
-                      label: const Text('Dispute Sessional Mark', style: TextStyle(fontSize: 11)),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    key: Key('btn-dispute-sessional-${record.subjectCode}'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     ),
-                  ],
+                    onPressed: () => _openDisputeForRecord(record),
+                    icon: const Icon(Icons.gavel, size: 14),
+                    label: const Text(
+                      'Dispute Mark',
+                      style: TextStyle(fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -880,6 +880,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktopOrWeb = screenWidth >= 800;
     final isNarrow = screenWidth <= 600;
+    final isVeryNarrow = screenWidth < 360;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final tabStack = IndexedStack(
@@ -889,8 +890,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: isNarrow ? 8 : 16,
-        title: AppLogo(height: isNarrow ? 34 : 40),
+        titleSpacing: isVeryNarrow ? 4 : (isNarrow ? 8 : 16),
+        title: AppLogo(height: isVeryNarrow ? 26 : (isNarrow ? 34 : 40)),
         actions: [
           // Connection Status Badge
           Builder(
@@ -899,9 +900,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? AppColors.greenBadge(isDark)
                   : AppColors.yellowBadge(isDark);
               final isNarrow = MediaQuery.of(context).size.width <= 600;
+              final isVeryNarrow = MediaQuery.of(context).size.width < 360;
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 12),
-                padding: EdgeInsets.symmetric(horizontal: isNarrow ? 6 : 10, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: isVeryNarrow ? 4 : (isNarrow ? 6 : 10), vertical: 4),
                 decoration: BoxDecoration(
                   color: statusBadge.background,
                   borderRadius: BorderRadius.circular(6),
@@ -934,7 +936,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isVeryNarrow ? 3 : 8),
 
           // Grievances & Complaints Direct Shortcut
           IconButton(
@@ -957,28 +959,30 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 2),
 
           // Fees & Fine Portal Direct Shortcut
-          IconButton(
-            key: const Key('appbar-btn-fees'),
-            tooltip: 'Fees & Fine Portal',
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            style: IconButton.styleFrom(
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              minimumSize: const Size(28, 28),
+          if (!isVeryNarrow) ...[
+            IconButton(
+              key: const Key('appbar-btn-fees'),
+              tooltip: 'Fees & Fine Portal',
+              visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.symmetric(horizontal: 4),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              style: IconButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: const Size(28, 28),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+              icon: const AppSvgIcon(
+                svgString: AppSvgIcon.creditCard,
+                size: 18,
+              ),
+              onPressed: () => _onDestinationSelected(9),
             ),
-            icon: const AppSvgIcon(
-              svgString: AppSvgIcon.creditCard,
-              size: 18,
-            ),
-            onPressed: () => _onDestinationSelected(9),
-          ),
-          const SizedBox(width: 2),
+            const SizedBox(width: 2),
+          ],
 
           // Smooth Animated Theme Toggle
           const SmoothThemeToggle(),
-          const SizedBox(width: 4),
+          SizedBox(width: isVeryNarrow ? 2 : 4),
 
           // User Persona Switcher (Clean Dropdown below anchor)
           PopupMenuButton<UserModel>(
@@ -1155,7 +1159,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ],
-          const SizedBox(width: 16),
+          SizedBox(width: isVeryNarrow ? 4 : (isNarrow ? 8 : 16)),
         ],
       ),
       body: isDesktopOrWeb
@@ -2568,17 +2572,16 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                ),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(

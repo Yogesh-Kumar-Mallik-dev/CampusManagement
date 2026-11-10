@@ -269,81 +269,123 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
       buttonAction = _openAddSubjectDialog;
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  AppSvgIcon(
-                    svgString: icon,
-                    size: 24,
-                    color: color,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 600;
+
+        final titleCol = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AppSvgIcon(
+                  svgString: icon,
+                  size: 24,
+                  color: color,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        );
+
+        final actionButtons = Row(
+          mainAxisSize: isNarrow ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            if (_selectedTab == 1) ...[
+              OutlinedButton.icon(
+                key: const Key('btn-faculty-workload-header'),
+                onPressed: _openFacultyWorkloadDialog,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: color,
+                  side: BorderSide(color: color, width: 1.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const AppSvgIcon(svgString: AppSvgIcon.clock, size: 16, color: Color(0xFF8250DF)),
+                label: const Text(
+                  'Workload',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            isNarrow
+                ? Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: buttonAction,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
-                      overflow: TextOverflow.ellipsis,
+                      icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 16, color: Colors.white),
+                      label: Text(
+                        buttonLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                : ElevatedButton.icon(
+                    onPressed: buttonAction,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 16, color: Colors.white),
+                    label: Text(
+                      buttonLabel,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+          ],
+        );
+
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              titleCol,
+              const SizedBox(height: 12),
+              actionButtons,
             ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        if (_selectedTab == 1) ...[
-          OutlinedButton.icon(
-            key: const Key('btn-faculty-workload-header'),
-            onPressed: _openFacultyWorkloadDialog,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: color,
-              side: BorderSide(color: color, width: 1.5),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            icon: const AppSvgIcon(svgString: AppSvgIcon.clock, size: 16, color: Color(0xFF8250DF)),
-            label: const Text(
-              'Faculty Workload',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-        ElevatedButton.icon(
-          onPressed: buttonAction,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          ),
-          icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 16, color: Colors.white),
-          label: Text(
-            buttonLabel,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          ),
-        ),
-      ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: titleCol),
+            const SizedBox(width: 16),
+            actionButtons,
+          ],
+        );
+      },
     );
   }
 
@@ -442,14 +484,17 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
                   : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
             ),
             const SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: isSelected
-                    ? (isDark ? Colors.white : activeColor)
-                    : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: isSelected
+                      ? (isDark ? Colors.white : activeColor)
+                      : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -723,7 +768,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth > 900 ? 3 : (constraints.maxWidth > 600 ? 2 : 1);
+        final crossAxisCount = constraints.maxWidth >= 1100 ? 3 : (constraints.maxWidth > 640 ? 2 : 1);
         final itemWidth = (constraints.maxWidth - (crossAxisCount - 1) * 16) / crossAxisCount;
 
         return Wrap(
@@ -760,7 +805,6 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
         children: [
           // Header with Code badge & HOD
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -779,22 +823,29 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
                   ),
                 ),
               ),
-              if (dept.hodName != null)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const AppSvgIcon(svgString: AppSvgIcon.userCheck, size: 12, color: AppColors.githubGreen),
-                    const SizedBox(width: 4),
-                    Text(
-                      'HOD: ${dept.hodName}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              if (dept.hodName != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const AppSvgIcon(svgString: AppSvgIcon.userCheck, size: 12, color: AppColors.githubGreen),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'HOD: ${dept.hodName}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 12),

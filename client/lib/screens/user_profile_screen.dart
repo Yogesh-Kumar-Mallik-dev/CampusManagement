@@ -2300,19 +2300,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+        Flexible(
+          flex: 2,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(width: 8),
         Flexible(
+          flex: 3,
           child: Text(
             value,
             textAlign: TextAlign.end,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

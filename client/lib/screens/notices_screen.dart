@@ -210,7 +210,11 @@ class _NoticesScreenState extends State<NoticesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -231,7 +235,6 @@ class _NoticesScreenState extends State<NoticesScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -251,7 +254,6 @@ class _NoticesScreenState extends State<NoticesScreen> {
                           ),
                         ),
                       ),
-                      const Spacer(),
                       Text(
                         _noticeDateFormat.format(notice.publishedAt),
                         style: TextStyle(

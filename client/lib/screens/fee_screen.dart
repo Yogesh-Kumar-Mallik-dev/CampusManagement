@@ -562,15 +562,16 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
               size: 20,
             ),
           ),
-          title: Row(
+          title: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
             children: [
-              Expanded(
-                child: Text(
-                  invoice.title,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
-                ),
+              Text(
+                invoice.title,
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -590,20 +591,18 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  spacing: 6,
+                  runSpacing: 2,
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Session: ${invoice.academicYear} | Sem ${invoice.semesterNumber}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                        ),
+                    Text(
+                      'Session: ${invoice.academicYear} | Sem ${invoice.semesterNumber}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Text(
                       'Due: ${dateFmt.format(invoice.dueDate)}',
                       style: TextStyle(

@@ -907,62 +907,95 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Top Action & Status Bar (Always mounted)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.githubGreen.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 540;
+                  final contentCol = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Student Attendance Analytics',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       ),
-                      child: const AppSvgIcon(
-                        svgString: AppSvgIcon.attendance,
-                        size: 24,
-                        color: AppColors.githubGreen,
+                      const SizedBox(height: 2),
+                      Text(
+                        'Statutory 75% regulatory compliance engine, safe bunk margins, and optical scanner.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        ),
                       ),
+                    ],
+                  );
+
+                  final scanBtn = ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.githubGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      elevation: 0,
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Student Attendance Analytics',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.qrCode, size: 16, color: Colors.white),
+                    label: const Text('Scan Rolling QR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    onPressed: _openOpticalScanner,
+                  );
+
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
+                    ),
+                    child: isNarrow
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.githubGreen.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const AppSvgIcon(
+                                      svgString: AppSvgIcon.attendance,
+                                      size: 24,
+                                      color: AppColors.githubGreen,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(child: contentCol),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              scanBtn,
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.githubGreen.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const AppSvgIcon(
+                                  svgString: AppSvgIcon.attendance,
+                                  size: 24,
+                                  color: AppColors.githubGreen,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(child: contentCol),
+                              const SizedBox(width: 12),
+                              scanBtn,
+                            ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Statutory 75% regulatory compliance engine, safe bunk margins, and optical scanner.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.githubGreen,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        elevation: 0,
-                      ),
-                      icon: const AppSvgIcon(svgString: AppSvgIcon.qrCode, size: 16, color: Colors.white),
-                      label: const Text('Scan Rolling QR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      onPressed: _openOpticalScanner,
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
               const SizedBox(height: 18),
 
@@ -1362,48 +1395,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: AppColors.statusAmber.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const AppSvgIcon(
-                        svgString: AppSvgIcon.flame,
-                        size: 16,
-                        color: AppColors.statusAmber,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '30-Day Classroom Activity Matrix',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Daily session participation and continuous streak monitoring',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 460;
+              final streakBadge = Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.statusAmber.withValues(alpha: 0.12),
@@ -1415,18 +1410,78 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   children: [
                     AppSvgIcon(svgString: AppSvgIcon.flame, size: 12, color: AppColors.statusAmber),
                     SizedBox(width: 6),
-                    Text(
-                      '12-Day Active Streak',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.statusAmber,
+                    Flexible(
+                      child: Text(
+                        '12-Day Active Streak',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.statusAmber,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
+              );
+
+              final titleSection = Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusAmber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const AppSvgIcon(
+                      svgString: AppSvgIcon.flame,
+                      size: 16,
+                      color: AppColors.statusAmber,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '30-Day Classroom Activity Matrix',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Daily session participation and streak monitoring',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleSection,
+                    const SizedBox(height: 8),
+                    streakBadge,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: titleSection),
+                  const SizedBox(width: 8),
+                  streakBadge,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
 
@@ -1672,24 +1727,27 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Row(
-                            children: [
-                              Text(
-                                s.courseCode,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  s.courseName,
+                          child: RichText(
+                            overflow: TextOverflow.ellipsis,
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '${s.courseCode} ',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: s.courseName,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1924,14 +1982,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                 color: meets ? AppColors.githubGreen : AppColors.statusRed,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                meets
-                                    ? 'Can miss $margin class${margin == 1 ? '' : 'es'}'
-                                    : 'Must attend next $recovery class${recovery == 1 ? '' : 'es'}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: meets ? AppColors.githubGreen : AppColors.statusRed,
+                              Flexible(
+                                child: Text(
+                                  meets
+                                      ? 'Can miss $margin class${margin == 1 ? '' : 'es'}'
+                                      : 'Must attend next $recovery class${recovery == 1 ? '' : 'es'}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: meets ? AppColors.githubGreen : AppColors.statusRed,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
