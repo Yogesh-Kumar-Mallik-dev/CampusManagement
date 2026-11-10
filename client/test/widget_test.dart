@@ -3221,4 +3221,108 @@ void main() {
 
     expect(find.textContaining('approved successfully. Loan is now active.'), findsOneWidget);
   });
+
+  testWidgets('Institutional Library: In-Charge approval workflow for Return and Renewal requests', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+    final librarian = OfflineStorageService.getMockUserForHandle('admin');
+
+    // 1. Student requests renewal on active loan (brw-clrs-01)
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-renew-brw-clrs-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-renew-brw-clrs-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Loan extension request submitted'), findsOneWidget);
+    expect(find.text('Pending Renewal'), findsWidgets);
+    expect(find.textContaining('Deadline extension submitted. Awaiting Library In-Charge authorization.'), findsOneWidget);
+
+    // 2. Librarian views Approvals tab and approves the renewal
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: librarian,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(TabBar), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tab-borrow-approvals')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pending Renewal Extension'), findsWidgets);
+    expect(find.byKey(const Key('btn-approve-renewal-brw-clrs-01')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('btn-approve-renewal-brw-clrs-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Approve Loan Extension'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-confirm-approve-renewal')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('approved. New due date:'), findsOneWidget);
+
+    // 3. Student initiates book return
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-return-brw-clrs-01')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-return-brw-clrs-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirm Book Return'), findsOneWidget);
+    await tester.tap(find.text('Return Copy'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('pending Library In-Charge counter inspection'), findsOneWidget);
+    expect(find.text('Pending Return'), findsWidgets);
+    expect(find.textContaining('Return initiated. Please present the physical copy at the circulation counter'), findsOneWidget);
+
+    // 4. Librarian inspects and approves return
+    await tester.pumpWidget(MaterialApp(
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: librarian,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(TabBar), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tab-borrow-approvals')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pending Return Inspection'), findsWidgets);
+    expect(find.byKey(const Key('btn-approve-return-brw-clrs-01')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('btn-approve-return-brw-clrs-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Accept Physical Book Return'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-confirm-approve-return')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('verified and accepted. Catalog copy incremented.'), findsOneWidget);
+  });
 }

@@ -113,7 +113,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       final ebooks = await _facade.getEBooks();
       List<BorrowRecordModel> pendingApprovals = [];
       if (_canManageLibrary) {
-        pendingApprovals = await _facade.getBorrowRecords(status: 'pending_approval');
+        final allBorrows = await _facade.getBorrowRecords();
+        pendingApprovals = allBorrows
+            .where((r) => r.isPendingApproval || r.isPendingRenewal || r.isPendingReturn)
+            .toList();
       }
 
       if (mounted) {
@@ -417,6 +420,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               const SizedBox(height: 6),
               Text('Loan Borrowed: ${dateFmt.format(record.borrowedAt)}'),
               Text('Due Date: ${dateFmt.format(record.dueDate)}'),
+              const SizedBox(height: 12),
+              const Text(
+                'Return Process Notice:\nReturning a physical book requires presenting the copy at the circulation counter for inspection and in-charge sign-off.',
+                style: TextStyle(fontSize: 12, height: 1.4, color: Colors.grey),
+              ),
               if (isLate) ...[
                 const SizedBox(height: 12),
                 Container(
@@ -439,7 +447,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'This loan is overdue by ${record.overdueDaysCount} days. A late fine of ₹${record.accruedLateFine.toStringAsFixed(2)} will be issued to your Institutional Fine Portal.',
+                        'This loan is overdue by ${record.overdueDaysCount} days. A late fine of ₹${record.accruedLateFine.toStringAsFixed(2)} will be issued to your Institutional Fine Portal upon acceptance.',
                         style: const TextStyle(color: Color(0xFF7F1D1D), fontSize: 12),
                       ),
                     ],
@@ -469,9 +477,94 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     if (confirmed != true) return;
 
     try {
-      await _facade.returnBook(
+      final isLibrarian = widget.currentUser?.canManageLibrary == true;
+      final approvedBy = isLibrarian ? widget.currentUser!.id : null;
+      final approvedByName = isLibrarian ? widget.currentUser!.fullName : null;
+
+      final res = await _facade.returnBook(
         borrowId: record.id,
         studentId: _currentStudentId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        final message = res.isPendingReturn
+            ? "Book '${record.bookTitle}' return request initiated. Book returned successfully pending Library In-Charge counter inspection."
+            : "Book '${record.bookTitle}' returned successfully. Physical catalog copy incremented.";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleApproveReturn(BorrowRecordModel record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Accept Physical Book Return'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                record.bookTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 6),
+              Text('Student: ${record.studentName} (${record.campusHandle})'),
+              Text('Shelf Location: ${record.shelfLocation}'),
+              const SizedBox(height: 12),
+              const Text(
+                'Confirm counter physical copy inspection. Accepting this return will check in the book, restore available catalog copy count, and sync any late fines.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-approve-return'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Accept Return'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final inChargeId = widget.currentUser?.id ?? 'incharge-lib';
+      final inChargeName = widget.currentUser?.fullName ?? 'Library In-Charge';
+      await _facade.approveReturnRequest(
+        borrowId: record.id,
+        approvedBy: inChargeId,
+        approvedByName: inChargeName,
       );
 
       if (mounted) {
@@ -479,7 +572,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Book '${record.bookTitle}' returned successfully. Physical catalog copy incremented.",
+              "Return for '${record.bookTitle}' verified and accepted. Catalog copy incremented.",
             ),
             backgroundColor: const Color(0xFF16A34A),
           ),
@@ -498,11 +591,78 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     }
   }
 
-  Future<void> _handleRenewBook(BorrowRecordModel record) async {
+  Future<void> _handleRejectReturn(BorrowRecordModel record) async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Reject Book Return'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.bookTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 6),
+                Text('Student: ${record.studentName} (${record.campusHandle})'),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('input-return-rejection-reason'),
+                  controller: reasonController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Rejection Reason *',
+                    hintText: 'e.g., Book damaged, missing pages, wrong copy',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Rejection reason is required';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-reject-return'),
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(ctx).pop(true);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Reject Return'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
     try {
-      final renewed = await _facade.renewBook(
+      final inChargeId = widget.currentUser?.id ?? 'incharge-lib';
+      await _facade.rejectReturnRequest(
         borrowId: record.id,
-        studentId: _currentStudentId,
+        rejectedBy: inChargeId,
+        rejectionReason: reasonController.text.trim(),
       );
 
       if (mounted) {
@@ -510,9 +670,224 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Loan extended by 14 days. New due date: ${dateFmt.format(renewed.dueDate)} (${renewed.renewalCount}/${renewed.maxRenewals} renewals used).",
+              "Return request for '${record.bookTitle}' has been rejected.",
             ),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleRenewBook(BorrowRecordModel record) async {
+    try {
+      final isLibrarian = widget.currentUser?.canManageLibrary == true;
+      final approvedBy = isLibrarian ? widget.currentUser!.id : null;
+      final approvedByName = isLibrarian ? widget.currentUser!.fullName : null;
+
+      final res = await _facade.renewBook(
+        borrowId: record.id,
+        studentId: _currentStudentId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        final message = res.isPendingRenewal
+            ? "Loan extension request submitted for '${record.bookTitle}'. Loan extended by 14 days subject to Library In-Charge authorization."
+            : "Loan extended by 14 days. New due date: ${dateFmt.format(res.dueDate)} (${res.renewalCount}/${res.maxRenewals} renewals used).";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
             backgroundColor: const Color(0xFF2563EB),
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleApproveRenewal(BorrowRecordModel record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Approve Loan Extension'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                record.bookTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 6),
+              Text('Student: ${record.studentName} (${record.campusHandle})'),
+              Text('Current Due Date: ${dateFmt.format(record.dueDate)}'),
+              Text('Renewals: ${record.renewalCount}/${record.maxRenewals}'),
+              const SizedBox(height: 12),
+              const Text(
+                'Authorizing this extension will extend the due date by 14 calendar days.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-approve-renewal'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Approve Extension'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final inChargeId = widget.currentUser?.id ?? 'incharge-lib';
+      final inChargeName = widget.currentUser?.fullName ?? 'Library In-Charge';
+      final res = await _facade.approveRenewalRequest(
+        borrowId: record.id,
+        approvedBy: inChargeId,
+        approvedByName: inChargeName,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Renewal for '${record.bookTitle}' approved. New due date: ${dateFmt.format(res.dueDate)}.",
+            ),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
+        await _loadLibraryData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleRejectRenewal(BorrowRecordModel record) async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Reject Loan Extension'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.bookTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 6),
+                Text('Student: ${record.studentName} (${record.campusHandle})'),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('input-renewal-rejection-reason'),
+                  controller: reasonController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Rejection Reason *',
+                    hintText: 'e.g., Book on high hold request, maximum renewals reached',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Rejection reason is required';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const Key('btn-confirm-reject-renewal'),
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(ctx).pop(true);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Reject Extension'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final inChargeId = widget.currentUser?.id ?? 'incharge-lib';
+      await _facade.rejectRenewalRequest(
+        borrowId: record.id,
+        rejectedBy: inChargeId,
+        rejectionReason: reasonController.text.trim(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Renewal request for '${record.bookTitle}' has been rejected.",
+            ),
+            backgroundColor: const Color(0xFFDC2626),
           ),
         );
         await _loadLibraryData();
@@ -1188,6 +1563,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     if (loan.isPendingApproval) {
       badgeColor = const Color(0xFFD97706);
       badgeText = 'Pending Approval';
+    } else if (loan.isPendingRenewal) {
+      badgeColor = const Color(0xFFD97706);
+      badgeText = 'Pending Renewal';
+    } else if (loan.isPendingReturn) {
+      badgeColor = const Color(0xFF4F46E5);
+      badgeText = 'Pending Return';
     } else if (loan.isRejected) {
       badgeColor = const Color(0xFF6B7280);
       badgeText = 'Rejected';
@@ -1212,11 +1593,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         border: Border.all(
           color: loan.isOverdue
               ? const Color(0xFFF87171)
-              : loan.isPendingApproval
+              : (loan.isPendingApproval || loan.isPendingRenewal)
                   ? const Color(0xFFF59E0B)
-                  : isDark
-                      ? const Color(0xFF334155)
-                      : const Color(0xFFE2E8F0),
+                  : loan.isPendingReturn
+                      ? const Color(0xFF6366F1)
+                      : isDark
+                          ? const Color(0xFF334155)
+                          : const Color(0xFFE2E8F0),
         ),
       ),
       child: Column(
@@ -1232,7 +1615,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  loan.isPendingApproval ? Icons.hourglass_top : Icons.menu_book,
+                  (loan.isPendingApproval || loan.isPendingRenewal)
+                      ? Icons.hourglass_top
+                      : loan.isPendingReturn
+                          ? Icons.assignment_return_outlined
+                          : Icons.menu_book,
                   color: badgeColor,
                   size: 22,
                 ),
@@ -1305,6 +1692,62 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             ),
           ],
 
+          if (loan.isPendingRenewal) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF59E0B)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.access_time_outlined, size: 16, color: Color(0xFFB45309)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Deadline extension submitted. Awaiting Library In-Charge authorization.',
+                      style: TextStyle(
+                        color: Color(0xFF92400E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (loan.isPendingReturn) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E7FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF6366F1)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.assignment_return_outlined, size: 16, color: Color(0xFF4338CA)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Return initiated. Please present the physical copy at the circulation counter for inspection and check-in sign-off.',
+                      style: TextStyle(
+                        color: Color(0xFF3730A3),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           if (loan.isRejected) ...[
             const SizedBox(height: 10),
             Container(
@@ -1349,6 +1792,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               _buildDetailItem('Renewals', '${loan.renewalCount} of ${loan.maxRenewals}', isDark),
               if (loan.approvedByName != null)
                 _buildDetailItem('Authorized By', loan.approvedByName!, isDark),
+              if (loan.renewalApprovedByName != null)
+                _buildDetailItem('Renewal Approved By', loan.renewalApprovedByName!, isDark),
+              if (loan.returnApprovedByName != null)
+                _buildDetailItem('Return Approved By', loan.returnApprovedByName!, isDark),
             ],
           ),
 
@@ -1408,18 +1855,62 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     ),
                   ],
                 ),
+            ] else if (loan.isPendingReturn) ...[
+              if (_canManageLibrary)
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      key: Key('btn-reject-return-${loan.id}'),
+                      icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                      label: const Text('Reject Return', style: TextStyle(color: Color(0xFFDC2626))),
+                      onPressed: () => _handleRejectReturn(loan),
+                    ),
+                    ElevatedButton.icon(
+                      key: Key('btn-approve-return-${loan.id}'),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Accept Return'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A34A),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => _handleApproveReturn(loan),
+                    ),
+                  ],
+                ),
             ] else ...[
               Wrap(
                 alignment: WrapAlignment.end,
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  OutlinedButton.icon(
-                    key: Key('btn-renew-${loan.id}'),
-                    icon: const Icon(Icons.replay, size: 16),
-                    label: const Text('Renew Loan (+14d)'),
-                    onPressed: loan.canRenew ? () => _handleRenewBook(loan) : null,
-                  ),
+                  if (_canManageLibrary && loan.isPendingRenewal) ...[
+                    OutlinedButton.icon(
+                      key: Key('btn-reject-renewal-${loan.id}'),
+                      icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                      label: const Text('Reject Renewal', style: TextStyle(color: Color(0xFFDC2626))),
+                      onPressed: () => _handleRejectRenewal(loan),
+                    ),
+                    ElevatedButton.icon(
+                      key: Key('btn-approve-renewal-${loan.id}'),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Approve Renewal'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A34A),
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => _handleApproveRenewal(loan),
+                    ),
+                  ] else ...[
+                    OutlinedButton.icon(
+                      key: Key('btn-renew-${loan.id}'),
+                      icon: const Icon(Icons.replay, size: 16),
+                      label: Text(loan.isPendingRenewal ? 'Renewal Pending' : 'Renew Loan (+14d)'),
+                      onPressed: loan.canRenew ? () => _handleRenewBook(loan) : null,
+                    ),
+                  ],
                   ElevatedButton.icon(
                     key: Key('btn-return-${loan.id}'),
                     icon: const Icon(Icons.assignment_return_outlined, size: 16),
@@ -1478,7 +1969,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'As Library In-Charge, verify student eligibility and authorize book checkouts before physical copy dispatch.',
+                        'As Library In-Charge, verify student requests and authorize book checkouts, renewal extensions, and physical copy returns.',
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
@@ -1506,6 +1997,36 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   Widget _buildApprovalRequestCard(BorrowRecordModel req, bool isDark) {
+    final isRenewal = req.isPendingRenewal;
+    final isReturn = req.isPendingReturn;
+    final isBorrow = req.isPendingApproval;
+
+    final Color badgeBg;
+    final Color badgeBorder;
+    final Color badgeText;
+    final String badgeLabel;
+    final IconData iconData;
+
+    if (isReturn) {
+      badgeBg = const Color(0xFFE0E7FF);
+      badgeBorder = const Color(0xFF6366F1);
+      badgeText = const Color(0xFF4338CA);
+      badgeLabel = 'Pending Return Inspection';
+      iconData = Icons.assignment_return_outlined;
+    } else if (isRenewal) {
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeBorder = const Color(0xFFF59E0B);
+      badgeText = const Color(0xFFB45309);
+      badgeLabel = 'Pending Renewal Extension';
+      iconData = Icons.replay;
+    } else {
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeBorder = const Color(0xFFF59E0B);
+      badgeText = const Color(0xFFB45309);
+      badgeLabel = 'Awaiting In-Charge Approval';
+      iconData = Icons.hourglass_top;
+    }
+
     return Container(
       key: Key('card-approval-${req.id}'),
       margin: const EdgeInsets.only(bottom: 12),
@@ -1514,7 +2035,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: 0.5),
+          color: isReturn
+              ? const Color(0xFF6366F1).withValues(alpha: 0.5)
+              : const Color(0xFFF59E0B).withValues(alpha: 0.5),
         ),
       ),
       child: Column(
@@ -1526,10 +2049,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                  color: badgeBorder.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.hourglass_top, color: Color(0xFFD97706), size: 22),
+                child: Icon(iconData, color: badgeBorder, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1552,14 +2075,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
+                        color: badgeBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFF59E0B)),
+                        border: Border.all(color: badgeBorder),
                       ),
-                      child: const Text(
-                        'Awaiting In-Charge Approval',
+                      child: Text(
+                        badgeLabel,
                         style: TextStyle(
-                          color: Color(0xFFB45309),
+                          color: badgeText,
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
@@ -1580,8 +2103,19 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               _buildDetailItem('Student Name', req.studentName, isDark),
               _buildDetailItem('Campus Handle', req.campusHandle, isDark),
               _buildDetailItem('Shelf Location', req.shelfLocation, isDark),
-              _buildDetailItem('Requested On', dateFmt.format(req.borrowedAt), isDark),
-              _buildDetailItem('Standard Term', '14 Days from Approval', isDark),
+              if (isBorrow) ...[
+                _buildDetailItem('Requested On', dateFmt.format(req.borrowedAt), isDark),
+                _buildDetailItem('Standard Term', '14 Days from Approval', isDark),
+              ] else if (isRenewal) ...[
+                _buildDetailItem('Current Due Date', dateFmt.format(req.dueDate), isDark),
+                _buildDetailItem('Renewals Used', '${req.renewalCount}/${req.maxRenewals}', isDark),
+                _buildDetailItem('Extension Term', '+14 Calendar Days', isDark),
+              ] else if (isReturn) ...[
+                _buildDetailItem('Due Date', dateFmt.format(req.dueDate), isDark),
+                _buildDetailItem('Status', req.isOverdue ? 'Overdue Return' : 'On-Time Return', isDark),
+                if (req.hasLateFine)
+                  _buildDetailItem('Late Fine', '₹${req.accruedLateFine.toStringAsFixed(2)}', isDark),
+              ],
             ],
           ),
           const SizedBox(height: 14),
@@ -1590,22 +2124,58 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
-                key: Key('btn-reject-borrow-${req.id}'),
-                icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
-                label: const Text('Reject Request', style: TextStyle(color: Color(0xFFDC2626))),
-                onPressed: () => _handleRejectBorrow(req),
-              ),
-              ElevatedButton.icon(
-                key: Key('btn-approve-borrow-${req.id}'),
-                icon: const Icon(Icons.check, size: 16),
-                label: const Text('Approve Loan'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF16A34A),
-                  foregroundColor: Colors.white,
+              if (isReturn) ...[
+                OutlinedButton.icon(
+                  key: Key('btn-reject-return-${req.id}'),
+                  icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                  label: const Text('Reject Return', style: TextStyle(color: Color(0xFFDC2626))),
+                  onPressed: () => _handleRejectReturn(req),
                 ),
-                onPressed: () => _handleApproveBorrow(req),
-              ),
+                ElevatedButton.icon(
+                  key: Key('btn-approve-return-${req.id}'),
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Accept Return'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => _handleApproveReturn(req),
+                ),
+              ] else if (isRenewal) ...[
+                OutlinedButton.icon(
+                  key: Key('btn-reject-renewal-${req.id}'),
+                  icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                  label: const Text('Reject Renewal', style: TextStyle(color: Color(0xFFDC2626))),
+                  onPressed: () => _handleRejectRenewal(req),
+                ),
+                ElevatedButton.icon(
+                  key: Key('btn-approve-renewal-${req.id}'),
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Approve Renewal (+14d)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => _handleApproveRenewal(req),
+                ),
+              ] else ...[
+                OutlinedButton.icon(
+                  key: Key('btn-reject-borrow-${req.id}'),
+                  icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
+                  label: const Text('Reject Request', style: TextStyle(color: Color(0xFFDC2626))),
+                  onPressed: () => _handleRejectBorrow(req),
+                ),
+                ElevatedButton.icon(
+                  key: Key('btn-approve-borrow-${req.id}'),
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Approve Loan'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => _handleApproveBorrow(req),
+                ),
+              ],
             ],
           ),
         ],
@@ -1632,7 +2202,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           ),
           const SizedBox(height: 4),
           const Text(
-            'New physical book borrowing requests from students will appear here for verification.',
+            'Student requests for book checkout, deadline extension, and return inspection will appear here for verification.',
             style: TextStyle(fontSize: 13, color: Colors.grey),
             textAlign: TextAlign.center,
           ),

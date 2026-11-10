@@ -214,8 +214,40 @@ abstract class ICampusFacade {
     required String rejectedBy,
     required String rejectionReason,
   });
-  Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId});
-  Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId});
+  Future<BorrowRecordModel> returnBook({
+    required String borrowId,
+    required String studentId,
+    String? approvedBy,
+    String? approvedByName,
+  });
+  Future<BorrowRecordModel> approveReturnRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  });
+  Future<BorrowRecordModel> rejectReturnRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  });
+  Future<BorrowRecordModel> renewBook({
+    required String borrowId,
+    required String studentId,
+    String? approvedBy,
+    String? approvedByName,
+  });
+  Future<BorrowRecordModel> approveRenewalRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  });
+  Future<BorrowRecordModel> rejectRenewalRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  });
   Future<List<EBookModel>> getEBooks({String? query, String? category});
 }
 
@@ -760,12 +792,84 @@ class CampusFacade implements ICampusFacade {
       );
 
   @override
-  Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId}) =>
-      storage.returnBook(borrowId: borrowId, studentId: studentId);
+  Future<BorrowRecordModel> returnBook({
+    required String borrowId,
+    required String studentId,
+    String? approvedBy,
+    String? approvedByName,
+  }) =>
+      storage.returnBook(
+        borrowId: borrowId,
+        studentId: studentId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+      );
 
   @override
-  Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId}) =>
-      storage.renewBook(borrowId: borrowId, studentId: studentId);
+  Future<BorrowRecordModel> approveReturnRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) =>
+      storage.approveReturnRequest(
+        borrowId: borrowId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+        remarks: remarks,
+      );
+
+  @override
+  Future<BorrowRecordModel> rejectReturnRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) =>
+      storage.rejectReturnRequest(
+        borrowId: borrowId,
+        rejectedBy: rejectedBy,
+        rejectionReason: rejectionReason,
+      );
+
+  @override
+  Future<BorrowRecordModel> renewBook({
+    required String borrowId,
+    required String studentId,
+    String? approvedBy,
+    String? approvedByName,
+  }) =>
+      storage.renewBook(
+        borrowId: borrowId,
+        studentId: studentId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+      );
+
+  @override
+  Future<BorrowRecordModel> approveRenewalRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) =>
+      storage.approveRenewalRequest(
+        borrowId: borrowId,
+        approvedBy: approvedBy,
+        approvedByName: approvedByName,
+        remarks: remarks,
+      );
+
+  @override
+  Future<BorrowRecordModel> rejectRenewalRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) =>
+      storage.rejectRenewalRequest(
+        borrowId: borrowId,
+        rejectedBy: rejectedBy,
+        rejectionReason: rejectionReason,
+      );
 
   @override
   Future<List<EBookModel>> getEBooks({String? query, String? category}) =>

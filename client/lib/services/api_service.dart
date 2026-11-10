@@ -1263,14 +1263,23 @@ class ApiService implements ICampusApi {
   }
 
   @override
-  Future<BorrowRecordModel> returnBook({required String borrowId, required String studentId}) async {
+  Future<BorrowRecordModel> returnBook({
+    required String borrowId,
+    required String studentId,
+    String? approvedBy,
+    String? approvedByName,
+  }) async {
+    final payload = <String, dynamic>{
+      'borrow_id': borrowId,
+      'student_id': studentId,
+    };
+    if (approvedBy != null) payload['approved_by'] = approvedBy;
+    if (approvedByName != null) payload['approved_by_name'] = approvedByName;
+
     final res = await http.post(
       Uri.parse('$baseUrl/api/v1/library/return'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'borrow_id': borrowId,
-        'student_id': studentId,
-      }),
+      body: jsonEncode(payload),
     );
     if (res.statusCode == 200) {
       return BorrowRecordModel.fromJson(jsonDecode(res.body));
@@ -1280,20 +1289,125 @@ class ApiService implements ICampusApi {
   }
 
   @override
-  Future<BorrowRecordModel> renewBook({required String borrowId, required String studentId}) async {
+  Future<BorrowRecordModel> approveReturnRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) async {
+    final payload = <String, dynamic>{
+      'borrow_id': borrowId,
+      'approved_by': approvedBy,
+      'approved_by_name': approvedByName,
+    };
+    if (remarks != null) payload['remarks'] = remarks;
+
     final res = await http.post(
-      Uri.parse('$baseUrl/api/v1/library/renew'),
+      Uri.parse('$baseUrl/api/v1/library/return/approve'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to approve return request');
+  }
+
+  @override
+  Future<BorrowRecordModel> rejectReturnRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/return/reject'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'borrow_id': borrowId,
-        'student_id': studentId,
+        'rejected_by': rejectedBy,
+        'rejection_reason': rejectionReason,
       }),
     );
     if (res.statusCode == 200) {
       return BorrowRecordModel.fromJson(jsonDecode(res.body));
     }
     final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to reject return request');
+  }
+
+  @override
+  Future<BorrowRecordModel> renewBook({
+    required String borrowId,
+    required String studentId,
+    String? approvedBy,
+    String? approvedByName,
+  }) async {
+    final payload = <String, dynamic>{
+      'borrow_id': borrowId,
+      'student_id': studentId,
+    };
+    if (approvedBy != null) payload['approved_by'] = approvedBy;
+    if (approvedByName != null) payload['approved_by_name'] = approvedByName;
+
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/renew'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
     throw Exception(err['error'] ?? 'Failed to renew book');
+  }
+
+  @override
+  Future<BorrowRecordModel> approveRenewalRequest({
+    required String borrowId,
+    required String approvedBy,
+    required String approvedByName,
+    String? remarks,
+  }) async {
+    final payload = <String, dynamic>{
+      'borrow_id': borrowId,
+      'approved_by': approvedBy,
+      'approved_by_name': approvedByName,
+    };
+    if (remarks != null) payload['remarks'] = remarks;
+
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/renew/approve'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to approve renewal request');
+  }
+
+  @override
+  Future<BorrowRecordModel> rejectRenewalRequest({
+    required String borrowId,
+    required String rejectedBy,
+    required String rejectionReason,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/library/renew/reject'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'borrow_id': borrowId,
+        'rejected_by': rejectedBy,
+        'rejection_reason': rejectionReason,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return BorrowRecordModel.fromJson(jsonDecode(res.body));
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to reject renewal request');
   }
 
   @override

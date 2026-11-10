@@ -338,7 +338,11 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/library/borrow/approve", c.LibraryHandler.HandleApproveBorrow)
 		mux.HandleFunc("/api/v1/library/borrow/reject", c.LibraryHandler.HandleRejectBorrow)
 		mux.HandleFunc("/api/v1/library/return", c.LibraryHandler.HandleReturnBook)
+		mux.HandleFunc("/api/v1/library/return/approve", c.LibraryHandler.HandleApproveReturn)
+		mux.HandleFunc("/api/v1/library/return/reject", c.LibraryHandler.HandleRejectReturn)
 		mux.HandleFunc("/api/v1/library/renew", c.LibraryHandler.HandleRenewBook)
+		mux.HandleFunc("/api/v1/library/renew/approve", c.LibraryHandler.HandleApproveRenewal)
+		mux.HandleFunc("/api/v1/library/renew/reject", c.LibraryHandler.HandleRejectRenewal)
 		mux.HandleFunc("/api/v1/library/ebooks", c.LibraryHandler.HandleEBooks)
 	}
 

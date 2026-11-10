@@ -220,6 +220,98 @@ func (h *LibraryHandler) HandleRenewBook(w http.ResponseWriter, r *http.Request)
 	_ = json.NewEncoder(w).Encode(borrow)
 }
 
+// HandleApproveReturn handles POST /api/v1/library/return/approve
+func (h *LibraryHandler) HandleApproveReturn(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.ApproveReturnRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	borrow, err := h.libService.ApproveReturn(r.Context(), req)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(borrow)
+}
+
+// HandleRejectReturn handles POST /api/v1/library/return/reject
+func (h *LibraryHandler) HandleRejectReturn(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.RejectReturnRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	borrow, err := h.libService.RejectReturn(r.Context(), req)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(borrow)
+}
+
+// HandleApproveRenewal handles POST /api/v1/library/renew/approve
+func (h *LibraryHandler) HandleApproveRenewal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.ApproveRenewalRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	borrow, err := h.libService.ApproveRenewal(r.Context(), req)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(borrow)
+}
+
+// HandleRejectRenewal handles POST /api/v1/library/renew/reject
+func (h *LibraryHandler) HandleRejectRenewal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req model.RejectRenewalRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	borrow, err := h.libService.RejectRenewal(r.Context(), req)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(borrow)
+}
+
 // HandleEBooks handles GET /api/v1/library/ebooks and POST /api/v1/library/ebooks
 func (h *LibraryHandler) HandleEBooks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

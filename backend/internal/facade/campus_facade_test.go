@@ -400,10 +400,12 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 		t.Fatalf("get borrow records failed: %v", err)
 	}
 
-	// First return the overdue loan so the student is eligible to borrow again
+	// First return the overdue loan directly as in-charge so the student is eligible to borrow again
 	returnedOverdue, err := facade.ReturnBook(ctx, model.ReturnBookRequest{
-		BorrowID:  "brw-os-01",
-		StudentID: studentID,
+		BorrowID:       "brw-os-01",
+		StudentID:      studentID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
 	})
 	if err != nil || returnedOverdue.Status != model.BorrowStatusReturned {
 		t.Fatalf("return overdue book failed: %v", err)
@@ -438,20 +440,42 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 		t.Fatalf("approve borrow failed: %v", err)
 	}
 
-	renewedBorrow, err := facade.RenewBook(ctx, model.RenewBookRequest{
+	// Student requests renewal -> pending_renewal
+	renewReq, err := facade.RenewBook(ctx, model.RenewBookRequest{
 		BorrowID:  newBorrow.ID,
 		StudentID: studentID,
 	})
-	if err != nil || renewedBorrow.RenewalCount != 1 {
-		t.Fatalf("renew book failed: %v", err)
+	if err != nil || renewReq.Status != model.BorrowStatusPendingRenewal {
+		t.Fatalf("expected pending_renewal status: %v", err)
 	}
 
-	returnedBorrow, err := facade.ReturnBook(ctx, model.ReturnBookRequest{
+	// In-Charge approves renewal
+	renewedBorrow, err := facade.ApproveRenewal(ctx, model.ApproveRenewalRequest{
+		BorrowID:       newBorrow.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
+	if err != nil || renewedBorrow.RenewalCount != 1 || renewedBorrow.Status != model.BorrowStatusActive {
+		t.Fatalf("approve renewal failed: %v", err)
+	}
+
+	// Student requests return -> pending_return
+	returnReq, err := facade.ReturnBook(ctx, model.ReturnBookRequest{
 		BorrowID:  newBorrow.ID,
 		StudentID: studentID,
 	})
+	if err != nil || returnReq.Status != model.BorrowStatusPendingReturn {
+		t.Fatalf("expected pending_return status: %v", err)
+	}
+
+	// In-Charge verifies physical copy and approves return
+	returnedBorrow, err := facade.ApproveReturn(ctx, model.ApproveReturnRequest{
+		BorrowID:       newBorrow.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
 	if err != nil || returnedBorrow.Status != model.BorrowStatusReturned {
-		t.Fatalf("return book failed: %v", err)
+		t.Fatalf("approve return failed: %v", err)
 	}
 
 	ebooks, err := facade.GetEBooks(ctx, "", "")
@@ -619,7 +643,19 @@ func TestCampusFacadeNilSafety(t *testing.T) {
 	if _, err := facade.ReturnBook(ctx, model.ReturnBookRequest{}); err == nil {
 		t.Fatal("expected error on nil library")
 	}
+	if _, err := facade.ApproveReturn(ctx, model.ApproveReturnRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.RejectReturn(ctx, model.RejectReturnRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
 	if _, err := facade.RenewBook(ctx, model.RenewBookRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.ApproveRenewal(ctx, model.ApproveRenewalRequest{}); err == nil {
+		t.Fatal("expected error on nil library")
+	}
+	if _, err := facade.RejectRenewal(ctx, model.RejectRenewalRequest{}); err == nil {
 		t.Fatal("expected error on nil library")
 	}
 	if _, err := facade.GetEBooks(ctx, "", ""); err == nil {

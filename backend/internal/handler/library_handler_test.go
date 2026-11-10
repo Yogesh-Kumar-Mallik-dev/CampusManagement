@@ -138,7 +138,7 @@ func TestLibraryHandlerEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 from HandleRejectBorrow, got %d (%s)", rrReject.Code, rrReject.Body.String())
 	}
 
-	// 6. HandleRenewBook
+	// 6. HandleRenewBook (student request -> pending_renewal)
 	renewBody, _ := json.Marshal(model.RenewBookRequest{
 		BorrowID:  newBorrow.ID,
 		StudentID: "usr-fresh-student",
@@ -150,7 +150,20 @@ func TestLibraryHandlerEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 from HandleRenewBook, got %d", rrRenew.Code)
 	}
 
-	// 6. HandleReturnBook
+	// Approve Renewal
+	appRenBody, _ := json.Marshal(model.ApproveRenewalRequest{
+		BorrowID:       newBorrow.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
+	reqAppRen := httptest.NewRequest(http.MethodPost, "/api/v1/library/renew/approve", bytes.NewReader(appRenBody))
+	rrAppRen := httptest.NewRecorder()
+	h.HandleApproveRenewal(rrAppRen, reqAppRen)
+	if rrAppRen.Code != http.StatusOK {
+		t.Fatalf("expected 200 from HandleApproveRenewal, got %d (%s)", rrAppRen.Code, rrAppRen.Body.String())
+	}
+
+	// 7. HandleReturnBook (student request -> pending_return)
 	returnBody, _ := json.Marshal(model.ReturnBookRequest{
 		BorrowID:  newBorrow.ID,
 		StudentID: "usr-fresh-student",
@@ -160,6 +173,19 @@ func TestLibraryHandlerEndpoints(t *testing.T) {
 	h.HandleReturnBook(rrReturn, reqReturn)
 	if rrReturn.Code != http.StatusOK {
 		t.Fatalf("expected 200 from HandleReturnBook, got %d", rrReturn.Code)
+	}
+
+	// Approve Return
+	appRetBody, _ := json.Marshal(model.ApproveReturnRequest{
+		BorrowID:       newBorrow.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
+	reqAppRet := httptest.NewRequest(http.MethodPost, "/api/v1/library/return/approve", bytes.NewReader(appRetBody))
+	rrAppRet := httptest.NewRecorder()
+	h.HandleApproveReturn(rrAppRet, reqAppRet)
+	if rrAppRet.Code != http.StatusOK {
+		t.Fatalf("expected 200 from HandleApproveReturn, got %d (%s)", rrAppRet.Code, rrAppRet.Body.String())
 	}
 
 	// 7. HandleEBooks

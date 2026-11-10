@@ -145,23 +145,88 @@ func TestLibraryServiceOperations(t *testing.T) {
 		t.Fatalf("expected copies restored on rejection")
 	}
 
-	// 5. Renew Book
-	renewed, err := libSvc.RenewBook(ctx, model.RenewBookRequest{
+	// 5. Renew Book (Student requests renewal -> pending_renewal -> In-Charge approves)
+	renewReq, err := libSvc.RenewBook(ctx, model.RenewBookRequest{
 		BorrowID:  borrowedRecord.ID,
 		StudentID: newStudent,
 	})
-	if err != nil || renewed.RenewalCount != 1 {
-		t.Fatalf("failed to renew book: %v", err)
+	if err != nil || renewReq.Status != model.BorrowStatusPendingRenewal {
+		t.Fatalf("expected pending_renewal status, got %v", renewReq)
 	}
 
-	// 6. Return Book
-	returned, err := libSvc.ReturnBook(ctx, model.ReturnBookRequest{
+	renewed, err := libSvc.ApproveRenewal(ctx, model.ApproveRenewalRequest{
+		BorrowID:       borrowedRecord.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma (Library In-Charge)",
+	})
+	if err != nil || renewed.RenewalCount != 1 || renewed.Status != model.BorrowStatusActive {
+		t.Fatalf("failed to approve renewal: %v", err)
+	}
+
+	// Test renewal rejection on a separate active borrow
+	activeForRenewal, _ := libSvc.BorrowBook(ctx, model.BorrowBookRequest{
+		BookID:         availBook,
+		StudentID:      "usr-renew-reject",
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
+	renReq2, _ := libSvc.RenewBook(ctx, model.RenewBookRequest{
+		BorrowID:  activeForRenewal.ID,
+		StudentID: "usr-renew-reject",
+	})
+	if renReq2.Status != model.BorrowStatusPendingRenewal {
+		t.Fatalf("expected pending_renewal, got %s", renReq2.Status)
+	}
+	rejectedRen, err := libSvc.RejectRenewal(ctx, model.RejectRenewalRequest{
+		BorrowID:        activeForRenewal.ID,
+		RejectedBy:      "usr-librarian-01",
+		RejectionReason: "High demand hold queue prevents extension",
+	})
+	if err != nil || rejectedRen.Status != model.BorrowStatusActive || rejectedRen.RenewalCount != 0 {
+		t.Fatalf("failed to reject renewal: %v", err)
+	}
+
+	// 6. Return Book (Student requests return -> pending_return -> In-Charge inspects & approves)
+	retReq, err := libSvc.ReturnBook(ctx, model.ReturnBookRequest{
 		BorrowID:  borrowedRecord.ID,
 		StudentID: newStudent,
+	})
+	if err != nil || retReq.Status != model.BorrowStatusPendingReturn {
+		t.Fatalf("expected pending_return status, got %v", retReq)
+	}
+
+	returned, err := libSvc.ApproveReturn(ctx, model.ApproveReturnRequest{
+		BorrowID:       borrowedRecord.ID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma (Library In-Charge)",
 	})
 	if err != nil || returned.Status != model.BorrowStatusReturned {
 		t.Fatalf("failed to return book: %v", err)
 	}
+
+	// Test return rejection on a separate pending return
+	retReq2, _ := libSvc.ReturnBook(ctx, model.ReturnBookRequest{
+		BorrowID:  activeForRenewal.ID,
+		StudentID: "usr-renew-reject",
+	})
+	if retReq2.Status != model.BorrowStatusPendingReturn {
+		t.Fatalf("expected pending_return, got %s", retReq2.Status)
+	}
+	rejectedRet, err := libSvc.RejectReturn(ctx, model.RejectReturnRequest{
+		BorrowID:        activeForRenewal.ID,
+		RejectedBy:      "usr-librarian-01",
+		RejectionReason: "Binding damaged - inspect before check-in",
+	})
+	if err != nil || rejectedRet.Status != model.BorrowStatusActive {
+		t.Fatalf("failed to reject return: %v", err)
+	}
+	// Return activeForRenewal cleanly with in-charge direct signature
+	_, _ = libSvc.ReturnBook(ctx, model.ReturnBookRequest{
+		BorrowID:       activeForRenewal.ID,
+		StudentID:      "usr-renew-reject",
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
+	})
 
 	// Verify available copies incremented back
 	afterReturnBook, _ := libSvc.GetBookByID(ctx, availBook)
@@ -170,10 +235,12 @@ func TestLibraryServiceOperations(t *testing.T) {
 	}
 
 	// 7. Late Return triggers Fine Portal integration
-	// Return the overdue book 'brw-os-01'
+	// Return the overdue book 'brw-os-01' with in-charge direct sign-off
 	lateReturned, err := libSvc.ReturnBook(ctx, model.ReturnBookRequest{
-		BorrowID:  "brw-os-01",
-		StudentID: studentID,
+		BorrowID:       "brw-os-01",
+		StudentID:      studentID,
+		ApprovedBy:     "usr-librarian-01",
+		ApprovedByName: "Dr. Anita Sharma",
 	})
 	if err != nil {
 		t.Fatalf("failed to return overdue book: %v", err)

@@ -25,7 +25,11 @@ type LibraryServiceInterface interface {
 	ApproveBorrow(ctx context.Context, req model.ApproveBorrowRequest) (*model.BorrowRecord, error)
 	RejectBorrow(ctx context.Context, req model.RejectBorrowRequest) (*model.BorrowRecord, error)
 	ReturnBook(ctx context.Context, req model.ReturnBookRequest) (*model.BorrowRecord, error)
+	ApproveReturn(ctx context.Context, req model.ApproveReturnRequest) (*model.BorrowRecord, error)
+	RejectReturn(ctx context.Context, req model.RejectReturnRequest) (*model.BorrowRecord, error)
 	RenewBook(ctx context.Context, req model.RenewBookRequest) (*model.BorrowRecord, error)
+	ApproveRenewal(ctx context.Context, req model.ApproveRenewalRequest) (*model.BorrowRecord, error)
+	RejectRenewal(ctx context.Context, req model.RejectRenewalRequest) (*model.BorrowRecord, error)
 	GetEBooks(ctx context.Context, query string, category string) ([]model.EBook, error)
 	CreatePhysicalBook(ctx context.Context, book model.PhysicalBook) (*model.PhysicalBook, error)
 	CreateEBook(ctx context.Context, ebook model.EBook) (*model.EBook, error)
@@ -628,8 +632,26 @@ func (s *LibraryService) ReturnBook(ctx context.Context, req model.ReturnBookReq
 	}
 
 	now := time.Now().UTC()
+
+	// If approvedBy is provided (e.g. direct in-charge operation), complete return immediately
+	if req.ApprovedBy != "" {
+		return s.completeReturnLocked(ctx, borrow, req.ApprovedBy, req.ApprovedByName, now)
+	}
+
+	// Otherwise, transition to pending_return awaiting Library In-Charge verification
+	borrow.Status = model.BorrowStatusPendingReturn
+	borrow.UpdatedAt = now
+
+	copy := *borrow
+	return &copy, nil
+}
+
+func (s *LibraryService) completeReturnLocked(ctx context.Context, borrow *model.BorrowRecord, approvedBy, approvedByName string, now time.Time) (*model.BorrowRecord, error) {
 	borrow.ReturnedAt = &now
 	borrow.Status = model.BorrowStatusReturned
+	borrow.ReturnApprovedBy = approvedBy
+	borrow.ReturnApprovedByName = approvedByName
+	borrow.ReturnApprovedAt = &now
 	borrow.UpdatedAt = now
 
 	// Increment available copies remaining
@@ -669,6 +691,68 @@ func (s *LibraryService) ReturnBook(ctx context.Context, req model.ReturnBookReq
 	return &copy, nil
 }
 
+func (s *LibraryService) ApproveReturn(ctx context.Context, req model.ApproveReturnRequest) (*model.BorrowRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if req.BorrowID == "" {
+		return nil, errors.New("borrow_id is required")
+	}
+	if req.ApprovedBy == "" {
+		return nil, errors.New("approved_by (library in-charge identity) is required")
+	}
+
+	borrow, ok := s.borrows[req.BorrowID]
+	if !ok || borrow == nil {
+		return nil, fmt.Errorf("borrow record '%s' not found", req.BorrowID)
+	}
+
+	if borrow.Status == model.BorrowStatusReturned {
+		return nil, errors.New("book has already been returned and checked in")
+	}
+
+	now := time.Now().UTC()
+	return s.completeReturnLocked(ctx, borrow, req.ApprovedBy, req.ApprovedByName, now)
+}
+
+func (s *LibraryService) RejectReturn(ctx context.Context, req model.RejectReturnRequest) (*model.BorrowRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if req.BorrowID == "" {
+		return nil, errors.New("borrow_id is required")
+	}
+	if req.RejectedBy == "" {
+		return nil, errors.New("rejected_by (library in-charge identity) is required")
+	}
+
+	borrow, ok := s.borrows[req.BorrowID]
+	if !ok || borrow == nil {
+		return nil, fmt.Errorf("borrow record '%s' not found", req.BorrowID)
+	}
+
+	if borrow.Status != model.BorrowStatusPendingReturn {
+		return nil, errors.New("can only reject returns that are currently pending in-charge verification")
+	}
+
+	now := time.Now().UTC()
+	if now.After(borrow.DueDate) {
+		borrow.Status = model.BorrowStatusOverdue
+	} else {
+		borrow.Status = model.BorrowStatusActive
+	}
+
+	reason := req.RejectionReason
+	if strings.TrimSpace(reason) == "" {
+		reason = "Return rejected by Library In-Charge (condition check failed)"
+	}
+	borrow.ReturnRejectionReason = reason
+	borrow.UpdatedAt = now
+
+	copy := *borrow
+	return &copy, nil
+}
+
 func (s *LibraryService) RenewBook(ctx context.Context, req model.RenewBookRequest) (*model.BorrowRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -691,9 +775,93 @@ func (s *LibraryService) RenewBook(ctx context.Context, req model.RenewBookReque
 		return nil, errors.New("overdue loans cannot be renewed; please return to clear penalties")
 	}
 
+	// If approvedBy is provided (e.g. direct in-charge operation), complete renewal immediately
+	if req.ApprovedBy != "" {
+		borrow.RenewalCount++
+		borrow.DueDate = borrow.DueDate.Add(14 * 24 * time.Hour) // Extend by 14 days
+		borrow.Status = model.BorrowStatusActive
+		borrow.RenewalApprovedBy = req.ApprovedBy
+		borrow.RenewalApprovedByName = req.ApprovedByName
+		borrow.RenewalApprovedAt = &now
+		borrow.UpdatedAt = now
+
+		copy := *borrow
+		return &copy, nil
+	}
+
+	// Otherwise, transition to pending_renewal awaiting Library In-Charge approval
+	borrow.Status = model.BorrowStatusPendingRenewal
+	borrow.UpdatedAt = now
+
+	copy := *borrow
+	return &copy, nil
+}
+
+func (s *LibraryService) ApproveRenewal(ctx context.Context, req model.ApproveRenewalRequest) (*model.BorrowRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if req.BorrowID == "" {
+		return nil, errors.New("borrow_id is required")
+	}
+	if req.ApprovedBy == "" {
+		return nil, errors.New("approved_by (library in-charge identity) is required")
+	}
+
+	borrow, ok := s.borrows[req.BorrowID]
+	if !ok || borrow == nil {
+		return nil, fmt.Errorf("borrow record '%s' not found", req.BorrowID)
+	}
+
+	if borrow.RenewalCount >= borrow.MaxRenewals {
+		return nil, fmt.Errorf("maximum renewal limit (%d) reached for this loan", borrow.MaxRenewals)
+	}
+
+	now := time.Now().UTC()
 	borrow.RenewalCount++
-	borrow.DueDate = borrow.DueDate.Add(14 * 24 * time.Hour) // Extend by 14 days
+	borrow.DueDate = borrow.DueDate.Add(14 * 24 * time.Hour)
 	borrow.Status = model.BorrowStatusActive
+	borrow.RenewalApprovedBy = req.ApprovedBy
+	borrow.RenewalApprovedByName = req.ApprovedByName
+	borrow.RenewalApprovedAt = &now
+	borrow.UpdatedAt = now
+
+	copy := *borrow
+	return &copy, nil
+}
+
+func (s *LibraryService) RejectRenewal(ctx context.Context, req model.RejectRenewalRequest) (*model.BorrowRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if req.BorrowID == "" {
+		return nil, errors.New("borrow_id is required")
+	}
+	if req.RejectedBy == "" {
+		return nil, errors.New("rejected_by (library in-charge identity) is required")
+	}
+
+	borrow, ok := s.borrows[req.BorrowID]
+	if !ok || borrow == nil {
+		return nil, fmt.Errorf("borrow record '%s' not found", req.BorrowID)
+	}
+
+	if borrow.Status != model.BorrowStatusPendingRenewal {
+		return nil, errors.New("can only reject renewals that are currently pending in-charge authorization")
+	}
+
+	now := time.Now().UTC()
+	if now.After(borrow.DueDate) {
+		borrow.Status = model.BorrowStatusOverdue
+	} else {
+		borrow.Status = model.BorrowStatusActive
+	}
+
+	reason := req.RejectionReason
+	if strings.TrimSpace(reason) == "" {
+		reason = "Renewal declined by Library In-Charge"
+	}
+	borrow.RenewalRejectionReason = reason
 	borrow.UpdatedAt = now
 
 	copy := *borrow

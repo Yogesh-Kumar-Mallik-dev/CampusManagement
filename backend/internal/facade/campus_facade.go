@@ -76,7 +76,11 @@ type CampusFacadeInterface interface {
 	ApproveBorrow(ctx context.Context, req model.ApproveBorrowRequest) (*model.BorrowRecord, error)
 	RejectBorrow(ctx context.Context, req model.RejectBorrowRequest) (*model.BorrowRecord, error)
 	ReturnBook(ctx context.Context, req model.ReturnBookRequest) (*model.BorrowRecord, error)
+	ApproveReturn(ctx context.Context, req model.ApproveReturnRequest) (*model.BorrowRecord, error)
+	RejectReturn(ctx context.Context, req model.RejectReturnRequest) (*model.BorrowRecord, error)
 	RenewBook(ctx context.Context, req model.RenewBookRequest) (*model.BorrowRecord, error)
+	ApproveRenewal(ctx context.Context, req model.ApproveRenewalRequest) (*model.BorrowRecord, error)
+	RejectRenewal(ctx context.Context, req model.RejectRenewalRequest) (*model.BorrowRecord, error)
 	GetEBooks(ctx context.Context, query, category string) ([]model.EBook, error)
 }
 
@@ -499,11 +503,39 @@ func (f *CampusFacade) ReturnBook(ctx context.Context, req model.ReturnBookReque
 	return f.library.ReturnBook(ctx, req)
 }
 
+func (f *CampusFacade) ApproveReturn(ctx context.Context, req model.ApproveReturnRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.ApproveReturn(ctx, req)
+}
+
+func (f *CampusFacade) RejectReturn(ctx context.Context, req model.RejectReturnRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.RejectReturn(ctx, req)
+}
+
 func (f *CampusFacade) RenewBook(ctx context.Context, req model.RenewBookRequest) (*model.BorrowRecord, error) {
 	if f.library == nil {
 		return nil, fmt.Errorf("library service unavailable")
 	}
 	return f.library.RenewBook(ctx, req)
+}
+
+func (f *CampusFacade) ApproveRenewal(ctx context.Context, req model.ApproveRenewalRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.ApproveRenewal(ctx, req)
+}
+
+func (f *CampusFacade) RejectRenewal(ctx context.Context, req model.RejectRenewalRequest) (*model.BorrowRecord, error) {
+	if f.library == nil {
+		return nil, fmt.Errorf("library service unavailable")
+	}
+	return f.library.RejectRenewal(ctx, req)
 }
 
 func (f *CampusFacade) GetEBooks(ctx context.Context, query, category string) ([]model.EBook, error) {

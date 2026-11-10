@@ -3,17 +3,23 @@ import 'package:flutter/material.dart';
 /// Borrow status enumeration matching backend service
 class BorrowStatus {
   static const String pendingApproval = 'pending_approval';
+  static const String pendingRenewal = 'pending_renewal';
+  static const String pendingReturn = 'pending_return';
   static const String active = 'active';
   static const String overdue = 'overdue';
   static const String returned = 'returned';
   static const String rejected = 'rejected';
 
-  static const List<String> all = [pendingApproval, active, overdue, returned, rejected];
+  static const List<String> all = [pendingApproval, pendingRenewal, pendingReturn, active, overdue, returned, rejected];
 
   static String displayName(String status) {
     switch (status.trim().toLowerCase()) {
       case pendingApproval:
         return 'Pending Approval';
+      case pendingRenewal:
+        return 'Pending Renewal';
+      case pendingReturn:
+        return 'Pending Return';
       case active:
         return 'Active Loan';
       case overdue:
@@ -31,6 +37,10 @@ class BorrowStatus {
     switch (status.trim().toLowerCase()) {
       case pendingApproval:
         return const Color(0xFFD97706); // Amber
+      case pendingRenewal:
+        return const Color(0xFFF59E0B); // Amber / Orange
+      case pendingReturn:
+        return const Color(0xFF6366F1); // Indigo
       case active:
         return const Color(0xFF2563EB); // Royal Blue
       case overdue:
@@ -201,6 +211,14 @@ class BorrowRecordModel {
   final String? approvedByName;
   final DateTime? approvedAt;
   final String? rejectionReason;
+  final String? renewalApprovedBy;
+  final String? renewalApprovedByName;
+  final DateTime? renewalApprovedAt;
+  final String? renewalRejectionReason;
+  final String? returnApprovedBy;
+  final String? returnApprovedByName;
+  final DateTime? returnApprovedAt;
+  final String? returnRejectionReason;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -227,6 +245,14 @@ class BorrowRecordModel {
     this.approvedByName,
     this.approvedAt,
     this.rejectionReason,
+    this.renewalApprovedBy,
+    this.renewalApprovedByName,
+    this.renewalApprovedAt,
+    this.renewalRejectionReason,
+    this.returnApprovedBy,
+    this.returnApprovedByName,
+    this.returnApprovedAt,
+    this.returnRejectionReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -234,10 +260,12 @@ class BorrowRecordModel {
 
   bool get isActive => status == BorrowStatus.active;
   bool get isPendingApproval => status == BorrowStatus.pendingApproval;
+  bool get isPendingRenewal => status == BorrowStatus.pendingRenewal;
+  bool get isPendingReturn => status == BorrowStatus.pendingReturn;
   bool get isRejected => status == BorrowStatus.rejected;
   bool get isOverdue => status == BorrowStatus.overdue || (returnedAt == null && status != BorrowStatus.pendingApproval && status != BorrowStatus.rejected && DateTime.now().isAfter(dueDate));
   bool get isReturned => status == BorrowStatus.returned || returnedAt != null;
-  bool get canRenew => isActive && !isOverdue && renewalCount < maxRenewals;
+  bool get canRenew => isActive && !isOverdue && renewalCount < maxRenewals && !isPendingApproval && !isPendingRenewal && !isPendingReturn;
   bool get hasLateFine => accruedLateFine > 0.0;
 
   int get daysUntilDue {
@@ -276,6 +304,14 @@ class BorrowRecordModel {
       approvedByName: json['approved_by_name'] as String?,
       approvedAt: json['approved_at'] != null ? DateTime.parse(json['approved_at'] as String) : null,
       rejectionReason: json['rejection_reason'] as String?,
+      renewalApprovedBy: json['renewal_approved_by'] as String?,
+      renewalApprovedByName: json['renewal_approved_by_name'] as String?,
+      renewalApprovedAt: json['renewal_approved_at'] != null ? DateTime.parse(json['renewal_approved_at'] as String) : null,
+      renewalRejectionReason: json['renewal_rejection_reason'] as String?,
+      returnApprovedBy: json['return_approved_by'] as String?,
+      returnApprovedByName: json['return_approved_by_name'] as String?,
+      returnApprovedAt: json['return_approved_at'] != null ? DateTime.parse(json['return_approved_at'] as String) : null,
+      returnRejectionReason: json['return_rejection_reason'] as String?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : null,
     );
@@ -305,6 +341,14 @@ class BorrowRecordModel {
       'approved_by_name': approvedByName,
       'approved_at': approvedAt?.toIso8601String(),
       'rejection_reason': rejectionReason,
+      'renewal_approved_by': renewalApprovedBy,
+      'renewal_approved_by_name': renewalApprovedByName,
+      'renewal_approved_at': renewalApprovedAt?.toIso8601String(),
+      'renewal_rejection_reason': renewalRejectionReason,
+      'return_approved_by': returnApprovedBy,
+      'return_approved_by_name': returnApprovedByName,
+      'return_approved_at': returnApprovedAt?.toIso8601String(),
+      'return_rejection_reason': returnRejectionReason,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -333,6 +377,14 @@ class BorrowRecordModel {
     String? approvedByName,
     DateTime? approvedAt,
     String? rejectionReason,
+    String? renewalApprovedBy,
+    String? renewalApprovedByName,
+    DateTime? renewalApprovedAt,
+    String? renewalRejectionReason,
+    String? returnApprovedBy,
+    String? returnApprovedByName,
+    DateTime? returnApprovedAt,
+    String? returnRejectionReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -359,6 +411,14 @@ class BorrowRecordModel {
       approvedByName: approvedByName ?? this.approvedByName,
       approvedAt: approvedAt ?? this.approvedAt,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      renewalApprovedBy: renewalApprovedBy ?? this.renewalApprovedBy,
+      renewalApprovedByName: renewalApprovedByName ?? this.renewalApprovedByName,
+      renewalApprovedAt: renewalApprovedAt ?? this.renewalApprovedAt,
+      renewalRejectionReason: renewalRejectionReason ?? this.renewalRejectionReason,
+      returnApprovedBy: returnApprovedBy ?? this.returnApprovedBy,
+      returnApprovedByName: returnApprovedByName ?? this.returnApprovedByName,
+      returnApprovedAt: returnApprovedAt ?? this.returnApprovedAt,
+      returnRejectionReason: returnRejectionReason ?? this.returnRejectionReason,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

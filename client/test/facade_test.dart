@@ -585,9 +585,16 @@ void main() {
 
       // Return overdue loan first so Harish can borrow
       final overdueLoan = borrows.firstWhere((b) => b.isOverdue);
-      final returnedOverdue = await facade.returnBook(
+      final pendingReturnOverdue = await facade.returnBook(
         borrowId: overdueLoan.id,
         studentId: studentId,
+      );
+      expect(pendingReturnOverdue.isPendingReturn, isTrue);
+
+      final returnedOverdue = await facade.approveReturnRequest(
+        borrowId: overdueLoan.id,
+        approvedBy: 'usr-incharge-lib',
+        approvedByName: 'Dr. Library Incharge',
       );
       expect(returnedOverdue.isReturned, isTrue);
 
@@ -608,15 +615,29 @@ void main() {
       expect(approvedLoan.isActive, isTrue);
       expect(approvedLoan.approvedBy, equals('usr-incharge-lib'));
 
-      final renewed = await facade.renewBook(
+      // Student requests renewal -> pending renewal
+      final pendingRenewal = await facade.renewBook(
         borrowId: newBorrow.id,
         studentId: studentId,
       );
-      expect(renewed.renewalCount, equals(1));
+      expect(pendingRenewal.isPendingRenewal, isTrue);
 
+      // Library In-charge approves renewal
+      final renewed = await facade.approveRenewalRequest(
+        borrowId: newBorrow.id,
+        approvedBy: 'usr-incharge-lib',
+        approvedByName: 'Dr. Library Incharge',
+      );
+      expect(renewed.renewalCount, equals(1));
+      expect(renewed.isActive, isTrue);
+      expect(renewed.renewalApprovedBy, equals('usr-incharge-lib'));
+
+      // Direct in-charge authorization for return
       final returnedNew = await facade.returnBook(
         borrowId: newBorrow.id,
         studentId: studentId,
+        approvedBy: 'usr-incharge-lib',
+        approvedByName: 'Dr. Library Incharge',
       );
       expect(returnedNew.isReturned, isTrue);
 

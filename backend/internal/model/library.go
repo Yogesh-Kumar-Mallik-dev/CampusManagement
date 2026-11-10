@@ -45,6 +45,8 @@ func (b *PhysicalBook) Validate() error {
 // BorrowStatus enumeration
 const (
 	BorrowStatusPendingApproval = "pending_approval"
+	BorrowStatusPendingRenewal  = "pending_renewal"
+	BorrowStatusPendingReturn   = "pending_return"
 	BorrowStatusActive          = "active"
 	BorrowStatusOverdue         = "overdue"
 	BorrowStatusReturned        = "returned"
@@ -54,28 +56,36 @@ const (
 // BorrowRecord represents an institutional loan transaction of a physical book
 type BorrowRecord struct {
 	BaseSyncModel
-	BookID             string     `json:"book_id"`
-	BookTitle          string     `json:"book_title"`
-	BookAuthor         string     `json:"book_author"`
-	BookISBN           string     `json:"book_isbn"`
-	ShelfLocation      string     `json:"shelf_location"`
-	StudentID          string     `json:"student_id"`
-	StudentName        string     `json:"student_name"`
-	CampusHandle       string     `json:"campus_handle"`
-	BorrowedAt         time.Time  `json:"borrowed_at"`
-	DueDate            time.Time  `json:"due_date"`
-	ReturnedAt         *time.Time `json:"returned_at,omitempty"`
-	Status             string     `json:"status"` // pending_approval, active, overdue, returned, rejected
-	RenewalCount       int        `json:"renewal_count"`
-	MaxRenewals        int        `json:"max_renewals"`
-	FinePerDay         float64    `json:"fine_per_day"`
-	AccruedLateFine    float64    `json:"accrued_late_fine"`
-	LinkedFineRecordID string     `json:"linked_fine_record_id,omitempty"`
-	ApprovedBy         string     `json:"approved_by,omitempty"`
-	ApprovedByName     string     `json:"approved_by_name,omitempty"`
-	ApprovedAt         *time.Time `json:"approved_at,omitempty"`
-	RejectionReason    string     `json:"rejection_reason,omitempty"`
-	Remarks            string     `json:"remarks,omitempty"`
+	BookID                 string     `json:"book_id"`
+	BookTitle              string     `json:"book_title"`
+	BookAuthor             string     `json:"book_author"`
+	BookISBN               string     `json:"book_isbn"`
+	ShelfLocation          string     `json:"shelf_location"`
+	StudentID              string     `json:"student_id"`
+	StudentName            string     `json:"student_name"`
+	CampusHandle           string     `json:"campus_handle"`
+	BorrowedAt             time.Time  `json:"borrowed_at"`
+	DueDate                time.Time  `json:"due_date"`
+	ReturnedAt             *time.Time `json:"returned_at,omitempty"`
+	Status                 string     `json:"status"` // pending_approval, pending_renewal, pending_return, active, overdue, returned, rejected
+	RenewalCount           int        `json:"renewal_count"`
+	MaxRenewals            int        `json:"max_renewals"`
+	FinePerDay             float64    `json:"fine_per_day"`
+	AccruedLateFine        float64    `json:"accrued_late_fine"`
+	LinkedFineRecordID     string     `json:"linked_fine_record_id,omitempty"`
+	ApprovedBy             string     `json:"approved_by,omitempty"`
+	ApprovedByName         string     `json:"approved_by_name,omitempty"`
+	ApprovedAt             *time.Time `json:"approved_at,omitempty"`
+	RejectionReason        string     `json:"rejection_reason,omitempty"`
+	RenewalApprovedBy      string     `json:"renewal_approved_by,omitempty"`
+	RenewalApprovedByName  string     `json:"renewal_approved_by_name,omitempty"`
+	RenewalApprovedAt      *time.Time `json:"renewal_approved_at,omitempty"`
+	RenewalRejectionReason string     `json:"renewal_rejection_reason,omitempty"`
+	ReturnApprovedBy       string     `json:"return_approved_by,omitempty"`
+	ReturnApprovedByName   string     `json:"return_approved_by_name,omitempty"`
+	ReturnApprovedAt       *time.Time `json:"return_approved_at,omitempty"`
+	ReturnRejectionReason  string     `json:"return_rejection_reason,omitempty"`
+	Remarks                string     `json:"remarks,omitempty"`
 }
 
 func (r *BorrowRecord) Validate() error {
@@ -158,12 +168,46 @@ type RejectBorrowRequest struct {
 
 // ReturnBookRequest payload for returning a physical book
 type ReturnBookRequest struct {
-	BorrowID  string `json:"borrow_id"`
-	StudentID string `json:"student_id"`
+	BorrowID       string `json:"borrow_id"`
+	StudentID      string `json:"student_id"`
+	ApprovedBy     string `json:"approved_by,omitempty"`
+	ApprovedByName string `json:"approved_by_name,omitempty"`
+}
+
+// ApproveReturnRequest payload for Library In-Charge confirming physical copy return
+type ApproveReturnRequest struct {
+	BorrowID       string `json:"borrow_id"`
+	ApprovedBy     string `json:"approved_by"`
+	ApprovedByName string `json:"approved_by_name"`
+	Remarks        string `json:"remarks,omitempty"`
+}
+
+// RejectReturnRequest payload for Library In-Charge rejecting return
+type RejectReturnRequest struct {
+	BorrowID        string `json:"borrow_id"`
+	RejectedBy      string `json:"rejected_by"`
+	RejectionReason string `json:"rejection_reason"`
 }
 
 // RenewBookRequest payload for extending a physical book loan
 type RenewBookRequest struct {
-	BorrowID  string `json:"borrow_id"`
-	StudentID string `json:"student_id"`
+	BorrowID       string `json:"borrow_id"`
+	StudentID      string `json:"student_id"`
+	ApprovedBy     string `json:"approved_by,omitempty"`
+	ApprovedByName string `json:"approved_by_name,omitempty"`
+}
+
+// ApproveRenewalRequest payload for Library In-Charge authorizing loan renewal
+type ApproveRenewalRequest struct {
+	BorrowID       string `json:"borrow_id"`
+	ApprovedBy     string `json:"approved_by"`
+	ApprovedByName string `json:"approved_by_name"`
+	Remarks        string `json:"remarks,omitempty"`
+}
+
+// RejectRenewalRequest payload for Library In-Charge declining loan renewal
+type RejectRenewalRequest struct {
+	BorrowID        string `json:"borrow_id"`
+	RejectedBy      string `json:"rejected_by"`
+	RejectionReason string `json:"rejection_reason"`
 }
