@@ -1996,19 +1996,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Institutional Grievances & Complaints'), findsOneWidget);
 
-    // 2. Desktop Sidebar navigation item
-    expect(find.byKey(const Key('nav-item-complaints')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('nav-item-dashboard')));
-    await tester.pumpAndSettle();
-    expect(find.text('Academic Operations'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('nav-item-complaints')));
-    await tester.pumpAndSettle();
-    expect(find.text('Institutional Grievances & Complaints'), findsOneWidget);
+    // 2. Desktop Sidebar clean layout: complaints is accessed via topbar shortcut to keep sidebar uncluttered
+    expect(find.byKey(const Key('nav-item-complaints')), findsNothing);
 
     // 3. Top AppBar Complaints Quick Shortcut
-    await tester.tap(find.byKey(const Key('nav-item-dashboard')));
-    await tester.pumpAndSettle();
     expect(find.byKey(const Key('appbar-btn-complaints')), findsOneWidget);
     await tester.tap(find.byKey(const Key('appbar-btn-complaints')));
     await tester.pumpAndSettle();
@@ -2248,8 +2239,6 @@ void main() {
       'nav-item-depts',
       'nav-item-hostel',
       'nav-item-mess',
-      'nav-item-complaints',
-      'nav-item-fees',
       'nav-item-library',
       'nav-item-profile',
     ];
@@ -2394,8 +2383,8 @@ void main() {
     expect(find.byKey(const Key('nav-item-depts')), findsNothing);
     expect(find.byKey(const Key('nav-item-hostel')), findsOneWidget);
     expect(find.byKey(const Key('nav-item-mess')), findsOneWidget);
-    expect(find.byKey(const Key('nav-item-complaints')), findsOneWidget);
-    expect(find.byKey(const Key('nav-item-fees')), findsOneWidget);
+    expect(find.byKey(const Key('nav-item-complaints')), findsNothing);
+    expect(find.byKey(const Key('nav-item-fees')), findsNothing);
     expect(find.byKey(const Key('nav-item-library')), findsOneWidget);
     expect(find.byKey(const Key('nav-item-profile')), findsOneWidget);
 

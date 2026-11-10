@@ -3504,8 +3504,6 @@ class _CampusSidebarState extends State<_CampusSidebar> {
       (index: 5, svg: AppSvgIcon.building, label: 'Depts'),
       (index: 6, svg: AppSvgIcon.bed, label: 'Hostel'),
       (index: 7, svg: AppSvgIcon.utensils, label: 'Mess'),
-      (index: 8, svg: AppSvgIcon.alertTriangle, label: 'Complaints'),
-      (index: 9, svg: AppSvgIcon.creditCard, label: 'Fees'),
       (index: 10, svg: AppSvgIcon.book, label: 'Library'),
       (index: 11, svg: AppSvgIcon.user, label: 'Profile'),
     ];
