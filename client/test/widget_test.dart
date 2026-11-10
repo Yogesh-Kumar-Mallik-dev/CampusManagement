@@ -4156,7 +4156,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
 
-    // 4. Optical QR Scanner Pipeline in AttendanceScreen
+    // 4. Optical Anti-Proxy Attendance Scanner in AttendanceScreen
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: AttendanceScreen(
@@ -4172,10 +4172,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byKey(const Key('btn-scan-qr-image')), findsOneWidget);
+    // Verify static screenshots and image uploads are blocked by protocol
+    expect(find.textContaining('Anti-Proxy Protocol: Static screenshots and image uploads are strictly blocked'), findsOneWidget);
+    expect(find.text('Capture From Active Lecture Broadcast'), findsOneWidget);
 
-    // Trigger QR image file / payload decoding pipeline
-    await tester.tap(find.byKey(const Key('btn-scan-qr-image')));
+    // Live capture from classroom broadcast
+    await tester.tap(find.text('Capture From Active Lecture Broadcast'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
