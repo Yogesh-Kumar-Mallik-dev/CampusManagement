@@ -144,6 +144,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
           title: const Text('Confirm Book Checkout'),
           content: Column(
@@ -157,25 +158,50 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               const SizedBox(height: 4),
               Text(
                 'Author: ${book.author}',
-                style: const TextStyle(color: Colors.grey),
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
               ),
               const SizedBox(height: 8),
-              Text('Shelf Location: ${book.shelfLocation}'),
-              Text('Available Copies: ${book.availableCopies} of ${book.totalCopies}'),
+              Text(
+                'Shelf Location: ${book.shelfLocation}',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Text(
+                'Available Copies: ${book.availableCopies} of ${book.totalCopies}',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
               const Divider(height: 24),
-              const Text(
+              Text(
                 'Standard Loan Policy:\n• Loan duration: 14 calendar days\n• Up to 2 renewals allowed\n• Late fine rate: ₹10/day\n• Approval Rule: Physical loan requires Library In-Charge authorization before pickup at circulation counter.',
-                style: TextStyle(fontSize: 13, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.wineRed,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Confirm Checkout'),
             ),
           ],
@@ -205,7 +231,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppColors.githubGreen,
           ),
         );
         await _loadLibraryData();
@@ -215,7 +241,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -226,6 +252,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
           title: const Text('Approve Borrow Request'),
           content: Column(
@@ -237,25 +264,44 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
               const SizedBox(height: 6),
-              Text('Student: ${record.studentName} (${record.campusHandle})'),
-              Text('Shelf Location: ${record.shelfLocation}'),
+              Text(
+                'Student: ${record.studentName} (${record.campusHandle})',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Text(
+                'Shelf Location: ${record.shelfLocation}',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Authorizing this checkout will activate the 14-day loan period starting today and permit physical copy release to the student.',
-                style: TextStyle(fontSize: 13, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
             ),
             ElevatedButton(
               key: const Key('btn-confirm-approve-borrow'),
               onPressed: () => Navigator.of(ctx).pop(true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
+                backgroundColor: AppColors.githubGreen,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Approve Loan'),
@@ -283,7 +329,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             content: Text(
               "Borrow request for '${record.bookTitle}' approved successfully. Loan is now active.",
             ),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppColors.githubGreen,
           ),
         );
         await _loadLibraryData();
@@ -293,7 +339,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -307,6 +353,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
           title: const Text('Reject Borrow Request'),
           content: Form(
@@ -320,7 +367,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 const SizedBox(height: 6),
-                Text('Student: ${record.studentName} (${record.campusHandle})'),
+                Text(
+                  'Student: ${record.studentName} (${record.campusHandle})',
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 TextFormField(
                   key: const Key('input-rejection-reason'),
@@ -339,9 +391,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   },
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Rejecting this request will restore the physical book copy back to the catalog.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                  ),
                 ),
               ],
             ),
@@ -349,7 +404,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
             ),
             ElevatedButton(
               key: const Key('btn-confirm-reject-borrow'),
@@ -359,7 +419,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
+                backgroundColor: AppColors.statusRed,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Reject Request'),
@@ -386,7 +446,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             content: Text(
               "Borrow request for '${record.bookTitle}' has been rejected. Catalog copy restored.",
             ),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
         await _loadLibraryData();
@@ -396,7 +456,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -408,6 +468,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final redBadge = AppColors.redBadge(isDark);
         return AlertDialog(
           title: const Text('Confirm Book Return'),
           content: Column(
@@ -419,29 +481,43 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
               const SizedBox(height: 6),
-              Text('Loan Borrowed: ${dateFmt.format(record.borrowedAt)}'),
-              Text('Due Date: ${dateFmt.format(record.dueDate)}'),
+              Text(
+                'Loan Borrowed: ${dateFmt.format(record.borrowedAt)}',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Text(
+                'Due Date: ${dateFmt.format(record.dueDate)}',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Return Process Notice:\nReturning a physical book requires presenting the copy at the circulation counter for inspection and in-charge sign-off.',
-                style: TextStyle(fontSize: 12, height: 1.4, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
               ),
               if (isLate) ...[
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEE2E2),
+                    color: redBadge.background,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFDC2626)),
+                    border: Border.all(color: redBadge.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Late Return Notice',
                         style: TextStyle(
-                          color: Color(0xFF991B1B),
+                          color: redBadge.text,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -449,7 +525,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       const SizedBox(height: 4),
                       Text(
                         'This loan is overdue by ${record.overdueDaysCount} days. A late fine of ₹${record.accruedLateFine.toStringAsFixed(2)} will be issued to your Institutional Fine Portal upon acceptance.',
-                        style: const TextStyle(color: Color(0xFF7F1D1D), fontSize: 12),
+                        style: TextStyle(
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -460,12 +539,17 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
+                backgroundColor: AppColors.githubGreen,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Return Copy'),
@@ -497,7 +581,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppColors.githubGreen,
           ),
         );
         await _loadLibraryData();
@@ -507,7 +591,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -518,6 +602,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
           title: const Text('Accept Physical Book Return'),
           content: Column(
@@ -529,25 +614,44 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
               const SizedBox(height: 6),
-              Text('Student: ${record.studentName} (${record.campusHandle})'),
-              Text('Shelf Location: ${record.shelfLocation}'),
+              Text(
+                'Student: ${record.studentName} (${record.campusHandle})',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Text(
+                'Shelf Location: ${record.shelfLocation}',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Confirm counter physical copy inspection. Accepting this return will check in the book, restore available catalog copy count, and sync any late fines.',
-                style: TextStyle(fontSize: 13, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
             ),
             ElevatedButton(
               key: const Key('btn-confirm-approve-return'),
               onPressed: () => Navigator.of(ctx).pop(true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
+                backgroundColor: AppColors.githubGreen,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Accept Return'),
@@ -575,7 +679,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             content: Text(
               "Return for '${record.bookTitle}' verified and accepted. Catalog copy incremented.",
             ),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppColors.githubGreen,
           ),
         );
         await _loadLibraryData();
@@ -585,7 +689,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -599,6 +703,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
           title: const Text('Reject Book Return'),
           content: Form(
@@ -612,7 +717,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 const SizedBox(height: 6),
-                Text('Student: ${record.studentName} (${record.campusHandle})'),
+                Text(
+                  'Student: ${record.studentName} (${record.campusHandle})',
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 TextFormField(
                   key: const Key('input-return-rejection-reason'),
@@ -636,7 +746,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
             ),
             ElevatedButton(
               key: const Key('btn-confirm-reject-return'),
@@ -646,7 +761,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
+                backgroundColor: AppColors.statusRed,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Reject Return'),
@@ -673,7 +788,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             content: Text(
               "Return request for '${record.bookTitle}' has been rejected.",
             ),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
         await _loadLibraryData();
@@ -683,7 +798,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -711,7 +826,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: AppColors.wineRed,
           ),
         );
         await _loadLibraryData();
@@ -721,7 +836,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -732,6 +847,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
           title: const Text('Approve Loan Extension'),
           content: Column(
@@ -743,26 +859,50 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
               const SizedBox(height: 6),
-              Text('Student: ${record.studentName} (${record.campusHandle})'),
-              Text('Current Due Date: ${dateFmt.format(record.dueDate)}'),
-              Text('Renewals: ${record.renewalCount}/${record.maxRenewals}'),
+              Text(
+                'Student: ${record.studentName} (${record.campusHandle})',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Text(
+                'Current Due Date: ${dateFmt.format(record.dueDate)}',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              Text(
+                'Renewals: ${record.renewalCount}/${record.maxRenewals}',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Authorizing this extension will extend the due date by 14 calendar days.',
-                style: TextStyle(fontSize: 13, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
             ),
             ElevatedButton(
               key: const Key('btn-confirm-approve-renewal'),
               onPressed: () => Navigator.of(ctx).pop(true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
+                backgroundColor: AppColors.githubGreen,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Approve Extension'),
@@ -790,7 +930,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             content: Text(
               "Renewal for '${record.bookTitle}' approved. New due date: ${dateFmt.format(res.dueDate)}.",
             ),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppColors.githubGreen,
           ),
         );
         await _loadLibraryData();
@@ -800,7 +940,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -814,6 +954,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
           title: const Text('Reject Loan Extension'),
           content: Form(
@@ -827,7 +968,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 const SizedBox(height: 6),
-                Text('Student: ${record.studentName} (${record.campusHandle})'),
+                Text(
+                  'Student: ${record.studentName} (${record.campusHandle})',
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 TextFormField(
                   key: const Key('input-renewal-rejection-reason'),
@@ -851,7 +997,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
             ),
             ElevatedButton(
               key: const Key('btn-confirm-reject-renewal'),
@@ -861,7 +1012,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
+                backgroundColor: AppColors.statusRed,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Reject Extension'),
@@ -888,7 +1039,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             content: Text(
               "Renewal request for '${record.bookTitle}' has been rejected.",
             ),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
         await _loadLibraryData();
@@ -898,7 +1049,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppColors.statusRed,
           ),
         );
       }
@@ -915,7 +1066,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         return Container(
           height: MediaQuery.of(ctx).size.height * 0.88,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -927,7 +1078,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                     ),
                   ),
                 ),
@@ -936,13 +1087,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                        color: (isDark ? AppColors.wineRedDark : AppColors.wineRedSubtle),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const AppSvgIcon(
+                      child: AppSvgIcon(
                         svgString: AppSvgIcon.book,
                         size: 22,
-                        color: Color(0xFF2563EB),
+                        color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -952,14 +1103,18 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         children: [
                           Text(
                             ebook.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             '${ebook.author} • ${ebook.format} (${ebook.fileSize})',
                             style: TextStyle(
-                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                               fontSize: 12,
                             ),
                           ),
@@ -967,7 +1122,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: Icon(
+                        Icons.close,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -982,28 +1140,32 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        color: isDark ? AppColors.darkBg : AppColors.lightBg,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.all_inclusive, color: Color(0xFF16A34A), size: 24),
+                          const Icon(Icons.all_inclusive, color: AppColors.githubGreen, size: 24),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Infinite Concurrent Institutional License',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                  ),
                                 ),
                                 Text(
                                   'Unlimited concurrent readers • No loan expiration • Institutional copy',
                                   style: TextStyle(
-                                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -1014,23 +1176,31 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Overview & Abstract',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       ebook.description,
                       style: TextStyle(
-                        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                         height: 1.5,
                         fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Table of Contents (Institutional Digital Edition)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     ...List.generate(5, (index) {
@@ -1045,10 +1215,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                           ),
                         ),
                         child: Row(
@@ -1057,13 +1227,16 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                             Expanded(
                               child: Text(
                                 chapters[index],
-                                style: const TextStyle(fontSize: 13),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                ),
                               ),
                             ),
                             Text(
                               'p. ${(index + 1) * 35}',
-                              style: const TextStyle(
-                                color: Color(0xFF2563EB),
+                              style: TextStyle(
+                                color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -1082,7 +1255,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 decoration: BoxDecoration(
                   border: Border(
                     top: BorderSide(
-                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                     ),
                   ),
                 ),
@@ -1092,12 +1265,18 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.download_outlined, size: 18),
                         label: const Text('Download Offline Copy'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                          side: BorderSide(
+                            color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
+                          ),
+                        ),
                         onPressed: () {
                           Navigator.of(ctx).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text("Downloading '${ebook.title}' (${ebook.fileSize})..."),
-                              backgroundColor: const Color(0xFF2563EB),
+                              backgroundColor: AppColors.wineRed,
                             ),
                           );
                         },
@@ -1108,12 +1287,16 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.chrome_reader_mode_outlined, size: 18),
                         label: const Text('Start Fullscreen Reader'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.githubGreen,
+                          foregroundColor: Colors.white,
+                        ),
                         onPressed: () {
                           Navigator.of(ctx).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text("Opening '${ebook.title}' in campus digital reader..."),
-                              backgroundColor: const Color(0xFF16A34A),
+                              backgroundColor: AppColors.githubGreen,
                             ),
                           );
                         },
@@ -1134,12 +1317,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? AppColors.darkBg : AppColors.lightBg,
       appBar: AppBar(
         title: const Text('Library & Knowledge Portal'),
         elevation: 0,
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-        foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+        backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        foregroundColor: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
         actions: [
           IconButton(
             key: const Key('btn-library-refresh'),
@@ -1151,9 +1334,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          labelColor: const Color(0xFF2563EB),
-          unselectedLabelColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-          indicatorColor: const Color(0xFF2563EB),
+          labelColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+          unselectedLabelColor: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+          indicatorColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
           tabs: [
             const Tab(
               key: Key('tab-borrowed-books'),
@@ -1198,22 +1381,31 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   Widget _buildErrorView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Color(0xFFDC2626)),
+            const Icon(Icons.error_outline, size: 48, color: AppColors.statusRed),
             const SizedBox(height: 16),
             Text(
               _errorMessage ?? 'Failed to load library data',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+              ),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadLibraryData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.wineRed,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Retry'),
             ),
           ],
@@ -1262,7 +1454,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   children: [
                     Text(
                       'My Active & Past Loans (${filteredBorrows.length})',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     AppDropdown<String>(
@@ -1289,7 +1485,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   Expanded(
                     child: Text(
                       'My Active & Past Loans (${filteredBorrows.length})',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                   ),
                   SizedBox(
@@ -1339,7 +1539,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             value: '${summary?.activeBorrowsCount ?? 0}',
             subtitle: 'Max 4 books quota',
             icon: Icons.book_outlined,
-            iconColor: const Color(0xFF2563EB),
+            iconColor: isDark ? const Color(0xFF58A6FF) : AppColors.githubBlue,
             isDark: isDark,
           ),
           _buildMetricCard(
@@ -1349,7 +1549,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 ? 'Fine accrued: ₹${summary.totalLateFineDue.toStringAsFixed(0)}'
                 : 'Zero overdue books',
             icon: Icons.warning_amber_rounded,
-            iconColor: summary != null && summary.hasOverdue ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+            iconColor: summary != null && summary.hasOverdue
+                ? (isDark ? AppColors.statusRedDarkText : AppColors.statusRed)
+                : (isDark ? AppColors.githubGreenDarkText : AppColors.githubGreen),
             isDark: isDark,
           ),
           _buildMetricCard(
@@ -1357,7 +1559,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             value: '${summary?.availableQuota ?? 0} left',
             subtitle: '${summary?.activeBorrowsCount ?? 0} of 4 copies in use',
             icon: Icons.bookmark_added_outlined,
-            iconColor: const Color(0xFF0D9488),
+            iconColor: isDark ? AppColors.githubGreenDarkText : AppColors.githubGreen,
             isDark: isDark,
           ),
           _buildMetricCard(
@@ -1365,7 +1567,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             value: '${summary?.returnedHistoryCount ?? 0}',
             subtitle: 'Lifetime institutional loans',
             icon: Icons.history_rounded,
-            iconColor: const Color(0xFF8B5CF6),
+            iconColor: isDark ? const Color(0xFFBC8CFF) : const Color(0xFF8250DF),
             isDark: isDark,
           ),
         ];
@@ -1418,10 +1620,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
       ),
       child: Column(
@@ -1436,7 +1638,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1447,14 +1649,18 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
             style: TextStyle(
               fontSize: 11,
-              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1465,26 +1671,29 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   Widget _buildOverdueAlertBanner(LibrarySummaryModel summary) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final redBadge = AppColors.redBadge(isDark);
+
     return Container(
       key: const Key('banner-library-overdue'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: redBadge.background,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF87171)),
+        border: Border.all(color: redBadge.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.error, color: Color(0xFFDC2626), size: 22),
+              Icon(Icons.error, color: redBadge.text, size: 22),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Overdue Loans & Late Fines Notice',
                   style: TextStyle(
-                    color: Color(0xFF991B1B),
+                    color: redBadge.text,
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                   ),
@@ -1493,7 +1702,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFDC2626),
+                  color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRed,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -1508,9 +1717,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'You have overdue book loans. Borrowing privileges are suspended until copies are returned. Late return fines (₹10/day) have been synced to the Institutional Fine Portal.',
-            style: TextStyle(color: Color(0xFF7F1D1D), fontSize: 13, height: 1.4),
+            style: TextStyle(
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              fontSize: 13,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -1522,7 +1735,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 icon: const Icon(Icons.receipt_long, size: 16),
                 label: const Text('Pay Fine in Fine Portal'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFDC2626),
+                  backgroundColor: AppColors.statusRed,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -1543,8 +1756,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 icon: const Icon(Icons.info_outline, size: 16),
                 label: const Text('View Fine Waiver Policy'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF991B1B),
-                  side: const BorderSide(color: Color(0xFFF87171)),
+                  foregroundColor: redBadge.text,
+                  side: BorderSide(color: redBadge.border),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   textStyle: const TextStyle(fontSize: 12),
                 ),
@@ -1558,49 +1771,51 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   Widget _buildLoanCard(BorrowRecordModel loan, bool isDark) {
-    Color badgeColor;
-    String badgeText;
+    final BadgeStyle badgeStyle;
+    final String badgeText;
 
     if (loan.isPendingApproval) {
-      badgeColor = const Color(0xFFD97706);
+      badgeStyle = AppColors.yellowBadge(isDark);
       badgeText = 'Pending Approval';
     } else if (loan.isPendingRenewal) {
-      badgeColor = const Color(0xFFD97706);
+      badgeStyle = AppColors.yellowBadge(isDark);
       badgeText = 'Pending Renewal';
     } else if (loan.isPendingReturn) {
-      badgeColor = const Color(0xFF4F46E5);
+      badgeStyle = AppColors.blueBadge(isDark);
       badgeText = 'Pending Return';
     } else if (loan.isRejected) {
-      badgeColor = const Color(0xFF6B7280);
+      badgeStyle = AppColors.neutralBadge(isDark);
       badgeText = 'Rejected';
     } else if (loan.isReturned) {
-      badgeColor = const Color(0xFF16A34A);
+      badgeStyle = AppColors.greenBadge(isDark);
       badgeText = 'Returned';
     } else if (loan.isOverdue) {
-      badgeColor = const Color(0xFFDC2626);
+      badgeStyle = AppColors.redBadge(isDark);
       badgeText = '${loan.overdueDaysCount}d Overdue (₹${loan.accruedLateFine.toStringAsFixed(0)})';
     } else {
-      badgeColor = const Color(0xFF2563EB);
+      badgeStyle = AppColors.blueBadge(isDark);
       badgeText = 'Due in ${loan.daysUntilDue} days';
     }
+
+    final yellowBadge = AppColors.yellowBadge(isDark);
+    final blueBadge = AppColors.blueBadge(isDark);
+    final redBadge = AppColors.redBadge(isDark);
 
     return Container(
       key: Key('card-loan-${loan.id}'),
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: loan.isOverdue
-              ? const Color(0xFFF87171)
+              ? (isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder)
               : (loan.isPendingApproval || loan.isPendingRenewal)
-                  ? const Color(0xFFF59E0B)
+                  ? (isDark ? AppColors.statusYellowDarkBorder : AppColors.statusYellowBorder)
                   : loan.isPendingReturn
-                      ? const Color(0xFF6366F1)
-                      : isDark
-                          ? const Color(0xFF334155)
-                          : const Color(0xFFE2E8F0),
+                      ? blueBadge.border
+                      : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
         ),
       ),
       child: Column(
@@ -1612,7 +1827,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.12),
+                  color: badgeStyle.background,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -1621,7 +1836,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       : loan.isPendingReturn
                           ? Icons.assignment_return_outlined
                           : Icons.menu_book,
-                  color: badgeColor,
+                  color: badgeStyle.text,
                   size: 22,
                 ),
               ),
@@ -1632,28 +1847,32 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   children: [
                     Text(
                       loan.bookTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Author: ${loan.bookAuthor}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: badgeColor.withValues(alpha: 0.15),
+                        color: badgeStyle.background,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: badgeColor),
+                        border: Border.all(color: badgeStyle.border),
                       ),
                       child: Text(
                         badgeText,
                         style: TextStyle(
-                          color: badgeColor,
+                          color: badgeStyle.text,
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
@@ -1670,19 +1889,19 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
+                color: yellowBadge.background,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFF59E0B)),
+                border: Border.all(color: yellowBadge.border),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Color(0xFFB45309)),
-                  SizedBox(width: 8),
+                  Icon(Icons.info_outline, size: 16, color: yellowBadge.text),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Pending approval from Library In-Charge. Physical copy cannot be issued until authorized.',
                       style: TextStyle(
-                        color: Color(0xFF92400E),
+                        color: yellowBadge.text,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1698,19 +1917,19 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
+                color: yellowBadge.background,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFF59E0B)),
+                border: Border.all(color: yellowBadge.border),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.access_time_outlined, size: 16, color: Color(0xFFB45309)),
-                  SizedBox(width: 8),
+                  Icon(Icons.access_time_outlined, size: 16, color: yellowBadge.text),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Deadline extension submitted. Awaiting Library In-Charge authorization.',
                       style: TextStyle(
-                        color: Color(0xFF92400E),
+                        color: yellowBadge.text,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1726,19 +1945,19 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFE0E7FF),
+                color: blueBadge.background,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF6366F1)),
+                border: Border.all(color: blueBadge.border),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.assignment_return_outlined, size: 16, color: Color(0xFF4338CA)),
-                  SizedBox(width: 8),
+                  Icon(Icons.assignment_return_outlined, size: 16, color: blueBadge.text),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Return initiated. Please present the physical copy at the circulation counter for inspection and check-in sign-off.',
                       style: TextStyle(
-                        color: Color(0xFF3730A3),
+                        color: blueBadge.text,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1754,19 +1973,19 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEE2E2),
+                color: redBadge.background,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFEF4444)),
+                border: Border.all(color: redBadge.border),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.cancel_outlined, size: 16, color: Color(0xFFDC2626)),
+                  Icon(Icons.cancel_outlined, size: 16, color: redBadge.text),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Request Rejected: ${loan.rejectionReason ?? "No reason specified"}',
-                      style: const TextStyle(
-                        color: Color(0xFF991B1B),
+                      style: TextStyle(
+                        color: redBadge.text,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1805,18 +2024,19 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
+                color: redBadge.background,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: redBadge.border),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.payments_outlined, size: 16, color: Color(0xFFDC2626)),
+                  Icon(Icons.payments_outlined, size: 16, color: redBadge.text),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Accrued Late Fine: ₹${loan.accruedLateFine.toStringAsFixed(2)} (@ ₹10/day)',
-                      style: const TextStyle(
-                        color: Color(0xFF991B1B),
+                      style: TextStyle(
+                        color: redBadge.text,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -1840,8 +2060,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   children: [
                     OutlinedButton.icon(
                       key: Key('btn-reject-borrow-${loan.id}'),
-                      icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
-                      label: const Text('Reject', style: TextStyle(color: Color(0xFFDC2626))),
+                      icon: Icon(Icons.close, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                      label: Text('Reject', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                      ),
                       onPressed: () => _handleRejectBorrow(loan),
                     ),
                     ElevatedButton.icon(
@@ -1849,7 +2072,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       icon: const Icon(Icons.check, size: 16),
                       label: const Text('Approve Loan'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF16A34A),
+                        backgroundColor: AppColors.githubGreen,
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () => _handleApproveBorrow(loan),
@@ -1865,8 +2088,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   children: [
                     OutlinedButton.icon(
                       key: Key('btn-reject-return-${loan.id}'),
-                      icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
-                      label: const Text('Reject Return', style: TextStyle(color: Color(0xFFDC2626))),
+                      icon: Icon(Icons.close, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                      label: Text('Reject Return', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                      ),
                       onPressed: () => _handleRejectReturn(loan),
                     ),
                     ElevatedButton.icon(
@@ -1874,7 +2100,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       icon: const Icon(Icons.check, size: 16),
                       label: const Text('Accept Return'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF16A34A),
+                        backgroundColor: AppColors.githubGreen,
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () => _handleApproveReturn(loan),
@@ -1890,8 +2116,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   if (_canManageLibrary && loan.isPendingRenewal) ...[
                     OutlinedButton.icon(
                       key: Key('btn-reject-renewal-${loan.id}'),
-                      icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
-                      label: const Text('Reject Renewal', style: TextStyle(color: Color(0xFFDC2626))),
+                      icon: Icon(Icons.close, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                      label: Text('Reject Renewal', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                      ),
                       onPressed: () => _handleRejectRenewal(loan),
                     ),
                     ElevatedButton.icon(
@@ -1899,7 +2128,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       icon: const Icon(Icons.check, size: 16),
                       label: const Text('Approve Renewal'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF16A34A),
+                        backgroundColor: AppColors.githubGreen,
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () => _handleApproveRenewal(loan),
@@ -1909,6 +2138,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       key: Key('btn-renew-${loan.id}'),
                       icon: const Icon(Icons.replay, size: 16),
                       label: Text(loan.isPendingRenewal ? 'Renewal Pending' : 'Renew Loan (+14d)'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                        side: BorderSide(color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder),
+                      ),
                       onPressed: loan.canRenew ? () => _handleRenewBook(loan) : null,
                     ),
                   ],
@@ -1917,7 +2150,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     icon: const Icon(Icons.assignment_return_outlined, size: 16),
                     label: const Text('Return Book'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
+                      backgroundColor: AppColors.githubGreen,
                       foregroundColor: Colors.white,
                     ),
                     onPressed: () => _handleReturnBook(loan),
@@ -1943,10 +2176,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               ),
             ),
             child: Row(
@@ -1954,10 +2187,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                    color: isDark ? AppColors.statusYellowDarkSubtle : AppColors.statusYellowSubtle,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.rule_folder_outlined, color: Color(0xFFD97706), size: 24),
+                  child: Icon(
+                    Icons.rule_folder_outlined,
+                    color: isDark ? AppColors.statusYellowDarkText : AppColors.statusYellow,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1966,14 +2203,18 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     children: [
                       Text(
                         'Borrow Approvals Counter (${_pendingApprovals.length} Pending)',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'As Library In-Charge, verify student requests and authorize book checkouts, renewal extensions, and physical copy returns.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                         ),
                       ),
                     ],
@@ -1985,7 +2226,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           const SizedBox(height: 16),
           Text(
             'Pending Authorization Requests (${_pendingApprovals.length})',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
           ),
           const SizedBox(height: 12),
           if (_pendingApprovals.isEmpty)
@@ -2002,28 +2247,20 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final isReturn = req.isPendingReturn;
     final isBorrow = req.isPendingApproval;
 
-    final Color badgeBg;
-    final Color badgeBorder;
-    final Color badgeText;
+    final BadgeStyle badgeStyle;
     final String badgeLabel;
     final IconData iconData;
 
     if (isReturn) {
-      badgeBg = const Color(0xFFE0E7FF);
-      badgeBorder = const Color(0xFF6366F1);
-      badgeText = const Color(0xFF4338CA);
+      badgeStyle = AppColors.blueBadge(isDark);
       badgeLabel = 'Pending Return Inspection';
       iconData = Icons.assignment_return_outlined;
     } else if (isRenewal) {
-      badgeBg = const Color(0xFFFEF3C7);
-      badgeBorder = const Color(0xFFF59E0B);
-      badgeText = const Color(0xFFB45309);
+      badgeStyle = AppColors.yellowBadge(isDark);
       badgeLabel = 'Pending Renewal Extension';
       iconData = Icons.replay;
     } else {
-      badgeBg = const Color(0xFFFEF3C7);
-      badgeBorder = const Color(0xFFF59E0B);
-      badgeText = const Color(0xFFB45309);
+      badgeStyle = AppColors.yellowBadge(isDark);
       badgeLabel = 'Awaiting In-Charge Approval';
       iconData = Icons.hourglass_top;
     }
@@ -2033,12 +2270,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isReturn
-              ? const Color(0xFF6366F1).withValues(alpha: 0.5)
-              : const Color(0xFFF59E0B).withValues(alpha: 0.5),
+              ? badgeStyle.border
+              : (isDark ? AppColors.statusYellowDarkBorder : AppColors.statusYellowBorder),
         ),
       ),
       child: Column(
@@ -2050,10 +2287,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: badgeBorder.withValues(alpha: 0.12),
+                  color: badgeStyle.background,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(iconData, color: badgeBorder, size: 22),
+                child: Icon(iconData, color: badgeStyle.text, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -2062,28 +2299,32 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   children: [
                     Text(
                       req.bookTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Author: ${req.bookAuthor}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: badgeBg,
+                        color: badgeStyle.background,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: badgeBorder),
+                        border: Border.all(color: badgeStyle.border),
                       ),
                       child: Text(
                         badgeLabel,
                         style: TextStyle(
-                          color: badgeText,
+                          color: badgeStyle.text,
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
@@ -2128,8 +2369,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               if (isReturn) ...[
                 OutlinedButton.icon(
                   key: Key('btn-reject-return-${req.id}'),
-                  icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
-                  label: const Text('Reject Return', style: TextStyle(color: Color(0xFFDC2626))),
+                  icon: Icon(Icons.close, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                  label: Text('Reject Return', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                  ),
                   onPressed: () => _handleRejectReturn(req),
                 ),
                 ElevatedButton.icon(
@@ -2137,7 +2381,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   icon: const Icon(Icons.check, size: 16),
                   label: const Text('Accept Return'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
+                    backgroundColor: AppColors.githubGreen,
                     foregroundColor: Colors.white,
                   ),
                   onPressed: () => _handleApproveReturn(req),
@@ -2145,8 +2389,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               ] else if (isRenewal) ...[
                 OutlinedButton.icon(
                   key: Key('btn-reject-renewal-${req.id}'),
-                  icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
-                  label: const Text('Reject Renewal', style: TextStyle(color: Color(0xFFDC2626))),
+                  icon: Icon(Icons.close, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                  label: Text('Reject Renewal', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                  ),
                   onPressed: () => _handleRejectRenewal(req),
                 ),
                 ElevatedButton.icon(
@@ -2154,7 +2401,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   icon: const Icon(Icons.check, size: 16),
                   label: const Text('Approve Renewal (+14d)'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
+                    backgroundColor: AppColors.githubGreen,
                     foregroundColor: Colors.white,
                   ),
                   onPressed: () => _handleApproveRenewal(req),
@@ -2162,8 +2409,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               ] else ...[
                 OutlinedButton.icon(
                   key: Key('btn-reject-borrow-${req.id}'),
-                  icon: const Icon(Icons.close, size: 16, color: Color(0xFFDC2626)),
-                  label: const Text('Reject Request', style: TextStyle(color: Color(0xFFDC2626))),
+                  icon: Icon(Icons.close, size: 16, color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed),
+                  label: Text('Reject Request', style: TextStyle(color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: isDark ? AppColors.statusRedDarkBorder : AppColors.statusRedBorder),
+                  ),
                   onPressed: () => _handleRejectBorrow(req),
                 ),
                 ElevatedButton.icon(
@@ -2171,7 +2421,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   icon: const Icon(Icons.check, size: 16),
                   label: const Text('Approve Loan'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
+                    backgroundColor: AppColors.githubGreen,
                     foregroundColor: Colors.white,
                   ),
                   onPressed: () => _handleApproveBorrow(req),
@@ -2194,17 +2444,24 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           Icon(
             Icons.done_all_rounded,
             size: 48,
-            color: isDark ? const Color(0xFF475569) : const Color(0xFF94A3B8),
+            color: isDark ? AppColors.darkTextMuted : AppColors.lightBorderHover,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'All Clear! No Pending Approvals',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Student requests for book checkout, deadline extension, and return inspection will appear here for verification.',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -2220,13 +2477,17 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           label,
           style: TextStyle(
             fontSize: 11,
-            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+          ),
         ),
       ],
     );
@@ -2241,17 +2502,24 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           Icon(
             Icons.menu_book,
             size: 48,
-            color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+            color: isDark ? AppColors.darkTextMuted : AppColors.lightBorderHover,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'No matching loans found',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Explore the physical catalog or digital e-books to borrow copies.',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
           ),
         ],
       ),
@@ -2289,10 +2557,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
               ),
             ),
             child: Row(
@@ -2300,10 +2568,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D9488).withValues(alpha: 0.12),
+                    color: isDark ? AppColors.githubGreenDarkSubtle : AppColors.githubGreenSubtle,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF0D9488), size: 24),
+                  child: Icon(
+                    Icons.inventory_2_outlined,
+                    color: isDark ? AppColors.githubGreenDarkText : AppColors.githubGreen,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -2312,7 +2584,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     children: [
                       Text(
                         'Borrowing Quota: ${summary?.activeBorrowsCount ?? 0} of 4 books in use',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -2322,10 +2598,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         style: TextStyle(
                           fontSize: 12,
                           color: summary != null && summary.hasOverdue
-                              ? const Color(0xFFDC2626)
-                              : isDark
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF64748B),
+                              ? (isDark ? AppColors.statusRedDarkText : AppColors.statusRed)
+                              : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
                         ),
                       ),
                     ],
@@ -2430,7 +2704,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
 
           Text(
             'Physical Volumes Catalog (${filteredBooks.length})',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
           ),
 
           const SizedBox(height: 12),
@@ -2445,17 +2723,17 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   Widget _buildBookCard(PhysicalBookModel book, bool canStudentBorrow, bool isDark) {
-    Color remainingBadgeColor;
-    String remainingText;
+    final BadgeStyle remainingBadge;
+    final String remainingText;
 
     if (book.availableCopies > 2) {
-      remainingBadgeColor = const Color(0xFF16A34A);
+      remainingBadge = AppColors.greenBadge(isDark);
       remainingText = '${book.availableCopies} of ${book.totalCopies} available';
     } else if (book.availableCopies > 0) {
-      remainingBadgeColor = const Color(0xFFD97706);
+      remainingBadge = AppColors.yellowBadge(isDark);
       remainingText = 'Only ${book.availableCopies} copy left';
     } else {
-      remainingBadgeColor = const Color(0xFFDC2626);
+      remainingBadge = AppColors.redBadge(isDark);
       remainingText = '0 copies left (Checked out)';
     }
 
@@ -2466,10 +2744,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
       ),
       child: Column(
@@ -2481,13 +2759,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                  color: isDark ? AppColors.wineRedDarkSubtle : AppColors.wineRedSubtle,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const AppSvgIcon(
+                child: AppSvgIcon(
                   svgString: AppSvgIcon.book,
                   size: 22,
-                  color: Color(0xFF2563EB),
+                  color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
                 ),
               ),
               const SizedBox(width: 12),
@@ -2497,14 +2775,18 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   children: [
                     Text(
                       book.title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${book.author} • ${book.edition} • ${book.publisher}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -2513,14 +2795,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       key: Key('badge-copies-${book.id}'),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: remainingBadgeColor.withValues(alpha: 0.12),
+                        color: remainingBadge.background,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: remainingBadgeColor),
+                        border: Border.all(color: remainingBadge.border),
                       ),
                       child: Text(
                         remainingText,
                         style: TextStyle(
-                          color: remainingBadgeColor,
+                          color: remainingBadge.text,
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
@@ -2559,7 +2841,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 'Total Copies: ${book.totalCopies} (${book.copiesBorrowed} checked out)',
                 style: TextStyle(
                   fontSize: 12,
-                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                 ),
               ),
               ElevatedButton.icon(
@@ -2567,7 +2849,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 icon: const Icon(Icons.bookmark_add_outlined, size: 16),
                 label: const Text('Borrow Book'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: AppColors.wineRed,
                   foregroundColor: Colors.white,
                 ),
                 onPressed: isEligible ? () => _handleBorrowBook(book) : null,
@@ -2588,17 +2870,24 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           Icon(
             Icons.search_off,
             size: 48,
-            color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+            color: isDark ? AppColors.darkTextMuted : AppColors.lightBorderHover,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'No matching physical volumes found',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Try adjusting your search keywords or category filters.',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            ),
           ),
         ],
       ),
@@ -2633,25 +2922,34 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+              gradient: LinearGradient(
+                colors: isDark
+                    ? const [AppColors.wineRedDarkSubtle, AppColors.darkSurface]
+                    : const [AppColors.wineRed, AppColors.wineRedLight],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
+              ),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.all_inclusive, color: Colors.white, size: 24),
-                    SizedBox(width: 10),
+                    Icon(
+                      Icons.all_inclusive,
+                      color: isDark ? AppColors.wineRedDarkText : Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Institutional Digital Knowledge Repository',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: isDark ? AppColors.darkTextPrimary : Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -2659,15 +2957,23 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     ),
                   ],
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   'Infinite Concurrent Access • Zero Loan Expiration • Unlimited Institutional Licensing',
-                  style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: isDark ? AppColors.wineRedDarkText : AppColors.wineRedSubtle,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
                   'All enrolled campus scholars have non-expiring, concurrent digital borrowing privileges. E-books do not count against your 4-physical-books checkout quota.',
-                  style: TextStyle(color: Colors.white, fontSize: 12, height: 1.4),
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkTextSecondary : Colors.white,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -2768,7 +3074,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
 
           Text(
             'Digital Titles with Infinite Borrowing (${filteredEBooks.length})',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
           ),
 
           const SizedBox(height: 12),
@@ -2783,15 +3093,17 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   Widget _buildEBookCard(EBookModel ebook, bool isDark) {
+    final greenBadge = AppColors.greenBadge(isDark);
+
     return Container(
       key: Key('card-ebook-${ebook.id}'),
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
       ),
       child: Column(
@@ -2803,10 +3115,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                  color: isDark ? AppColors.githubGreenDarkSubtle : AppColors.githubGreenSubtle,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.tablet_mac_outlined, color: Color(0xFF16A34A), size: 22),
+                child: Icon(
+                  Icons.tablet_mac_outlined,
+                  color: isDark ? AppColors.githubGreenDarkText : AppColors.githubGreen,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -2815,33 +3131,37 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   children: [
                     Text(
                       ebook.title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${ebook.author} • ${ebook.publisher}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                        color: greenBadge.background,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF16A34A)),
+                        border: Border.all(color: greenBadge.border),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.all_inclusive, size: 14, color: Color(0xFF16A34A)),
-                          SizedBox(width: 4),
+                          Icon(Icons.all_inclusive, size: 14, color: greenBadge.text),
+                          const SizedBox(width: 4),
                           Text(
                             'Infinite Borrow',
                             style: TextStyle(
-                              color: Color(0xFF16A34A),
+                              color: greenBadge.text,
                               fontWeight: FontWeight.bold,
                               fontSize: 11,
                             ),
@@ -2860,7 +3180,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             ebook.description,
             style: TextStyle(
               fontSize: 12,
-              color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
               height: 1.4,
             ),
             maxLines: 2,
@@ -2883,13 +3203,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      color: isDark ? AppColors.wineRedDarkSubtle : AppColors.wineRedSubtle,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       ebook.format,
-                      style: const TextStyle(
-                        color: Color(0xFF2563EB),
+                      style: TextStyle(
+                        color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                       ),
@@ -2900,7 +3220,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     '${ebook.fileSize} • ${ebook.totalReaders} readers',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                     ),
                   ),
                 ],
@@ -2913,6 +3233,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     key: Key('btn-read-ebook-${ebook.id}'),
                     icon: const Icon(Icons.menu_book, size: 16),
                     label: const Text('Read Online'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                      side: BorderSide(
+                        color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
+                      ),
+                    ),
                     onPressed: () => _showEBookReader(ebook),
                   ),
                   ElevatedButton.icon(
@@ -2920,14 +3246,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     icon: const Icon(Icons.download, size: 16),
                     label: const Text('Download'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
+                      backgroundColor: AppColors.wineRed,
                       foregroundColor: Colors.white,
                     ),
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text("Downloading '${ebook.title}' (${ebook.fileSize})..."),
-                          backgroundColor: const Color(0xFF16A34A),
+                          backgroundColor: AppColors.githubGreen,
                         ),
                       );
                     },
@@ -2952,7 +3278,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         _buildPolicySection(
           title: 'Institutional Borrowing Privileges & Quotas',
           icon: Icons.verified_user_outlined,
-          color: const Color(0xFF2563EB),
+          color: isDark ? const Color(0xFF58A6FF) : AppColors.githubBlue,
           items: const [
             'Maximum 4 physical books can be checked out concurrently per student.',
             'Standard loan duration is 14 calendar days per book.',
@@ -2965,7 +3291,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         _buildPolicySection(
           title: 'Overdue Fine Slabs & Settle Protocol',
           icon: Icons.payments_outlined,
-          color: const Color(0xFFDC2626),
+          color: isDark ? AppColors.statusRedDarkText : AppColors.statusRed,
           items: const [
             'Late return fine accrues at ₹10.00 per calendar day past due date.',
             'Fines automatically sync to the Institutional Fine Portal (FineCategory.library).',
@@ -2978,7 +3304,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         _buildPolicySection(
           title: 'Fine Appeals & Medical Waivers',
           icon: Icons.gavel_outlined,
-          color: const Color(0xFFD97706),
+          color: isDark ? AppColors.statusYellowDarkText : AppColors.statusAmber,
           items: const [
             'Fine appeals can be filed directly through the Institutional Fine Portal.',
             'Dean of Student Affairs / Head Librarian reviews appeals within 3 working days.',
@@ -2991,7 +3317,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         _buildPolicySection(
           title: 'Book Care & Replacement Policy',
           icon: Icons.security_outlined,
-          color: const Color(0xFF0D9488),
+          color: isDark ? AppColors.githubGreenDarkText : AppColors.githubGreen,
           items: const [
             'Books must be maintained in pristine condition without markings or water damage.',
             'Lost volumes require reimbursement of the institutional replacement cost + ₹200 handling fee.',
@@ -3013,10 +3339,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
       ),
       child: Column(
@@ -3029,7 +3355,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                  ),
                 ),
               ),
             ],
@@ -3055,7 +3385,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       item,
                       style: TextStyle(
                         fontSize: 13,
-                        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                         height: 1.4,
                       ),
                     ),

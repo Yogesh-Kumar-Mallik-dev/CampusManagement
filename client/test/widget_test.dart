@@ -14,6 +14,7 @@ import 'package:campus_client/screens/library_screen.dart';
 import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/screens/mess_screen.dart';
 import 'package:campus_client/screens/user_profile_screen.dart';
+import 'package:campus_client/theme/app_colors.dart';
 import 'package:campus_client/theme/app_theme.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
@@ -2980,6 +2981,60 @@ void main() {
       scrollable: policyScrollable,
     );
     expect(find.text('Book Care & Replacement Policy'), findsOneWidget);
+  });
+
+  testWidgets('Institutional Library: Dark mode theme integration renders with design system palette', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark,
+      home: LibraryScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    // Verify Scaffold background is darkBg
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(scaffold.backgroundColor, equals(AppColors.darkBg));
+
+    // Verify AppBar background is darkSurface
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(appBar.backgroundColor, equals(AppColors.darkSurface));
+
+    // Verify loan cards rendered in dark mode
+    expect(find.byKey(const Key('card-loan-brw-clrs-01')), findsOneWidget);
+
+    // Switch to Tab 3: Infinite E-Books
+    await tester.tap(find.byKey(const Key('tab-infinite-ebooks')));
+    await tester.pumpAndSettle();
+    expect(find.text('Institutional Digital Knowledge Repository'), findsOneWidget);
+
+    // Open E-Book Reader modal bottom sheet in dark mode
+    await tester.tap(find.byKey(const Key('btn-read-ebook-ebk-clean-code')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Table of Contents (Institutional Digital Edition)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Close reader modal
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('Institutional Dispute System: Student raises formal dispute for exam result, verified identity enforcement, and record type filtering',
