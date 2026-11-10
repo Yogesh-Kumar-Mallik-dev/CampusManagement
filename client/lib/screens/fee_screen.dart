@@ -1326,12 +1326,13 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
 
       final bytes = await _facade.downloadInvoicePdf(invoice.id);
       final filename = 'invoice-${invoice.id}.pdf';
-      await triggerPdfDownload(filename: filename, bytes: bytes);
+      final saved = await triggerPdfDownload(filename: filename, bytes: bytes);
+      if (!saved) return;
 
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Invoice PDF downloaded: $filename (${bytes.length} bytes)'),
+          content: Text('Invoice PDF saved: $filename (${bytes.length} bytes)'),
           backgroundColor: AppColors.githubGreen,
           duration: const Duration(seconds: 4),
         ),
@@ -1360,12 +1361,13 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
 
       final bytes = await _facade.downloadReceiptPdf(receiptNumber);
       final filename = 'receipt-$receiptNumber.pdf';
-      await triggerPdfDownload(filename: filename, bytes: bytes);
+      final saved = await triggerPdfDownload(filename: filename, bytes: bytes);
+      if (!saved) return;
 
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Receipt PDF downloaded: $filename (${bytes.length} bytes)'),
+          content: Text('Receipt PDF saved: $filename (${bytes.length} bytes)'),
           backgroundColor: AppColors.githubGreen,
           duration: const Duration(seconds: 4),
         ),
