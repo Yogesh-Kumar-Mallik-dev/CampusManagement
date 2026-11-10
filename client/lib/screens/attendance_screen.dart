@@ -126,7 +126,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   // Optical Receiver Scanner State
-  final TextEditingController _scanInputController = TextEditingController();
   OpticalVerificationResult? _lastVerifiedResult;
   String? _scanError;
   bool _isVerifying = false;
@@ -181,7 +180,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     _progressTicker?.cancel();
     _sweepAnimController.dispose();
     _frameProgressNotifier.dispose();
-    _scanInputController.dispose();
     super.dispose();
   }
 
@@ -358,7 +356,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       _mode = AttendanceViewMode.scanOptical;
       _scanError = null;
       _lastVerifiedResult = null;
-      _scanInputController.clear();
     });
   }
 
@@ -414,7 +411,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   // Simulation convenience: capture the active broadcast frame instantly
   void _simulateCaptureFromLiveBroadcast() {
     if (_currentPayload.isNotEmpty) {
-      _scanInputController.text = _currentPayload;
       _processOpticalPayload(_currentPayload);
       return;
     }
@@ -443,7 +439,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     );
 
     final encoded = simulatedPacket.encode();
-    _scanInputController.text = encoded;
     _processOpticalPayload(encoded);
   }
 
@@ -2785,52 +2780,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Divider(height: 1),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Direct Optical Payload (Testing & Fallback)',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 38,
-                            child: TextField(
-                              controller: _scanInputController,
-                              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                              decoration: InputDecoration(
-                                hintText: 'Paste CPOS:OPT:... packet',
-                                hintStyle: TextStyle(
-                                  fontSize: 11,
-                                  color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                          ),
-                          onPressed: () => _processOpticalPayload(_scanInputController.text),
-                          child: const Text('Decode'),
-                        ),
-                      ],
                     ),
                   ],
                 ),
