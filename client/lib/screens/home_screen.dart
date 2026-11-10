@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onDestinationSelected(int index) {
-    if (index >= 1 && index <= 10) {
+    if ((index >= 1 && index <= 10) || index == 12) {
       _slot3PageIndex = index;
     }
     if (_currentIndex == index) return;
@@ -751,6 +751,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return ('Grievances & Complaints Redressal', '01:00 - 03:00 IST', 'Ticket dispatcher and cryptographic anonymity vault upgrade.');
       case 9:
         return ('Institutional Fee & Fine Management', '00:00 - 02:00 IST', 'Payment gateway settlement re-indexing and bank ledger synchronization.');
+      case 10:
+        return ('Library & Knowledge Portal', '22:30 - 00:30 IST', 'E-book index rebuild and physical inventory sync.');
+      case 11:
+        return ('User Profile & DigiLocker Vault', '00:00 - 01:30 IST', 'DigiLocker certificate verification and profile sync.');
+      case 12:
+        return ('AKTU Sessional & Internal Assessment', '23:00 - 01:00 IST', 'Internal award list ledger indexing and SHA-256 seal verification.');
       default:
         return ('Campus Module', '23:00 - 02:00 IST', 'System database re-indexing and maintenance upgrade.');
     }
@@ -776,6 +782,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return ('Grievances & Complaints Redressal', 'UPCOMING MODULE', 'AI-prioritized institutional grievance triage and SLA escalation.');
       case 9:
         return ('Institutional Fee & Fine Management', 'UPCOMING MODULE', 'Automated scholarship disbursement and installment e-mandate portal.');
+      case 10:
+        return ('Library & Knowledge Portal', 'UPCOMING MODULE', 'Federated inter-library loan and AI reading assistant.');
+      case 11:
+        return ('User Profile & DigiLocker Vault', 'PREVIEW SHOWCASE', 'Decentralized verifiable credentials and academic blockchain passport.');
+      case 12:
+        return ('AKTU Sessional & Internal Assessment', 'PREVIEW SHOWCASE', 'Automated AKTU exam portal API sync and digital award signing.');
       default:
         return ('Campus Module', 'PREVIEW SHOWCASE', 'Next-generation campus management service in development.');
     }
@@ -845,7 +857,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final tabStack = IndexedStack(
       index: _currentIndex,
-      children: List.generate(12, _buildTab),
+      children: List.generate(13, _buildTab),
     );
 
     return Scaffold(

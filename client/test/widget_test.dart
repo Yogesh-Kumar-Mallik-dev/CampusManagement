@@ -3648,4 +3648,58 @@ void main() {
     expect(find.text('AKTU Sessional & Internal Assessment'), findsOneWidget);
     expect(find.text('Student Scorecard'), findsOneWidget);
   });
+
+  testWidgets('Navigation to Sessional Exam screen from HomeScreen succeeds without RangeError', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final harish = await storage.getUserProfile('usr-harish_2025_l_btech_1');
+
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(
+        storage: storage,
+        currentUser: harish,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Verify nav item for exams exists in sidebar and navigates successfully
+    final examNav = find.byKey(const Key('nav-item-exams'));
+    expect(examNav, findsOneWidget);
+
+    await tester.tap(examNav);
+    await tester.pumpAndSettle();
+
+    expect(find.text('AKTU Sessional & Internal Assessment'), findsOneWidget);
+    expect(find.text('Student Scorecard'), findsOneWidget);
+
+    // 2. Mobile screen: Verify navigation via Mobile Dock Sheet and Quick Card
+    tester.view.physicalSize = const Size(360, 640);
+    await tester.pumpAndSettle();
+
+    // Navigate back to Dashboard via bottom dock
+    final dashDock = find.byKey(const Key('dock-division-dashboard'));
+    expect(dashDock, findsOneWidget);
+    await tester.tap(dashDock);
+    await tester.pumpAndSettle();
+
+    // Open More Pages dock sheet
+    final moreDock = find.byKey(const Key('dock-division-more-pages'));
+    expect(moreDock, findsOneWidget);
+    await tester.tap(moreDock);
+    await tester.pumpAndSettle();
+
+    // Scroll until Sessional Exam item in bottom sheet is visible and tap
+    final sheetExamItem = find.byKey(const Key('dock-menu-item-sessional'));
+    expect(sheetExamItem, findsOneWidget);
+    await tester.scrollUntilVisible(sheetExamItem, 50, scrollable: find.byType(Scrollable).last);
+    await tester.tap(sheetExamItem);
+    await tester.pumpAndSettle();
+
+    expect(find.text('AKTU Sessional & Internal Assessment'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
