@@ -930,26 +930,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 2),
 
-          // Library & Knowledge Portal Direct Shortcut
-          IconButton(
-            key: const Key('appbar-btn-library'),
-            tooltip: 'Library & Knowledge Portal',
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            style: IconButton.styleFrom(
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              minimumSize: const Size(28, 28),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-            ),
-            icon: const AppSvgIcon(
-              svgString: AppSvgIcon.book,
-              size: 18,
-            ),
-            onPressed: () => _onDestinationSelected(10),
-          ),
-          const SizedBox(width: 2),
-
           // Smooth Animated Theme Toggle
           const SmoothThemeToggle(),
           const SizedBox(width: 4),
