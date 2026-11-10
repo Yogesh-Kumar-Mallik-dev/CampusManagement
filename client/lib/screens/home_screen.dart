@@ -2991,6 +2991,20 @@ class _HomeScreenState extends State<HomeScreen> {
             color: const Color(0xFF2DA44E),
             onTap: () => _onDestinationSelected(7),
           ),
+          _buildOperationCard(
+            title: 'Fees & Fine Portal',
+            subtitle: 'Institutional billing, student fee receipts & fines',
+            iconSvg: AppSvgIcon.creditCard,
+            color: const Color(0xFF0D9488),
+            onTap: () => _onDestinationSelected(9),
+          ),
+          _buildOperationCard(
+            title: 'Library & Knowledge Portal',
+            subtitle: 'Course reserve textbooks, catalog search & e-books',
+            iconSvg: AppSvgIcon.book,
+            color: const Color(0xFF2563EB),
+            onTap: () => _onDestinationSelected(10),
+          ),
         ];
         break;
 
@@ -3243,6 +3257,22 @@ class _HomeScreenState extends State<HomeScreen> {
             iconSvg: AppSvgIcon.attendance,
             color: AppColors.githubGreen,
             onTap: () => _onDestinationSelected(2),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-fees'),
+            title: 'Fees & Fine Portal',
+            subtitle: 'Semester dues, itemized invoices, fines & receipts',
+            iconSvg: AppSvgIcon.creditCard,
+            color: const Color(0xFF0D9488),
+            onTap: () => _onDestinationSelected(9),
+          ),
+          _buildOperationCard(
+            key: const Key('card-quick-library'),
+            title: 'Library & Knowledge Portal',
+            subtitle: 'Physical catalog, book loans, late fines & e-books',
+            iconSvg: AppSvgIcon.book,
+            color: const Color(0xFF2563EB),
+            onTap: () => _onDestinationSelected(10),
           ),
         ];
         break;
