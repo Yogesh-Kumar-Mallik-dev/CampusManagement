@@ -69,6 +69,7 @@ class AppColors {
   static const Color lightTextPrimary = Color(0xFF0F172A);
   static const Color lightTextSecondary = Color(0xFF475569);
   static const Color lightTextMuted = Color(0xFF64748B);
+  static const Color lightTextPlaceholder = Color(0xFF94A3B8);
 
   // Dark Mode Neutrals (GitHub Dark Dimmed)
   static const Color darkBg = Color(0xFF0D1117);
@@ -80,6 +81,7 @@ class AppColors {
   static const Color darkTextPrimary = Color(0xFFF0F6FC);
   static const Color darkTextSecondary = Color(0xFF8B949E);
   static const Color darkTextMuted = Color(0xFF6E7681);
+  static const Color darkTextPlaceholder = Color(0xFF64748B);
 
   // Reusable Contrast Badge Styles for Light & Dark Modes
   static BadgeStyle primaryBadge(bool isDark) => BadgeStyle(

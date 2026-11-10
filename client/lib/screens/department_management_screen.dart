@@ -694,7 +694,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
           hintText: hintText,
           hintStyle: TextStyle(
             fontSize: 13,
-            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
           ),
           prefixIcon: Padding(
             padding: const EdgeInsets.all(12),

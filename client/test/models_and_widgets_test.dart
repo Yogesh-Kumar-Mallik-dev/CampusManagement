@@ -8,6 +8,8 @@ import 'package:campus_client/models/library.dart';
 import 'package:campus_client/models/mess.dart';
 import 'package:campus_client/models/user.dart';
 import 'package:campus_client/theme/svg_icons.dart';
+import 'package:campus_client/theme/app_theme.dart';
+import 'package:campus_client/theme/app_colors.dart';
 import 'package:campus_client/utils/invoice_pdf_generator.dart';
 import 'package:campus_client/widgets/app_skeleton.dart';
 
@@ -834,6 +836,16 @@ void main() {
       await tester.pump();
 
       expect(retried, isTrue);
+    });
+
+    test('AppTheme configures lighter placeholder styling across light and dark themes', () {
+      final lightInput = AppTheme.lightTheme.inputDecorationTheme;
+      expect(AppTheme.lightTheme.hintColor, equals(AppColors.lightTextPlaceholder));
+      expect(lightInput.hintStyle?.color, equals(AppColors.lightTextPlaceholder));
+
+      final darkInput = AppTheme.darkTheme.inputDecorationTheme;
+      expect(AppTheme.darkTheme.hintColor, equals(AppColors.darkTextPlaceholder));
+      expect(darkInput.hintStyle?.color, equals(AppColors.darkTextPlaceholder));
     });
   });
 }

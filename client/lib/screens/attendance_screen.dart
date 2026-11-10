@@ -2784,7 +2784,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                 hintText: 'Paste CPOS:OPT:... packet',
                                 hintStyle: TextStyle(
                                   fontSize: 11,
-                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                  color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 border: OutlineInputBorder(

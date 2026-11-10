@@ -243,7 +243,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         hintText: 'e.g. Graduated Class of 2025, Resigned for higher studies...',
                         hintStyle: TextStyle(
                           fontSize: 12,
-                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),

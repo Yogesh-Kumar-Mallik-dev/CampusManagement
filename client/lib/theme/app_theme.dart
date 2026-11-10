@@ -89,6 +89,7 @@ class AppTheme {
         ),
         labelStyle: const TextStyle(inherit: false, fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.lightTextPrimary),
       ),
+      hintColor: AppColors.lightTextPlaceholder,
       inputDecorationTheme: InputDecorationTheme(
         isDense: true,
         filled: true,
@@ -106,6 +107,11 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.wineRed, width: 1),
         ),
         labelStyle: const TextStyle(color: AppColors.lightTextSecondary, fontSize: 13),
+        hintStyle: const TextStyle(
+          color: AppColors.lightTextPlaceholder,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+        ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
@@ -242,6 +248,7 @@ class AppTheme {
         ),
         labelStyle: const TextStyle(inherit: false, fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
       ),
+      hintColor: AppColors.darkTextPlaceholder,
       inputDecorationTheme: InputDecorationTheme(
         isDense: true,
         filled: true,
@@ -259,6 +266,11 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.wineRedDarkText, width: 1),
         ),
         labelStyle: const TextStyle(color: AppColors.darkTextSecondary, fontSize: 13),
+        hintStyle: const TextStyle(
+          color: AppColors.darkTextPlaceholder,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+        ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(

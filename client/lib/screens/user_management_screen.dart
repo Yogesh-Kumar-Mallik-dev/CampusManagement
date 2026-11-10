@@ -364,7 +364,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               hintText: 'Search by handle, name, roll no, or email...',
               hintStyle: TextStyle(
                 fontSize: 12,
-                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
               ),
               prefixIcon: Padding(
                 padding: const EdgeInsets.all(10),
@@ -1605,7 +1605,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
             style: const TextStyle(fontSize: 12),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+              hintStyle: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder),
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
