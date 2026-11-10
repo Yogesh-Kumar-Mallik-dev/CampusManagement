@@ -1,5 +1,6 @@
 import '../models/academic.dart';
 import '../models/complaint.dart';
+import '../models/digilocker.dart';
 import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
@@ -283,6 +284,20 @@ abstract class ICampusApi {
     int? semester,
   });
   Future<UserModel> syncDigiLocker(String userId);
+
+  // Government DigiLocker & APAAR OAuth 2.0 PKCE Subsystem
+  Future<DigiLockerAuthResponse> getDigiLockerAuthUrl({
+    required String studentId,
+    String? redirectUri,
+  });
+  Future<UserModel> exchangeDigiLockerToken({
+    required String studentId,
+    required String code,
+    required String state,
+    required String codeVerifier,
+  });
+  Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId});
+  Future<UserModel> disconnectDigiLocker({required String studentId});
 }
 
 /// ICampusStorage abstracts local persistence, offline caching, and outbox synchronization.
@@ -558,4 +573,18 @@ abstract class ICampusStorage {
     int? semester,
   });
   Future<UserModel> syncDigiLocker(String userId);
+
+  // Government DigiLocker & APAAR OAuth 2.0 PKCE Subsystem
+  Future<DigiLockerAuthResponse> getDigiLockerAuthUrl({
+    required String studentId,
+    String? redirectUri,
+  });
+  Future<UserModel> exchangeDigiLockerToken({
+    required String studentId,
+    required String code,
+    required String state,
+    required String codeVerifier,
+  });
+  Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId});
+  Future<UserModel> disconnectDigiLocker({required String studentId});
 }

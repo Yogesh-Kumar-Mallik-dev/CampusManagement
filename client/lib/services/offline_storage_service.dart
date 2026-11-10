@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../models/academic.dart';
 import '../models/complaint.dart';
+import '../models/digilocker.dart';
 import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
@@ -6811,5 +6812,195 @@ class OfflineStorageService implements ICampusStorage {
 
     final user = await getUserProfile(userId);
     return user;
+  }
+
+  @override
+  Future<DigiLockerAuthResponse> getDigiLockerAuthUrl({
+    required String studentId,
+    String? redirectUri,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.getDigiLockerAuthUrl(studentId: studentId, redirectUri: redirectUri);
+      } catch (_) {}
+    }
+
+    final state = 'demo_state_${DateTime.now().millisecondsSinceEpoch}';
+    final verifier = 'demo_verifier_${DateTime.now().millisecondsSinceEpoch}';
+    return DigiLockerAuthResponse(
+      authUrl: 'https://digilocker.meripehchan.gov.in/public/oauth2/1/authorize?response_type=code&client_id=campus_erp_demo_client&state=$state',
+      state: state,
+      codeVerifier: verifier,
+      environment: 'sandbox',
+    );
+  }
+
+  @override
+  Future<UserModel> exchangeDigiLockerToken({
+    required String studentId,
+    required String code,
+    required String state,
+    required String codeVerifier,
+  }) async {
+    _seedDefaultUsersIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final synced = await api.exchangeDigiLockerToken(
+          studentId: studentId,
+          code: code,
+          state: state,
+          codeVerifier: codeVerifier,
+        );
+        final idx = _cachedUsers.indexWhere((u) => u.id == studentId || u.campusHandle == studentId);
+        if (idx >= 0) {
+          _cachedUsers[idx] = synced;
+        }
+        return synced;
+      } catch (_) {}
+    }
+
+    final user = await getUserProfile(studentId);
+    final now = DateTime.now();
+    final nowStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} IST';
+
+    final verifiedDocs = [
+      VerifiedDocumentModel(
+        documentType: 'apaar_abc',
+        documentTitle: 'APAAR / Academic Bank of Credits (ABC) ID',
+        issuer: 'National Academic Depository (NAD) / MeitY',
+        docRefMasked: '8912-XXXX-7890',
+        issuedYear: 2023,
+        isVerified: true,
+        verificationHash: 'sha256:${sha256.convert(utf8.encode('apaar:8912-3456-7890:nad:2023'))}',
+        verifiedAt: nowStr,
+        status: 'verified',
+      ),
+      VerifiedDocumentModel(
+        documentType: 'class_x',
+        documentTitle: 'Secondary School Certificate (Class X)',
+        issuer: 'Central Board of Secondary Education (CBSE)',
+        docRefMasked: 'ROLL-12894104',
+        issuedYear: 2021,
+        isVerified: true,
+        verificationHash: 'sha256:${sha256.convert(utf8.encode('cbse:class_x:12894104:2021'))}',
+        verifiedAt: nowStr,
+        status: 'verified',
+      ),
+      VerifiedDocumentModel(
+        documentType: 'class_xii',
+        documentTitle: 'Senior School Certificate (Class XII - PCM)',
+        issuer: 'Central Board of Secondary Education (CBSE)',
+        docRefMasked: 'ROLL-61928401',
+        issuedYear: 2023,
+        isVerified: true,
+        verificationHash: 'sha256:${sha256.convert(utf8.encode('cbse:class_xii:61928401:2023'))}',
+        verifiedAt: nowStr,
+        status: 'verified',
+      ),
+      VerifiedDocumentModel(
+        documentType: 'aadhaar_kyc',
+        documentTitle: 'Aadhaar e-KYC Verification Record',
+        issuer: 'Unique Identification Authority of India (UIDAI)',
+        docRefMasked: 'XXXX-XXXX-4091',
+        issuedYear: 2023,
+        isVerified: true,
+        verificationHash: 'sha256:${sha256.convert(utf8.encode('uidai:aadhaar:4091:kyc_verified'))}',
+        verifiedAt: nowStr,
+        status: 'verified',
+      ),
+      VerifiedDocumentModel(
+        documentType: 'domicile',
+        documentTitle: 'State Domicile Certificate',
+        issuer: 'Revenue Department, Govt of Uttar Pradesh',
+        docRefMasked: 'UP/DOM/2021/88921',
+        issuedYear: 2021,
+        isVerified: true,
+        verificationHash: 'sha256:${sha256.convert(utf8.encode('up_edistrict:domicile:88921:2021'))}',
+        verifiedAt: nowStr,
+        status: 'verified',
+      ),
+    ];
+
+    final updated = user.copyWith(
+      studentProfile: {
+        if (user.studentProfile != null) ...user.studentProfile!,
+        'abc_id': '8912-3456-7890',
+        'digilocker_verified': true,
+        'digilocker_verified_at': now.toIso8601String(),
+        'verified_documents': verifiedDocs.map((e) => e.toJson()).toList(),
+      },
+    );
+
+    final idx = _cachedUsers.indexWhere((u) => u.id == studentId || u.campusHandle == studentId);
+    if (idx >= 0) {
+      _cachedUsers[idx] = updated;
+    }
+
+    return updated;
+  }
+
+  @override
+  Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId}) async {
+    _seedDefaultUsersIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.getDigiLockerStatus(studentId: studentId);
+      } catch (_) {}
+    }
+
+    final user = await getUserProfile(studentId);
+    final verifiedDate = user.digiLockerVerifiedAt != null
+        ? DateTime.tryParse(user.digiLockerVerifiedAt!)
+        : null;
+
+    return DigiLockerStatusModel(
+      studentId: studentId,
+      isConnected: user.isDigiLockerVerified,
+      abcId: user.abcId,
+      verifiedAt: verifiedDate,
+      documentsCount: user.verifiedDocuments.length,
+      documents: user.verifiedDocuments,
+      environmentMode: 'sandbox',
+    );
+  }
+
+  @override
+  Future<UserModel> disconnectDigiLocker({required String studentId}) async {
+    _seedDefaultUsersIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final synced = await api.disconnectDigiLocker(studentId: studentId);
+        final idx = _cachedUsers.indexWhere((u) => u.id == studentId || u.campusHandle == studentId);
+        if (idx >= 0) {
+          _cachedUsers[idx] = synced;
+        }
+        return synced;
+      } catch (_) {}
+    }
+
+    final user = await getUserProfile(studentId);
+    final updated = user.copyWith(
+      studentProfile: {
+        if (user.studentProfile != null) ...user.studentProfile!,
+        'abc_id': null,
+        'digilocker_verified': false,
+        'digilocker_verified_at': null,
+        'verified_documents': [],
+      },
+    );
+
+    final idx = _cachedUsers.indexWhere((u) => u.id == studentId || u.campusHandle == studentId);
+    if (idx >= 0) {
+      _cachedUsers[idx] = updated;
+    }
+
+    return updated;
   }
 }

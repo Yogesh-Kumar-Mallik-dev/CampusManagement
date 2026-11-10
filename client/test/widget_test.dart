@@ -3627,6 +3627,61 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('DigiLocker OAuth 2.0 PKCE Connect Flow: Dialog consent, token exchange, and disconnect lifecycle', (tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+
+    // 1. Start with an unverified student
+    await storage.disconnectDigiLocker(studentId: 'usr-harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: UserProfileScreen(
+        storage: storage,
+        userIdentifier: 'usr-harish_2025_l_btech_1',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 2. Verify unlinked card state
+    expect(find.text('DigiLocker Not Linked'), findsOneWidget);
+    final connectBtn = find.byKey(const Key('btn-connect-digilocker'));
+    expect(connectBtn, findsOneWidget);
+
+    // 3. Tap Connect with DigiLocker to open dialog
+    await tester.ensureVisible(connectBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(connectBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connect DigiLocker Account'), findsOneWidget);
+    expect(find.text('Government of India Trust Architecture'), findsOneWidget);
+    expect(find.text('12-Digit APAAR / Academic Bank of Credits (ABC) ID'), findsOneWidget);
+
+    // 4. Authorize and exchange credentials
+    final authBtn = find.byKey(const Key('btn-authorize-digilocker-consent'));
+    expect(authBtn, findsOneWidget);
+    await tester.tap(authBtn);
+    await tester.pumpAndSettle();
+
+    // 5. Verify connected state
+    expect(find.text('DigiLocker Verified'), findsOneWidget);
+    expect(find.text('8912-3456-7890'), findsOneWidget);
+    expect(find.byKey(const Key('btn-disconnect-digilocker')), findsOneWidget);
+
+    // 6. Test Disconnect
+    final disconnectBtn = find.byKey(const Key('btn-disconnect-digilocker'));
+    await tester.ensureVisible(disconnectBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(disconnectBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Disconnect DigiLocker Account?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-confirm-disconnect-digilocker')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('DigiLocker Not Linked'), findsOneWidget);
+  });
+
   testWidgets('Small Screen Responsiveness: SessionalExamScreen standalone on 360x640 with zero overflow', (tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);

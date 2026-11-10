@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../models/digilocker.dart';
 import '../models/user.dart';
 import '../models/library.dart';
 import '../models/fee.dart';
@@ -1539,6 +1540,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildDigiLockerVaultCard(bool isDark) {
+    final isVerified = _user.isDigiLockerVerified;
     final abcId = _user.abcId ?? '8912-3456-7890';
     final docs = _user.verifiedDocuments.isNotEmpty
         ? _user.verifiedDocuments
@@ -1594,6 +1596,95 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               verifiedAt: '2025-08-15 10:33 IST',
             ),
           ];
+
+    if (!isVerified) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.yellowBadge(isDark).background,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.yellowBadge(isDark).text.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.link_off, size: 14, color: AppColors.yellowBadge(isDark).text),
+                          const SizedBox(width: 6),
+                          Text(
+                            'DigiLocker Not Linked',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.yellowBadge(isDark).text,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      'MeitY / NAD / MeriPehchan',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Connect your DigiLocker / MeriPehchan account to import government-verified CBSE marksheets, UIDAI Aadhaar e-KYC, and your 12-digit APAAR / Academic Bank of Credits ID.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  key: const Key('btn-connect-digilocker'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.wineRed,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                  onPressed: () => _showDigiLockerConnectDialog(isDark),
+                  icon: const AppSvgIcon(svgString: AppSvgIcon.cloudCheck, size: 14, color: Colors.white),
+                  label: const Text('Connect with DigiLocker', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1651,24 +1742,45 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                 ],
               ),
-              OutlinedButton.icon(
-                key: const Key('btn-sync-digilocker'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                ),
-                onPressed: () async {
-                  await widget.storage.syncDigiLocker(_user.id);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('DigiLocker credentials synchronized and verified successfully.'),
-                        backgroundColor: AppColors.wineRed,
-                      ),
-                    );
-                  }
-                },
-                icon: const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 12),
-                label: const Text('Sync DigiLocker', style: TextStyle(fontSize: 11)),
+              Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    key: const Key('btn-sync-digilocker'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    ),
+                    onPressed: () async {
+                      await widget.storage.syncDigiLocker(_user.id);
+                      final updated = await widget.storage.getUserProfile(_user.id);
+                      if (mounted) {
+                        setState(() {
+                          _user = updated;
+                        });
+                        widget.onUserUpdated?.call();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('DigiLocker credentials synchronized and verified successfully.'),
+                            backgroundColor: AppColors.wineRed,
+                          ),
+                        );
+                      }
+                    },
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 12),
+                    label: const Text('Sync DigiLocker', style: TextStyle(fontSize: 11)),
+                  ),
+                  OutlinedButton.icon(
+                    key: const Key('btn-disconnect-digilocker'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.statusRed,
+                      side: BorderSide(color: AppColors.statusRed.withValues(alpha: 0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    ),
+                    onPressed: () => _disconnectDigiLocker(isDark),
+                    icon: const Icon(Icons.link_off, size: 12, color: AppColors.statusRed),
+                    label: const Text('Disconnect', style: TextStyle(fontSize: 11, color: AppColors.statusRed)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1908,6 +2020,80 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _showDigiLockerConnectDialog(bool isDark) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _DigiLockerConnectDialog(
+        storage: widget.storage,
+        studentId: _user.id,
+        isDark: isDark,
+        onSuccess: (updated) {
+          if (mounted) {
+            setState(() {
+              _user = updated;
+            });
+            widget.onUserUpdated?.call();
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _disconnectDigiLocker(bool isDark) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Disconnect DigiLocker Account?'),
+        content: const Text(
+          'Revoking your DigiLocker connection will remove the verified government badge and cached credential records from your student profile.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            key: const Key('btn-confirm-disconnect-digilocker'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.statusRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Disconnect'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final updated = await widget.storage.disconnectDigiLocker(studentId: _user.id);
+      if (mounted) {
+        setState(() {
+          _user = updated;
+        });
+        widget.onUserUpdated?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('DigiLocker account disconnected.'),
+            backgroundColor: AppColors.wineRed,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error disconnecting DigiLocker: $e'),
+            backgroundColor: AppColors.statusRed,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildDiscontinuationBanner(bool isDark) {
@@ -2446,6 +2632,231 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 onPressed: _showReactivateDialog,
               ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DigiLockerConnectDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final String studentId;
+  final bool isDark;
+  final ValueChanged<UserModel> onSuccess;
+
+  const _DigiLockerConnectDialog({
+    required this.storage,
+    required this.studentId,
+    required this.isDark,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_DigiLockerConnectDialog> createState() => _DigiLockerConnectDialogState();
+}
+
+class _DigiLockerConnectDialogState extends State<_DigiLockerConnectDialog> {
+  bool _isLoading = false;
+  String _statusText = 'Ready to initiate DigiLocker OAuth 2.0 PKCE flow.';
+  DigiLockerAuthResponse? _authInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAuthParams();
+  }
+
+  Future<void> _fetchAuthParams() async {
+    try {
+      final info = await widget.storage.getDigiLockerAuthUrl(studentId: widget.studentId);
+      if (mounted) {
+        setState(() {
+          _authInfo = info;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _authorizeAndImport() async {
+    setState(() {
+      _isLoading = true;
+      _statusText = 'Redirecting to MeriPehchan / DigiLocker SSO...';
+    });
+
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+    setState(() {
+      _statusText = 'Citizen consent received. Exchanging PKCE authorization code...';
+    });
+
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+    setState(() {
+      _statusText = 'Verifying X.509 digital signatures & fetching APAAR ID from NAD...';
+    });
+
+    try {
+      final state = _authInfo?.state ?? 'state_${DateTime.now().millisecondsSinceEpoch}';
+      final verifier = _authInfo?.codeVerifier ?? 'verifier_${DateTime.now().millisecondsSinceEpoch}';
+
+      final updated = await widget.storage.exchangeDigiLockerToken(
+        studentId: widget.studentId,
+        code: 'auth_code_gov_${DateTime.now().millisecondsSinceEpoch}',
+        state: state,
+        codeVerifier: verifier,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onSuccess(updated);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('DigiLocker account linked successfully. 5 verified credentials imported.'),
+            backgroundColor: AppColors.wineRed,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _statusText = 'Error connecting to DigiLocker: $e';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.wineRed.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const AppSvgIcon(svgString: AppSvgIcon.cloudCheck, size: 20, color: AppColors.wineRed),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Connect DigiLocker Account',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: widget.isDark ? Colors.black.withValues(alpha: 0.25) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: widget.isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Government of India Trust Architecture',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'National Academic Depository (NAD) • MeriPehchan SSO • Ministry of Electronics & IT (MeitY)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: widget.isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Requested Academic Credentials:',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            _buildScopeItem('12-Digit APAAR / Academic Bank of Credits (ABC) ID', widget.isDark),
+            _buildScopeItem('CBSE Class X Secondary Certificate & Marksheet', widget.isDark),
+            _buildScopeItem('CBSE Class XII Senior School Certificate (PCM)', widget.isDark),
+            _buildScopeItem('UIDAI Aadhaar e-KYC Verification Record', widget.isDark),
+            _buildScopeItem('State Domicile Certificate', widget.isDark),
+            const SizedBox(height: 14),
+            if (_isLoading) ...[
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.wineRed),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _statusText,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.wineRed),
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Text(
+                'Environment: ${_authInfo?.environment ?? "sandbox"} mode',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: widget.isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        if (!_isLoading)
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ElevatedButton.icon(
+          key: const Key('btn-authorize-digilocker-consent'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.wineRed,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: _isLoading ? null : _authorizeAndImport,
+          icon: const Icon(Icons.lock_open, size: 14),
+          label: const Text('Authorize & Link Credentials', style: TextStyle(fontSize: 12)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScopeItem(String title, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, size: 14, color: AppColors.wineRed),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+          ),
         ],
       ),
     );

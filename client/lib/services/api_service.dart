@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/academic.dart';
 import '../models/complaint.dart';
+import '../models/digilocker.dart';
 import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
@@ -1562,5 +1563,70 @@ class ApiService implements ICampusApi {
   @override
   Future<UserModel> syncDigiLocker(String userId) async {
     return fetchUserProfile(userId);
+  }
+
+  @override
+  Future<DigiLockerAuthResponse> getDigiLockerAuthUrl({
+    required String studentId,
+    String? redirectUri,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/digilocker/auth-url').replace(queryParameters: {
+      'student_id': studentId,
+      if (redirectUri != null && redirectUri.isNotEmpty) 'redirect_uri': redirectUri,
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      return DigiLockerAuthResponse.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to get DigiLocker auth URL (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<UserModel> exchangeDigiLockerToken({
+    required String studentId,
+    required String code,
+    required String state,
+    required String codeVerifier,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/digilocker/exchange'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'student_id': studentId,
+        'code': code,
+        'state': state,
+        'code_verifier': codeVerifier,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return fetchUserProfile(studentId);
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['error'] ?? 'Failed to exchange DigiLocker token');
+  }
+
+  @override
+  Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId}) async {
+    final uri = Uri.parse('$baseUrl/api/v1/digilocker/status').replace(queryParameters: {
+      'student_id': studentId,
+    });
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      return DigiLockerStatusModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to get DigiLocker status (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<UserModel> disconnectDigiLocker({required String studentId}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/digilocker/disconnect'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'student_id': studentId}),
+    );
+    if (res.statusCode == 200) {
+      return fetchUserProfile(studentId);
+    }
+    throw Exception('Failed to disconnect DigiLocker: ${res.body}');
   }
 }

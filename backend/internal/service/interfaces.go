@@ -113,6 +113,14 @@ type SessionalServiceInterface interface {
 	GetAwardList(ctx context.Context, subjectCode string, semester int) (*model.AKTUInternalAwardList, error)
 }
 
+// DigiLockerServiceInterface abstracts government credentials verification, OAuth 2.0 PKCE, and APAAR integration
+type DigiLockerServiceInterface interface {
+	GenerateAuthURL(ctx context.Context, req model.DigiLockerAuthURLRequest) (*model.DigiLockerAuthURLResponse, error)
+	ExchangeAndSync(ctx context.Context, req model.DigiLockerExchangeRequest) (*model.StudentProfile, error)
+	GetStatus(ctx context.Context, studentID string) (*model.DigiLockerStatusResponse, error)
+	Disconnect(ctx context.Context, studentID string) (*model.StudentProfile, error)
+}
+
 // Ensure concrete services satisfy interfaces at compile-time
 var (
 	_ PermissionServiceInterface = (*PermissionService)(nil)
@@ -121,4 +129,5 @@ var (
 	_ MessServiceInterface       = (*MessService)(nil)
 	_ ComplaintServiceInterface  = (*ComplaintService)(nil)
 	_ SessionalServiceInterface  = (*SessionalService)(nil)
+	_ DigiLockerServiceInterface = (*DigiLockerService)(nil)
 )

@@ -1106,3 +1106,29 @@ func (h *UserHandler) ListTeachers() []model.User {
 	}
 	return teachers
 }
+
+// GetStudentProfile resolves a student profile by user ID or campus handle
+func (h *UserHandler) GetStudentProfile(identifier string) (*model.StudentProfile, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if sp, ok := h.studentProfiles[identifier]; ok {
+		cp := sp
+		return &cp, true
+	}
+	if id, ok := h.handleToID[identifier]; ok {
+		if sp, ok := h.studentProfiles[id]; ok {
+			cp := sp
+			return &cp, true
+		}
+	}
+	return nil, false
+}
+
+// UpdateStudentProfile updates or inserts a student's academic profile
+func (h *UserHandler) UpdateStudentProfile(sp model.StudentProfile) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.studentProfiles[sp.UserID] = sp
+}
+

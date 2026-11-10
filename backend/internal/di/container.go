@@ -46,19 +46,21 @@ type Container struct {
 	FeeService        service.FeeServiceInterface
 	LibraryService    service.LibraryServiceInterface
 	SessionalService  service.SessionalServiceInterface
+	DigiLockerService service.DigiLockerServiceInterface
 
 	Facade facade.CampusFacadeInterface
 
-	UserHandler       *handler.UserHandler
-	AcademicHandler   *handler.AcademicHandler
-	DepartmentHandler *handler.DepartmentHandler
-	AuthHandler       *handler.AuthHandler
-	HostelHandler     *handler.HostelHandler
-	MessHandler       *handler.MessHandler
-	ComplaintHandler  *handler.ComplaintHandler
-	FeeHandler        *handler.FeeHandler
-	LibraryHandler    *handler.LibraryHandler
-	SessionalHandler  *handler.SessionalHandler
+	UserHandler        *handler.UserHandler
+	AcademicHandler    *handler.AcademicHandler
+	DepartmentHandler  *handler.DepartmentHandler
+	AuthHandler        *handler.AuthHandler
+	HostelHandler      *handler.HostelHandler
+	MessHandler        *handler.MessHandler
+	ComplaintHandler   *handler.ComplaintHandler
+	FeeHandler         *handler.FeeHandler
+	LibraryHandler     *handler.LibraryHandler
+	SessionalHandler   *handler.SessionalHandler
+	DigiLockerHandler  *handler.DigiLockerHandler
 }
 
 // Option allows customizing/mocking dependencies during container initialization
@@ -128,6 +130,12 @@ func WithLibraryService(svc service.LibraryServiceInterface) Option {
 func WithSessionalService(svc service.SessionalServiceInterface) Option {
 	return func(c *Container) {
 		c.SessionalService = svc
+	}
+}
+
+func WithDigiLockerService(svc service.DigiLockerServiceInterface) Option {
+	return func(c *Container) {
+		c.DigiLockerService = svc
 	}
 }
 
@@ -226,6 +234,24 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.FeeHandler = handler.NewFeeHandler(c.FeeService)
 	c.LibraryHandler = handler.NewLibraryHandler(c.LibraryService)
 	c.SessionalHandler = handler.NewSessionalHandler(c.SessionalService)
+
+	if c.DigiLockerService == nil {
+		c.DigiLockerService = service.NewDigiLockerService(
+			service.DefaultDigiLockerConfig(),
+			func(id string) (*model.StudentProfile, bool) {
+				if c.UserHandler != nil {
+					return c.UserHandler.GetStudentProfile(id)
+				}
+				return nil, false
+			},
+			func(sp model.StudentProfile) {
+				if c.UserHandler != nil {
+					c.UserHandler.UpdateStudentProfile(sp)
+				}
+			},
+		)
+	}
+	c.DigiLockerHandler = handler.NewDigiLockerHandler(c.DigiLockerService)
 
 	return c, nil
 }
@@ -365,6 +391,14 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/sessional/schedule", c.SessionalHandler.HandleSchedule)
 		mux.HandleFunc("/api/v1/sessional/seating", c.SessionalHandler.HandleSeating)
 		mux.HandleFunc("/api/v1/sessional/award-list", c.SessionalHandler.HandleAwardList)
+	}
+
+	// Government DigiLocker & APAAR Integration
+	if c.DigiLockerHandler != nil {
+		mux.HandleFunc("/api/v1/digilocker/auth-url", c.DigiLockerHandler.GenerateAuthURL)
+		mux.HandleFunc("/api/v1/digilocker/exchange", c.DigiLockerHandler.ExchangeToken)
+		mux.HandleFunc("/api/v1/digilocker/status", c.DigiLockerHandler.GetStatus)
+		mux.HandleFunc("/api/v1/digilocker/disconnect", c.DigiLockerHandler.Disconnect)
 	}
 
 	return mux

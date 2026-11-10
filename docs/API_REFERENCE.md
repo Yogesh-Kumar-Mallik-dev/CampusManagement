@@ -1374,17 +1374,65 @@ Under Dr. A.P.J. Abdul Kalam Technical University (AKTU) guidelines, affiliated 
 
 ## 14. DigiLocker & APAAR / ABC ID Subsystem
 
-Integrated with India's National Academic Depository (NAD) and Ministry of Electronics and Information Technology (MeitY) DigiLocker infrastructure.
+Integrated with India's National Academic Depository (NAD), MeriPehchan Single Sign-On, and Ministry of Electronics and Information Technology (MeitY) DigiLocker infrastructure using OAuth 2.0 with PKCE (Proof Key for Code Exchange).
 
-### 14.1 Sync Credentials
-- **Method**: `POST` or `GET /api/v1/user/profile?id={userId}`
-- Returns verified student profile containing:
-  - 12-Digit APAAR / Academic Bank of Credits (ABC) ID (e.g. `8912-3456-7890`)
-  - DigiLocker verification badge with MeitY / NAD verification timestamp
-  - Government educational and identity credentials:
-    1. Secondary School Certificate (Class X - CBSE)
-    2. Senior School Certificate (Class XII - CBSE PCM)
-    3. Aadhaar Identity Verification (Masked: `XXXX-XXXX-4091`)
-    4. APAAR / ABC Depository Certificate
-    5. State Domicile Certificate
-  - SHA-256 cryptographic hashes for each credential guaranteeing tamper-evidence.
+### 14.1 Generate OAuth 2.0 PKCE Auth URL
+Generates a cryptographically random `state` and PKCE code challenge (`S256`) and returns the authorization consent URL.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/digilocker/auth-url?student_id={id}&redirect_uri={uri}`
+- **Response (HTTP 200 OK)**:
+```json
+{
+  "auth_url": "https://digilocker.meripehchan.gov.in/public/oauth2/1/authorize?response_type=code&client_id=campus_erp_demo_client&state=...",
+  "state": "7e3b9a1024cd90fa",
+  "code_verifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+  "environment": "sandbox"
+}
+```
+
+### 14.2 Exchange Token & Sync Credentials
+Exchanges authorization code for verified government documents, verifies X.509 signatures, computes SHA-256 digests, and links the 12-digit APAAR / ABC ID to the student's profile.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/digilocker/exchange`
+- **Request Body**:
+```json
+{
+  "student_id": "usr-harish_2025_l_btech_1",
+  "code": "auth_code_gov_9921",
+  "state": "7e3b9a1024cd90fa",
+  "code_verifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+}
+```
+- **Response (HTTP 200 OK)**: Full updated `StudentProfile` containing `digilocker_verified: true`, `abc_id: "8912-3456-7890"`, and the 5 `verified_documents` with cryptographic SHA-256 hashes.
+
+### 14.3 Check Connection Status
+Checks whether a student has an active verified DigiLocker connection.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/digilocker/status?student_id={id}`
+- **Response (HTTP 200 OK)**:
+```json
+{
+  "student_id": "usr-harish_2025_l_btech_1",
+  "is_connected": true,
+  "abc_id": "8912-3456-7890",
+  "documents_count": 5,
+  "environment_mode": "sandbox"
+}
+```
+
+### 14.4 Disconnect / Revoke Link
+Revokes the DigiLocker link, resets verification badges, and clears cached government credentials for a student.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/digilocker/disconnect`
+- **Request Body**:
+```json
+{
+  "student_id": "usr-harish_2025_l_btech_1"
+}
+```
+- **Response (HTTP 200 OK)**: Updated `StudentProfile` with `digilocker_verified: false` and empty credential vault.
+

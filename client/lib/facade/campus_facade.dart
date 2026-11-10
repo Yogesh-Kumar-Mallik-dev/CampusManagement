@@ -1,5 +1,6 @@
 import '../models/academic.dart';
 import '../models/complaint.dart';
+import '../models/digilocker.dart';
 import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
@@ -281,6 +282,20 @@ abstract class ICampusFacade {
     int? semester,
   });
   Future<UserModel> syncDigiLocker(String userId);
+
+  // Government DigiLocker & APAAR OAuth 2.0 PKCE Subsystem
+  Future<DigiLockerAuthResponse> getDigiLockerAuthUrl({
+    required String studentId,
+    String? redirectUri,
+  });
+  Future<UserModel> exchangeDigiLockerToken({
+    required String studentId,
+    required String code,
+    required String state,
+    required String codeVerifier,
+  });
+  Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId});
+  Future<UserModel> disconnectDigiLocker({required String studentId});
 }
 
 /// CampusFacade is the production implementation of ICampusFacade.
@@ -981,4 +996,33 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<UserModel> syncDigiLocker(String userId) =>
       storage.syncDigiLocker(userId);
+
+  @override
+  Future<DigiLockerAuthResponse> getDigiLockerAuthUrl({
+    required String studentId,
+    String? redirectUri,
+  }) =>
+      storage.getDigiLockerAuthUrl(studentId: studentId, redirectUri: redirectUri);
+
+  @override
+  Future<UserModel> exchangeDigiLockerToken({
+    required String studentId,
+    required String code,
+    required String state,
+    required String codeVerifier,
+  }) =>
+      storage.exchangeDigiLockerToken(
+        studentId: studentId,
+        code: code,
+        state: state,
+        codeVerifier: codeVerifier,
+      );
+
+  @override
+  Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId}) =>
+      storage.getDigiLockerStatus(studentId: studentId);
+
+  @override
+  Future<UserModel> disconnectDigiLocker({required String studentId}) =>
+      storage.disconnectDigiLocker(studentId: studentId);
 }
