@@ -1436,3 +1436,138 @@ Revokes the DigiLocker link, resets verification badges, and clears cached gover
 ```
 - **Response (HTTP 200 OK)**: Updated `StudentProfile` with `digilocker_verified: false` and empty credential vault.
 
+---
+
+## 15. Institutional Payment Gateway & Settlement Routes
+
+### 15.1 Get Payment Gateway Configuration
+Retrieves public checkout parameters, merchant identity, supported channels, and virtual collection account details.
+
+- **Method**: `GET`
+- **Path**: `/api/v1/payments/config`
+- **Response (HTTP 200 OK)**:
+```json
+{
+  "provider": "sandbox",
+  "key_id": "sandbox_inst_key_campus_9901",
+  "merchant_name": "Campus Academic & Technology Institute",
+  "merchant_vpa": "campuscollect@sbi",
+  "environment": "sandbox",
+  "supported_methods": ["upi", "debit_card", "credit_card", "net_banking", "challan"],
+  "virtual_account": {
+    "beneficiary_name": "Campus Academic & Technology Institute",
+    "bank_name": "State Bank of India (SBI)",
+    "account_number": "CAMPUSCOLLECT01",
+    "ifsc_code": "SBIN0001234",
+    "branch_name": "Institutional Campus Main Branch",
+    "reference_van": "CAMPUS-GENERIC-VAN"
+  }
+}
+```
+
+### 15.2 Create Payment Order
+Initializes a payment order for a tuition/hostel/mess invoice or institutional fine penalty.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/payments/order`
+- **Request Body**:
+```json
+{
+  "entity_type": "invoice",
+  "entity_id": "inv-tuition-2026-sem3",
+  "student_id": "usr-harish_2025_l_btech_1",
+  "amount": 10000.0,
+  "notes": "Tuition partial payment"
+}
+```
+- **Response (HTTP 201 Created)**:
+```json
+{
+  "order_id": "order_campus_1762768000_a1b2c3d4",
+  "entity_type": "invoice",
+  "entity_id": "inv-tuition-2026-sem3",
+  "student_id": "usr-harish_2025_l_btech_1",
+  "student_name": "Harish Kumar",
+  "amount": 10000.0,
+  "currency": "INR",
+  "status": "created",
+  "gateway_provider": "sandbox",
+  "gateway_order_id": "order_campus_1762768000_a1b2c3d4",
+  "gateway_key_id": "sandbox_inst_key_campus_9901",
+  "upi_link": "upi://pay?pa=campuscollect@sbi&pn=Campus+Academic+Institute&am=10000.00&cu=INR",
+  "virtual_account": {
+    "beneficiary_name": "Campus Academic & Technology Institute",
+    "bank_name": "State Bank of India (SBI)",
+    "account_number": "CAMPUSBTECH1882",
+    "ifsc_code": "SBIN0001234",
+    "branch_name": "Institutional Campus Main Branch",
+    "reference_van": "CAMPUSBTECH1882"
+  },
+  "expires_at": "2026-11-10T15:20:00Z"
+}
+```
+
+### 15.3 Verify & Capture Payment
+Verifies authorization signatures (or sandbox test tokens) and applies settlement to student ledger, decrementing due balances and generating tamper-evident receipts.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/payments/verify`
+- **Request Body**:
+```json
+{
+  "order_id": "order_campus_1762768000_a1b2c3d4",
+  "payment_id": "pay_mock_12345",
+  "payment_method": "upi",
+  "transaction_ref": "UPI/TXN/991204",
+  "signature": "hmac_sha256_hex_digest_for_production"
+}
+```
+- **Response (HTTP 200 OK)**:
+```json
+{
+  "success": true,
+  "payment": {
+    "id": "pay-1762768000",
+    "invoice_id": "inv-tuition-2026-sem3",
+    "student_id": "usr-harish_2025_l_btech_1",
+    "amount": 10000.0,
+    "payment_method": "upi",
+    "transaction_ref": "UPI/TXN/991204",
+    "payment_status": "success",
+    "paid_at": "2026-11-10T15:00:00Z",
+    "receipt_number": "RCP-2026-00004"
+  },
+  "receipt": {
+    "receipt_number": "RCP-2026-00004",
+    "payment_id": "pay-1762768000",
+    "invoice_id": "inv-tuition-2026-sem3",
+    "student_id": "usr-harish_2025_l_btech_1",
+    "student_name": "Harish Kumar",
+    "campus_handle": "harish_2025_l_btech_1",
+    "amount": 10000.0,
+    "payment_method": "upi",
+    "transaction_ref": "UPI/TXN/991204",
+    "issued_at": "2026-11-10T15:00:00Z",
+    "title": "B.Tech Semester 3 Tuition & Curriculum Fee",
+    "category": "fee"
+  },
+  "message": "Payment captured and applied to ledger successfully",
+  "transaction_ref": "UPI/TXN/991204"
+}
+```
+
+### 15.4 Payment Gateway Webhook
+Asynchronously captures and reconciles external payments directly from payment gateway webhooks.
+
+- **Method**: `POST`
+- **Path**: `/api/v1/payments/webhook`
+- **Headers**:
+  - `X-Razorpay-Signature`: HMAC-SHA256 signature calculated over payload with `PAYMENT_GATEWAY_WEBHOOK_SECRET`
+- **Response (HTTP 200 OK)**:
+```json
+{
+  "status": "received"
+}
+```
+
+

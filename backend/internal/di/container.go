@@ -47,6 +47,7 @@ type Container struct {
 	LibraryService    service.LibraryServiceInterface
 	SessionalService  service.SessionalServiceInterface
 	DigiLockerService service.DigiLockerServiceInterface
+	PaymentService    service.PaymentServiceInterface
 
 	Facade facade.CampusFacadeInterface
 
@@ -61,6 +62,7 @@ type Container struct {
 	LibraryHandler     *handler.LibraryHandler
 	SessionalHandler   *handler.SessionalHandler
 	DigiLockerHandler  *handler.DigiLockerHandler
+	PaymentHandler     *handler.PaymentHandler
 }
 
 // Option allows customizing/mocking dependencies during container initialization
@@ -136,6 +138,12 @@ func WithSessionalService(svc service.SessionalServiceInterface) Option {
 func WithDigiLockerService(svc service.DigiLockerServiceInterface) Option {
 	return func(c *Container) {
 		c.DigiLockerService = svc
+	}
+}
+
+func WithPaymentService(svc service.PaymentServiceInterface) Option {
+	return func(c *Container) {
+		c.PaymentService = svc
 	}
 }
 
@@ -252,6 +260,11 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 		)
 	}
 	c.DigiLockerHandler = handler.NewDigiLockerHandler(c.DigiLockerService)
+
+	if c.PaymentService == nil {
+		c.PaymentService = service.NewPaymentService(c.FeeService)
+	}
+	c.PaymentHandler = handler.NewPaymentHandler(c.PaymentService)
 
 	return c, nil
 }
@@ -399,6 +412,14 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/digilocker/exchange", c.DigiLockerHandler.ExchangeToken)
 		mux.HandleFunc("/api/v1/digilocker/status", c.DigiLockerHandler.GetStatus)
 		mux.HandleFunc("/api/v1/digilocker/disconnect", c.DigiLockerHandler.Disconnect)
+	}
+
+	// Institutional Payment Gateway & Settlement Routes
+	if c.PaymentHandler != nil {
+		mux.HandleFunc("/api/v1/payments/config", c.PaymentHandler.HandleConfig)
+		mux.HandleFunc("/api/v1/payments/order", c.PaymentHandler.HandleCreateOrder)
+		mux.HandleFunc("/api/v1/payments/verify", c.PaymentHandler.HandleVerifyPayment)
+		mux.HandleFunc("/api/v1/payments/webhook", c.PaymentHandler.HandleWebhook)
 	}
 
 	return mux

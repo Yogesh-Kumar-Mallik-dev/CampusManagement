@@ -121,6 +121,14 @@ type DigiLockerServiceInterface interface {
 	Disconnect(ctx context.Context, studentID string) (*model.StudentProfile, error)
 }
 
+// PaymentServiceInterface abstracts institutional fee gateway checkout, multi-provider routing, signature verification, and webhook settlement
+type PaymentServiceInterface interface {
+	GetPublicConfig(ctx context.Context) model.PaymentGatewayPublicConfig
+	CreateOrder(ctx context.Context, req model.CreatePaymentOrderRequest) (*model.PaymentOrder, error)
+	VerifyAndCapture(ctx context.Context, req model.VerifyPaymentRequest) (*model.FeePayment, *model.FeeReceipt, error)
+	ProcessWebhook(ctx context.Context, rawPayload []byte, signature string) error
+}
+
 // Ensure concrete services satisfy interfaces at compile-time
 var (
 	_ PermissionServiceInterface = (*PermissionService)(nil)
@@ -130,4 +138,5 @@ var (
 	_ ComplaintServiceInterface  = (*ComplaintService)(nil)
 	_ SessionalServiceInterface  = (*SessionalService)(nil)
 	_ DigiLockerServiceInterface = (*DigiLockerService)(nil)
+	_ PaymentServiceInterface    = (*PaymentService)(nil)
 )

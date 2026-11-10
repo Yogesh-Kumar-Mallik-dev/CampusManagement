@@ -5,6 +5,7 @@ import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
 import '../models/mess.dart';
+import '../models/payment_order.dart';
 import '../models/sessional.dart';
 import '../models/user.dart';
 import '../services/storage_interface.dart';
@@ -202,6 +203,25 @@ abstract class ICampusFacade {
   Future<List<FeePaymentModel>> getFeePayments(String studentId);
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
   Future<List<int>> downloadInvoicePdf(String invoiceId);
+  Future<PaymentGatewayConfigModel> getPaymentConfig();
+  Future<PaymentOrderModel> createPaymentOrder({
+    required String entityType,
+    required String entityId,
+    required String studentId,
+    required double amount,
+    String notes = '',
+  });
+  Future<Map<String, dynamic>> verifyPaymentOrder({
+    required String orderId,
+    required String paymentId,
+    required String paymentMethod,
+    String? transactionRef,
+    String? signature,
+    String? utrNumber,
+    String? bankName,
+    String? upiVpa,
+    String? cardLast4,
+  });
 
   // Institutional Library Subsystem
   Future<LibrarySummaryModel> getLibrarySummary(String studentId);
@@ -800,6 +820,50 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<List<int>> downloadInvoicePdf(String invoiceId) =>
       storage.downloadInvoicePdf(invoiceId);
+
+  @override
+  Future<PaymentGatewayConfigModel> getPaymentConfig() =>
+      storage.getPaymentConfig();
+
+  @override
+  Future<PaymentOrderModel> createPaymentOrder({
+    required String entityType,
+    required String entityId,
+    required String studentId,
+    required double amount,
+    String notes = '',
+  }) =>
+      storage.createPaymentOrder(
+        entityType: entityType,
+        entityId: entityId,
+        studentId: studentId,
+        amount: amount,
+        notes: notes,
+      );
+
+  @override
+  Future<Map<String, dynamic>> verifyPaymentOrder({
+    required String orderId,
+    required String paymentId,
+    required String paymentMethod,
+    String? transactionRef,
+    String? signature,
+    String? utrNumber,
+    String? bankName,
+    String? upiVpa,
+    String? cardLast4,
+  }) =>
+      storage.verifyPaymentOrder(
+        orderId: orderId,
+        paymentId: paymentId,
+        paymentMethod: paymentMethod,
+        transactionRef: transactionRef,
+        signature: signature,
+        utrNumber: utrNumber,
+        bankName: bankName,
+        upiVpa: upiVpa,
+        cardLast4: cardLast4,
+      );
 
   // Institutional Library Subsystem
   @override

@@ -10,6 +10,7 @@ import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../utils/file_downloader.dart';
 import '../widgets/app_dropdown.dart';
+import '../widgets/campus_payment_dialog.dart';
 import 'complaints_screen.dart';
 
 class FeeScreen extends StatefulWidget {
@@ -1299,234 +1300,25 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
   }
 
   Future<void> _showPayInvoiceDialog(FeeInvoiceModel invoice) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final amountCtrl = TextEditingController(text: invoice.dueAmount.toStringAsFixed(2));
-    String paymentMethod = 'upi';
-    String? validationError;
-
     await showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          return AlertDialog(
-            key: const Key('dialog-pay-invoice'),
-            title: Text(
-              'Pay Invoice: ${invoice.title}',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-            content: SizedBox(
-              width: 440,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Outstanding Balance: ${currencyFmt.format(invoice.dueAmount)}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.wineRed,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('input-payment-amount'),
-                      controller: amountCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        labelText: 'Payment Amount (₹)',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    AppDropdown<String>(
-                      key: const Key('select-payment-method'),
-                      labelText: 'Digital Payment Channel',
-                      value: paymentMethod,
-                      items: const [
-                        AppDropdownItem(value: 'upi', label: 'Unified Payments Interface (UPI / QR)'),
-                        AppDropdownItem(value: 'netbanking', label: 'Net Banking (NEFT / RTGS / IMPS)'),
-                        AppDropdownItem(value: 'card', label: 'Debit / Credit Card (Visa / RuPay)'),
-                        AppDropdownItem(value: 'challan', label: 'Institutional Bank Challan / DD'),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) setDialogState(() => paymentMethod = val);
-                      },
-                    ),
-                    if (validationError != null) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        validationError!,
-                        style: const TextStyle(fontSize: 11, color: AppColors.statusRed),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                key: const Key('btn-confirm-pay-invoice'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.wineRed,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () async {
-                  final entered = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
-                  if (entered <= 0) {
-                    setDialogState(() => validationError = 'Enter a valid amount greater than zero.');
-                    return;
-                  }
-                  if (entered > invoice.dueAmount) {
-                    setDialogState(() => validationError = 'Amount cannot exceed invoice due balance.');
-                    return;
-                  }
-
-                  Navigator.pop(ctx);
-                  try {
-                    final res = await _facade.payInvoice(
-                      invoiceId: invoice.id,
-                      studentId: invoice.studentId,
-                      amount: entered,
-                      paymentMethod: paymentMethod,
-                    );
-                    await _loadFeeData();
-
-                    final receipt = res['receipt'];
-                    final receiptNum = receipt is FeeReceiptModel
-                        ? receipt.receiptNumber
-                        : (receipt is Map ? receipt['receipt_number'] : '');
-                    messenger.clearSnackBars();
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Payment processed successfully. Receipt: $receiptNum'),
-                        backgroundColor: AppColors.githubGreen,
-                        action: SnackBarAction(
-                          label: 'View Proof',
-                          textColor: Colors.white,
-                          onPressed: () {
-                            if (receiptNum != null && receiptNum.toString().isNotEmpty) {
-                              _showReceiptDetailsDialog(receiptNum.toString());
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  } catch (err) {
-                    messenger.clearSnackBars();
-                    messenger.showSnackBar(
-                      SnackBar(content: Text('Payment failed: $err'), backgroundColor: AppColors.statusRed),
-                    );
-                  }
-                },
-                child: const Text('Process Settlement'),
-              ),
-            ],
-          );
-        },
+      builder: (ctx) => CampusPaymentDialog(
+        invoice: invoice,
+        facade: _facade,
+        studentId: _currentStudentId,
+        onPaymentSuccess: _loadFeeData,
       ),
     );
   }
 
   Future<void> _showPayFineDialog(FineRecordModel fine) async {
-    final messenger = ScaffoldMessenger.of(context);
-    String paymentMethod = 'upi';
-
     await showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          return AlertDialog(
-            key: const Key('dialog-pay-fine'),
-            title: Text(
-              'Clear Fine: ${FineCategory.displayName(fine.category)}',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-            content: SizedBox(
-              width: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Reason: ${fine.reason}', style: const TextStyle(fontSize: 12)),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Penalty Amount: ${currencyFmt.format(fine.amount)}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.wineRed),
-                  ),
-                  const SizedBox(height: 14),
-                  AppDropdown<String>(
-                    key: const Key('select-fine-payment-method'),
-                    labelText: 'Payment Method',
-                    value: paymentMethod,
-                    items: const [
-                      AppDropdownItem(value: 'upi', label: 'Unified Payments Interface (UPI / QR)'),
-                      AppDropdownItem(value: 'netbanking', label: 'Net Banking (Direct Debit)'),
-                      AppDropdownItem(value: 'card', label: 'Debit / Credit Card'),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setDialogState(() => paymentMethod = val);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              ElevatedButton(
-                key: const Key('btn-confirm-pay-fine'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.wineRed,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  try {
-                    final res = await _facade.payFine(
-                      fineId: fine.id,
-                      studentId: fine.studentId,
-                      paymentMethod: paymentMethod,
-                    );
-                    await _loadFeeData();
-
-                    final receipt = res['receipt'];
-                    final receiptNum = receipt is FeeReceiptModel
-                        ? receipt.receiptNumber
-                        : (receipt is Map ? receipt['receipt_number'] : '');
-
-                    messenger.clearSnackBars();
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Fine settled successfully. Receipt: $receiptNum'),
-                        backgroundColor: AppColors.githubGreen,
-                        action: SnackBarAction(
-                          label: 'View Proof',
-                          textColor: Colors.white,
-                          onPressed: () {
-                            if (receiptNum != null && receiptNum.toString().isNotEmpty) {
-                              _showReceiptDetailsDialog(receiptNum.toString());
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  } catch (err) {
-                    messenger.clearSnackBars();
-                    messenger.showSnackBar(
-                      SnackBar(content: Text('Settlement failed: $err'), backgroundColor: AppColors.statusRed),
-                    );
-                  }
-                },
-                child: const Text('Confirm Settlement'),
-              ),
-            ],
-          );
-        },
+      builder: (ctx) => CampusPaymentDialog(
+        fine: fine,
+        facade: _facade,
+        studentId: _currentStudentId,
+        onPaymentSuccess: _loadFeeData,
       ),
     );
   }

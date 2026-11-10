@@ -8,6 +8,7 @@ import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
 import '../models/mess.dart';
+import '../models/payment_order.dart';
 import '../models/sessional.dart';
 import '../models/user.dart';
 import '../utils/invoice_pdf_generator.dart';
@@ -5078,6 +5079,151 @@ class OfflineStorageService implements ICampusStorage {
     );
 
     return InvoicePdfGenerator.generate(invoice);
+  }
+
+  @override
+  Future<PaymentGatewayConfigModel> getPaymentConfig() async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.getPaymentConfig();
+      } catch (_) {}
+    }
+
+    return const PaymentGatewayConfigModel(
+      provider: 'sandbox',
+      keyId: 'sandbox_inst_key_campus_9901',
+      merchantName: 'Campus Academic & Technology Institute',
+      merchantVpa: 'campuscollect@sbi',
+      environment: 'sandbox',
+      supportedMethods: ['upi', 'debit_card', 'credit_card', 'net_banking', 'challan'],
+      virtualAccount: VirtualAccountModel(
+        beneficiaryName: 'Campus Academic & Technology Institute',
+        bankName: 'State Bank of India (SBI)',
+        accountNumber: 'CAMPUSCOLLECT01',
+        ifscCode: 'SBIN0001234',
+        branchName: 'Institutional Campus Branch',
+        referenceVan: 'CAMPUS-GENERIC-VAN',
+      ),
+    );
+  }
+
+  @override
+  Future<PaymentOrderModel> createPaymentOrder({
+    required String entityType,
+    required String entityId,
+    required String studentId,
+    required double amount,
+    String notes = '',
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.createPaymentOrder(
+          entityType: entityType,
+          entityId: entityId,
+          studentId: studentId,
+          amount: amount,
+          notes: notes,
+        );
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
+    final orderId = 'order_campus_${now.millisecondsSinceEpoch}';
+    final cleanStudent = studentId.replaceAll('-', '').toUpperCase();
+    final studentTail = cleanStudent.length > 8 ? cleanStudent.substring(cleanStudent.length - 8) : cleanStudent;
+    final van = 'CAMPUS$studentTail${now.millisecondsSinceEpoch % 10000}';
+
+    final upiUri = Uri(
+      scheme: 'upi',
+      host: 'pay',
+      queryParameters: {
+        'pa': 'campuscollect@sbi',
+        'pn': 'Campus Academic & Technology Institute',
+        'am': amount.toStringAsFixed(2),
+        'tr': 'TXN-${now.millisecondsSinceEpoch % 10000000}',
+        'tn': 'Campus fee settlement for $entityId',
+        'cu': 'INR',
+      },
+    );
+
+    return PaymentOrderModel(
+      orderId: orderId,
+      entityType: entityType,
+      entityId: entityId,
+      studentId: studentId,
+      studentName: 'Harish Kumar',
+      amount: amount,
+      currency: 'INR',
+      status: 'created',
+      gatewayProvider: 'sandbox',
+      gatewayOrderId: orderId,
+      gatewayKeyId: 'sandbox_inst_key_campus_9901',
+      upiLink: upiUri.toString(),
+      virtualAccount: VirtualAccountModel(
+        beneficiaryName: 'Campus Academic & Technology Institute',
+        bankName: 'State Bank of India (SBI)',
+        accountNumber: van,
+        ifscCode: 'SBIN0001234',
+        branchName: 'Institutional Campus Branch',
+        referenceVan: van,
+      ),
+      notes: notes,
+      expiresAt: now.add(const Duration(minutes: 20)),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> verifyPaymentOrder({
+    required String orderId,
+    required String paymentId,
+    required String paymentMethod,
+    String? transactionRef,
+    String? signature,
+    String? utrNumber,
+    String? bankName,
+    String? upiVpa,
+    String? cardLast4,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.verifyPaymentOrder(
+          orderId: orderId,
+          paymentId: paymentId,
+          paymentMethod: paymentMethod,
+          transactionRef: transactionRef,
+          signature: signature,
+          utrNumber: utrNumber,
+          bankName: bankName,
+          upiVpa: upiVpa,
+          cardLast4: cardLast4,
+        );
+      } catch (_) {}
+    }
+
+    // Offline settlement fallback
+    _seedDefaultFeesIfEmpty();
+    final isInvoice = !orderId.contains('fine');
+    if (isInvoice && _cachedFeeInvoices.isNotEmpty) {
+      final inv = _cachedFeeInvoices.first;
+      return await payInvoice(
+        invoiceId: inv.id,
+        studentId: inv.studentId,
+        amount: inv.dueAmount,
+        paymentMethod: paymentMethod,
+      );
+    } else if (_cachedFines.isNotEmpty) {
+      final fine = _cachedFines.first;
+      return await payFine(
+        fineId: fine.id,
+        studentId: fine.studentId,
+        paymentMethod: paymentMethod,
+      );
+    }
+
+    throw Exception('No pending fee or fine available for simulated settlement');
   }
 
   // Institutional Library Subsystem & Fine Portal Synchronization

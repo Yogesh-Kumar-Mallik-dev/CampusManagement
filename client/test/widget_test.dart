@@ -19,6 +19,8 @@ import 'package:campus_client/theme/app_colors.dart';
 import 'package:campus_client/theme/app_theme.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
+import 'package:campus_client/facade/campus_facade.dart';
+import 'package:campus_client/widgets/campus_payment_dialog.dart';
 import 'package:campus_client/widgets/app_dropdown.dart';
 import 'package:campus_client/widgets/app_logo.dart';
 import 'package:campus_client/screens/timetable_screen.dart';
@@ -3755,6 +3757,157 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('AKTU Sessional & Internal Assessment'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Multi-Channel Payment Gateway: UPI QR, RuPay/Visa Card with 3D Secure OTP, NetBanking, and Challan VAN settlement', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeeScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Open multi-channel payment interface on Hostel invoice
+    expect(find.byKey(const Key('btn-pay-fee-inv-hostel-2026-sem3')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-pay-fee-inv-hostel-2026-sem3')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-pay-invoice')), findsOneWidget);
+    expect(find.textContaining('SANDBOX'), findsOneWidget);
+    expect(find.byKey(const Key('input-payment-amount')), findsOneWidget);
+
+    // 2. Test UPI Channel with dynamic QR and VPA
+    expect(find.text('UPI / QR'), findsWidgets);
+    expect(find.textContaining('Scan with Google Pay'), findsOneWidget);
+    expect(find.byKey(const Key('input-upi-id')), findsOneWidget);
+    expect(find.byKey(const Key('btn-pay-upi')), findsOneWidget);
+
+    // 3. Test Card Channel with RuPay/Visa preview and 3D Secure OTP
+    await tester.tap(find.byKey(const Key('pay-tab-card')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('INSTITUTIONAL SECURE CARD'), findsOneWidget);
+    expect(find.byKey(const Key('input-card-number')), findsOneWidget);
+    expect(find.byKey(const Key('btn-pay-card')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('btn-pay-card')));
+    await tester.pumpAndSettle();
+
+    // Verify 3D Secure Authorization OTP dialog appears
+    expect(find.byKey(const Key('dialog-3d-secure-otp')), findsOneWidget);
+    expect(find.byKey(const Key('input-bank-otp')), findsOneWidget);
+    expect(find.byKey(const Key('btn-verify-otp')), findsOneWidget);
+
+    // Cancel OTP to explore remaining channels
+    await tester.tap(find.byKey(const Key('btn-cancel-otp')));
+    await tester.pumpAndSettle();
+
+    // 4. Test NetBanking Channel with popular Indian banks
+    await tester.tap(find.byKey(const Key('pay-tab-netbanking')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('State Bank of India (SBI)'), findsWidgets);
+    expect(find.text('HDFC Bank'), findsOneWidget);
+    expect(find.text('ICICI Bank'), findsOneWidget);
+    expect(find.byKey(const Key('btn-pay-netbanking')), findsOneWidget);
+
+    // 5. Test Challan Channel with Virtual Account Number (VAN) and UTR submission
+    await tester.tap(find.byKey(const Key('pay-tab-challan')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Institutional Bank Challan / NEFT / RTGS'), findsOneWidget);
+    expect(find.text('Virtual Account Number'), findsOneWidget);
+    expect(find.text('IFSC Code'), findsOneWidget);
+    expect(find.byKey(const Key('input-utr-number')), findsOneWidget);
+    expect(find.byKey(const Key('btn-submit-utr')), findsOneWidget);
+
+    // 6. Complete settlement via UTR submission
+    await tester.ensureVisible(find.byKey(const Key('input-utr-number')));
+    await tester.enterText(find.byKey(const Key('input-utr-number')), 'UTR20261109998823');
+    await tester.ensureVisible(find.byKey(const Key('btn-submit-utr')));
+    await tester.tap(find.byKey(const Key('btn-submit-utr')));
+    await tester.pumpAndSettle();
+
+    // Confirm settlement processed
+    expect(find.textContaining('Payment processed successfully'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Small Screen Responsiveness: Multi-channel Payment Dialog on 360x640 mobile viewport with zero overflow', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+    final invoices = await storage.getInvoices(studentId: student.id);
+    final inv = invoices.first;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (ctx) => Center(
+            child: ElevatedButton(
+              key: const Key('btn-test-open-payment'),
+              onPressed: () {
+                showDialog(
+                  context: ctx,
+                  builder: (_) => CampusPaymentDialog(
+                    invoice: inv,
+                    facade: CampusFacade(storage: storage, api: api),
+                    studentId: student.id,
+                    onPaymentSuccess: () {},
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Open Payment Dialog on mobile viewport
+    await tester.tap(find.byKey(const Key('btn-test-open-payment')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-pay-invoice')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Switch between all 4 tabs on small screen
+    await tester.tap(find.byKey(const Key('pay-tab-card')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('pay-tab-netbanking')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('pay-tab-challan')), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // Confirm settlement
+    await tester.tap(find.byKey(const Key('btn-confirm-pay-invoice')));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 }

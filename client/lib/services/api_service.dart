@@ -7,6 +7,7 @@ import '../models/fee.dart';
 import '../models/hostel.dart';
 import '../models/library.dart';
 import '../models/mess.dart';
+import '../models/payment_order.dart';
 import '../models/sessional.dart';
 import '../models/user.dart';
 import 'storage_interface.dart';
@@ -1177,6 +1178,73 @@ class ApiService implements ICampusApi {
       return res.bodyBytes;
     }
     throw Exception('Failed to download invoice PDF (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<PaymentGatewayConfigModel> getPaymentConfig() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/payments/config'));
+    if (res.statusCode == 200) {
+      return PaymentGatewayConfigModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to get payment config (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<PaymentOrderModel> createPaymentOrder({
+    required String entityType,
+    required String entityId,
+    required String studentId,
+    required double amount,
+    String notes = '',
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/payments/order'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'entity_type': entityType,
+        'entity_id': entityId,
+        'student_id': studentId,
+        'amount': amount,
+        'notes': notes,
+      }),
+    );
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      return PaymentOrderModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create payment order (${res.statusCode}): ${res.body}');
+  }
+
+  @override
+  Future<Map<String, dynamic>> verifyPaymentOrder({
+    required String orderId,
+    required String paymentId,
+    required String paymentMethod,
+    String? transactionRef,
+    String? signature,
+    String? utrNumber,
+    String? bankName,
+    String? upiVpa,
+    String? cardLast4,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/payments/verify'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'order_id': orderId,
+        'payment_id': paymentId,
+        'payment_method': paymentMethod,
+        'transaction_ref': ?transactionRef,
+        'signature': ?signature,
+        'utr_number': ?utrNumber,
+        'bank_name': ?bankName,
+        'upi_vpa': ?upiVpa,
+        'card_last4': ?cardLast4,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to verify payment (${res.statusCode}): ${res.body}');
   }
 
   // Institutional Library Subsystem
