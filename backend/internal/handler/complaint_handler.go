@@ -27,6 +27,8 @@ func (h *ComplaintHandler) HandleComplaints(w http.ResponseWriter, r *http.Reque
 		submittedBy := r.URL.Query().Get("submitted_by")
 		viewerID := r.URL.Query().Get("viewer_id")
 		allowedCatsParam := r.URL.Query().Get("allowed_categories")
+		isDisputeParam := r.URL.Query().Get("is_dispute")
+		targetType := r.URL.Query().Get("dispute_target_type")
 
 		var allowedCats []string
 		if allowedCatsParam != "" {
@@ -38,7 +40,12 @@ func (h *ComplaintHandler) HandleComplaints(w http.ResponseWriter, r *http.Reque
 			}
 		}
 
-		complaints := h.service.ListComplaints(category, status, submittedBy, viewerID, allowedCats)
+		var complaints []model.Complaint
+		if isDisputeParam == "true" || targetType != "" {
+			complaints = h.service.ListDisputes(targetType, status, submittedBy, viewerID, allowedCats)
+		} else {
+			complaints = h.service.ListComplaints(category, status, submittedBy, viewerID, allowedCats)
+		}
 		json.NewEncoder(w).Encode(complaints)
 
 	case http.MethodPost:
@@ -48,7 +55,13 @@ func (h *ComplaintHandler) HandleComplaints(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		created, err := h.service.CreateComplaint(c)
+		var created *model.Complaint
+		var err error
+		if c.IsDispute {
+			created, err = h.service.RaiseDispute(c)
+		} else {
+			created, err = h.service.CreateComplaint(c)
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

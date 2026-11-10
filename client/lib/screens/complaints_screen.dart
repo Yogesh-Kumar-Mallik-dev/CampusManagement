@@ -305,6 +305,311 @@ class ComplaintsScreen extends StatefulWidget {
     );
   }
 
+  static Future<ComplaintModel?> showRaiseDisputeDialog({
+    required BuildContext context,
+    required OfflineStorageService storage,
+    UserModel? currentUser,
+    String initialTargetType = DisputeTargetType.fine,
+    String? initialTargetId,
+    String? initialTitle,
+    String? initialDescription,
+    String? initialRequestedResolution,
+    VoidCallback? onSubmitted,
+  }) async {
+    final titleCtrl = TextEditingController(text: initialTitle ?? '');
+    final targetIdCtrl = TextEditingController(text: initialTargetId ?? '');
+    final descCtrl = TextEditingController(text: initialDescription ?? '');
+    final resolutionCtrl = TextEditingController(text: initialRequestedResolution ?? '');
+    String targetType = initialTargetType;
+    String urgency = ComplaintUrgency.high;
+    String? validationError;
+
+    return showDialog<ComplaintModel>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+
+          return AlertDialog(
+            key: const Key('dialog-raise-dispute'),
+            title: const Row(
+              children: [
+                Icon(Icons.gavel, size: 20, color: Color(0xFFD97706)),
+                SizedBox(width: 8),
+                Text(
+                  'Raise Official Dispute',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Formally dispute an institutional assessment, penalty, fee billing, or academic record for administrative investigation.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Target Type Dropdown
+                    AppDropdown<String>(
+                      key: const Key('select-dispute-target-type'),
+                      labelText: 'Dispute Domain / Target Type',
+                      value: targetType,
+                      items: DisputeTargetType.all.map((type) {
+                        return AppDropdownItem<String>(
+                          value: type,
+                          label: DisputeTargetType.displayName(type),
+                          child: Row(
+                            children: [
+                              Icon(DisputeTargetType.iconFor(type), size: 15, color: const Color(0xFFD97706)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  DisputeTargetType.displayName(type),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            targetType = val;
+                            validationError = null;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Target Reference ID
+                    TextField(
+                      key: const Key('input-dispute-target-id'),
+                      controller: targetIdCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Disputed Record Reference ID',
+                        hintText: 'e.g., INV-2026-001, fine-lib-01, CS301-Midterm, PAYROLL-10',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Title
+                    TextField(
+                      key: const Key('input-dispute-title'),
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Dispute Summary / Title',
+                        hintText: 'Concise summary of the disputed item',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Requested Resolution
+                    TextField(
+                      key: const Key('input-dispute-resolution'),
+                      controller: resolutionCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Requested Remedy / Resolution',
+                        hintText: 'e.g. Full Fine Waiver, Grade Recalculation (+10 marks), Fee Credit',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Resolution option chips
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: DisputeTargetType.resolutionOptionsFor(targetType).map((opt) {
+                        return ActionChip(
+                          label: Text(opt, style: const TextStyle(fontSize: 10)),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            setDialogState(() {
+                              resolutionCtrl.text = opt;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Detailed Evidence / Justification
+                    TextField(
+                      key: const Key('input-dispute-evidence'),
+                      controller: descCtrl,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Statement of Facts & Evidence',
+                        hintText: 'Provide facts, receipt references, answer script discrepancies, dates, or witnesses...',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Verified Identity Policy Notice (No Anonymous Filing)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7).withValues(alpha: isDark ? 0.12 : 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFD97706)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.verified_user, size: 16, color: Color(0xFFD97706)),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Verified Identity Policy (Anonymous Filing Prohibited)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFB45309),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Formal disputes challenge official academic and financial records. Institutional regulations strictly require verified identity for audit tracking, registry reconciliations, and due process.',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    if (validationError != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.statusRed.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.statusRed),
+                        ),
+                        child: Text(
+                          validationError!,
+                          style: const TextStyle(fontSize: 11, color: AppColors.statusRed),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                key: const Key('btn-submit-dispute'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.gavel, size: 15),
+                label: const Text('Submit Formal Dispute'),
+                onPressed: () async {
+                  final cleanTitle = titleCtrl.text.trim();
+                  final cleanTargetId = targetIdCtrl.text.trim();
+                  final cleanEvidence = descCtrl.text.trim();
+                  final cleanResolution = resolutionCtrl.text.trim();
+
+                  if (cleanTitle.isEmpty) {
+                    setDialogState(() => validationError = 'Dispute title cannot be empty');
+                    return;
+                  }
+                  if (cleanTargetId.isEmpty) {
+                    setDialogState(() => validationError = 'Dispute target reference ID is required');
+                    return;
+                  }
+                  if (cleanResolution.isEmpty) {
+                    setDialogState(() => validationError = 'Requested resolution is required');
+                    return;
+                  }
+                  if (cleanEvidence.isEmpty) {
+                    setDialogState(() => validationError = 'Evidence and statement of facts are required');
+                    return;
+                  }
+
+                  final user = currentUser;
+                  final category = (targetType == DisputeTargetType.payroll)
+                      ? ComplaintCategory.employee
+                      : ComplaintCategory.student;
+
+                  final dispute = ComplaintModel(
+                    id: '',
+                    title: cleanTitle,
+                    description: 'Formal contestation regarding ${DisputeTargetType.displayName(targetType)} ($cleanTargetId).',
+                    category: category,
+                    urgency: urgency,
+                    isAnonymous: false,
+                    submittedBy: user?.id ?? 'usr-member',
+                    submitterName: user?.fullName ?? 'Campus Member',
+                    submitterHandle: user?.campusHandle ?? 'member',
+                    submitterRole: user?.archetype ?? 'student',
+                    status: ComplaintStatus.open,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                    isDispute: true,
+                    disputeTargetType: targetType,
+                    disputeTargetId: cleanTargetId,
+                    disputeEvidence: cleanEvidence,
+                    requestedResolution: cleanResolution,
+                  );
+
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    final created = await storage.raiseDispute(dispute);
+                    if (ctx.mounted) Navigator.pop(ctx, created);
+                    if (onSubmitted != null) {
+                      onSubmitted();
+                    }
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Official dispute on ${DisputeTargetType.displayName(targetType)} filed successfully.'),
+                        backgroundColor: const Color(0xFFD97706),
+                      ),
+                    );
+                  } catch (e) {
+                    setDialogState(() => validationError = e.toString().replaceAll('Exception: ', ''));
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   State<ComplaintsScreen> createState() => _ComplaintsScreenState();
 }
@@ -314,6 +619,8 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
   List<ComplaintModel> _complaints = [];
   bool _isLoading = true;
 
+  String _selectedRecordType = 'all'; // 'all', 'complaints', 'disputes'
+  String _selectedDisputeType = 'all'; // 'all', 'fine', 'fee', 'result', etc.
   String _selectedCategory = 'all';
   String _selectedStatus = 'all';
 
@@ -371,6 +678,9 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
       final isMine = (uid.isNotEmpty && c.submittedBy == uid) ||
           (handle.isNotEmpty && c.submitterHandle == handle);
       if (!isMine) return false;
+      if (_selectedRecordType == 'complaints' && c.isDispute) return false;
+      if (_selectedRecordType == 'disputes' && !c.isDispute) return false;
+      if (_selectedDisputeType != 'all' && c.disputeTargetType != _selectedDisputeType) return false;
       if (_selectedCategory != 'all' && c.category != _selectedCategory) return false;
       if (_selectedStatus != 'all' && c.status != _selectedStatus) return false;
       return true;
@@ -388,6 +698,9 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
       if (!isUnrestricted && !allowedCats.contains(c.category)) {
         return false;
       }
+      if (_selectedRecordType == 'complaints' && c.isDispute) return false;
+      if (_selectedRecordType == 'disputes' && !c.isDispute) return false;
+      if (_selectedDisputeType != 'all' && c.disputeTargetType != _selectedDisputeType) return false;
       if (_selectedCategory != 'all' && c.category != _selectedCategory) return false;
       if (_selectedStatus != 'all' && c.status != _selectedStatus) return false;
       return true;
@@ -400,6 +713,29 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
       storage: widget.storage,
       currentUser: widget.currentUser,
       initialCategory: initialCategory,
+      onSubmitted: _loadComplaints,
+    );
+    if (created != null && mounted) {
+      await _loadComplaints();
+    }
+  }
+
+  void _showRaiseDisputeDialog({
+    String initialTargetType = DisputeTargetType.fine,
+    String? initialTargetId,
+    String? initialTitle,
+    String? initialDescription,
+    String? initialRequestedResolution,
+  }) async {
+    final created = await ComplaintsScreen.showRaiseDisputeDialog(
+      context: context,
+      storage: widget.storage,
+      currentUser: widget.currentUser,
+      initialTargetType: initialTargetType,
+      initialTargetId: initialTargetId,
+      initialTitle: initialTitle,
+      initialDescription: initialDescription,
+      initialRequestedResolution: initialRequestedResolution,
       onSubmitted: _loadComplaints,
     );
     if (created != null && mounted) {
@@ -437,12 +773,45 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Category: ${ComplaintCategory.displayName(complaint.category)} • Reported by ${complaint.submitterName}',
+                      complaint.isDispute
+                          ? 'Formal Dispute: ${DisputeTargetType.displayName(complaint.disputeTargetType ?? "")} • Ref: ${complaint.disputeTargetId ?? ""} • Disputant: ${complaint.submitterName}'
+                          : 'Category: ${ComplaintCategory.displayName(complaint.category)} • Reported by ${complaint.submitterName}',
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                       ),
                     ),
+                    if (complaint.isDispute && (complaint.requestedResolution != null || complaint.disputeEvidence != null)) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7).withValues(alpha: isDark ? 0.1 : 0.6),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFD97706)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (complaint.requestedResolution != null)
+                              Text(
+                                'Requested Remedy: ${complaint.requestedResolution}',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+                              ),
+                            if (complaint.disputeEvidence != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Evidence / Grounds: ${complaint.disputeEvidence}',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Status Dropdown
@@ -577,7 +946,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Lodge verified or anonymous complaints across student, employee, contractor, campus, and hostel categories.',
+                            'Lodge grievances or formally dispute assessments, fines, fee invoices, and academic results for administrative redressal.',
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -585,16 +954,33 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                           ),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        key: const Key('btn-file-complaint'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.wineRed,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        ),
-                        onPressed: _showFileComplaintDialog,
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('File Complaint'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ElevatedButton.icon(
+                            key: const Key('btn-file-complaint'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.wineRed,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            onPressed: _showFileComplaintDialog,
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('File Complaint'),
+                          ),
+                          ElevatedButton.icon(
+                            key: const Key('btn-raise-dispute'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFD97706),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            onPressed: _showRaiseDisputeDialog,
+                            icon: const Icon(Icons.gavel, size: 16),
+                            label: const Text('Raise Dispute'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -749,10 +1135,45 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
         crossAxisAlignment: WrapCrossAlignment.end,
         children: [
           SizedBox(
-            width: 240,
+            width: 190,
+            child: AppDropdown<String>(
+              key: const Key('filter-record-type'),
+              labelText: 'Record Type',
+              value: _selectedRecordType,
+              items: const [
+                AppDropdownItem(value: 'all', label: 'All Records'),
+                AppDropdownItem(value: 'complaints', label: 'General Complaints'),
+                AppDropdownItem(value: 'disputes', label: 'Official Disputes'),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedRecordType = val);
+              },
+            ),
+          ),
+          if (_selectedRecordType != 'complaints')
+            SizedBox(
+              width: 210,
+              child: AppDropdown<String>(
+                key: const Key('filter-dispute-target'),
+                labelText: 'Dispute Domain',
+                value: _selectedDisputeType,
+                items: [
+                  const AppDropdownItem(value: 'all', label: 'All Dispute Domains'),
+                  ...DisputeTargetType.all.map((dt) => AppDropdownItem(
+                    value: dt,
+                    label: DisputeTargetType.displayName(dt),
+                  )),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedDisputeType = val);
+                },
+              ),
+            ),
+          SizedBox(
+            width: 220,
             child: AppDropdown<String>(
               key: const Key('filter-complaints-domain'),
-              labelText: 'Domain Filter',
+              labelText: 'Category / Domain',
               value: _selectedCategory,
               items: [
                 const AppDropdownItem(value: 'all', label: 'All Domains / Categories'),
@@ -767,7 +1188,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
             ),
           ),
           SizedBox(
-            width: 200,
+            width: 190,
             child: AppDropdown<String>(
               key: const Key('filter-complaints-status'),
               labelText: 'Status Filter',
@@ -784,7 +1205,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
               },
             ),
           ),
-          if (_selectedCategory != 'all' || _selectedStatus != 'all')
+          if (_selectedCategory != 'all' || _selectedStatus != 'all' || _selectedRecordType != 'all' || _selectedDisputeType != 'all')
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: OutlinedButton.icon(
@@ -800,6 +1221,8 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                 onPressed: () => setState(() {
                   _selectedCategory = 'all';
                   _selectedStatus = 'all';
+                  _selectedRecordType = 'all';
+                  _selectedDisputeType = 'all';
                 }),
               ),
             ),
@@ -907,6 +1330,55 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
                     ),
                   ),
 
+                  // Dispute Badges
+                  if (complaint.isDispute) ...[
+                    Container(
+                      key: Key('badge-dispute-${complaint.id}'),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD97706).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFD97706)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.gavel, size: 11, color: Color(0xFFD97706)),
+                          SizedBox(width: 4),
+                          Text(
+                            'OFFICIAL DISPUTE',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFD97706),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (complaint.disputeTargetType != null && complaint.disputeTargetType!.isNotEmpty)
+                      Container(
+                        key: Key('badge-dispute-target-${complaint.id}'),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E2229) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(DisputeTargetType.iconFor(complaint.disputeTargetType), size: 11),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${DisputeTargetType.displayName(complaint.disputeTargetType!)}: ${complaint.disputeTargetId ?? "N/A"}',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+
                   // Urgency Badge
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -998,6 +1470,89 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> with TickerProvider
               color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
             ),
           ),
+
+          // Dispute Requested Remedy
+          if (complaint.isDispute && complaint.requestedResolution != null && complaint.requestedResolution!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              key: Key('box-dispute-remedy-${complaint.id}'),
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF2C2416) : const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFD97706)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.assignment_turned_in, size: 13, color: Color(0xFFD97706)),
+                      SizedBox(width: 5),
+                      Text(
+                        'REQUESTED REMEDY / SETTLEMENT:',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFD97706),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    complaint.requestedResolution!,
+                    key: Key('text-dispute-resolution-${complaint.id}'),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF92400E),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Dispute Submitted Evidence
+          if (complaint.isDispute && complaint.disputeEvidence != null && complaint.disputeEvidence!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              key: Key('box-dispute-evidence-${complaint.id}'),
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E2229) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.attachment, size: 13, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                      const SizedBox(width: 5),
+                      const Text(
+                        'SUBMITTED EVIDENCE / GROUNDS:',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    complaint.disputeEvidence!,
+                    key: Key('text-dispute-evidence-${complaint.id}'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // Resolution Remarks (if present)
           if (complaint.resolutionRemarks != null && complaint.resolutionRemarks!.isNotEmpty) ...[

@@ -264,6 +264,31 @@ func TestCampusFacadeFullLifecycle(t *testing.T) {
 		t.Fatalf("update complaint status failed: %v", err)
 	}
 
+	// 5.b Disputes via Facade
+	dispute, err := facade.RaiseDispute(model.Complaint{
+		Title:               "Dispute on semester fee invoice",
+		Description:         "Duplicate computing fee charged.",
+		Category:            model.ComplaintCategoryStudent,
+		Urgency:             model.ComplaintUrgencyHigh,
+		IsAnonymous:         false,
+		SubmittedBy:         "usr-harish_2025_l_btech_1",
+		SubmitterName:       "Harish Kumar",
+		SubmitterHandle:     "harish_2025_l_btech_1",
+		SubmitterRole:       "student",
+		DisputeTargetType:   model.DisputeTargetFee,
+		DisputeTargetID:     "INV-2026-001",
+		DisputeEvidence:     "Receipt reference and itemized invoice code.",
+		RequestedResolution: "Fee Adjustment",
+	})
+	if err != nil || !dispute.IsDispute {
+		t.Fatalf("raise dispute failed: %v", err)
+	}
+
+	disputesList := facade.ListDisputes("fee", "", "", "", nil)
+	if len(disputesList) == 0 {
+		t.Fatal("expected non-empty disputes list")
+	}
+
 	// 5. Fees & Fines via Facade
 	feeSummary, err := facade.GetFeeSummary(ctx, "usr-harish_2025_l_btech_1")
 	if err != nil || feeSummary.TotalDues <= 0 {
@@ -521,6 +546,12 @@ func TestCampusFacadeNilSafety(t *testing.T) {
 	}
 	if _, err := facade.UpdateComplaintStatus("1", "s", "r", "v"); err == nil {
 		t.Fatal("expected error on nil complaints")
+	}
+	if _, err := facade.RaiseDispute(model.Complaint{}); err == nil {
+		t.Fatal("expected error on nil complaints")
+	}
+	if list := facade.ListDisputes("f", "s", "m", "v", nil); list != nil {
+		t.Fatal("expected nil list on nil complaints")
 	}
 	if _, err := facade.GetFeeSummary(ctx, "s"); err == nil {
 		t.Fatal("expected error on nil fee")

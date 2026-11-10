@@ -141,15 +141,24 @@ abstract class ICampusApi {
     required String message,
   });
 
-  // Institutional Complaints
+  // Institutional Complaints & Dispute Redressal
   Future<List<ComplaintModel>> fetchComplaints({
     String? category,
     String? status,
     String? submittedBy,
     String? viewerId,
     List<String>? allowedCategories,
+    bool? isDispute,
+    String? disputeTargetType,
   });
   Future<ComplaintModel> createComplaint(ComplaintModel complaint);
+  Future<ComplaintModel> raiseDispute(ComplaintModel dispute);
+  Future<List<ComplaintModel>> getDisputes({
+    String? targetType,
+    String? status,
+    String? submittedBy,
+    String? viewerId,
+  });
   Future<ComplaintModel> updateComplaintStatus({
     required String complaintId,
     required String status,
@@ -328,15 +337,24 @@ abstract class ICampusStorage {
     required String message,
   });
 
-  // Institutional Complaints
+  // Institutional Complaints & Dispute Redressal
   Future<List<ComplaintModel>> getComplaints({
     String? category,
     String? status,
     String? submittedBy,
     String? viewerId,
     List<String>? allowedCategories,
+    bool? isDispute,
+    String? disputeTargetType,
   });
   Future<ComplaintModel> createComplaint(ComplaintModel complaint);
+  Future<ComplaintModel> raiseDispute(ComplaintModel dispute);
+  Future<List<ComplaintModel>> getDisputes({
+    String? targetType,
+    String? status,
+    String? submittedBy,
+    String? viewerId,
+  });
   Future<ComplaintModel> updateComplaintStatus({
     required String complaintId,
     required String status,

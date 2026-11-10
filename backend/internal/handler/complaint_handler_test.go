@@ -85,4 +85,52 @@ func TestComplaintHandlerEndpoints(t *testing.T) {
 	if putRr.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK, got: %d, body: %s", putRr.Code, putRr.Body.String())
 	}
+
+	// 5. Test GET /api/v1/complaints?is_dispute=true
+	disputeReq := httptest.NewRequest(http.MethodGet, "/api/v1/complaints?is_dispute=true", nil)
+	disputeRr := httptest.NewRecorder()
+	h.HandleComplaints(disputeRr, disputeReq)
+
+	if disputeRr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got: %d", disputeRr.Code)
+	}
+
+	var disputesList []model.Complaint
+	if err := json.NewDecoder(disputeRr.Body).Decode(&disputesList); err != nil {
+		t.Fatalf("failed to decode disputes response: %v", err)
+	}
+	if len(disputesList) == 0 {
+		t.Fatalf("expected seeded disputes, got 0")
+	}
+
+	// 6. Test POST /api/v1/complaints with IsDispute
+	newDisputeBody, _ := json.Marshal(model.Complaint{
+		Title:               "Dispute on duplicate library charge",
+		Description:         "Charged fine twice for same item.",
+		Category:            model.ComplaintCategoryStudent,
+		Urgency:             model.ComplaintUrgencyHigh,
+		IsDispute:           true,
+		IsAnonymous:         false,
+		SubmittedBy:         "usr-harish_2025_l_btech_1",
+		SubmitterName:       "Harish Kumar",
+		SubmitterHandle:     "harish_2025_l_btech_1",
+		SubmitterRole:       "student",
+		DisputeTargetType:   model.DisputeTargetFine,
+		DisputeTargetID:     "fine-lib-01",
+		DisputeEvidence:     "Transaction receipts TXN-01 and TXN-02.",
+		RequestedResolution: "Refund of duplicate ₹50",
+	})
+	postDisputeReq := httptest.NewRequest(http.MethodPost, "/api/v1/complaints", bytes.NewReader(newDisputeBody))
+	postDisputeRr := httptest.NewRecorder()
+	h.HandleComplaints(postDisputeRr, postDisputeReq)
+
+	if postDisputeRr.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for dispute, got: %d, body: %s", postDisputeRr.Code, postDisputeRr.Body.String())
+	}
+
+	var createdDispute model.Complaint
+	json.NewDecoder(postDisputeRr.Body).Decode(&createdDispute)
+	if !createdDispute.IsDispute || createdDispute.DisputeTargetID != "fine-lib-01" {
+		t.Fatalf("unexpected created dispute: %+v", createdDispute)
+	}
 }

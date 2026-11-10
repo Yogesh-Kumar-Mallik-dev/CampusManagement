@@ -70,16 +70,21 @@ func (s *ComplaintService) seedDefaults() {
 				CreatedAt: now.Add(-24 * time.Hour),
 				UpdatedAt: now.Add(-24 * time.Hour),
 			},
-			Title:           "Grade calculation discrepancy in CS-301 Midterm Examination",
-			Description:     "Question 4 (Dynamic Programming, 10 marks) was marked correct with full points in answer script but recorded as 0 in gradebook portal.",
-			Category:        model.ComplaintCategoryStudent,
-			Urgency:         model.ComplaintUrgencyHigh,
-			IsAnonymous:     false,
-			SubmittedBy:     "usr-harish_2025_l_btech_1",
-			SubmitterName:   "Harish Kumar",
-			SubmitterHandle: "harish_2025_l_btech_1",
-			SubmitterRole:   "student",
-			Status:          model.ComplaintStatusOpen,
+			Title:               "Grade calculation discrepancy in CS-301 Midterm Examination",
+			Description:         "Question 4 (Dynamic Programming, 10 marks) was marked correct with full points in answer script but recorded as 0 in gradebook portal.",
+			Category:            model.ComplaintCategoryStudent,
+			Urgency:             model.ComplaintUrgencyHigh,
+			IsAnonymous:         false,
+			SubmittedBy:         "usr-harish_2025_l_btech_1",
+			SubmitterName:       "Harish Kumar",
+			SubmitterHandle:     "harish_2025_l_btech_1",
+			SubmitterRole:       "student",
+			Status:              model.ComplaintStatusOpen,
+			IsDispute:           true,
+			DisputeTargetType:   model.DisputeTargetResult,
+			DisputeTargetID:     "CS301-Midterm-2026",
+			DisputeEvidence:     "Physical answer sheet shows 10 marks for Q4 Dynamic Programming, but gradebook portal records 0.",
+			RequestedResolution: "Grade Recalculation (+10 marks)",
 		},
 		{
 			BaseSyncModel: model.BaseSyncModel{
@@ -119,6 +124,74 @@ func (s *ComplaintService) seedDefaults() {
 			ResolutionRemarks: "Security personnel deployed tow truck and cleared loading dock.",
 			ResolvedBy:      "usr-ramesh_2023_emp_1",
 			ResolvedAt:      &now,
+		},
+		{
+			BaseSyncModel: model.BaseSyncModel{
+				ID:        "cmp-006",
+				CreatedAt: now.Add(-4 * time.Hour),
+				UpdatedAt: now.Add(-4 * time.Hour),
+			},
+			Title:               "Dispute on library overdue late fine for CLRS Algorithms",
+			Description:         "Book was deposited in the automated return dropbox prior to 5:00 PM on due date during network downtime.",
+			Category:            model.ComplaintCategoryStudent,
+			Urgency:             model.ComplaintUrgencyMedium,
+			IsAnonymous:         false,
+			SubmittedBy:         "usr-harish_2025_l_btech_1",
+			SubmitterName:       "Harish Kumar",
+			SubmitterHandle:     "harish_2025_l_btech_1",
+			SubmitterRole:       "student",
+			Status:              model.ComplaintStatusOpen,
+			IsDispute:           true,
+			DisputeTargetType:   model.DisputeTargetFine,
+			DisputeTargetID:     "fine-lib-01",
+			DisputeEvidence:     "Circulation desk manual register entry and automated locker check-in slip.",
+			RequestedResolution: "Full Fine Waiver (₹50.00)",
+		},
+		{
+			BaseSyncModel: model.BaseSyncModel{
+				ID:        "cmp-007",
+				CreatedAt: now.Add(-2 * time.Hour),
+				UpdatedAt: now.Add(-2 * time.Hour),
+			},
+			Title:               "Duplicate computer laboratory surcharge on Semester Fee Invoice",
+			Description:         "Billed twice for Advanced Computing Lab fee (₹2,500 x 2) on invoice INV-2026-001.",
+			Category:            model.ComplaintCategoryStudent,
+			Urgency:             model.ComplaintUrgencyHigh,
+			IsAnonymous:         false,
+			SubmittedBy:         "usr-harish_2025_l_btech_1",
+			SubmitterName:       "Harish Kumar",
+			SubmitterHandle:     "harish_2025_l_btech_1",
+			SubmitterRole:       "student",
+			Status:              model.ComplaintStatusInProgress,
+			ResolutionRemarks:   "Treasury audit confirmed duplicate debit; credit note adjustment being processed.",
+			ResolvedBy:          "usr-ramesh_2023_emp_1",
+			IsDispute:           true,
+			DisputeTargetType:   model.DisputeTargetFee,
+			DisputeTargetID:     "INV-2026-001",
+			DisputeEvidence:     "Itemized invoice breakdown reflects duplicate item code LAB-CS3 under fee schedule.",
+			RequestedResolution: "Fee Correction / Invoice Adjustment (-₹2,500)",
+		},
+		{
+			BaseSyncModel: model.BaseSyncModel{
+				ID:        "cmp-008",
+				CreatedAt: now.Add(-1 * time.Hour),
+				UpdatedAt: now.Add(-1 * time.Hour),
+			},
+			Title:               "Omission of approved conference travel allowance from October salary",
+			Description:         "Approved travel reimbursement ref DEAN/TR/2026/89 was not reconciled in October salary slip.",
+			Category:            model.ComplaintCategoryEmployee,
+			Urgency:             model.ComplaintUrgencyHigh,
+			IsAnonymous:         false,
+			SubmittedBy:         "usr-priya_2024_emp_1",
+			SubmitterName:       "Dr. Priya Sharma",
+			SubmitterHandle:     "priya_2024_emp_1",
+			SubmitterRole:       "employee",
+			Status:              model.ComplaintStatusOpen,
+			IsDispute:           true,
+			DisputeTargetType:   model.DisputeTargetPayroll,
+			DisputeTargetID:     "PAYROLL-2026-10",
+			DisputeEvidence:     "Dean approval memo DEAN/TR/2026/89 dated Oct 12 and boarding ticket receipts.",
+			RequestedResolution: "Credit of ₹12,000 in supplementary payroll cycle",
 		},
 	}
 
@@ -234,4 +307,47 @@ func (s *ComplaintService) UpdateComplaintStatus(id, newStatus, remarks, resolve
 	s.complaints[id] = c
 	res := c
 	return &res, nil
+}
+
+// RaiseDispute formalizes a student or staff contention leveraging the complaint pipeline.
+func (s *ComplaintService) RaiseDispute(c model.Complaint) (*model.Complaint, error) {
+	c.IsDispute = true
+	return s.CreateComplaint(c)
+}
+
+// ListDisputes returns formal disputes filtered by target type, status, and permissions.
+func (s *ComplaintService) ListDisputes(targetType, status, submittedBy, viewerID string, allowedCategories []string) []model.Complaint {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	targetTypeFilter := strings.ToLower(strings.TrimSpace(targetType))
+	statusFilter := strings.ToLower(strings.TrimSpace(status))
+	submittedFilter := strings.TrimSpace(submittedBy)
+
+	allowedMap := make(map[string]bool)
+	hasCategoryRestrictions := len(allowedCategories) > 0
+	for _, ac := range allowedCategories {
+		allowedMap[strings.ToLower(strings.TrimSpace(ac))] = true
+	}
+
+	var results []model.Complaint
+	for _, c := range s.complaints {
+		if !c.IsDispute {
+			continue
+		}
+		if targetTypeFilter != "" && c.DisputeTargetType != targetTypeFilter {
+			continue
+		}
+		if statusFilter != "" && c.Status != statusFilter {
+			continue
+		}
+		if submittedFilter != "" && c.SubmittedBy != submittedFilter {
+			continue
+		}
+		if submittedFilter == "" && hasCategoryRestrictions && !allowedMap["*"] && !allowedMap[c.Category] {
+			continue
+		}
+		results = append(results, c.SanitizedForViewer(viewerID))
+	}
+	return results
 }

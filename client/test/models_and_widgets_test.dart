@@ -354,6 +354,64 @@ void main() {
       final cmpParsed = ComplaintModel.fromJson(cmpJson);
       expect(cmpParsed.title, equals('WiFi Down'));
       expect(cmpParsed.urgency, equals(ComplaintUrgency.high));
+      expect(cmpParsed.isDispute, isFalse);
+
+      // Dispute ComplaintModel and DisputeTargetType
+      expect(DisputeTargetType.all.length, equals(6));
+      expect(DisputeTargetType.displayName(DisputeTargetType.fine), contains('Fine'));
+      expect(DisputeTargetType.displayName(DisputeTargetType.fee), contains('Fee'));
+      expect(DisputeTargetType.displayName(DisputeTargetType.result), contains('Result'));
+      expect(DisputeTargetType.displayName(DisputeTargetType.attendance), contains('Attendance'));
+      expect(DisputeTargetType.displayName(DisputeTargetType.payroll), contains('Payroll'));
+      expect(DisputeTargetType.displayName(DisputeTargetType.other), contains('Other'));
+      expect(DisputeTargetType.displayName(null), equals('Other'));
+      expect(DisputeTargetType.iconFor(DisputeTargetType.fine), isNotNull);
+      expect(DisputeTargetType.iconFor(null), isNotNull);
+      expect(DisputeTargetType.resolutionOptionsFor(DisputeTargetType.fine).isNotEmpty, isTrue);
+      expect(DisputeTargetType.resolutionOptionsFor(null).isNotEmpty, isTrue);
+
+      final dispute = ComplaintModel(
+        id: 'dsp-1',
+        title: 'Dispute over CS301 exam score',
+        description: 'Question 4 calculation was omitted',
+        category: ComplaintCategory.student,
+        urgency: ComplaintUrgency.high,
+        status: ComplaintStatus.open,
+        isAnonymous: false,
+        submittedBy: 'usr-1',
+        submitterHandle: 'test_student',
+        submitterName: 'Test Student',
+        submitterRole: 'student',
+        createdAt: now,
+        updatedAt: now,
+        isDispute: true,
+        disputeTargetType: DisputeTargetType.result,
+        disputeTargetId: 'EXAM-CS301-MID',
+        disputeEvidence: 'Answer sheet copy showing unmarked page 4',
+        requestedResolution: 'Re-evaluation and score recalculation',
+      );
+      final dspJson = dispute.toJson();
+      expect(dspJson['is_dispute'], isTrue);
+      expect(dspJson['dispute_target_type'], equals('result'));
+      expect(dspJson['dispute_target_id'], equals('EXAM-CS301-MID'));
+      expect(dspJson['dispute_evidence'], contains('Answer sheet copy'));
+      expect(dspJson['requested_resolution'], contains('Re-evaluation'));
+
+      final dspParsed = ComplaintModel.fromJson(dspJson);
+      expect(dspParsed.isDispute, isTrue);
+      expect(dspParsed.disputeTargetType, equals('result'));
+      expect(dspParsed.disputeTargetId, equals('EXAM-CS301-MID'));
+      expect(dspParsed.disputeEvidence, equals('Answer sheet copy showing unmarked page 4'));
+      expect(dspParsed.requestedResolution, equals('Re-evaluation and score recalculation'));
+
+      final dspCopied = dspParsed.copyWith(
+        status: ComplaintStatus.resolved,
+        resolutionRemarks: 'Recalculated by Dr. Rao: +4 marks awarded',
+      );
+      expect(dspCopied.status, equals(ComplaintStatus.resolved));
+      expect(dspCopied.isDispute, isTrue);
+      expect(dspCopied.disputeTargetId, equals('EXAM-CS301-MID'));
+      expect(dspCopied.resolutionRemarks, contains('+4 marks awarded'));
     });
 
     test('Fee and Fine models serialization, getters, and copyWith', () {

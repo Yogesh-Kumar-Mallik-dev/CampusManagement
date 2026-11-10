@@ -133,6 +133,111 @@ class ComplaintStatus {
   }
 }
 
+class DisputeTargetType {
+  static const String fine = 'fine';
+  static const String fee = 'fee';
+  static const String result = 'result';
+  static const String attendance = 'attendance';
+  static const String payroll = 'payroll';
+  static const String other = 'other';
+
+  static const List<String> all = [
+    fine,
+    fee,
+    result,
+    attendance,
+    payroll,
+    other,
+  ];
+
+  static String displayName(String? targetType) {
+    if (targetType == null) return 'Other';
+    switch (targetType.trim().toLowerCase()) {
+      case fine:
+        return 'Institutional Fine (Late / Disciplinary)';
+      case fee:
+        return 'Fee Invoice & Ledger Charges';
+      case result:
+        return 'Exam Result & Gradebook Evaluation';
+      case attendance:
+        return 'Attendance Calculation & Shortage';
+      case payroll:
+        return 'Staff Workload & Payroll Allocation';
+      case other:
+        return 'Other Official Institutional Record';
+      default:
+        return targetType.toUpperCase();
+    }
+  }
+
+  static IconData iconFor(String? targetType) {
+    if (targetType == null) return Icons.assignment_outlined;
+    switch (targetType.trim().toLowerCase()) {
+      case fine:
+        return Icons.gavel_outlined;
+      case fee:
+        return Icons.receipt_long_outlined;
+      case result:
+        return Icons.school_outlined;
+      case attendance:
+        return Icons.event_available_outlined;
+      case payroll:
+        return Icons.account_balance_wallet_outlined;
+      case other:
+        return Icons.help_outline;
+      default:
+        return Icons.assignment_outlined;
+    }
+  }
+
+  static List<String> resolutionOptionsFor(String? targetType) {
+    if (targetType == null) return ['Formal Administrative Review', 'Correction of Official Record'];
+    switch (targetType.trim().toLowerCase()) {
+      case fine:
+        return [
+          'Full Fine Waiver / Dismissal',
+          'Fine Amount Recalculation / Reduction',
+          'Extension of Fine Settlement Deadline',
+          'Administrative Warning in lieu of Fine',
+        ];
+      case fee:
+        return [
+          'Fee Correction & Ledger Credit',
+          'Removal of Duplicate Charge',
+          'Scholarship / Concession Reconciliation',
+          'Installment Restructuring',
+        ];
+      case result:
+        return [
+          'Answer Script Re-evaluation',
+          'Retabulation / Recalculation (+ Marks)',
+          'Practical / Viva Score Correction',
+          'Gradebook System Entry Rectification',
+        ];
+      case attendance:
+        return [
+          'Duty Leave / On-Duty Condonation (+%)',
+          'Medical Certificate Approval & Exemption',
+          'Biometric / QR Scan Error Correction',
+          'Hall Ticket Debarment Waiver',
+        ];
+      case payroll:
+        return [
+          'Salary Slip Adjustment / Arrears Credit',
+          'Conference Travel Reimbursement Reconciliation',
+          'Overtime / Extra Duty Allowance Credit',
+          'Tax / Deduction Rectification',
+        ];
+      default:
+        return [
+          'Official Administrative Rectification',
+          'Record Re-investigation & Resolution',
+          'Waiver of Penalty / Charge',
+        ];
+    }
+  }
+}
+
 class ComplaintModel {
   final String id;
   final String title;
@@ -151,6 +256,13 @@ class ComplaintModel {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Dispute System additions
+  final bool isDispute;
+  final String? disputeTargetType; // fine, fee, result, attendance, payroll, other
+  final String? disputeTargetId; // e.g. INV-2026-001, fine-lib-01, CS301-Midterm
+  final String? disputeEvidence; // Statement of facts, proof
+  final String? requestedResolution; // Desired resolution
+
   const ComplaintModel({
     required this.id,
     required this.title,
@@ -168,9 +280,14 @@ class ComplaintModel {
     this.resolvedAt,
     required this.createdAt,
     required this.updatedAt,
+    this.isDispute = false,
+    this.disputeTargetType,
+    this.disputeTargetId,
+    this.disputeEvidence,
+    this.requestedResolution,
   });
 
-  bool get supportsAnonymous => ComplaintCategory.supportsAnonymous(category);
+  bool get supportsAnonymous => isDispute ? false : ComplaintCategory.supportsAnonymous(category);
 
   bool get isOpen => status == ComplaintStatus.open;
   bool get isInProgress => status == ComplaintStatus.inProgress;
@@ -194,6 +311,11 @@ class ComplaintModel {
     DateTime? resolvedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isDispute,
+    String? disputeTargetType,
+    String? disputeTargetId,
+    String? disputeEvidence,
+    String? requestedResolution,
   }) {
     return ComplaintModel(
       id: id ?? this.id,
@@ -212,6 +334,11 @@ class ComplaintModel {
       resolvedAt: resolvedAt ?? this.resolvedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isDispute: isDispute ?? this.isDispute,
+      disputeTargetType: disputeTargetType ?? this.disputeTargetType,
+      disputeTargetId: disputeTargetId ?? this.disputeTargetId,
+      disputeEvidence: disputeEvidence ?? this.disputeEvidence,
+      requestedResolution: requestedResolution ?? this.requestedResolution,
     );
   }
 
@@ -233,6 +360,11 @@ class ComplaintModel {
       resolvedAt: json['resolved_at'] != null ? DateTime.tryParse(json['resolved_at'] as String) : null,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : DateTime.now(),
+      isDispute: json['is_dispute'] as bool? ?? false,
+      disputeTargetType: json['dispute_target_type'] as String?,
+      disputeTargetId: json['dispute_target_id'] as String?,
+      disputeEvidence: json['dispute_evidence'] as String?,
+      requestedResolution: json['requested_resolution'] as String?,
     );
   }
 
@@ -254,6 +386,11 @@ class ComplaintModel {
       if (resolvedAt != null) 'resolved_at': resolvedAt!.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'is_dispute': isDispute,
+      if (disputeTargetType != null) 'dispute_target_type': disputeTargetType,
+      if (disputeTargetId != null) 'dispute_target_id': disputeTargetId,
+      if (disputeEvidence != null) 'dispute_evidence': disputeEvidence,
+      if (requestedResolution != null) 'requested_resolution': requestedResolution,
     };
   }
 }

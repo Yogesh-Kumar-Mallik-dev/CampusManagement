@@ -31,6 +31,16 @@ const (
 	ComplaintUrgencyCritical = "critical"
 )
 
+// Dispute target types
+const (
+	DisputeTargetFine       = "fine"
+	DisputeTargetFee        = "fee"
+	DisputeTargetResult     = "result"
+	DisputeTargetAttendance = "attendance"
+	DisputeTargetPayroll    = "payroll"
+	DisputeTargetOther      = "other"
+)
+
 type Complaint struct {
 	BaseSyncModel
 	Title             string     `json:"title"`
@@ -46,6 +56,23 @@ type Complaint struct {
 	ResolutionRemarks string     `json:"resolution_remarks,omitempty"`
 	ResolvedBy        string     `json:"resolved_by,omitempty"`
 	ResolvedAt        *time.Time `json:"resolved_at,omitempty"`
+
+	// Dispute System extensions
+	IsDispute           bool   `json:"is_dispute"`
+	DisputeTargetType   string `json:"dispute_target_type,omitempty"`   // fine, fee, result, attendance, payroll, other
+	DisputeTargetID     string `json:"dispute_target_id,omitempty"`     // e.g. INV-2026-001, fine-lib-01, CS301-Midterm
+	DisputeEvidence     string `json:"dispute_evidence,omitempty"`      // Statement of facts, proof references
+	RequestedResolution string `json:"requested_resolution,omitempty"` // Desired remedy or recalculation
+}
+
+// IsValidDisputeTargetType checks whether the target type is supported.
+func IsValidDisputeTargetType(t string) bool {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case DisputeTargetFine, DisputeTargetFee, DisputeTargetResult, DisputeTargetAttendance, DisputeTargetPayroll, DisputeTargetOther:
+		return true
+	default:
+		return false
+	}
 }
 
 // SupportsAnonymous checks whether anonymous reporting is supported for the given category.
@@ -71,6 +98,33 @@ func (c *Complaint) Validate() error {
 	}
 	if strings.TrimSpace(c.Description) == "" {
 		return errors.New("complaint description is required")
+	}
+
+	// Validate Dispute Specifics
+	if c.IsDispute {
+		if c.IsAnonymous {
+			return errors.New("formal disputes require verified identity and cannot be filed anonymously")
+		}
+		c.DisputeTargetType = strings.ToLower(strings.TrimSpace(c.DisputeTargetType))
+		if c.DisputeTargetType == "" {
+			c.DisputeTargetType = DisputeTargetOther
+		}
+		if !IsValidDisputeTargetType(c.DisputeTargetType) {
+			return errors.New("invalid dispute target type: " + c.DisputeTargetType)
+		}
+		if strings.TrimSpace(c.DisputeTargetID) == "" {
+			return errors.New("dispute target reference ID is required")
+		}
+		if strings.TrimSpace(c.RequestedResolution) == "" {
+			return errors.New("requested resolution is required for formal dispute")
+		}
+		if strings.TrimSpace(c.Category) == "" {
+			if c.DisputeTargetType == DisputeTargetPayroll {
+				c.Category = ComplaintCategoryEmployee
+			} else {
+				c.Category = ComplaintCategoryStudent
+			}
+		}
 	}
 
 	cat := strings.ToLower(strings.TrimSpace(c.Category))

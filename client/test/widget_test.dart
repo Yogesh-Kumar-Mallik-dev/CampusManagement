@@ -2990,4 +2990,152 @@ void main() {
     );
     expect(find.text('Book Care & Replacement Policy'), findsOneWidget);
   });
+
+  testWidgets('Institutional Dispute System: Student raises formal dispute for exam result, verified identity enforcement, and record type filtering',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: ComplaintsScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Verify "+ Raise Dispute" button is present in the action row
+    final raiseDisputeBtn = find.byKey(const Key('btn-raise-dispute'));
+    expect(raiseDisputeBtn, findsOneWidget);
+
+    // Open Raise Dispute modal dialog
+    await tester.tap(raiseDisputeBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-raise-dispute')), findsOneWidget);
+    expect(find.text('Raise Official Dispute'), findsOneWidget);
+
+    // Target selector is present
+    await tester.tap(find.byKey(const Key('select-dispute-target-type')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Exam Result & Gradebook Evaluation').last);
+    await tester.pumpAndSettle();
+
+    // Fill in target reference ID
+    await tester.enterText(find.byKey(const Key('input-dispute-target-id')), 'EXAM-2026-CS301');
+
+    // Fill in dispute title
+    await tester.enterText(find.byKey(const Key('input-dispute-title')), 'Discrepancy in CS301 Endsem Evaluation');
+
+    // Select a quick-fill remedy chip
+    final remedyChip = find.text('Answer Script Re-evaluation');
+    expect(remedyChip, findsOneWidget);
+    await tester.tap(remedyChip);
+    await tester.pumpAndSettle();
+
+    // Fill in evidence
+    await tester.enterText(find.byKey(const Key('input-dispute-evidence')), 'Evaluated answer booklet copy with question 4 uncounted.');
+
+    // Submit the formal dispute
+    await tester.tap(find.byKey(const Key('btn-submit-dispute')));
+    await tester.pumpAndSettle();
+
+    // Verify dialog is dismissed
+    expect(find.byKey(const Key('dialog-raise-dispute')), findsNothing);
+
+    // Verify newly raised dispute appears in user list
+    expect(find.text('Discrepancy in CS301 Endsem Evaluation'), findsOneWidget);
+    expect(find.text('OFFICIAL DISPUTE'), findsWidgets);
+    expect(find.textContaining('EXAM-2026-CS301'), findsWidgets);
+    expect(find.textContaining('Answer Script Re-evaluation'), findsOneWidget);
+    expect(find.textContaining('Evaluated answer booklet copy'), findsOneWidget);
+
+    // Test Record Type Filter
+    // 1. Filter by General Complaints only -> Dispute should disappear
+    await tester.tap(find.byKey(const Key('filter-record-type')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('General Complaints').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Discrepancy in CS301 Endsem Evaluation'), findsNothing);
+
+    // 2. Filter by Official Disputes only -> Dispute should appear
+    await tester.tap(find.byKey(const Key('filter-record-type')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Official Disputes').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Discrepancy in CS301 Endsem Evaluation'), findsOneWidget);
+
+    // 3. Reset Filters
+    await tester.tap(find.byKey(const Key('btn-reset-complaint-filters')));
+    await tester.pumpAndSettle();
+    expect(find.text('Discrepancy in CS301 Endsem Evaluation'), findsOneWidget);
+  });
+
+  testWidgets('Contextual Disputes: FeeScreen allows raising dispute directly from invoice and fine cards',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeeScreen(
+        storage: storage,
+        currentUser: student,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Invoices Tab: Dispute Invoice button should be visible in invoice card
+    final disputeInvoiceBtn = find.byKey(const Key('btn-dispute-invoice-inv-hostel-2026-sem3'));
+    expect(disputeInvoiceBtn, findsOneWidget);
+
+    await tester.tap(disputeInvoiceBtn);
+    await tester.pumpAndSettle();
+
+    // Verify Raise Dispute dialog opens with Fee domain and inv-hostel-2026-sem3 prefilled
+    expect(find.byKey(const Key('dialog-raise-dispute')), findsOneWidget);
+    expect(find.text('Fee Invoice & Ledger Charges'), findsWidgets);
+    expect(find.text('inv-hostel-2026-sem3'), findsOneWidget);
+
+    // Close the dialog
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dialog-raise-dispute')), findsNothing);
+
+    // 2. Switch to Fine Portal Tab
+    await tester.tap(find.byKey(const Key('tab-fine-portal')));
+    await tester.pumpAndSettle();
+
+    // Find Dispute Fine button on fine-lib-01
+    final disputeFineBtn = find.byKey(const Key('btn-dispute-fine-fine-lib-01'));
+    expect(disputeFineBtn, findsOneWidget);
+
+    await tester.tap(disputeFineBtn);
+    await tester.pumpAndSettle();
+
+    // Verify Raise Dispute dialog opens with Fine domain and fine-lib-01 prefilled
+    expect(find.byKey(const Key('dialog-raise-dispute')), findsOneWidget);
+    expect(find.text('Institutional Fine (Late / Disciplinary)'), findsWidgets);
+    expect(find.text('fine-lib-01'), findsOneWidget);
+
+    // Close the dialog
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dialog-raise-dispute')), findsNothing);
+  });
 }

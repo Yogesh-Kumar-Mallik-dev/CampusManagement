@@ -878,12 +878,15 @@ class ApiService implements ICampusApi {
   // GRIEVANCES & COMPLAINTS SYSTEM
   // ----------------------------------------------------
 
+  @override
   Future<List<ComplaintModel>> fetchComplaints({
     String? category,
     String? status,
     String? submittedBy,
     String? viewerId,
     List<String>? allowedCategories,
+    bool? isDispute,
+    String? disputeTargetType,
   }) async {
     final queryParams = <String, String>{};
     if (category != null && category.isNotEmpty) queryParams['category'] = category;
@@ -892,6 +895,10 @@ class ApiService implements ICampusApi {
     if (viewerId != null && viewerId.isNotEmpty) queryParams['viewer_id'] = viewerId;
     if (allowedCategories != null && allowedCategories.isNotEmpty) {
       queryParams['allowed_categories'] = allowedCategories.join(',');
+    }
+    if (isDispute != null) queryParams['is_dispute'] = isDispute ? 'true' : 'false';
+    if (disputeTargetType != null && disputeTargetType.isNotEmpty) {
+      queryParams['dispute_target_type'] = disputeTargetType;
     }
 
     final uri = Uri.parse('$baseUrl/api/v1/complaints').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
@@ -903,6 +910,7 @@ class ApiService implements ICampusApi {
     throw Exception('Failed to fetch complaints: ${res.statusCode}');
   }
 
+  @override
   Future<ComplaintModel> createComplaint(ComplaintModel complaint) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/v1/complaints'),
@@ -915,6 +923,28 @@ class ApiService implements ICampusApi {
     throw Exception('Failed to create complaint: ${res.body}');
   }
 
+  @override
+  Future<ComplaintModel> raiseDispute(ComplaintModel dispute) async {
+    return createComplaint(dispute.copyWith(isDispute: true));
+  }
+
+  @override
+  Future<List<ComplaintModel>> getDisputes({
+    String? targetType,
+    String? status,
+    String? submittedBy,
+    String? viewerId,
+  }) async {
+    return fetchComplaints(
+      isDispute: true,
+      disputeTargetType: targetType,
+      status: status,
+      submittedBy: submittedBy,
+      viewerId: viewerId,
+    );
+  }
+
+  @override
   Future<ComplaintModel> updateComplaintStatus({
     required String complaintId,
     required String status,

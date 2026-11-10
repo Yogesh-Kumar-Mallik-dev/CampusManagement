@@ -138,3 +138,66 @@ func TestComplaintServiceAnonymityAndValidation(t *testing.T) {
 		t.Fatalf("expected error for non-existent complaint update")
 	}
 }
+
+func TestDisputeServiceLifecycle(t *testing.T) {
+	svc := NewComplaintService()
+
+	// 1. Verify seeded disputes
+	seededDisputes := svc.ListDisputes("", "", "", "viewer", nil)
+	if len(seededDisputes) < 4 {
+		t.Fatalf("expected at least 4 seeded disputes, got: %d", len(seededDisputes))
+	}
+
+	// 2. Filter disputes by target type (result, fine, fee, payroll)
+	resultDisputes := svc.ListDisputes(model.DisputeTargetResult, "", "", "viewer", nil)
+	if len(resultDisputes) == 0 {
+		t.Fatalf("expected at least 1 result dispute")
+	}
+
+	fineDisputes := svc.ListDisputes(model.DisputeTargetFine, "", "", "viewer", nil)
+	if len(fineDisputes) == 0 {
+		t.Fatalf("expected at least 1 fine dispute")
+	}
+
+	feeDisputes := svc.ListDisputes(model.DisputeTargetFee, "", "", "viewer", nil)
+	if len(feeDisputes) == 0 {
+		t.Fatalf("expected at least 1 fee dispute")
+	}
+
+	payrollDisputes := svc.ListDisputes(model.DisputeTargetPayroll, "", "", "viewer", nil)
+	if len(payrollDisputes) == 0 {
+		t.Fatalf("expected at least 1 payroll dispute")
+	}
+
+	// 3. Raise a new dispute (Student contesting attendance penalty)
+	newDispute, err := svc.RaiseDispute(model.Complaint{
+		Title:               "Dispute on CS-301 attendance debarment list",
+		Description:         "Attended all classes during IEEE conference with prior sanction.",
+		Category:            model.ComplaintCategoryStudent,
+		Urgency:             model.ComplaintUrgencyHigh,
+		IsAnonymous:         false,
+		SubmittedBy:         "usr-harish_2025_l_btech_1",
+		SubmitterName:       "Harish Kumar",
+		SubmitterHandle:     "harish_2025_l_btech_1",
+		SubmitterRole:       "student",
+		DisputeTargetType:   model.DisputeTargetAttendance,
+		DisputeTargetID:     "CS301-ATT-01",
+		DisputeEvidence:     "OD approval letter signed by HOD Dr. Ramesh.",
+		RequestedResolution: "Attendance Adjustment (+5% condonation)",
+	})
+	if err != nil {
+		t.Fatalf("expected dispute creation to succeed, got: %v", err)
+	}
+	if !newDispute.IsDispute || newDispute.DisputeTargetType != model.DisputeTargetAttendance {
+		t.Fatalf("unexpected dispute fields: %+v", newDispute)
+	}
+
+	// 4. Resolve the dispute
+	resolved, err := svc.UpdateComplaintStatus(newDispute.ID, model.ComplaintStatusResolved, "Verified OD attendance record. Condonation granted.", "usr-ramesh_2023_emp_1")
+	if err != nil {
+		t.Fatalf("expected status update to succeed, got: %v", err)
+	}
+	if resolved.Status != model.ComplaintStatusResolved || resolved.ResolutionRemarks != "Verified OD attendance record. Condonation granted." {
+		t.Fatalf("unexpected updated status: %+v", resolved)
+	}
+}

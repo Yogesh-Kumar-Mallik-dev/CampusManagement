@@ -4043,6 +4043,11 @@ class OfflineStorageService implements ICampusStorage {
         submitterHandle: 'harish_2025_l_btech_1',
         submitterRole: 'student',
         status: ComplaintStatus.open,
+        isDispute: true,
+        disputeTargetType: DisputeTargetType.result,
+        disputeTargetId: 'CS301-Midterm-2026',
+        disputeEvidence: 'Physical answer sheet shows 10 marks for Q4 Dynamic Programming, but gradebook portal records 0.',
+        requestedResolution: 'Grade Recalculation (+10 marks)',
         createdAt: now.subtract(const Duration(hours: 24)),
         updatedAt: now.subtract(const Duration(hours: 24)),
       ),
@@ -4081,15 +4086,80 @@ class OfflineStorageService implements ICampusStorage {
         createdAt: now.subtract(const Duration(hours: 6)),
         updatedAt: now.subtract(const Duration(hours: 2)),
       ),
+      ComplaintModel(
+        id: 'cmp-006',
+        title: 'Dispute on library overdue late fine for CLRS Algorithms',
+        description: 'Book was deposited in the automated return dropbox prior to 5:00 PM on due date during network downtime.',
+        category: ComplaintCategory.student,
+        urgency: ComplaintUrgency.medium,
+        isAnonymous: false,
+        submittedBy: 'usr-harish_2025_l_btech_1',
+        submitterName: 'Harish Kumar',
+        submitterHandle: 'harish_2025_l_btech_1',
+        submitterRole: 'student',
+        status: ComplaintStatus.open,
+        isDispute: true,
+        disputeTargetType: DisputeTargetType.fine,
+        disputeTargetId: 'fine-lib-01',
+        disputeEvidence: 'Circulation desk manual register entry and automated locker check-in slip.',
+        requestedResolution: 'Full Fine Waiver (₹50.00)',
+        createdAt: now.subtract(const Duration(hours: 4)),
+        updatedAt: now.subtract(const Duration(hours: 4)),
+      ),
+      ComplaintModel(
+        id: 'cmp-007',
+        title: 'Duplicate computer laboratory surcharge on Semester Fee Invoice',
+        description: 'Billed twice for Advanced Computing Lab fee (₹2,500 x 2) on invoice INV-2026-001.',
+        category: ComplaintCategory.student,
+        urgency: ComplaintUrgency.high,
+        isAnonymous: false,
+        submittedBy: 'usr-harish_2025_l_btech_1',
+        submitterName: 'Harish Kumar',
+        submitterHandle: 'harish_2025_l_btech_1',
+        submitterRole: 'student',
+        status: ComplaintStatus.inProgress,
+        resolutionRemarks: 'Treasury audit confirmed duplicate debit; credit note adjustment being processed.',
+        resolvedBy: 'usr-ramesh_2023_emp_1',
+        isDispute: true,
+        disputeTargetType: DisputeTargetType.fee,
+        disputeTargetId: 'INV-2026-001',
+        disputeEvidence: 'Itemized invoice breakdown reflects duplicate item code LAB-CS3 under fee schedule.',
+        requestedResolution: 'Fee Correction / Invoice Adjustment (-₹2,500)',
+        createdAt: now.subtract(const Duration(hours: 2)),
+        updatedAt: now.subtract(const Duration(hours: 2)),
+      ),
+      ComplaintModel(
+        id: 'cmp-008',
+        title: 'Omission of approved conference travel allowance from October salary',
+        description: 'Approved travel reimbursement ref DEAN/TR/2026/89 was not reconciled in October salary slip.',
+        category: ComplaintCategory.employee,
+        urgency: ComplaintUrgency.high,
+        isAnonymous: false,
+        submittedBy: 'usr-priya_2024_emp_1',
+        submitterName: 'Dr. Priya Sharma',
+        submitterHandle: 'priya_2024_emp_1',
+        submitterRole: 'employee',
+        status: ComplaintStatus.open,
+        isDispute: true,
+        disputeTargetType: DisputeTargetType.payroll,
+        disputeTargetId: 'PAYROLL-2026-10',
+        disputeEvidence: 'Dean approval memo DEAN/TR/2026/89 dated Oct 12 and boarding ticket receipts.',
+        requestedResolution: 'Credit of ₹12,000 in supplementary payroll cycle',
+        createdAt: now.subtract(const Duration(hours: 1)),
+        updatedAt: now.subtract(const Duration(hours: 1)),
+      ),
     ]);
   }
 
+  @override
   Future<List<ComplaintModel>> getComplaints({
     String? category,
     String? status,
     String? submittedBy,
     String? viewerId,
     List<String>? allowedCategories,
+    bool? isDispute,
+    String? disputeTargetType,
   }) async {
     _seedDefaultComplaintsIfEmpty();
     await checkConnectivity();
@@ -4102,6 +4172,8 @@ class OfflineStorageService implements ICampusStorage {
           submittedBy: submittedBy,
           viewerId: viewerId,
           allowedCategories: allowedCategories,
+          isDispute: isDispute,
+          disputeTargetType: disputeTargetType,
         );
         if (serverComplaints.isNotEmpty) {
           _cachedComplaints.clear();
@@ -4113,10 +4185,17 @@ class OfflineStorageService implements ICampusStorage {
     final catFilter = category?.trim().toLowerCase();
     final statusFilter = status?.trim().toLowerCase();
     final submitterFilter = submittedBy?.trim();
+    final targetTypeFilter = disputeTargetType?.trim().toLowerCase();
     final allowedSet = allowedCategories?.map((c) => c.trim().toLowerCase()).toSet() ?? {};
     final hasAllowedRestrictions = allowedSet.isNotEmpty && !allowedSet.contains('*');
 
     final list = _cachedComplaints.where((c) {
+      if (isDispute != null && c.isDispute != isDispute) {
+        return false;
+      }
+      if (targetTypeFilter != null && targetTypeFilter.isNotEmpty && targetTypeFilter != 'all') {
+        if (c.disputeTargetType != targetTypeFilter) return false;
+      }
       if (catFilter != null && catFilter.isNotEmpty && catFilter != 'all' && c.category != catFilter) {
         return false;
       }
@@ -4144,6 +4223,39 @@ class OfflineStorageService implements ICampusStorage {
 
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
+  }
+
+  @override
+  Future<ComplaintModel> raiseDispute(ComplaintModel dispute) async {
+    _seedDefaultComplaintsIfEmpty();
+
+    if (dispute.isAnonymous) {
+      throw Exception('Formal disputes require verified identity and cannot be filed anonymously');
+    }
+    if ((dispute.disputeTargetId ?? '').trim().isEmpty) {
+      throw Exception('Dispute target reference ID is required');
+    }
+    if ((dispute.requestedResolution ?? '').trim().isEmpty) {
+      throw Exception('Requested resolution is required for formal dispute');
+    }
+
+    return createComplaint(dispute.copyWith(isDispute: true, isAnonymous: false));
+  }
+
+  @override
+  Future<List<ComplaintModel>> getDisputes({
+    String? targetType,
+    String? status,
+    String? submittedBy,
+    String? viewerId,
+  }) async {
+    return getComplaints(
+      isDispute: true,
+      disputeTargetType: targetType,
+      status: status,
+      submittedBy: submittedBy,
+      viewerId: viewerId,
+    );
   }
 
   Future<ComplaintModel> createComplaint(ComplaintModel complaint) async {

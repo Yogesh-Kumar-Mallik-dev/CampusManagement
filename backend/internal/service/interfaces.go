@@ -99,6 +99,8 @@ type ComplaintServiceInterface interface {
 	GetComplaint(id, viewerID string) (*model.Complaint, error)
 	ListComplaints(category, status, submittedBy, viewerID string, allowedCategories []string) []model.Complaint
 	UpdateComplaintStatus(id, newStatus, remarks, resolvedBy string) (*model.Complaint, error)
+	RaiseDispute(c model.Complaint) (*model.Complaint, error)
+	ListDisputes(targetType, status, submittedBy, viewerID string, allowedCategories []string) []model.Complaint
 }
 
 // Ensure concrete services satisfy interfaces at compile-time

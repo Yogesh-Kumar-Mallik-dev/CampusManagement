@@ -308,10 +308,11 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/mess/ratings", c.MessHandler.HandleRatings)
 	}
 
-	// Grievances & Institutional Complaints System
+	// Grievances, Complaints & Dispute Redressal System
 	if c.ComplaintHandler != nil {
 		mux.HandleFunc("/api/v1/complaints", c.ComplaintHandler.HandleComplaints)
 		mux.HandleFunc("/api/v1/complaints/status", c.ComplaintHandler.HandleComplaintStatus)
+		mux.HandleFunc("/api/v1/disputes", c.ComplaintHandler.HandleComplaints)
 	}
 
 	// Institutional Fee & Fine Management System

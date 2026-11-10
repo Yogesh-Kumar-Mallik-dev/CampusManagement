@@ -46,11 +46,13 @@ type CampusFacadeInterface interface {
 	SubmitMealRating(req service.SubmitRatingRequest) (*model.MessRating, error)
 	GetMessRatingsReport(mealID, filter string) model.MessReportSummary
 
-	// Grievances & Complaints
+	// Grievances, Complaints & Disputes
 	CreateComplaint(c model.Complaint) (*model.Complaint, error)
 	GetComplaint(id, viewerID string) (*model.Complaint, error)
 	ListComplaints(category, status, submittedBy, viewerID string, allowedCategories []string) []model.Complaint
 	UpdateComplaintStatus(id, newStatus, remarks, resolvedBy string) (*model.Complaint, error)
+	RaiseDispute(c model.Complaint) (*model.Complaint, error)
+	ListDisputes(targetType, status, submittedBy, viewerID string, allowedCategories []string) []model.Complaint
 
 	// Fees & Fines
 	GetFeeSummary(ctx context.Context, studentID string) (model.FeeSummary, error)
@@ -345,6 +347,20 @@ func (f *CampusFacade) UpdateComplaintStatus(id, newStatus, remarks, resolvedBy 
 		return nil, fmt.Errorf("complaints service unavailable")
 	}
 	return f.complaints.UpdateComplaintStatus(id, newStatus, remarks, resolvedBy)
+}
+
+func (f *CampusFacade) RaiseDispute(c model.Complaint) (*model.Complaint, error) {
+	if f.complaints == nil {
+		return nil, fmt.Errorf("complaints service unavailable")
+	}
+	return f.complaints.RaiseDispute(c)
+}
+
+func (f *CampusFacade) ListDisputes(targetType, status, submittedBy, viewerID string, allowedCategories []string) []model.Complaint {
+	if f.complaints == nil {
+		return nil
+	}
+	return f.complaints.ListDisputes(targetType, status, submittedBy, viewerID, allowedCategories)
 }
 
 // Fees & Fines

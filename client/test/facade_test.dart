@@ -209,6 +209,56 @@ void main() {
       expect(updated.resolvedBy, equals('warden_kumar'));
     });
 
+    test('Facade orchestrates Institutional Disputes and queries by target type', () async {
+      // 1. Fetch seeded disputes
+      final allDisputes = await facade.getDisputes();
+      expect(allDisputes.isNotEmpty, isTrue);
+      expect(allDisputes.every((d) => d.isDispute), isTrue);
+
+      // 2. Query disputes by specific target type
+      final fineDisputes = await facade.getDisputes(targetType: DisputeTargetType.fine);
+      expect(fineDisputes.isNotEmpty, isTrue);
+      expect(fineDisputes.every((d) => d.disputeTargetType == DisputeTargetType.fine), isTrue);
+
+      final feeDisputes = await facade.getDisputes(targetType: DisputeTargetType.fee);
+      expect(feeDisputes.isNotEmpty, isTrue);
+      expect(feeDisputes.every((d) => d.disputeTargetType == DisputeTargetType.fee), isTrue);
+
+      // 3. Raise a formal dispute through facade
+      final now = DateTime.now();
+      final newDispute = ComplaintModel(
+        id: 'dispute-facade-test-1',
+        title: 'Dispute over Duplicate Library Charge',
+        description: 'Billed twice for standard overdue late return fee',
+        category: ComplaintCategory.student,
+        urgency: ComplaintUrgency.high,
+        isAnonymous: false,
+        submittedBy: 'usr-facade-test',
+        submitterHandle: 'facade_student',
+        submitterName: 'Facade Student',
+        submitterRole: 'student',
+        createdAt: now,
+        updatedAt: now,
+        isDispute: true,
+        disputeTargetType: DisputeTargetType.fine,
+        disputeTargetId: 'fine-lib-dup-01',
+        disputeEvidence: 'Transaction receipt showing earlier debit',
+        requestedResolution: 'Reversal of duplicate debit',
+      );
+
+      final raised = await facade.raiseDispute(newDispute);
+      expect(raised.id, isNotEmpty);
+      expect(raised.isDispute, isTrue);
+      expect(raised.disputeTargetType, equals(DisputeTargetType.fine));
+      expect(raised.disputeTargetId, equals('fine-lib-dup-01'));
+      expect(raised.requestedResolution, equals('Reversal of duplicate debit'));
+      expect(raised.status, equals(ComplaintStatus.open));
+
+      // 4. Verify the newly raised dispute appears in dispute queries
+      final updatedFineDisputes = await facade.getDisputes(targetType: DisputeTargetType.fine);
+      expect(updatedFineDisputes.any((d) => d.disputeTargetId == 'fine-lib-dup-01'), isTrue);
+    });
+
     test('Facade comprehensive coverage for users, timetable, and attendance', () async {
       // User lifecycle
       final student = await facade.createStudent({

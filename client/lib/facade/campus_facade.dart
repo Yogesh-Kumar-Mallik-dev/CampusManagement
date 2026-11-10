@@ -139,15 +139,24 @@ abstract class ICampusFacade {
     required String message,
   });
 
-  // Grievances & Complaints
+  // Grievances, Complaints & Disputes
   Future<List<ComplaintModel>> getComplaints({
     String? category,
     String? status,
     String? submittedBy,
     String? viewerId,
     List<String>? allowedCategories,
+    bool? isDispute,
+    String? disputeTargetType,
   });
   Future<ComplaintModel> createComplaint(ComplaintModel complaint);
+  Future<ComplaintModel> raiseDispute(ComplaintModel dispute);
+  Future<List<ComplaintModel>> getDisputes({
+    String? targetType,
+    String? status,
+    String? submittedBy,
+    String? viewerId,
+  });
   Future<ComplaintModel> updateComplaintStatus({
     required String complaintId,
     required String status,
@@ -559,6 +568,8 @@ class CampusFacade implements ICampusFacade {
     String? submittedBy,
     String? viewerId,
     List<String>? allowedCategories,
+    bool? isDispute,
+    String? disputeTargetType,
   }) =>
       storage.getComplaints(
         category: category,
@@ -566,11 +577,31 @@ class CampusFacade implements ICampusFacade {
         submittedBy: submittedBy,
         viewerId: viewerId,
         allowedCategories: allowedCategories,
+        isDispute: isDispute,
+        disputeTargetType: disputeTargetType,
       );
 
   @override
   Future<ComplaintModel> createComplaint(ComplaintModel complaint) =>
       storage.createComplaint(complaint);
+
+  @override
+  Future<ComplaintModel> raiseDispute(ComplaintModel dispute) =>
+      storage.raiseDispute(dispute);
+
+  @override
+  Future<List<ComplaintModel>> getDisputes({
+    String? targetType,
+    String? status,
+    String? submittedBy,
+    String? viewerId,
+  }) =>
+      storage.getDisputes(
+        targetType: targetType,
+        status: status,
+        submittedBy: submittedBy,
+        viewerId: viewerId,
+      );
 
   @override
   Future<ComplaintModel> updateComplaintStatus({

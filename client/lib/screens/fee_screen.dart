@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../di/service_locator.dart';
 import '../facade/campus_facade.dart';
+import '../models/complaint.dart';
 import '../models/fee.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/file_downloader.dart';
 import '../widgets/app_dropdown.dart';
+import 'complaints_screen.dart';
 
 class FeeScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -677,6 +679,12 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         OutlinedButton.icon(
+                          key: Key('btn-dispute-invoice-${invoice.id}'),
+                          onPressed: () => _openDisputeForInvoice(invoice),
+                          icon: const Icon(Icons.gavel, size: 16),
+                          label: const Text('Dispute Invoice', style: TextStyle(fontSize: 12)),
+                        ),
+                        OutlinedButton.icon(
                           key: Key('btn-download-invoice-pdf-${invoice.id}'),
                           onPressed: () => _downloadInvoicePdf(invoice),
                           icon: const Icon(Icons.picture_as_pdf_outlined, size: 16, color: AppColors.wineRed),
@@ -932,6 +940,12 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
               alignment: WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                OutlinedButton.icon(
+                  key: Key('btn-dispute-fine-${fine.id}'),
+                  onPressed: () => _openDisputeForFine(fine),
+                  icon: const Icon(Icons.gavel, size: 15),
+                  label: const Text('Dispute Fine', style: TextStyle(fontSize: 12)),
+                ),
                 if (canAppeal)
                   OutlinedButton.icon(
                     key: Key('btn-appeal-fine-${fine.id}'),
@@ -1497,6 +1511,48 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
           );
         },
       ),
+    );
+  }
+
+  void _openDisputeForInvoice(FeeInvoiceModel invoice) {
+    ComplaintsScreen.showRaiseDisputeDialog(
+      context: context,
+      storage: widget.storage,
+      currentUser: widget.currentUser,
+      initialTargetType: DisputeTargetType.fee,
+      initialTargetId: invoice.id,
+      initialTitle: 'Billing Dispute for Fee Invoice ${invoice.id}',
+      initialDescription: 'Contesting billing charges and calculations on invoice ${invoice.id} (${invoice.title}).',
+      initialRequestedResolution: 'Adjustment / recalculation of billed amount',
+      onSubmitted: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Dispute raised for Invoice ${invoice.id}. Track under Complaints / Disputes.'),
+            backgroundColor: AppColors.wineRed,
+          ),
+        );
+      },
+    );
+  }
+
+  void _openDisputeForFine(FineRecordModel fine) {
+    ComplaintsScreen.showRaiseDisputeDialog(
+      context: context,
+      storage: widget.storage,
+      currentUser: widget.currentUser,
+      initialTargetType: DisputeTargetType.fine,
+      initialTargetId: fine.id,
+      initialTitle: 'Dispute regarding Fine ${fine.id}',
+      initialDescription: 'Contesting fine ${fine.id} of amount ${currencyFmt.format(fine.amount)}: ${fine.reason}.',
+      initialRequestedResolution: 'Complete waiver of fine due to valid justification',
+      onSubmitted: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Dispute submitted for Fine ${fine.id}. Track under Complaints / Disputes.'),
+            backgroundColor: AppColors.wineRed,
+          ),
+        );
+      },
     );
   }
 
