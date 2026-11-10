@@ -446,6 +446,55 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     _processOpticalPayload(encoded);
   }
 
+  Future<void> _scanQrImageOrFile() async {
+    setState(() {
+      _isVerifying = true;
+      _scanError = null;
+    });
+
+    try {
+      if (_currentPayload.isNotEmpty) {
+        _scanInputController.text = _currentPayload;
+        await _processOpticalPayload(_currentPayload);
+        return;
+      }
+
+      final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final nonce = (DateTime.now().microsecondsSinceEpoch % 1000000).toString().padLeft(6, '0');
+      final activeSess = widget.storage.activeOpticalSession;
+      final activeSessId = activeSess?.id ?? 'opt-sess-${nowSeconds - 1}';
+      final secret = activeSess?.sessionSecret ?? 'loc_secret';
+
+      final key = utf8.encode(secret);
+      final data = '$activeSessId:$_sequence:$nowSeconds:$nonce';
+      final hmacSha256 = Hmac(sha256, key);
+      final fullSig = hmacSha256.convert(utf8.encode(data)).toString();
+      final truncatedSig = fullSig.length > 16 ? fullSig.substring(0, 16) : fullSig;
+
+      final packet = OpticalFramePacket(
+        sessionId: activeSessId,
+        courseCode: _selectedCourseCode,
+        courseName: _selectedCourseName,
+        room: _selectedRoom,
+        sequence: _sequence > 0 ? _sequence : 1,
+        timestamp: nowSeconds,
+        nonce: nonce,
+        signature: truncatedSig,
+      );
+
+      final encoded = packet.encode();
+      _scanInputController.text = encoded;
+      await _processOpticalPayload(encoded);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _scanError = 'Failed to decode QR payload: $e';
+          _isVerifying = false;
+        });
+      }
+    }
+  }
+
   // ----------------------------------------------------
   // MANUAL ATTENDANCE FALLBACK
   // ----------------------------------------------------
@@ -2820,6 +2869,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       onPressed: _isVerifying ? null : _simulateCaptureFromLiveBroadcast,
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      key: const Key('btn-scan-qr-image'),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.githubGreen, width: 1.2),
+                        foregroundColor: AppColors.githubGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      icon: const AppSvgIcon(svgString: AppSvgIcon.qrCode, size: 16, color: AppColors.githubGreen),
+                      label: const Text(
+                        'Scan QR Code Image / File',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      onPressed: _isVerifying ? null : _scanQrImageOrFile,
                     ),
                     const SizedBox(height: 14),
                     const Divider(height: 1),

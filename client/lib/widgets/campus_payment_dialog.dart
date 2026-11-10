@@ -8,6 +8,7 @@ import '../models/fee.dart';
 import '../models/payment_order.dart';
 import '../services/app_cache.dart';
 import '../theme/app_colors.dart';
+import '../utils/file_downloader.dart';
 import '../widgets/app_dropdown.dart';
 
 class CampusPaymentDialog extends StatefulWidget {
@@ -258,7 +259,18 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
               : 'Fine settled successfully. Receipt: $receiptNum',
         ),
         backgroundColor: AppColors.githubGreen,
-        duration: const Duration(seconds: 6),
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(
+          key: const Key('btn-download-payment-receipt'),
+          label: 'Download PDF',
+          textColor: Colors.white,
+          onPressed: () async {
+            try {
+              final bytes = await widget.facade.downloadReceiptPdf(receiptNum);
+              await triggerPdfDownload(filename: 'receipt-$receiptNum.pdf', bytes: bytes);
+            } catch (_) {}
+          },
+        ),
       ),
     );
   }

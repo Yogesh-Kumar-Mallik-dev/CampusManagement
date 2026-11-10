@@ -12,6 +12,7 @@ import '../models/payment_order.dart';
 import '../models/sessional.dart';
 import '../models/user.dart';
 import '../utils/invoice_pdf_generator.dart';
+import '../utils/receipt_pdf_generator.dart';
 import 'storage_interface.dart';
 
 class OfflineStorageService implements ICampusStorage {
@@ -5101,6 +5102,25 @@ class OfflineStorageService implements ICampusStorage {
   }
 
   @override
+  Future<List<int>> downloadReceiptPdf(String receiptNumber) async {
+    _seedDefaultFeesIfEmpty();
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.downloadReceiptPdf(receiptNumber);
+      } catch (_) {}
+    }
+
+    final receipt = _cachedFeeReceipts.firstWhere(
+      (rcp) => rcp.receiptNumber == receiptNumber,
+      orElse: () => throw Exception("Fee receipt '$receiptNumber' not found"),
+    );
+
+    return ReceiptPdfGenerator.generate(receipt);
+  }
+
+  @override
   Future<PaymentGatewayConfigModel> getPaymentConfig() async {
     await checkConnectivity();
     if (isOnline) {
@@ -6474,6 +6494,35 @@ class OfflineStorageService implements ICampusStorage {
     }
 
     _cachedPhysicalBooks.removeWhere((b) => b.id == id);
+  }
+
+  final Map<String, List<int>> _uploadedPdfs = {};
+
+  @override
+  Future<Map<String, dynamic>> uploadPdfDocument({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.uploadPdfDocument(bytes: bytes, filename: filename);
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
+    final fileId = 'pdf-${now.millisecondsSinceEpoch}';
+    _uploadedPdfs[fileId] = bytes;
+
+    return {
+      'file_id': fileId,
+      'original_name': filename,
+      'filename': '${fileId}_$filename',
+      'size_bytes': bytes.length,
+      'size_formatted': '${(bytes.length / (1024 * 1024)).toStringAsFixed(1)} MB',
+      'url': '/api/v1/uploads?id=$fileId',
+      'uploaded_at': now.toIso8601String(),
+    };
   }
 
   @override

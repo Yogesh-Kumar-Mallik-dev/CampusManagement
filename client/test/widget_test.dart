@@ -15,6 +15,8 @@ import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/screens/mess_screen.dart';
 import 'package:campus_client/screens/sessional_exam_screen.dart';
 import 'package:campus_client/screens/user_profile_screen.dart';
+import 'package:campus_client/models/fee.dart';
+import 'package:campus_client/utils/receipt_pdf_generator.dart';
 import 'package:campus_client/theme/app_colors.dart';
 import 'package:campus_client/theme/app_theme.dart';
 import 'package:campus_client/services/api_service.dart';
@@ -4045,6 +4047,138 @@ void main() {
     // Confirm settlement
     await tester.tap(find.byKey(const Key('btn-confirm-pay-invoice')));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('End-to-End Pipelines: PDF Receipt Generation & Download, PDF Book Upload, and Optical QR Image Scanning', (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final facade = CampusFacade(storage: storage, api: api);
+    final student = OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1');
+
+    // 1. Pure-Dart PDF Receipt Generation Pipeline Verification
+    final sampleReceipt = FeeReceiptModel(
+      receiptNumber: 'RCP-INST-TEST-99',
+      paymentId: 'pay_test_99',
+      studentId: student.id,
+      studentName: student.fullName,
+      campusHandle: student.campusHandle,
+      amount: 45000.0,
+      paymentMethod: 'upi',
+      transactionRef: 'UPI/998877665544',
+      issuedAt: DateTime.now(),
+      title: 'BBDIT B.Tech Semester Tuition Remittance',
+      category: 'fee',
+    );
+
+    final pdfBytes = ReceiptPdfGenerator.generate(sampleReceipt);
+    expect(pdfBytes, isNotEmpty);
+    final headerStr = String.fromCharCodes(pdfBytes.take(8));
+    expect(headerStr.startsWith('%PDF-1.4'), isTrue);
+
+    // 2. Receipt Download Pipeline in FeeScreen
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: FeeScreen(
+          storage: storage,
+          currentUser: student,
+          facade: facade,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Switch to Records & Receipts Ledger
+    await tester.tap(find.byKey(const Key('tab-records-ledger')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-view-receipt-RCP-2026-00108')), findsOneWidget);
+    expect(find.byKey(const Key('btn-download-receipt-RCP-2026-00108')), findsOneWidget);
+
+    // Tap Download PDF icon on ledger card
+    await tester.tap(find.byKey(const Key('btn-download-receipt-RCP-2026-00108')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // Open View Proof modal and download from dialog
+    await tester.tap(find.byKey(const Key('btn-view-receipt-RCP-2026-00108')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('dialog-view-receipt')), findsOneWidget);
+    expect(find.byKey(const Key('btn-download-receipt-dialog-RCP-2026-00108')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('btn-download-receipt-dialog-RCP-2026-00108')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // 3. PDF File Picker & Upload Pipeline in LibraryScreen
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: LibraryScreen(
+          storage: storage,
+          currentUser: student,
+          facade: facade,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Switch to Digital E-Books tab
+    await tester.tap(find.byKey(const Key('tab-infinite-ebooks')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn-add-pdf-book')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('btn-add-pdf-book')));
+    await tester.pumpAndSettle();
+
+    // Verify PDF file picker element is present in dialog
+    expect(find.byKey(const Key('btn-pick-pdf-file')), findsOneWidget);
+    expect(find.byKey(const Key('badge-picked-pdf')), findsOneWidget);
+
+    // Trigger file selection
+    await tester.tap(find.byKey(const Key('btn-pick-pdf-file')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('bbdit_curriculum_textbook.pdf'), findsOneWidget);
+
+    // Enter title & author and submit
+    await tester.enterText(find.byKey(const Key('input-pdf-title')), 'Compiler Engineering Handbook');
+    await tester.enterText(find.byKey(const Key('input-pdf-author')), 'A. V. Aho & J. D. Ullman');
+    await tester.tap(find.byKey(const Key('btn-submit-pdf-book')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    // 4. Optical QR Scanner Pipeline in AttendanceScreen
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: AttendanceScreen(
+          storage: storage,
+          currentUser: student,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Open Student Optical Scanner (which starts repeat animation)
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Scan Rolling QR').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('btn-scan-qr-image')), findsOneWidget);
+
+    // Trigger QR image file / payload decoding pipeline
+    await tester.tap(find.byKey(const Key('btn-scan-qr-image')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
     expect(tester.takeException(), isNull);
   });
 }

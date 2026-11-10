@@ -265,4 +265,36 @@ func TestFeeHandlerEndpoints(t *testing.T) {
 	if rrPDFPost.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected 405 from HandleInvoicePDF with POST, got %d", rrPDFPost.Code)
 	}
+
+	// 10. HandleReceiptPDF
+	if len(payments) > 0 {
+		reqReceiptPDF := httptest.NewRequest(http.MethodGet, "/api/v1/fees/receipts/pdf?number="+payments[0].ReceiptNumber, nil)
+		rrReceiptPDF := httptest.NewRecorder()
+		feeH.HandleReceiptPDF(rrReceiptPDF, reqReceiptPDF)
+		if rrReceiptPDF.Code != http.StatusOK {
+			t.Fatalf("expected 200 from HandleReceiptPDF, got %d", rrReceiptPDF.Code)
+		}
+		if rrReceiptPDF.Header().Get("Content-Type") != "application/pdf" {
+			t.Fatalf("expected application/pdf content type, got %s", rrReceiptPDF.Header().Get("Content-Type"))
+		}
+		if !strings.HasPrefix(rrReceiptPDF.Body.String(), "%PDF-1.4") {
+			t.Fatalf("expected PDF-1.4 header in receipt PDF")
+		}
+	}
+
+	// HandleReceiptPDF missing number
+	reqReceiptPDFNoNum := httptest.NewRequest(http.MethodGet, "/api/v1/fees/receipts/pdf", nil)
+	rrReceiptPDFNoNum := httptest.NewRecorder()
+	feeH.HandleReceiptPDF(rrReceiptPDFNoNum, reqReceiptPDFNoNum)
+	if rrReceiptPDFNoNum.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 from HandleReceiptPDF without number, got %d", rrReceiptPDFNoNum.Code)
+	}
+
+	// HandleReceiptPDF not found
+	reqReceiptPDFNotFound := httptest.NewRequest(http.MethodGet, "/api/v1/fees/receipts/pdf?number=missing-rcp", nil)
+	rrReceiptPDFNotFound := httptest.NewRecorder()
+	feeH.HandleReceiptPDF(rrReceiptPDFNotFound, reqReceiptPDFNotFound)
+	if rrReceiptPDFNotFound.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 from HandleReceiptPDF with invalid number, got %d", rrReceiptPDFNotFound.Code)
+	}
 }

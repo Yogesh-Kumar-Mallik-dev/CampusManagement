@@ -205,6 +205,7 @@ abstract class ICampusApi {
   Future<List<FeePaymentModel>> getFeePayments(String studentId);
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
   Future<List<int>> downloadInvoicePdf(String invoiceId);
+  Future<List<int>> downloadReceiptPdf(String receiptNumber);
   Future<PaymentGatewayConfigModel> getPaymentConfig();
   Future<PaymentOrderModel> createPaymentOrder({
     required String entityType,
@@ -284,6 +285,10 @@ abstract class ICampusApi {
   Future<List<EBookModel>> getEBooks({String? query, String? category});
   Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book);
   Future<void> deletePhysicalBook(String id);
+  Future<Map<String, dynamic>> uploadPdfDocument({
+    required List<int> bytes,
+    required String filename,
+  });
   Future<EBookModel> createEBook(EBookModel ebook);
   Future<EBookModel> approveEBook({
     required String ebookId,
@@ -528,6 +533,7 @@ abstract class ICampusStorage {
   Future<List<FeePaymentModel>> getFeePayments(String studentId);
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
   Future<List<int>> downloadInvoicePdf(String invoiceId);
+  Future<List<int>> downloadReceiptPdf(String receiptNumber);
   Future<PaymentGatewayConfigModel> getPaymentConfig();
   Future<PaymentOrderModel> createPaymentOrder({
     required String entityType,
@@ -607,6 +613,10 @@ abstract class ICampusStorage {
   Future<List<EBookModel>> getEBooks({String? query, String? category});
   Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book);
   Future<void> deletePhysicalBook(String id);
+  Future<Map<String, dynamic>> uploadPdfDocument({
+    required List<int> bytes,
+    required String filename,
+  });
   Future<EBookModel> createEBook(EBookModel ebook);
   Future<EBookModel> approveEBook({
     required String ebookId,

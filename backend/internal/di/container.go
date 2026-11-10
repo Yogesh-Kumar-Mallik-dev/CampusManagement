@@ -63,6 +63,7 @@ type Container struct {
 	SessionalHandler   *handler.SessionalHandler
 	DigiLockerHandler  *handler.DigiLockerHandler
 	PaymentHandler     *handler.PaymentHandler
+	UploadHandler      *handler.UploadHandler
 }
 
 // Option allows customizing/mocking dependencies during container initialization
@@ -242,6 +243,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.FeeHandler = handler.NewFeeHandler(c.FeeService)
 	c.LibraryHandler = handler.NewLibraryHandler(c.LibraryService)
 	c.SessionalHandler = handler.NewSessionalHandler(c.SessionalService)
+	c.UploadHandler = handler.NewUploadHandler("")
 
 	if c.DigiLockerService == nil {
 		c.DigiLockerService = service.NewDigiLockerService(
@@ -377,6 +379,7 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/fees/fines/waive", c.FeeHandler.HandleWaiveFine)
 		mux.HandleFunc("/api/v1/fees/payments", c.FeeHandler.HandlePayments)
 		mux.HandleFunc("/api/v1/fees/receipt", c.FeeHandler.HandleReceipt)
+		mux.HandleFunc("/api/v1/fees/receipts/pdf", c.FeeHandler.HandleReceiptPDF)
 	}
 
 	// Institutional Library Management System
@@ -422,6 +425,13 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/payments/order", c.PaymentHandler.HandleCreateOrder)
 		mux.HandleFunc("/api/v1/payments/verify", c.PaymentHandler.HandleVerifyPayment)
 		mux.HandleFunc("/api/v1/payments/webhook", c.PaymentHandler.HandleWebhook)
+	}
+
+	// Document Uploads & Storage Pipeline
+	if c.UploadHandler != nil {
+		mux.HandleFunc("/api/v1/upload/pdf", c.UploadHandler.HandleUploadPDF)
+		mux.HandleFunc("/api/v1/uploads", c.UploadHandler.HandleServeUpload)
+		mux.HandleFunc("/api/v1/uploads/", c.UploadHandler.HandleServeUpload)
 	}
 
 	return mux

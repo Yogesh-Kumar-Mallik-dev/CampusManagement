@@ -1181,6 +1181,15 @@ class ApiService implements ICampusApi {
   }
 
   @override
+  Future<List<int>> downloadReceiptPdf(String receiptNumber) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/receipts/pdf?number=$receiptNumber'));
+    if (res.statusCode == 200) {
+      return res.bodyBytes;
+    }
+    throw Exception('Failed to download receipt PDF (${res.statusCode}): ${res.body}');
+  }
+
+  @override
   Future<PaymentGatewayConfigModel> getPaymentConfig() async {
     final res = await http.get(Uri.parse('$baseUrl/api/v1/payments/config'));
     if (res.statusCode == 200) {
@@ -1552,6 +1561,31 @@ class ApiService implements ICampusApi {
     }
     final err = jsonDecode(res.body);
     throw Exception(err['error'] ?? 'Failed to remove physical book');
+  }
+
+  @override
+  Future<Map<String, dynamic>> uploadPdfDocument({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/upload/pdf');
+    final request = http.MultipartRequest('POST', uri);
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: filename,
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final err = jsonDecode(response.body);
+    throw Exception(err['error'] ?? 'Failed to upload PDF file (${response.statusCode})');
   }
 
   @override

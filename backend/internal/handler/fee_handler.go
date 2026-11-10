@@ -292,3 +292,29 @@ func (h *FeeHandler) HandleInvoicePDF(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(pdfBytes)
 }
+
+// HandleReceiptPDF handles GET /api/v1/fees/receipts/pdf?number={number}
+func (h *FeeHandler) HandleReceiptPDF(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	number := r.URL.Query().Get("number")
+	if number == "" {
+		http.Error(w, `{"error":"receipt number is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	pdfBytes, filename, err := h.feeService.GenerateReceiptPDF(r.Context(), number)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfBytes)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(pdfBytes)
+}

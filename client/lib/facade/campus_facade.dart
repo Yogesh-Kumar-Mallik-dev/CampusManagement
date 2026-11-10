@@ -203,6 +203,7 @@ abstract class ICampusFacade {
   Future<List<FeePaymentModel>> getFeePayments(String studentId);
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber);
   Future<List<int>> downloadInvoicePdf(String invoiceId);
+  Future<List<int>> downloadReceiptPdf(String receiptNumber);
   Future<PaymentGatewayConfigModel> getPaymentConfig();
   Future<PaymentOrderModel> createPaymentOrder({
     required String entityType,
@@ -282,6 +283,10 @@ abstract class ICampusFacade {
   Future<List<EBookModel>> getEBooks({String? query, String? category});
   Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book);
   Future<void> deletePhysicalBook(String id);
+  Future<Map<String, dynamic>> uploadPdfDocument({
+    required List<int> bytes,
+    required String filename,
+  });
   Future<EBookModel> createEBook(EBookModel ebook);
   Future<EBookModel> approveEBook({
     required String ebookId,
@@ -837,6 +842,10 @@ class CampusFacade implements ICampusFacade {
       storage.downloadInvoicePdf(invoiceId);
 
   @override
+  Future<List<int>> downloadReceiptPdf(String receiptNumber) =>
+      storage.downloadReceiptPdf(receiptNumber);
+
+  @override
   Future<PaymentGatewayConfigModel> getPaymentConfig() =>
       storage.getPaymentConfig();
 
@@ -1028,6 +1037,13 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<void> deletePhysicalBook(String id) =>
       storage.deletePhysicalBook(id);
+
+  @override
+  Future<Map<String, dynamic>> uploadPdfDocument({
+    required List<int> bytes,
+    required String filename,
+  }) =>
+      storage.uploadPdfDocument(bytes: bytes, filename: filename);
 
   @override
   Future<EBookModel> createEBook(EBookModel ebook) =>

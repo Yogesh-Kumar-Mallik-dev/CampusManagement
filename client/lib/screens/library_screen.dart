@@ -8,6 +8,7 @@ import '../services/app_cache.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../utils/pdf_picker.dart';
 import '../widgets/app_dropdown.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -1374,6 +1375,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final tagsController = TextEditingController(text: 'Textbook, Reference, Engineering');
     String selectedCategory = BookCategory.cse;
     final isLibrarian = _canManageLibrary;
+    PickedPdfFile? pickedPdfFile;
 
     await showDialog<void>(
       context: context,
@@ -1397,6 +1399,87 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Native / Web PDF File Picker Section
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSurface : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: pickedPdfFile != null
+                                ? AppColors.githubGreen
+                                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                            width: pickedPdfFile != null ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              pickedPdfFile != null ? Icons.picture_as_pdf : Icons.upload_file,
+                              color: pickedPdfFile != null ? AppColors.githubGreen : AppColors.wineRed,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    pickedPdfFile != null
+                                        ? pickedPdfFile!.name
+                                        : 'No PDF file selected yet',
+                                    key: const Key('badge-picked-pdf'),
+                                    style: TextStyle(
+                                      fontWeight: pickedPdfFile != null ? FontWeight.bold : FontWeight.normal,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    pickedPdfFile != null
+                                        ? '${pickedPdfFile!.formattedSize} • Ready to upload'
+                                        : 'Select an authentic PDF document from device',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              key: const Key('btn-pick-pdf-file'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+                                foregroundColor: AppColors.wineRed,
+                                elevation: 0,
+                                side: const BorderSide(color: AppColors.wineRed, width: 1),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.attach_file, size: 14),
+                              label: Text(pickedPdfFile == null ? 'Browse...' : 'Change'),
+                              onPressed: () async {
+                                final picked = await pickPdfFile();
+                                if (picked != null) {
+                                  setDialogState(() {
+                                    pickedPdfFile = picked;
+                                    sizeController.text = picked.formattedSize;
+                                    if (titleController.text.trim().isEmpty) {
+                                      final baseName = picked.name
+                                          .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '')
+                                          .replaceAll(RegExp(r'[-_]'), ' ');
+                                      titleController.text = baseName;
+                                    }
+                                  });
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -1513,6 +1596,20 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         .where((t) => t.isNotEmpty)
                         .toList();
 
+                    final navigator = Navigator.of(ctx);
+                    String downloadUrl = '/api/v1/library/ebooks/download/$id.pdf';
+                    if (pickedPdfFile != null) {
+                      try {
+                        final uploadRes = await _facade.uploadPdfDocument(
+                          bytes: pickedPdfFile!.bytes,
+                          filename: pickedPdfFile!.name,
+                        );
+                        if (uploadRes['url'] != null) {
+                          downloadUrl = uploadRes['url'].toString();
+                        }
+                      } catch (_) {}
+                    }
+
                     final newEbook = EBookModel(
                       id: id,
                       title: title,
@@ -1524,8 +1621,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       format: 'PDF',
                       fileSize: sizeController.text.trim().isNotEmpty
                           ? sizeController.text.trim()
-                          : '12.5 MB',
-                      downloadUrl: '/api/v1/library/ebooks/download/$id.pdf',
+                          : (pickedPdfFile != null ? pickedPdfFile!.formattedSize : '12.5 MB'),
+                      downloadUrl: downloadUrl,
                       readUrl: '/library/reader/$id',
                       isInfiniteBorrow: true,
                       description: descriptionController.text.trim().isNotEmpty
@@ -1543,7 +1640,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       updatedAt: now,
                     );
 
-                    Navigator.of(ctx).pop();
+                    navigator.pop();
                     try {
                       await _facade.createEBook(newEbook);
                       if (mounted) {

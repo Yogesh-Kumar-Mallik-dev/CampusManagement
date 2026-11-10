@@ -1201,18 +1201,32 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
                 ),
               ),
               const SizedBox(height: 4),
-              InkWell(
-                key: Key('btn-view-receipt-${payment.receiptNumber}'),
-                onTap: () => _showReceiptDetailsDialog(payment.receiptNumber),
-                child: const Text(
-                  'View Proof',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.wineRed,
-                    decoration: TextDecoration.underline,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    key: Key('btn-view-receipt-${payment.receiptNumber}'),
+                    onTap: () => _showReceiptDetailsDialog(payment.receiptNumber),
+                    child: const Text(
+                      'View Proof',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.wineRed,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    key: Key('btn-download-receipt-${payment.receiptNumber}'),
+                    onTap: () => _downloadReceiptPdf(payment.receiptNumber),
+                    child: const Tooltip(
+                      message: 'Download Receipt PDF',
+                      child: Icon(Icons.picture_as_pdf, size: 16, color: AppColors.wineRed),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1327,6 +1341,40 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
       messenger.showSnackBar(
         SnackBar(
           content: Text('Failed to download invoice PDF: $err'),
+          backgroundColor: AppColors.statusRed,
+        ),
+      );
+    }
+  }
+
+  Future<void> _downloadReceiptPdf(String receiptNumber) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Generating official receipt PDF for $receiptNumber...'),
+          duration: const Duration(milliseconds: 900),
+        ),
+      );
+
+      final bytes = await _facade.downloadReceiptPdf(receiptNumber);
+      final filename = 'receipt-$receiptNumber.pdf';
+      await triggerPdfDownload(filename: filename, bytes: bytes);
+
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Receipt PDF downloaded: $filename (${bytes.length} bytes)'),
+          backgroundColor: AppColors.githubGreen,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (err) {
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to download receipt PDF: $err'),
           backgroundColor: AppColors.statusRed,
         ),
       );
@@ -1584,6 +1632,20 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+              ElevatedButton.icon(
+                key: Key('btn-download-receipt-dialog-${receipt.receiptNumber}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                icon: const Icon(Icons.download, size: 16),
+                label: const Text('Download PDF Receipt'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _downloadReceiptPdf(receipt.receiptNumber);
+                },
+              ),
             ],
           );
         },
