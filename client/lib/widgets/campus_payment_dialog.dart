@@ -53,35 +53,42 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
   PaymentGatewayConfigModel? _gatewayConfig;
   PaymentOrderModel? _currentOrder;
 
-  // Countdown timer for QR / order validity
+  // Countdown timer for QR / order validity (isolated notifier prevents full dialog re-renders)
   Timer? _countdownTimer;
-  int _secondsRemaining = 900; // 15 minutes
+  final ValueNotifier<int> _secondsRemainingNotifier = ValueNotifier<int>(900);
 
   bool get isInvoice => widget.invoice != null;
   double get maxPayableAmount => isInvoice ? widget.invoice!.dueAmount : widget.fine!.amount;
   String get itemTitle => isInvoice ? widget.invoice!.title : 'Penalty: ${widget.fine!.reason}';
 
+  String _methodForIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'upi';
+      case 1:
+        return 'card';
+      case 2:
+        return 'netbanking';
+      case 3:
+        return 'challan';
+      default:
+        return 'upi';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      animationDuration: const Duration(milliseconds: 150),
+    );
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
+      final method = _methodForIndex(_tabController.index);
+      if (_selectedPaymentMethod != method) {
         setState(() {
-          switch (_tabController.index) {
-            case 0:
-              _selectedPaymentMethod = 'upi';
-              break;
-            case 1:
-              _selectedPaymentMethod = 'card';
-              break;
-            case 2:
-              _selectedPaymentMethod = 'netbanking';
-              break;
-            case 3:
-              _selectedPaymentMethod = 'challan';
-              break;
-          }
+          _selectedPaymentMethod = method;
         });
       }
     });
@@ -93,6 +100,7 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _secondsRemainingNotifier.dispose();
     _tabController.dispose();
     _amountCtrl.dispose();
     _upiIdCtrl.dispose();
@@ -107,21 +115,15 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
 
   void _startTimer() {
     _countdownTimer?.cancel();
-    _secondsRemaining = 900;
+    _secondsRemainingNotifier.value = 900;
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
-      if (_secondsRemaining > 0) {
-        setState(() => _secondsRemaining--);
+      if (_secondsRemainingNotifier.value > 0) {
+        _secondsRemainingNotifier.value--;
       } else {
         t.cancel();
       }
     });
-  }
-
-  String get _formattedTimeRemaining {
-    final m = (_secondsRemaining ~/ 60).toString().padLeft(2, '0');
-    final s = (_secondsRemaining % 60).toString().padLeft(2, '0');
-    return '$m:$s';
   }
 
   Future<void> _initializeCheckout() async {
@@ -358,8 +360,8 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
                       _buildAmountAndChannelBar(isDark),
                       _buildChannelTabs(isDark),
                       Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
+                        child: _FadingIndexedStack(
+                          index: _tabController.index,
                           children: [
                             _buildUpiTab(isDark),
                             _buildCardTab(isDark),
@@ -414,7 +416,9 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
                 if (val != null) {
                   setState(() => _selectedPaymentMethod = val);
                   final tabIdx = ['upi', 'card', 'netbanking', 'challan'].indexOf(val);
-                  if (tabIdx >= 0) _tabController.animateTo(tabIdx);
+                  if (tabIdx >= 0 && _tabController.index != tabIdx) {
+                    _tabController.animateTo(tabIdx);
+                  }
                 }
               },
             ),
@@ -536,6 +540,14 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
       child: TabBar(
         controller: _tabController,
         isScrollable: false,
+        onTap: (index) {
+          final method = _methodForIndex(index);
+          if (_selectedPaymentMethod != method) {
+            setState(() {
+              _selectedPaymentMethod = method;
+            });
+          }
+        },
         labelColor: AppColors.wineRed,
         unselectedLabelColor: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
         indicatorColor: AppColors.wineRed,
@@ -586,9 +598,16 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
                   children: [
                     const Icon(Icons.timer_outlined, size: 13, color: AppColors.statusAmber),
                     const SizedBox(width: 4),
-                    Text(
-                      'QR expires in $_formattedTimeRemaining',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.statusAmber),
+                    ValueListenableBuilder<int>(
+                      valueListenable: _secondsRemainingNotifier,
+                      builder: (context, seconds, _) {
+                        final m = (seconds ~/ 60).toString().padLeft(2, '0');
+                        final s = (seconds % 60).toString().padLeft(2, '0');
+                        return Text(
+                          'QR expires in $m:$s',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.statusAmber),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1184,6 +1203,63 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// High-performance tab content stack that switches instantly without
+/// horizontal slide jank or layout thrashing of offscreen pages, while
+/// preserving internal widget state, scroll positions, and form input.
+class _FadingIndexedStack extends StatefulWidget {
+  final int index;
+  final List<Widget> children;
+
+  const _FadingIndexedStack({
+    required this.index,
+    required this.children,
+  });
+
+  @override
+  State<_FadingIndexedStack> createState() => _FadingIndexedStackState();
+}
+
+class _FadingIndexedStackState extends State<_FadingIndexedStack> with SingleTickerProviderStateMixin {
+  static const Duration _fadeDuration = Duration(milliseconds: 140);
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.index;
+    _controller = AnimationController(vsync: this, duration: _fadeDuration, value: 1.0);
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+  }
+
+  @override
+  void didUpdateWidget(_FadingIndexedStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.index != _currentIndex) {
+      _currentIndex = widget.index;
+      _controller.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: IndexedStack(
+        index: _currentIndex,
+        children: widget.children,
       ),
     );
   }
