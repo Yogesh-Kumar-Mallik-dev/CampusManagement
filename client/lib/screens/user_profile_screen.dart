@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../models/digilocker.dart';
 import '../models/user.dart';
 import '../models/library.dart';
@@ -11,6 +12,7 @@ import '../theme/svg_icons.dart';
 import '../widgets/app_dropdown.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/assign_role_dialog.dart';
+import '../widgets/real_barcode.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -133,47 +135,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildBarcodeVisual(String code, bool isDark) {
-    final barPattern = [
-      2, 1, 3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 2, 2, 1, 4, 1, 2, 3, 1, 2, 4, 2, 1, 3, 1, 4, 2, 1, 3, 2, 1
-    ];
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: 36,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (int i = 0; i < barPattern.length; i++) ...[
-                  Container(
-                    width: barPattern[i].toDouble(),
-                    color: (i % 2 == 0) ? Colors.black : Colors.transparent,
-                  ),
-                  const SizedBox(width: 1.5),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '*$code*',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 10,
-              letterSpacing: 2,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-          ),
-        ],
+    return RealBarcode(
+      data: code,
+      height: 42,
+      lineWidth: 1.4,
+      showText: true,
+      textStyle: const TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 10,
+        letterSpacing: 2,
+        fontWeight: FontWeight.w600,
+        color: Colors.black,
       ),
     );
   }
@@ -240,10 +212,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                   child: Column(
                     children: [
-                      const AppSvgIcon(
-                        svgString: AppSvgIcon.qrCode,
+                      QrImageView(
+                        data: _user.universityRollNo?.isNotEmpty == true
+                            ? _user.universityRollNo!
+                            : _user.campusHandle,
+                        version: QrVersions.auto,
                         size: 140,
-                        color: Colors.black,
+                        backgroundColor: Colors.white,
                       ),
                       const SizedBox(height: 10),
                       _buildBarcodeVisual(_user.universityRollNo ?? _user.campusHandle, isDark),
@@ -323,10 +298,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final emergNameCtrl = TextEditingController(text: _user.emergencyContactName ?? '');
     final emergPhoneCtrl = TextEditingController(text: _user.emergencyContactPhone ?? '');
     final addressCtrl = TextEditingController(text: _user.address ?? '');
-    String selectedBloodGroup = _user.bloodGroup ?? 'O+';
-    final bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+    String selectedBloodGroup = _user.bloodGroup ?? '';
+    final bloodGroups = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
     if (!bloodGroups.contains(selectedBloodGroup)) {
-      selectedBloodGroup = 'O+';
+      selectedBloodGroup = '';
     }
     String? editError;
 
@@ -429,7 +404,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               TextField(
                                 controller: emergNameCtrl,
                                 decoration: InputDecoration(
-                                  hintText: 'e.g. Suresh Kumar (Father)',
+                                  hintText: 'e.g. Parent / Guardian Name',
                                   hintStyle: TextStyle(
                                     fontSize: 12,
                                     color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
@@ -450,7 +425,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         ),
                         const SizedBox(width: 12),
                         SizedBox(
-                          width: 120,
+                          width: 130,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -458,7 +433,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               const SizedBox(height: 6),
                               AppDropdown<String>(
                                 value: selectedBloodGroup,
-                                items: bloodGroups.map((bg) => AppDropdownItem<String>(value: bg, label: bg)).toList(),
+                                items: bloodGroups.map((bg) => AppDropdownItem<String>(value: bg, label: bg.isEmpty ? 'Not specified' : bg)).toList(),
                                 onChanged: (val) {
                                   if (val != null) setDialogState(() => selectedBloodGroup = val);
                                 },
@@ -474,7 +449,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     TextField(
                       controller: emergPhoneCtrl,
                       decoration: InputDecoration(
-                        hintText: 'e.g. +91 98765 00112',
+                        hintText: 'e.g. +91 98000 00000',
                         hintStyle: TextStyle(
                           fontSize: 12,
                           color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
@@ -497,7 +472,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       controller: addressCtrl,
                       maxLines: 2,
                       decoration: InputDecoration(
-                        hintText: 'e.g. Room 204, Block 2, BBDIT Hostel',
+                        hintText: 'e.g. House No., Street, City or Campus Hostel',
                         hintStyle: TextStyle(
                           fontSize: 12,
                           color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
@@ -1273,7 +1248,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildCampusLifeSnapshot(bool isDark) {
-    final att = _attendancePercentage ?? 84.5;
+    final hasAtt = _attendancePercentage != null;
+    final att = _attendancePercentage ?? 0.0;
     final attIsSafe = att >= 75.0;
     final attDiff = (att - 75.0).abs();
 
@@ -1283,8 +1259,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final totalDues = _feeSummary?.totalDues ?? 0.0;
     final overdueInvoices = _feeSummary?.overdueInvoices ?? 0;
 
-    final addressText = _user.address ?? 'Room 204, Block 2, BBDIT Hostel';
-    final roomBrief = addressText.contains('Room') ? addressText.split(',').first : addressText;
+    final hasAddress = _user.address != null && _user.address!.trim().isNotEmpty;
+    final addressText = hasAddress ? _user.address!.trim() : 'Day Scholar / Non-Resident';
+    final roomBrief = hasAddress
+        ? (addressText.contains('Room') ? addressText.split(',').first.trim() : addressText)
+        : 'Day Scholar / Non-Resident';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1301,13 +1280,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               child: _buildMetricTile(
                 isDark: isDark,
                 icon: AppSvgIcon.chartBar,
-                iconColor: attIsSafe ? AppColors.githubGreen : AppColors.statusRed,
+                iconColor: hasAtt
+                    ? (attIsSafe ? AppColors.githubGreen : AppColors.statusRed)
+                    : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
                 title: 'Attendance Standing',
-                value: '${att.toStringAsFixed(1)}%',
-                subtitle: attIsSafe
-                    ? 'Safe (${attDiff.toStringAsFixed(1)}% above 75% min)'
-                    : 'Low Attendance Alert (${attDiff.toStringAsFixed(1)}% below min)',
-                subtitleColor: attIsSafe ? AppColors.githubGreen : AppColors.statusRed,
+                value: hasAtt ? '${att.toStringAsFixed(1)}%' : 'No Sessions Yet',
+                subtitle: hasAtt
+                    ? (attIsSafe
+                        ? 'Safe (${attDiff.toStringAsFixed(1)}% above 75% min)'
+                        : 'Low Attendance Alert (${attDiff.toStringAsFixed(1)}% below min)')
+                    : 'Attendance records pending',
+                subtitleColor: hasAtt
+                    ? (attIsSafe ? AppColors.githubGreen : AppColors.statusRed)
+                    : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
               ),
             ),
             // 2. Library KPI
@@ -1331,10 +1316,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               child: _buildMetricTile(
                 isDark: isDark,
                 icon: AppSvgIcon.bed,
-                iconColor: AppColors.statusYellow,
+                iconColor: hasAddress ? AppColors.statusYellow : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
                 title: 'Hostel & Residence',
                 value: roomBrief,
-                subtitle: 'Campus Resident Pass Active',
+                subtitle: hasAddress ? 'Campus Resident Pass Active' : 'No campus hostel allocated',
                 subtitleColor: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
               ),
             ),
@@ -1433,14 +1418,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildContactAndEmergencyCard(bool isDark) {
     final items = [
       (label: 'Institutional Email', value: _user.email, icon: AppSvgIcon.mail),
-      (label: 'Personal Email', value: _user.personalEmail ?? 'Not registered', icon: AppSvgIcon.mail),
-      (label: 'Phone Number', value: _user.phone ?? 'Not registered', icon: AppSvgIcon.phone),
-      (label: 'Emergency Contact', value: _user.emergencyContactName ?? 'Suresh Kumar (Father)', icon: AppSvgIcon.user),
-      (label: 'Emergency Phone', value: _user.emergencyContactPhone ?? '+91 98765 00112', icon: AppSvgIcon.phone),
-      (label: 'Blood Group', value: _user.bloodGroup ?? 'O+', icon: AppSvgIcon.shield),
-      (label: 'Residential / Room Address', value: _user.address ?? 'Room 204, Block 2, BBDIT Hostel', icon: AppSvgIcon.mapPin),
-      (label: 'University Roll No', value: _user.universityRollNo ?? 'Pending allocation', icon: AppSvgIcon.shield),
-      (label: 'Registration / Application', value: _user.admissionApplicationNo ?? _user.universityRegNo ?? 'Verified Direct', icon: AppSvgIcon.info),
+      (label: 'Personal Email', value: _user.personalEmail?.isNotEmpty == true ? _user.personalEmail! : 'Not registered', icon: AppSvgIcon.mail),
+      (label: 'Phone Number', value: _user.phone?.isNotEmpty == true ? _user.phone! : 'Not registered', icon: AppSvgIcon.phone),
+      (label: 'Emergency Contact', value: _user.emergencyContactName?.isNotEmpty == true ? _user.emergencyContactName! : 'Not specified', icon: AppSvgIcon.user),
+      (label: 'Emergency Phone', value: _user.emergencyContactPhone?.isNotEmpty == true ? _user.emergencyContactPhone! : 'Not registered', icon: AppSvgIcon.phone),
+      (label: 'Blood Group', value: _user.bloodGroup?.isNotEmpty == true ? _user.bloodGroup! : 'Not specified', icon: AppSvgIcon.shield),
+      (label: 'Residential / Room Address', value: _user.address?.isNotEmpty == true ? _user.address! : 'Not specified', icon: AppSvgIcon.mapPin),
+      (label: 'University Roll No', value: _user.universityRollNo?.isNotEmpty == true ? _user.universityRollNo! : 'Pending allocation', icon: AppSvgIcon.shield),
+      (label: 'Registration / Application', value: _user.admissionApplicationNo?.isNotEmpty == true ? _user.admissionApplicationNo! : (_user.universityRegNo?.isNotEmpty == true ? _user.universityRegNo! : 'Not available'), icon: AppSvgIcon.info),
       (label: 'System ID Anchor', value: _user.id, icon: AppSvgIcon.qrCode),
     ];
 
@@ -1542,61 +1527,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Widget _buildDigiLockerVaultCard(bool isDark) {
     final isVerified = _user.isDigiLockerVerified;
-    final abcId = _user.abcId ?? '8912-3456-7890';
-    final docs = _user.verifiedDocuments.isNotEmpty
-        ? _user.verifiedDocuments
-        : [
-            VerifiedDocumentModel(
-              documentType: 'apaar_abc',
-              documentTitle: 'APAAR / Academic Bank of Credits (ABC) ID',
-              issuer: 'National Academic Depository (NAD) / MeitY',
-              docRefMasked: '8912-XXXX-7890',
-              issuedYear: 2023,
-              isVerified: true,
-              verificationHash: 'sha256:7b4f539e28f3a5dc1093c0d801e7492cbf3a41e97d10c7104b901a1e0b53ad62',
-              verifiedAt: '2025-08-15 10:30 IST',
-            ),
-            VerifiedDocumentModel(
-              documentType: 'class_x',
-              documentTitle: 'Secondary School Certificate (Class X)',
-              issuer: 'Central Board of Secondary Education (CBSE)',
-              docRefMasked: 'ROLL-12894104',
-              issuedYear: 2021,
-              isVerified: true,
-              verificationHash: 'sha256:a18f23c907b8d145e69eef71410294b810938f2940ba19028e34891209384fa1',
-              verifiedAt: '2025-08-15 10:31 IST',
-            ),
-            VerifiedDocumentModel(
-              documentType: 'class_xii',
-              documentTitle: 'Senior School Certificate (Class XII - PCM)',
-              issuer: 'Central Board of Secondary Education (CBSE)',
-              docRefMasked: 'ROLL-61928401',
-              issuedYear: 2023,
-              isVerified: true,
-              verificationHash: 'sha256:3948af019284baef71829340ab19284091823749812739481928374918273948',
-              verifiedAt: '2025-08-15 10:31 IST',
-            ),
-            VerifiedDocumentModel(
-              documentType: 'aadhaar_kyc',
-              documentTitle: 'Aadhaar Identity Verification',
-              issuer: 'Unique Identification Authority of India (UIDAI)',
-              docRefMasked: 'XXXX-XXXX-4091',
-              issuedYear: 2024,
-              isVerified: true,
-              verificationHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-              verifiedAt: '2025-08-15 10:32 IST',
-            ),
-            VerifiedDocumentModel(
-              documentType: 'domicile',
-              documentTitle: 'Uttar Pradesh State Domicile Certificate',
-              issuer: 'Revenue Department, Govt of Uttar Pradesh',
-              docRefMasked: 'UP-DOM-2023-90812',
-              issuedYear: 2023,
-              isVerified: true,
-              verificationHash: 'sha256:f52f82c471829038471928409182374981729384019283749182739481729384',
-              verifiedAt: '2025-08-15 10:33 IST',
-            ),
-          ];
+    final abcId = _user.abcId?.isNotEmpty == true ? _user.abcId! : 'Not registered';
+    final docs = _user.verifiedDocuments;
 
     if (!isVerified) {
       return Container(
@@ -1859,7 +1791,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           const SizedBox(height: 8),
 
-          ...docs.map((doc) => _buildVerifiedDocTile(doc, isDark)),
+          if (docs.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.02),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                ),
+              ),
+              child: Text(
+                'No verified documents imported yet. Tap "Sync DigiLocker" to pull issued credentials.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+            )
+          else
+            ...docs.map((doc) => _buildVerifiedDocTile(doc, isDark)),
         ],
       ),
     );
@@ -2176,16 +2127,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildInstitutionalStandingCard(bool isDark) {
     if (_user.isContractor) {
       final cp = _user.contractorProfile ?? {};
-      final vendor = _user.vendorOrganization ?? 'Campus External Vendor';
-      final service = (_user.serviceType ?? 'Services').toUpperCase();
-      final gatePass = _user.gatePassId ?? _user.universityRollNo ?? 'GP-ASSIGNED';
+      final vendor = _user.vendorOrganization?.isNotEmpty == true ? _user.vendorOrganization! : 'Not specified';
+      final service = (_user.serviceType?.isNotEmpty == true ? _user.serviceType! : 'Not specified').toUpperCase();
+      final gatePass = _user.gatePassId ?? _user.universityRollNo ?? 'Pending allocation';
       final onboardingYear = cp['onboarding_year'] ?? 2025;
-      final supervisor = _user.supervisorName ?? 'Vendor Office';
-      final supPhone = _user.supervisorPhone ?? 'N/A';
-      final expiry = _user.contractExpiresAt ?? 'Active';
+      final supervisor = _user.supervisorName?.isNotEmpty == true ? _user.supervisorName! : 'Not assigned';
+      final supPhone = _user.supervisorPhone?.isNotEmpty == true ? _user.supervisorPhone! : 'Not provided';
+      final expiry = _user.contractExpiresAt?.isNotEmpty == true ? _user.contractExpiresAt! : 'Not specified';
       final zones = _user.permittedScopes.isNotEmpty
           ? _user.permittedScopes.join(', ')
-          : 'gate:main, building:canteen';
+          : 'None assigned';
 
       return Container(
         padding: const EdgeInsets.all(16),
@@ -2225,8 +2176,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final program = p['program'] ?? 'btech';
       final semester = p['current_semester'] ?? 1;
       final batchYear = p['batch_year'] ?? (admissionYear + 4);
-      final section = _user.sectionScope ?? p['section_scope'] ?? 'Unassigned';
-      final advisor = _user.advisorName ?? p['advisor_name'] ?? 'Assigned Faculty Advisor';
+      final section = (_user.sectionScope?.isNotEmpty == true ? _user.sectionScope : p['section_scope']) ?? 'Not assigned';
+      final advisor = (_user.advisorName?.isNotEmpty == true ? _user.advisorName : p['advisor_name']) ?? 'Not assigned';
 
       return Container(
         padding: const EdgeInsets.all(16),
@@ -2277,8 +2228,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           _buildFactRow('Employment Type', (er['employment_type'] ?? 'permanent').toString().toUpperCase(), isDark),
           if (ap != null) ...[
             const Divider(height: 16),
-            _buildFactRow('Academic Track & Rank', ap['academic_rank'] ?? 'Faculty Member', isDark),
-            if (ap['cabin_location'] != null) ...[
+            _buildFactRow('Academic Track & Rank', (ap['academic_rank'] != null && ap['academic_rank'].toString().isNotEmpty) ? ap['academic_rank'].toString() : 'Not assigned', isDark),
+            if (ap['cabin_location'] != null && ap['cabin_location'].toString().isNotEmpty) ...[
               const Divider(height: 16),
               _buildFactRow('Cabin Location', ap['cabin_location'].toString(), isDark),
             ],
@@ -2289,10 +2240,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ],
           if (ad != null) ...[
             const Divider(height: 16),
-            _buildFactRow('Administrative Unit', ad['primary_unit'] ?? 'General Admin', isDark),
+            _buildFactRow('Administrative Unit', (ad['primary_unit'] != null && ad['primary_unit'].toString().isNotEmpty) ? ad['primary_unit'].toString() : 'Not assigned', isDark),
             const Divider(height: 16),
-            _buildFactRow('Designation', ad['designation'] ?? 'Officer', isDark),
-            if (ad['office_location'] != null) ...[
+            _buildFactRow('Designation', (ad['designation'] != null && ad['designation'].toString().isNotEmpty) ? ad['designation'].toString() : 'Not assigned', isDark),
+            if (ad['office_location'] != null && ad['office_location'].toString().isNotEmpty) ...[
               const Divider(height: 16),
               _buildFactRow('Office Location', ad['office_location'].toString(), isDark),
             ],

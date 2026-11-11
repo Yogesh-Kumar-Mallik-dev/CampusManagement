@@ -245,9 +245,6 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		currentSemester = 1
 	}
 	sectionScope := req.SectionScope
-	if sectionScope == "" {
-		sectionScope = "sec:" + strings.ToLower(req.Program) + "-1a"
-	}
 
 	now := time.Now().UTC()
 	passHash := HashPassword(handle)
@@ -263,6 +260,8 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		Email:                  req.Email,
 		PersonalEmail:          req.PersonalEmail,
 		Phone:                  req.Phone,
+		EmergencyContactName:   req.EmergencyContactName,
+		EmergencyContactPhone:  req.EmergencyContactPhone,
 		Archetype:              model.ArchetypeStudent,
 		AdmissionApplicationNo: req.AdmissionApplicationNo,
 		UniversityRollNo:       req.UniversityRollNo,
@@ -331,7 +330,11 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 
 	// Assign baseline student role
 	if h.permService != nil {
-		_ = h.permService.AssignRole(r.Context(), user.ID, "student_base", sectionScope, nil)
+		roleScope := "global"
+		if sectionScope != "" {
+			roleScope = sectionScope
+		}
+		_ = h.permService.AssignRole(r.Context(), user.ID, "student_base", roleScope, nil)
 	}
 
 	resp := map[string]interface{}{
@@ -398,18 +401,20 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		CampusHandle:       handle,
-		FirstName:          req.FirstName,
-		LastName:           req.LastName,
-		Email:              req.Email,
-		PersonalEmail:      req.PersonalEmail,
-		Phone:              req.Phone,
-		Archetype:          model.ArchetypeEmployee,
-		UniversityRollNo:   req.EmployeeCode,
-		IsActive:           true,
-		Status:             "active",
-		MustChangePassword: true,
-		PasswordHash:       passHash,
+		CampusHandle:          handle,
+		FirstName:             req.FirstName,
+		LastName:              req.LastName,
+		Email:                 req.Email,
+		PersonalEmail:         req.PersonalEmail,
+		Phone:                 req.Phone,
+		EmergencyContactName:  req.EmergencyContactName,
+		EmergencyContactPhone: req.EmergencyContactPhone,
+		Archetype:             model.ArchetypeEmployee,
+		UniversityRollNo:      req.EmployeeCode,
+		IsActive:              true,
+		Status:                "active",
+		MustChangePassword:    true,
+		PasswordHash:          passHash,
 	}
 
 	empRecord := model.EmployeeRecord{
@@ -500,7 +505,7 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		if req.IsAdministrative {
 			unitScope := req.PrimaryUnit
 			if unitScope == "" {
-				unitScope = "unit:general"
+				unitScope = "global"
 			}
 			_ = h.permService.AssignRole(r.Context(), user.ID, "staff", unitScope, nil)
 		}
@@ -557,9 +562,6 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gatePassID := req.GatePassID
-	if gatePassID == "" {
-		gatePassID = fmt.Sprintf("GP-%d-%s", req.OnboardingYear, handle)
-	}
 
 	now := time.Now().UTC()
 	passHash := HashPassword(handle)
@@ -635,7 +637,7 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 
 	// Assign contractor / vendor role
 	if h.permService != nil {
-		scope := "gate:main"
+		scope := "global"
 		if len(req.PermittedScopes) > 0 && req.PermittedScopes[0] != "" {
 			scope = req.PermittedScopes[0]
 		}

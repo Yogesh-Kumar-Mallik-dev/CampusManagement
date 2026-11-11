@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../facade/campus_facade.dart';
 import '../models/fee.dart';
@@ -736,51 +737,26 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
   }
 
   Widget _buildSimulatedQrGraphic() {
+    const vpa = 'campusfees.bbdit@icici';
+    final amt = double.tryParse(_amountCtrl.text) ?? maxPayableAmount;
+    final amtStr = amt.toStringAsFixed(2);
+    final note = itemTitle;
+    final upiPayload = 'upi://pay?pa=$vpa&pn=Campus%20Treasury&am=$amtStr&cu=INR&tn=${Uri.encodeComponent(note)}';
+
     return Container(
       width: 140,
       height: 140,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.black12),
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(top: 8, left: 8, child: _buildQrCorner()),
-          Positioned(top: 8, right: 8, child: _buildQrCorner()),
-          Positioned(bottom: 8, left: 8, child: _buildQrCorner()),
-          Icon(Icons.qr_code_2, size: 100, color: Colors.black.withValues(alpha: 0.85)),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4),
-              ],
-            ),
-            child: const Icon(Icons.school, size: 16, color: AppColors.wineRed),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQrCorner() {
-    return Container(
-      width: 22,
-      height: 22,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black87, width: 3),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Center(
-        child: Container(
-          width: 8,
-          height: 8,
-          color: Colors.black87,
-        ),
+      child: QrImageView(
+        data: upiPayload,
+        version: QrVersions.auto,
+        size: 130,
+        backgroundColor: Colors.white,
       ),
     );
   }

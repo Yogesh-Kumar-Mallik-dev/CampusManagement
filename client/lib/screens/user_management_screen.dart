@@ -1115,7 +1115,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'department_affiliations': _empDept.isNotEmpty ? [_empDept] : <String>[],
         'is_administrative': _empIsAdmin,
         'primary_unit': _empAdminUnit,
-        'designation': _empDesignation.text.trim().isNotEmpty ? _empDesignation.text.trim() : 'Staff Member',
+        'designation': _empDesignation.text.trim().isNotEmpty ? _empDesignation.text.trim() : '',
         'office_location': _empOffice.text.trim(),
       });
       if (mounted) {
@@ -1173,7 +1173,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'gate_pass_id': _extGatePass.text.trim(),
         'supervisor_name': _extSupervisorName.text.trim(),
         'supervisor_phone': _extSupervisorPhone.text.trim(),
-        'permitted_scopes': scopes.isNotEmpty ? scopes : ['gate:main'],
+        'permitted_scopes': scopes,
       });
       if (mounted) {
         Navigator.of(context).pop();

@@ -576,10 +576,10 @@ class OfflineStorageService implements ICampusStorage {
       email: '$effectiveHandle@campus.edu',
       personalEmail: '$clean@example.com',
       phone: '+91 98765 43210',
-      emergencyContactName: 'Emergency Contact',
-      emergencyContactPhone: '+91 98765 00112',
-      bloodGroup: 'O+',
-      address: 'Campus Hostel',
+      emergencyContactName: null,
+      emergencyContactPhone: null,
+      bloodGroup: null,
+      address: null,
       archetype: archetype,
       universityRollNo: isEmployee ? 'EMP-2024-0012' : (isExternal ? 'GP-2025-0891' : '2025-CS-042'),
       status: 'active',
@@ -842,6 +842,10 @@ class OfflineStorageService implements ICampusStorage {
       email: req['email'] ?? '$handle@campus.edu',
       personalEmail: req['personal_email'],
       phone: req['phone'],
+      emergencyContactName: req['emergency_contact_name'],
+      emergencyContactPhone: req['emergency_contact_phone'],
+      bloodGroup: req['blood_group'],
+      address: req['address'],
       archetype: 'student',
       admissionApplicationNo: req['admission_application_no'],
       universityRollNo: req['university_roll_no'],
@@ -857,6 +861,8 @@ class OfflineStorageService implements ICampusStorage {
         'batch_year': req['batch_year'] ?? (year + 4),
         'section_scope': ?sectionScope,
         if (req['advisor_name'] != null) 'advisor_name': req['advisor_name'],
+        if (req['emergency_contact_name'] != null) 'emergency_contact_name': req['emergency_contact_name'],
+        if (req['emergency_contact_phone'] != null) 'emergency_contact_phone': req['emergency_contact_phone'],
       },
     );
     _cachedUsers.insert(0, newUser);
@@ -887,19 +893,28 @@ class OfflineStorageService implements ICampusStorage {
       email: req['email'] ?? '$handle@campus.edu',
       personalEmail: req['personal_email'],
       phone: req['phone'],
+      emergencyContactName: req['emergency_contact_name'],
+      emergencyContactPhone: req['emergency_contact_phone'],
+      bloodGroup: req['blood_group'],
+      address: req['address'],
       archetype: 'employee',
+      universityRollNo: req['employee_code'],
       status: 'active',
       mustChangePassword: true,
       activeScopes: ['global'],
       employeeRecord: {
         'joining_date': DateTime.now().toIso8601String(),
         'employment_type': req['employment_type'] ?? 'permanent',
+        'employee_code': req['employee_code'],
         'is_academic': req['is_academic'] == true,
         'is_administrative': req['is_administrative'] == true,
+        if (req['emergency_contact_name'] != null) 'emergency_contact_name': req['emergency_contact_name'],
+        if (req['emergency_contact_phone'] != null) 'emergency_contact_phone': req['emergency_contact_phone'],
       },
       academicProfile: req['is_academic'] == true
           ? {
-              'academic_rank': req['academic_rank'] ?? 'Assistant Professor',
+              if (req['academic_rank'] != null && req['academic_rank'].toString().isNotEmpty)
+                'academic_rank': req['academic_rank'],
               'cabin_location': req['cabin_location'],
               'departments': req['department_affiliations'] is List
                   ? List<String>.from(req['department_affiliations'])
@@ -908,8 +923,10 @@ class OfflineStorageService implements ICampusStorage {
           : null,
       administrativeProfile: req['is_administrative'] == true
           ? {
-              'primary_unit': req['primary_unit'] ?? 'unit:registrar',
-              'designation': req['designation'] ?? 'Staff',
+              if (req['primary_unit'] != null && req['primary_unit'].toString().isNotEmpty)
+                'primary_unit': req['primary_unit'],
+              if (req['designation'] != null && req['designation'].toString().isNotEmpty)
+                'designation': req['designation'],
               'office_location': req['office_location'],
             }
           : null,
@@ -937,7 +954,11 @@ class OfflineStorageService implements ICampusStorage {
     final handle = '${prefix}_$count';
     final gatePass = req['gate_pass_id']?.toString().isNotEmpty == true
         ? req['gate_pass_id'].toString()
-        : 'GP-$year-$handle';
+        : null;
+
+    final permittedScopes = req['permitted_scopes'] is List
+        ? List<String>.from(req['permitted_scopes'])
+        : <String>[];
 
     final newUser = UserModel(
       id: 'usr-$handle',
@@ -947,20 +968,26 @@ class OfflineStorageService implements ICampusStorage {
       email: req['email'] ?? '$handle@campus.edu',
       personalEmail: req['personal_email'],
       phone: req['phone'],
+      emergencyContactName: req['emergency_contact_name'],
+      emergencyContactPhone: req['emergency_contact_phone'],
+      bloodGroup: req['blood_group'],
+      address: req['address'],
       archetype: 'external',
       universityRollNo: gatePass,
       status: 'active',
       mustChangePassword: true,
-      activeScopes: req['permitted_scopes'] is List ? List<String>.from(req['permitted_scopes']) : ['gate:main'],
+      activeScopes: permittedScopes,
       contractorProfile: {
         'onboarding_year': year,
         'vendor_organization': req['vendor_organization'] ?? '',
-        'service_type': req['service_type'] ?? 'maintenance',
-        'contract_expires_at': req['contract_expires_at'] ?? DateTime.now().add(const Duration(days: 365)).toIso8601String(),
-        'gate_pass_id': gatePass,
-        'supervisor_name': req['supervisor_name'],
-        'supervisor_phone': req['supervisor_phone'],
-        'permitted_scopes': req['permitted_scopes'] is List ? req['permitted_scopes'] : ['gate:main'],
+        if (req['service_type'] != null && req['service_type'].toString().isNotEmpty)
+          'service_type': req['service_type'],
+        if (req['contract_expires_at'] != null && req['contract_expires_at'].toString().isNotEmpty)
+          'contract_expires_at': req['contract_expires_at'],
+        'gate_pass_id': ?gatePass,
+        'supervisor_name': ?req['supervisor_name'],
+        'supervisor_phone': ?req['supervisor_phone'],
+        'permitted_scopes': permittedScopes,
       },
     );
     _cachedUsers.insert(0, newUser);
