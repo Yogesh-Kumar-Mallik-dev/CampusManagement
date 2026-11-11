@@ -59,7 +59,9 @@ func NewLibraryService(db *pgxpool.Pool, feeService FeeServiceInterface) *Librar
 		borrows:    make(map[string]*model.BorrowRecord),
 		ebooks:     make(map[string]*model.EBook),
 	}
-	s.seedDefaultData()
+	if ShouldSeedMockData() {
+		s.seedDefaultData()
+	}
 	return s
 }
 

@@ -27,7 +27,9 @@ func NewHostelService(db *pgxpool.Pool, permService *PermissionService) *HostelS
 		rooms:       make(map[int]*model.HostelRoom),
 		serials:     make(map[string]int),
 	}
-	svc.SeedDefaultRooms()
+	if ShouldSeedMockData() {
+		svc.SeedDefaultRooms()
+	}
 	return svc
 }
 

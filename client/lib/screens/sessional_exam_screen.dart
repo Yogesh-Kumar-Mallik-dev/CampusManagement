@@ -560,11 +560,13 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.currentUser?.fullName ?? 'Harish Kumar',
+                      widget.currentUser?.fullName.isNotEmpty == true
+                          ? widget.currentUser!.fullName
+                          : 'Student User',
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      'University Roll No: 2100970100045 | B.Tech CSE Semester 5',
+                      'University Roll No: ${widget.currentUser?.universityRollNo?.isNotEmpty == true ? widget.currentUser!.universityRollNo : "Unassigned"}',
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,

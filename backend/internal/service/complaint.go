@@ -20,7 +20,9 @@ func NewComplaintService() *ComplaintService {
 		complaints: make(map[string]model.Complaint),
 		counter:    100,
 	}
-	svc.seedDefaults()
+	if ShouldSeedMockData() {
+		svc.seedDefaults()
+	}
 	return svc
 }
 

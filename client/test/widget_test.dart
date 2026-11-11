@@ -2355,12 +2355,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Harish!'), findsOneWidget);
-    expect(find.textContaining('B.Tech Computer Science'), findsOneWidget);
     expect(find.text('Attendance Health'), findsOneWidget);
-    expect(find.text('82.4%'), findsOneWidget);
     expect(find.text("Today's Schedule"), findsOneWidget);
     expect(find.text('Hostel Residence'), findsOneWidget);
-    expect(find.text('UPCOMING LECTURE'), findsOneWidget);
     expect(find.text('Student Campus Hub'), findsOneWidget);
 
     // 2. Verify Faculty Dashboard
@@ -2372,7 +2369,6 @@ void main() {
     expect(find.textContaining('Dr. Priya!'), findsOneWidget);
     expect(find.textContaining('Department of CSE'), findsOneWidget);
     expect(find.text('Teaching Load'), findsOneWidget);
-    expect(find.text('3 Classes Today'), findsOneWidget);
     expect(find.text('Optical Attendance'), findsOneWidget);
     expect(find.text('OPTICAL ATTENDANCE STUDIO'), findsOneWidget);
     expect(find.text('Academic & Instructional Governance'), findsOneWidget);
@@ -2386,7 +2382,6 @@ void main() {
     expect(find.textContaining('Ramesh!'), findsOneWidget);
     expect(find.textContaining('Chief Hostel Warden'), findsOneWidget);
     expect(find.text('Hostel Occupancy'), findsOneWidget);
-    expect(find.text('94% Occupancy'), findsOneWidget);
     expect(find.text('Night Curfew'), findsOneWidget);
     expect(find.text('22:30 IST'), findsOneWidget);
     expect(find.text('RESIDENTIAL PROTOCOL'), findsOneWidget);
@@ -2402,7 +2397,6 @@ void main() {
     expect(find.textContaining('Central Campus Canteen & Mess'), findsOneWidget);
     expect(find.text('Meal Timetable'), findsOneWidget);
     expect(find.text('Average Rating'), findsOneWidget);
-    expect(find.text('SUNDAY TIMETABLE CONSTRAINT'), findsOneWidget);
     expect(find.text('Dining Operations & Quality Assurance'), findsOneWidget);
 
     // 5. Verify Administrator Dashboard
@@ -2412,12 +2406,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Campus!'), findsOneWidget);
-    expect(find.textContaining('Executive Governance'), findsOneWidget);
+    expect(find.text('Institutional Operations & Leadership • Campus Director'), findsOneWidget);
     expect(find.text('Campus Directory'), findsOneWidget);
-    expect(find.text('1,420 Identities'), findsOneWidget);
     expect(find.text('Academic Structure'), findsOneWidget);
     expect(find.text('Institutional Redressal'), findsOneWidget);
-    expect(find.text('DISTRIBUTED SYSTEM HEALTH'), findsOneWidget);
+    expect(find.text('SYSTEM HEALTH'), findsOneWidget);
     expect(find.text('Executive Administration & Governance'), findsOneWidget);
   });
 

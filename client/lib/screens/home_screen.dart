@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../models/academic.dart';
+import '../models/complaint.dart';
+import '../models/hostel.dart';
+import '../models/mess.dart';
 import '../models/user.dart';
 import '../services/app_cache.dart';
 import '../services/offline_storage_service.dart';
@@ -55,6 +59,28 @@ class _HomeScreenState extends State<HomeScreen> {
   late List<UserModel> _personas;
   late UserModel _currentUser;
 
+  int _userCount = 0;
+  List<DepartmentModel> _departmentsList = [];
+  int _departmentCount = 0;
+  List<ComplaintModel> _complaintsList = [];
+  int _complaintCount = 0;
+  int _pendingComplaintCount = 0;
+  int _investigatingComplaintCount = 0;
+  int _resolvedComplaintCount = 0;
+  int _hostelRoomCount = 0;
+  int _hostelOccupiedCount = 0;
+  int _hostelTotalAssets = 0;
+  String _studentRoomInfo = 'Not Allotted';
+  String _studentRoomSubtitle = 'No hostel room assigned';
+  double? _studentAttendancePercentage;
+  int _studentTotalClassesHeld = 0;
+  int _studentTotalClassesAttended = 0;
+  List<TimetableSlotModel> _todaySlots = [];
+  List<MessMealModel> _todayMeals = [];
+  int _messMealCount = 0;
+  double _messAverageRating = 0.0;
+  int _messRatingCount = 0;
+
   bool _isPageInMaintenance(int index) => _maintenancePages.contains(index);
   bool _isPageInShowcase(int index) => _showcasePages.contains(index);
 
@@ -71,6 +97,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     AppCache.instance.setLastActiveNavIndex(index, userHandle: _currentUser.campusHandle);
     if (_currentIndex == index) return;
+    if (index == 0) {
+      _loadDashboardData();
+    }
     setState(() {
       _currentIndex = index;
       _loadedTabs.add(index);
@@ -815,6 +844,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _currentUser = initial;
     _loadDirectoryPersonas();
+    _loadDashboardData();
 
     int effectiveIndex = widget.initialTab ?? 0;
     if (widget.initialTab == null && widget.restoreCachedTab) {
@@ -853,6 +883,110 @@ class _HomeScreenState extends State<HomeScreen> {
               _personas.add(u);
             }
           }
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      final futures = await Future.wait([
+        widget.storage.getUsers().catchError((_) => <UserModel>[]),
+        widget.storage.getDepartments().catchError((_) => <DepartmentModel>[]),
+        widget.storage.getComplaints().catchError((_) => <ComplaintModel>[]),
+        widget.storage.getHostelRooms().catchError((_) => <HostelRoomModel>[]),
+        widget.storage.getMessTimetable().catchError((_) => <MessMealModel>[]),
+        widget.storage.getMessRatingsReport().catchError((_) => const MessReportSummary(
+              totalRatings: 0,
+              averageScore: 0.0,
+              ratingCounts: {},
+              recentMessages: [],
+              sundayScheduleNote: '',
+            )),
+      ]);
+
+      if (!mounted) return;
+
+      final users = futures[0] as List<UserModel>;
+      final depts = futures[1] as List<DepartmentModel>;
+      final complaints = futures[2] as List<ComplaintModel>;
+      final rooms = futures[3] as List<HostelRoomModel>;
+      final meals = futures[4] as List<MessMealModel>;
+      final messReport = futures[5] as MessReportSummary;
+
+      final now = DateTime.now();
+      final weekday = now.weekday;
+      final daysOfWeekNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      final todayName = daysOfWeekNames[weekday - 1];
+
+      final occupiedRooms = rooms.where((r) => r.occupants.isNotEmpty).length;
+      int totalAssets = 0;
+      HostelRoomModel? studentRoom;
+      for (final r in rooms) {
+        totalAssets += r.assets.length;
+        if (r.occupants.any((o) => o.userId == _currentUser.id || o.campusHandle == _currentUser.campusHandle)) {
+          studentRoom = r;
+        }
+      }
+
+      double? attendancePct;
+      int attendedCount = 0;
+      int heldCount = 0;
+      if (_currentUser.archetype == 'student') {
+        try {
+          final summaries = await widget.storage.getAttendanceSummary(_currentUser.id);
+          for (final s in summaries) {
+            heldCount += s.totalSessions;
+            attendedCount += s.attended;
+          }
+          if (heldCount > 0) {
+            attendancePct = (attendedCount / heldCount) * 100.0;
+          }
+        } catch (_) {}
+      }
+
+      List<TimetableSlotModel> todaySlotsList = [];
+      try {
+        final sectionScope = _currentUser.activeScopes.firstWhere(
+          (s) => s.startsWith('sec:') || s.startsWith('dept:'),
+          orElse: () => '',
+        );
+        if (sectionScope.isNotEmpty) {
+          final allSlots = await widget.storage.getTimetable(sectionScope);
+          todaySlotsList = allSlots.where((s) => s.dayOfWeek == weekday).toList();
+        }
+      } catch (_) {}
+
+      final todayMealsList = meals.where((m) => m.dayOfWeek.toLowerCase() == todayName).toList();
+
+      if (mounted) {
+        setState(() {
+          _userCount = users.length;
+          _departmentsList = depts;
+          _departmentCount = depts.length;
+          _complaintsList = complaints;
+          _complaintCount = complaints.length;
+          _pendingComplaintCount = complaints.where((c) => c.status == 'submitted').length;
+          _investigatingComplaintCount = complaints.where((c) => c.status == 'in_progress').length;
+          _resolvedComplaintCount = complaints.where((c) => c.status == 'resolved').length;
+          _hostelRoomCount = rooms.length;
+          _hostelOccupiedCount = occupiedRooms;
+          _hostelTotalAssets = totalAssets;
+          if (studentRoom != null) {
+            _studentRoomInfo = 'Room ${studentRoom.roomNumber}';
+            _studentRoomSubtitle = '${studentRoom.blockName} • Floor ${studentRoom.floor} • Curfew 22:30 IST';
+          } else {
+            _studentRoomInfo = 'Not Allotted';
+            _studentRoomSubtitle = 'No hostel room assigned';
+          }
+          _studentAttendancePercentage = attendancePct;
+          _studentTotalClassesHeld = heldCount;
+          _studentTotalClassesAttended = attendedCount;
+          _todaySlots = todaySlotsList;
+          _todayMeals = todayMealsList;
+          _messMealCount = meals.length;
+          _messAverageRating = messReport.averageScore;
+          _messRatingCount = messReport.totalRatings;
         });
       }
     } catch (_) {}
@@ -1013,6 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _loadedTabs.addAll([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
               });
               _checkServer();
+              _loadDashboardData();
             },
             itemBuilder: (BuildContext context) {
               return _personas.map((u) {
@@ -1737,7 +1872,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return 'Institutional Operations & Leadership • Campus Director';
     }
     if (user.isWarden) {
-      return 'Campus Residential Services • Chief Hostel Warden • Gate 1 Office';
+      return 'Campus Residential Services • Chief Hostel Warden';
     }
     if (user.isMessManager) {
       return 'Dining & Catering Operations • Central Campus Canteen & Mess';
@@ -1745,24 +1880,31 @@ class _HomeScreenState extends State<HomeScreen> {
     if (user.isFaculty || user.isHOD) {
       final deptScope = user.activeScopes.firstWhere(
         (s) => s.startsWith('dept:'),
-        orElse: () => 'dept:cse',
+        orElse: () => '',
       );
-      final deptName = deptScope.replaceFirst('dept:', '').toUpperCase();
-      final title = user.isHOD ? 'Head of Department & Faculty' : 'Faculty Member';
-      return 'Department of $deptName • $title • Cabin: CS-304';
+      final deptName = deptScope.isNotEmpty ? deptScope.replaceFirst('dept:', '').toUpperCase() : '';
+      final title = user.isHOD ? 'Head of Department' : 'Faculty Member';
+      return deptName.isNotEmpty ? 'Department of $deptName • $title' : title;
     }
     if (user.isStudent) {
+      final parts = <String>[];
+      if (user.currentSemester != null) {
+        parts.add('Semester ${user.currentSemester}');
+      }
       final secScope = user.sectionScope ??
-          user.activeScopes.firstWhere((s) => s.startsWith('sec:'), orElse: () => 'sec:cse-3a');
-      final secName = secScope.replaceFirst('sec:', '').toUpperCase();
-      final sem = user.currentSemester ?? 3;
-      final roll = (user.universityRollNo?.isNotEmpty == true) ? user.universityRollNo! : '2025-CS-042';
-      return 'B.Tech Computer Science • Semester $sem • Section $secName • Roll: $roll';
+          user.activeScopes.where((s) => s.startsWith('sec:')).firstOrNull;
+      if (secScope != null) {
+        parts.add('Section ${secScope.replaceFirst('sec:', '').toUpperCase()}');
+      }
+      if (user.universityRollNo != null && user.universityRollNo!.isNotEmpty) {
+        parts.add('Roll: ${user.universityRollNo}');
+      }
+      return parts.isNotEmpty ? parts.join(' • ') : 'Enrolled Student • ${user.email}';
     }
     if (user.isContractor) {
-      final org = user.vendorOrganization ?? 'External Contractor Services';
-      final pass = user.gatePassId ?? 'GP-2025-0891';
-      return '$org • Gate Pass: $pass • Authorized Contractor';
+      final org = user.vendorOrganization ?? 'Contractor Services';
+      final pass = user.gatePassId != null ? 'Gate Pass: ${user.gatePassId}' : 'Authorized Contractor';
+      return '$org • $pass';
     }
     return user.email;
   }
@@ -2139,20 +2281,24 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           isDark: isDark,
           title: 'Upcoming Academic Session',
-          badgeText: 'UPCOMING LECTURE',
-          badgeColor: AppColors.wineRed,
+          badgeText: _todaySlots.isNotEmpty ? 'UPCOMING LECTURE' : 'SCHEDULE CLEAR',
+          badgeColor: _todaySlots.isNotEmpty ? AppColors.wineRed : AppColors.githubGreen,
           actionLabel: 'Open Timetable',
           onAction: () => _onDestinationSelected(1),
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'CS301: Operating Systems (09:00 - 10:00 AM)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              Text(
+                _todaySlots.isNotEmpty
+                    ? '${_todaySlots.first.courseName} (${_todaySlots.first.startTime} - ${_todaySlots.first.endTime})'
+                    : 'No Upcoming Lectures Today',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
-                'Lecture Hall LH-101 • Faculty: Dr. Priya Nair',
+                _todaySlots.isNotEmpty
+                    ? 'Venue: ${_todaySlots.first.roomNumber} • Faculty: ${_todaySlots.first.instructorName.isNotEmpty ? _todaySlots.first.instructorName : "Assigned Faculty"}'
+                    : 'No lectures or practical labs scheduled on today\'s timetable.',
                 style: TextStyle(
                   fontSize: 11.5,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -2160,7 +2306,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Optical QR token session will be broadcast at start of lecture for roll-call verification.',
+                _todaySlots.isNotEmpty
+                    ? 'Optical QR token session will be broadcast at start of lecture for roll-call verification.'
+                    : 'Check your full weekly timetable for upcoming course sessions.',
                 style: TextStyle(
                   fontSize: 11,
                   color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -2173,20 +2321,24 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           isDark: isDark,
           title: 'Residential Hall & Dining',
-          badgeText: 'ROOM 108',
+          badgeText: _studentRoomInfo,
           badgeColor: const Color(0xFFD97706),
           actionLabel: 'Rate Recent Meal',
           onAction: () => _onDestinationSelected(7),
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'BBDIT Hostel • Block 1 • Floor 0 • Curfew 22:30 IST Gate 1',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              Text(
+                _studentRoomInfo != 'Not Allotted'
+                    ? 'Campus Hostel • $_studentRoomSubtitle'
+                    : 'Campus Hostel • Room Not Allotted',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
-                'Central Mess Dinner: Paneer Butter Masala, Dal Makhani, Tandoori Roti (20:00 - 21:30)',
+                _todayMeals.isNotEmpty
+                    ? 'Dining Today: ${_todayMeals.map((m) => '${m.title} (${m.startTime}-${m.endTime})').join(' • ')}'
+                    : 'No mess meals scheduled for today.',
                 style: TextStyle(
                   fontSize: 11.5,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -2217,13 +2369,17 @@ class _HomeScreenState extends State<HomeScreen> {
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Course: CS301 Operating Systems • Section CSE-3A',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              Text(
+                _todaySlots.isNotEmpty
+                    ? 'Course: ${_todaySlots.first.courseCode} ${_todaySlots.first.courseName}'
+                    : 'Optical Attendance Studio Ready',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
-                '64 Registered Students • Venue: Lecture Hall LH-101',
+                _todaySlots.isNotEmpty
+                    ? 'Venue: ${_todaySlots.first.roomNumber}'
+                    : 'Select a course section to launch live attendance ledger.',
                 style: TextStyle(
                   fontSize: 11.5,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -2244,33 +2400,35 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           isDark: isDark,
           title: "Today's Teaching Schedule",
-          badgeText: '3 SESSIONS',
+          badgeText: '${_todaySlots.length} SESSIONS',
           badgeColor: AppColors.wineRed,
           actionLabel: 'View Timetable',
           onAction: () => _onDestinationSelected(1),
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '09:00 - 10:00 AM • CS301 Operating Systems (LH-101)',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                '11:00 - 12:00 PM • CS302 Database Systems (LH-102)',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                '02:00 - 04:00 PM • CS303 OS Practical Lab (Lab 2 - Batches A1, A2)',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-              ),
+              if (_todaySlots.isNotEmpty)
+                ..._todaySlots.take(3).map(
+                      (s) => Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Text(
+                          '${s.startTime} - ${s.endTime} • ${s.courseCode} ${s.courseName} (${s.roomNumber})',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    )
+              else
+                const Text(
+                  'No lectures or practical labs scheduled on today\'s timetable.',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
             ],
           ),
         );
         break;
 
       case 'warden':
+        final hostelTickets = _complaintsList.where((c) => c.category == 'hostel').toList();
         panel1 = _buildDashboardPanel(
           context: context,
           isDark: isDark,
@@ -2309,30 +2467,31 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           isDark: isDark,
           title: 'Hostel Maintenance Queue',
-          badgeText: '3 OPEN TICKETS',
+          badgeText: '${hostelTickets.length} OPEN TICKETS',
           badgeColor: const Color(0xFFD97706),
           actionLabel: 'Manage Maintenance',
           onAction: () => _onDestinationSelected(8),
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Room 108: Tubelight flickering (SN: TL-108-01) - Inspected',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'Room 204: Low water pressure on Floor 2 central cooler - Work ordered',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'Room 312: Steel locker key replacement request - Pending inspection',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
+              if (hostelTickets.isNotEmpty)
+                ...hostelTickets.take(3).map(
+                      (t) => Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Text(
+                          '${t.title} - ${t.status.toUpperCase()}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    )
+              else
+                const Text(
+                  'No open hostel maintenance tickets recorded.',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
               const SizedBox(height: 4),
               Text(
-                'All 16 room assets tagged with 14-char institutional serial numbers.',
+                'All $_hostelTotalAssets room assets tagged with 14-char institutional serial numbers.',
                 style: TextStyle(
                   fontSize: 10.5,
                   color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -2355,25 +2514,21 @@ class _HomeScreenState extends State<HomeScreen> {
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Breakfast (07:30 - 09:00): Idli Sambar, Upma, Coconut Chutney, Tea/Coffee',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'Lunch (12:30 - 14:00): Rajma Masala, Steamed Rice, Phulka, Curd, Salad',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'Snacks (17:00 - 18:30): Crispy Veg Cutlet, Green Mint Chutney, Masala Chai',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'Dinner (20:00 - 21:30): Paneer Butter Masala, Dal Makhani, Roti, Gulab Jamun',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
+              if (_todayMeals.isNotEmpty)
+                ..._todayMeals.map(
+                      (m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Text(
+                          '${m.title} (${m.startTime} - ${m.endTime}): ${m.menuSummary}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    )
+              else
+                const Text(
+                  'No meals scheduled for today.',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
             ],
           ),
         );
@@ -2381,16 +2536,18 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           isDark: isDark,
           title: 'Food Quality Meter & Feedback',
-          badgeText: 'SUNDAY TIMETABLE CONSTRAINT',
+          badgeText: _messRatingCount > 0 ? '${_messAverageRating.toStringAsFixed(1)} / 5.0' : 'NO RATINGS',
           badgeColor: const Color(0xFF0969DA),
           actionLabel: 'Inspect Rating Reports',
           onAction: () => _onDestinationSelected(7),
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Student Satisfaction: 68% 5-Star • 22% 4-Star • 10% Sub-3-Star',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              Text(
+                _messRatingCount > 0
+                    ? 'Student Satisfaction: ${_messAverageRating.toStringAsFixed(1)} / 5.0 Stars ($_messRatingCount reviews)'
+                    : 'No student feedback ratings submitted yet.',
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
@@ -2431,7 +2588,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Authorized Building Scopes: Canteen Building, Kitchen Facilities & Main Gate Turnstiles.',
+                'Authorized Building Scopes: Campus Facilities & Main Gate Turnstiles.',
                 style: TextStyle(
                   fontSize: 11.5,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -2471,20 +2628,22 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           isDark: isDark,
           title: 'Institutional Redressal & Grievances SLA',
-          badgeText: 'DISTRIBUTED SYSTEM HEALTH',
-          badgeColor: AppColors.statusRed,
+          badgeText: 'SYSTEM HEALTH',
+          badgeColor: _complaintCount > 0 ? AppColors.statusRed : AppColors.githubGreen,
           actionLabel: 'Open Redressal Center',
           onAction: () => _onDestinationSelected(8),
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Triage: 3 Pending Review • 5 Under Investigation • 6 Resolved',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              Text(
+                _complaintCount > 0
+                    ? 'Triage: $_pendingComplaintCount Pending Review • $_investigatingComplaintCount Under Investigation • $_resolvedComplaintCount Resolved'
+                    : 'No complaints or grievances recorded in the institutional ledger.',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
-                'Categories: Hostel (5) • Student Welfare (4) • Canteen (3) • Campus Facilities (2)',
+                'Categories: Hostel (${_complaintsList.where((c) => c.category == 'hostel').length}) • Academic (${_complaintsList.where((c) => c.category == 'academic').length}) • Canteen (${_complaintsList.where((c) => c.category == 'canteen').length}) • Campus (${_complaintsList.where((c) => c.category == 'campus').length})',
                 style: TextStyle(
                   fontSize: 11.5,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -2492,7 +2651,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'SLA Compliance: 88% resolved within mandated 24-hour institutional resolution policy.',
+                'SLA Compliance: Mandatory 24-hour institutional resolution policy enforced across all units.',
                 style: TextStyle(
                   fontSize: 11,
                   color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
@@ -2505,27 +2664,28 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           isDark: isDark,
           title: 'Academic Structure & Department Chairs',
-          badgeText: '6 DEPTS ACTIVE',
+          badgeText: '$_departmentCount DEPTS ACTIVE',
           badgeColor: const Color(0xFF0969DA),
           actionLabel: 'Manage Departments',
           onAction: () => _onDestinationSelected(5),
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'CSE: 28 Faculty • 4 Degree Programs • HOD: Dr. Priya Nair',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'ECE: 22 Faculty • 3 Degree Programs • 480 Students',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'Mechanical: 18 Faculty • 3 Degree Programs • 360 Students',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-              ),
+              if (_departmentsList.isNotEmpty)
+                ..._departmentsList.take(3).map(
+                      (d) => Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Text(
+                          '${d.code.toUpperCase()}: ${d.name}',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    )
+              else
+                const Text(
+                  '0 academic departments configured. Use Department Management to configure degree programs.',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
             ],
           ),
         );
@@ -2638,32 +2798,44 @@ class _HomeScreenState extends State<HomeScreen> {
         metrics = [
           _DashboardMetricCard(
             title: 'Attendance Health',
-            value: '82.4%',
-            subtitle: 'Safe • >75% Mandatory Margin',
+            value: _studentAttendancePercentage != null
+                ? '${_studentAttendancePercentage!.toStringAsFixed(1)}%'
+                : 'No Records',
+            subtitle: _studentTotalClassesHeld > 0
+                ? '$_studentTotalClassesAttended / $_studentTotalClassesHeld Classes Attended'
+                : '0 attendance sessions recorded',
             iconSvg: AppSvgIcon.attendance,
-            color: AppColors.githubGreen,
+            color: _studentAttendancePercentage != null && _studentAttendancePercentage! >= 75
+                ? AppColors.githubGreen
+                : (_studentAttendancePercentage != null && _studentAttendancePercentage! >= 40
+                    ? const Color(0xFFD97706)
+                    : AppColors.statusRed),
             onTap: () => _onDestinationSelected(2),
           ),
           _DashboardMetricCard(
             title: "Today's Schedule",
-            value: '5 Sessions',
-            subtitle: '4 Lectures & 1 Practical Lab',
+            value: _todaySlots.isNotEmpty ? '${_todaySlots.length} Sessions' : '0 Classes Today',
+            subtitle: _todaySlots.isNotEmpty
+                ? _todaySlots.map((s) => s.courseCode).take(2).join(', ')
+                : 'No classes scheduled today',
             iconSvg: AppSvgIcon.calendar,
             color: AppColors.wineRed,
             onTap: () => _onDestinationSelected(1),
           ),
           _DashboardMetricCard(
             title: 'Hostel Residence',
-            value: 'Room 108',
-            subtitle: 'Floor 0 • Curfew 22:30 IST',
+            value: _studentRoomInfo,
+            subtitle: _studentRoomSubtitle,
             iconSvg: AppSvgIcon.bed,
             color: const Color(0xFFD97706),
             onTap: () => _onDestinationSelected(6),
           ),
           _DashboardMetricCard(
             title: 'Mess Schedule',
-            value: 'Active Menu',
-            subtitle: '6 Days + Sunday Brunch (10:00-12:30)',
+            value: _todayMeals.isNotEmpty ? '${_todayMeals.length} Meals Today' : 'No Menu',
+            subtitle: _todayMeals.isNotEmpty
+                ? _todayMeals.map((m) => m.title).take(2).join(', ')
+                : 'No meals configured for today',
             iconSvg: AppSvgIcon.utensils,
             color: const Color(0xFF2DA44E),
             onTap: () => _onDestinationSelected(7),
@@ -2675,32 +2847,34 @@ class _HomeScreenState extends State<HomeScreen> {
         metrics = [
           _DashboardMetricCard(
             title: 'Teaching Load',
-            value: '3 Classes Today',
-            subtitle: 'CS301 (09:00), CS302 Lab (14:00)',
+            value: _todaySlots.isNotEmpty ? '${_todaySlots.length} Classes Today' : '0 Classes Today',
+            subtitle: _todaySlots.isNotEmpty
+                ? '${_todaySlots.first.courseCode} (${_todaySlots.first.startTime})'
+                : 'No sessions scheduled today',
             iconSvg: AppSvgIcon.calendar,
             color: AppColors.wineRed,
             onTap: () => _onDestinationSelected(1),
           ),
           _DashboardMetricCard(
             title: 'Optical Attendance',
-            value: 'Ready to Roll',
-            subtitle: '1-Tap Rolling QR Broadcast',
+            value: 'Session Broadcaster',
+            subtitle: 'Launch rolling QR token code',
             iconSvg: AppSvgIcon.attendance,
             color: AppColors.githubGreen,
             onTap: () => _onDestinationSelected(2),
           ),
           _DashboardMetricCard(
             title: 'Department Stats',
-            value: '28 Faculty',
-            subtitle: '4 Degree Programs • CSE Dept',
+            value: _departmentCount > 0 ? '$_departmentCount Department${_departmentCount == 1 ? '' : 's'}' : '0 Departments',
+            subtitle: _departmentsList.isNotEmpty ? _departmentsList.first.name : 'No departments configured',
             iconSvg: AppSvgIcon.building,
             color: const Color(0xFF0969DA),
             onTap: () => _onDestinationSelected(5),
           ),
           _DashboardMetricCard(
             title: 'Student Grievances',
-            value: 'Academic Inbox',
-            subtitle: 'Course & Practical Inquiries',
+            value: _complaintCount > 0 ? '$_complaintCount Grievances' : '0 Grievances',
+            subtitle: _complaintCount > 0 ? '$_pendingComplaintCount pending review' : 'No unresolved complaints',
             iconSvg: AppSvgIcon.alertTriangle,
             color: AppColors.statusRed,
             onTap: () => _onDestinationSelected(8),
@@ -2709,11 +2883,13 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
 
       case 'warden':
+        final occupancyPct = _hostelRoomCount > 0 ? ((_hostelOccupiedCount / _hostelRoomCount) * 100).toInt() : 0;
+        final hostelComplaintCount = _complaintsList.where((c) => c.category == 'hostel').length;
         metrics = [
           _DashboardMetricCard(
             title: 'Hostel Occupancy',
-            value: '94% Occupancy',
-            subtitle: '142 / 150 Rooms Allotted',
+            value: '$occupancyPct% Occupancy',
+            subtitle: '$_hostelOccupiedCount / $_hostelRoomCount Rooms Allotted',
             iconSvg: AppSvgIcon.bed,
             color: const Color(0xFFD97706),
             onTap: () => _onDestinationSelected(6),
@@ -2728,7 +2904,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           _DashboardMetricCard(
             title: 'Fixture Inventory',
-            value: '16 Items Monitored',
+            value: '$_hostelTotalAssets Items Monitored',
             subtitle: '14-Char Serial Asset Tracking',
             iconSvg: AppSvgIcon.building,
             color: const Color(0xFF0969DA),
@@ -2736,8 +2912,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           _DashboardMetricCard(
             title: 'Hostel Redressal',
-            value: 'Maintenance Queue',
-            subtitle: 'Plumbing, Electric & Fixtures',
+            value: hostelComplaintCount > 0 ? '$hostelComplaintCount Tickets' : '0 Open Tickets',
+            subtitle: 'Maintenance and fixture issues',
             iconSvg: AppSvgIcon.alertTriangle,
             color: AppColors.statusRed,
             onTap: () => _onDestinationSelected(8),
@@ -2746,19 +2922,20 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
 
       case 'mess':
+        final canteenComplaintCount = _complaintsList.where((c) => c.category == 'canteen').length;
         metrics = [
           _DashboardMetricCard(
             title: 'Meal Timetable',
-            value: '6 Days + Sunday',
-            subtitle: 'Sunday Brunch (10:00 - 12:30)',
+            value: _messMealCount > 0 ? '$_messMealCount Scheduled Meals' : '0 Meals',
+            subtitle: _todayMeals.isNotEmpty ? '${_todayMeals.length} meals scheduled today' : 'No meals scheduled for today',
             iconSvg: AppSvgIcon.utensils,
             color: const Color(0xFF2DA44E),
             onTap: () => _onDestinationSelected(7),
           ),
           _DashboardMetricCard(
             title: 'Average Rating',
-            value: '4.2 / 5.0 Stars',
-            subtitle: 'Mandatory Reviews < 3 Stars',
+            value: _messRatingCount > 0 ? '${_messAverageRating.toStringAsFixed(1)} / 5.0 Stars' : 'No Ratings',
+            subtitle: _messRatingCount > 0 ? '$_messRatingCount student ratings' : '0 student ratings submitted',
             iconSvg: AppSvgIcon.attendance,
             color: const Color(0xFF0969DA),
             onTap: () => _onDestinationSelected(7),
@@ -2773,8 +2950,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           _DashboardMetricCard(
             title: 'Catering Feedback',
-            value: 'Quality Redressal',
-            subtitle: 'Hygiene & Meal Feedback',
+            value: canteenComplaintCount > 0 ? '$canteenComplaintCount Feedback Records' : '0 Feedback Records',
+            subtitle: 'Hygiene and meal feedback',
             iconSvg: AppSvgIcon.alertTriangle,
             color: AppColors.statusRed,
             onTap: () => _onDestinationSelected(8),
@@ -2783,6 +2960,7 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
 
       case 'contractor':
+        final vendorComplaintCount = _complaintsList.where((c) => c.category == 'campus' || c.category == 'canteen').length;
         metrics = [
           _DashboardMetricCard(
             title: 'Gate Pass Status',
@@ -2795,7 +2973,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _DashboardMetricCard(
             title: 'Facility Scopes',
             value: 'Assigned Areas',
-            subtitle: 'Canteen & Main Campus Buildings',
+            subtitle: 'Campus buildings & facilities',
             iconSvg: AppSvgIcon.building,
             color: const Color(0xFF0969DA),
             onTap: () => _onDestinationSelected(9),
@@ -2803,15 +2981,15 @@ class _HomeScreenState extends State<HomeScreen> {
           _DashboardMetricCard(
             title: 'Mess Schedule',
             value: 'Canteen Access',
-            subtitle: 'Dining Timetable & Menu Access',
+            subtitle: 'Dining timetable & menu access',
             iconSvg: AppSvgIcon.utensils,
             color: const Color(0xFF2DA44E),
             onTap: () => _onDestinationSelected(7),
           ),
           _DashboardMetricCard(
             title: 'Vendor Redressal',
-            value: 'Contractor Issues',
-            subtitle: 'Facility & Billing Inquiries',
+            value: vendorComplaintCount > 0 ? '$vendorComplaintCount Tickets' : '0 Tickets',
+            subtitle: 'Facility & billing inquiries',
             iconSvg: AppSvgIcon.alertTriangle,
             color: AppColors.statusRed,
             onTap: () => _onDestinationSelected(8),
@@ -2824,31 +3002,31 @@ class _HomeScreenState extends State<HomeScreen> {
         metrics = [
           _DashboardMetricCard(
             title: 'Campus Directory',
-            value: '1,420 Identities',
-            subtitle: 'Students, Staff & Contractors',
+            value: _userCount > 0 ? '$_userCount Identit${_userCount == 1 ? 'y' : 'ies'}' : '0 Identities',
+            subtitle: 'Students, Staff & Administrators',
             iconSvg: AppSvgIcon.user,
             color: AppColors.wineRed,
             onTap: () => _onDestinationSelected(4),
           ),
           _DashboardMetricCard(
             title: 'Academic Structure',
-            value: '6 Departments',
-            subtitle: '18 Degree Programs & Sections',
+            value: _departmentCount > 0 ? '$_departmentCount Department${_departmentCount == 1 ? '' : 's'}' : '0 Departments',
+            subtitle: _departmentCount > 0 ? 'Active academic departments' : 'No departments configured',
             iconSvg: AppSvgIcon.building,
             color: const Color(0xFF0969DA),
             onTap: () => _onDestinationSelected(5),
           ),
           _DashboardMetricCard(
             title: 'Institutional Redressal',
-            value: '5 Categories',
-            subtitle: 'Student, Staff, Hostel, Campus',
+            value: _complaintCount > 0 ? '$_complaintCount Complaint${_complaintCount == 1 ? '' : 's'}' : '0 Complaints',
+            subtitle: _complaintCount > 0 ? '$_pendingComplaintCount pending review' : 'No complaints recorded',
             iconSvg: AppSvgIcon.alertTriangle,
             color: AppColors.statusRed,
             onTap: () => _onDestinationSelected(8),
           ),
           _DashboardMetricCard(
             title: 'Offline Sync Engine',
-            value: '100% Operational',
+            value: widget.storage.isOnline ? 'Online Connected' : 'Offline Mode',
             subtitle: 'Cryptographic Outbox Active',
             iconSvg: AppSvgIcon.shield,
             color: AppColors.githubGreen,
@@ -2916,7 +3094,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           _buildOperationCard(
             title: 'Targeted Notices',
-            subtitle: 'Section CSE-3A circulars & club bulletins',
+            subtitle: 'Targeted scope circulars & bulletins',
             iconSvg: AppSvgIcon.bell,
             color: AppColors.statusYellow,
             onTap: () => _onDestinationSelected(3),
@@ -2930,14 +3108,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           _buildOperationCard(
             title: 'Departments & Academics',
-            subtitle: 'B.Tech CSE curriculum, syllabus & course outlines',
+            subtitle: 'Department curriculum, syllabus & course outlines',
             iconSvg: AppSvgIcon.building,
             color: const Color(0xFF0969DA),
             onTap: () => _onDestinationSelected(5),
           ),
           _buildOperationCard(
             title: 'Hostel Rooms',
-            subtitle: 'Room 108, roommates & verified asset inventory',
+            subtitle: 'Hostel room allotment & verified asset inventory',
             iconSvg: AppSvgIcon.bed,
             color: const Color(0xFFD97706),
             onTap: () => _onDestinationSelected(6),
@@ -2989,7 +3167,7 @@ class _HomeScreenState extends State<HomeScreen> {
         cards = [
           _buildOperationCard(
             title: 'Attendance Ledger',
-            subtitle: 'Launch rotating QR broadcast for Section CSE-3A',
+            subtitle: 'Launch rotating QR broadcast for course sections',
             iconSvg: AppSvgIcon.attendance,
             color: AppColors.githubGreen,
             onTap: () => _onDestinationSelected(2),

@@ -27,7 +27,9 @@ func NewMessService(db *pgxpool.Pool, permService *PermissionService) *MessServi
 		meals:       make(map[string]*model.MessMeal),
 		ratings:     make(map[string]*model.MessRating),
 	}
-	svc.SeedDefaultMenuAndReviews()
+	if ShouldSeedMockData() {
+		svc.SeedDefaultMenuAndReviews()
+	}
 	return svc
 }
 

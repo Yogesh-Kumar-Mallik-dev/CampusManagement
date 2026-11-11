@@ -53,7 +53,9 @@ func NewFeeService(db *pgxpool.Pool, permService *PermissionService) *FeeService
 		payments:    make(map[string]*model.FeePayment),
 		receipts:    make(map[string]*model.FeeReceipt),
 	}
-	svc.seedDefaults()
+	if ShouldSeedMockData() {
+		svc.seedDefaults()
+	}
 	return svc
 }
 

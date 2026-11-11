@@ -33,7 +33,9 @@ func NewSessionalService(permSvc PermissionServiceInterface) *SessionalService {
 		schedules: make([]model.SessionalExamSchedule, 0),
 		permSvc:   permSvc,
 	}
-	s.seedDefaultData()
+	if ShouldSeedMockData() {
+		s.seedDefaultData()
+	}
 	return s
 }
 
