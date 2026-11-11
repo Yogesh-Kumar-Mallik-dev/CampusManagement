@@ -300,6 +300,8 @@ abstract class ICampusFacade {
     required List<int> bytes,
     required String filename,
   });
+  Future<List<int>> downloadPdfDocument(String fileId);
+  Future<List<int>> downloadEBookPdf(String ebookId);
   Future<EBookModel> createEBook(EBookModel ebook);
   Future<EBookModel> approveEBook({
     required String ebookId,
@@ -1089,6 +1091,14 @@ class CampusFacade implements ICampusFacade {
     required String filename,
   }) =>
       storage.uploadPdfDocument(bytes: bytes, filename: filename);
+
+  @override
+  Future<List<int>> downloadPdfDocument(String fileId) =>
+      storage.downloadPdfDocument(fileId);
+
+  @override
+  Future<List<int>> downloadEBookPdf(String ebookId) =>
+      storage.downloadEBookPdf(ebookId);
 
   @override
   Future<EBookModel> createEBook(EBookModel ebook) =>

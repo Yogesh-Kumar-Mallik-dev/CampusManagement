@@ -295,6 +295,8 @@ abstract class ICampusApi {
     required List<int> bytes,
     required String filename,
   });
+  Future<List<int>> downloadPdfDocument(String fileId);
+  Future<List<int>> downloadEBookPdf(String ebookId);
   Future<EBookModel> createEBook(EBookModel ebook);
   Future<EBookModel> approveEBook({
     required String ebookId,
@@ -636,6 +638,8 @@ abstract class ICampusStorage {
     required List<int> bytes,
     required String filename,
   });
+  Future<List<int>> downloadPdfDocument(String fileId);
+  Future<List<int>> downloadEBookPdf(String ebookId);
   Future<EBookModel> createEBook(EBookModel ebook);
   Future<EBookModel> approveEBook({
     required String ebookId,

@@ -22,14 +22,34 @@ String _resolveDefaultDownloadsDirectory() {
   return home;
 }
 
-Future<void> _openSavedDocument(String filePath) async {
+/// Opens the operating system's native graphical file manager to reveal or
+/// select the downloaded file in its containing folder.
+Future<void> openInFileManager(String filePath) async {
   try {
+    final file = File(filePath);
+    final dir = file.parent.path;
+
     if (Platform.isLinux) {
-      await Process.run('xdg-open', [filePath]);
+      // 1. D-Bus org.freedesktop.FileManager1 to reveal and highlight the item
+      final dbus = await Process.run('dbus-send', [
+        '--session',
+        '--dest=org.freedesktop.FileManager1',
+        '--type=method_call',
+        '/org/freedesktop/FileManager1',
+        'org.freedesktop.FileManager1.ShowItems',
+        'array:string:file://$filePath',
+        'string:',
+      ]);
+      if (dbus.exitCode != 0) {
+        // Fallback: Open directory in user's default desktop file manager
+        await Process.run('xdg-open', [dir]);
+      }
     } else if (Platform.isMacOS) {
-      await Process.run('open', [filePath]);
+      // -R reveals the file in Finder
+      await Process.run('open', ['-R', filePath]);
     } else if (Platform.isWindows) {
-      await Process.run('cmd', ['/c', 'start', '', filePath]);
+      // /select highlights the file in Windows File Explorer
+      await Process.run('explorer.exe', ['/select,', filePath]);
     }
   } catch (_) {}
 }
@@ -61,7 +81,7 @@ Future<bool> triggerPdfDownload({
           await file.parent.create(recursive: true);
           await file.writeAsBytes(bytes, flush: true);
         }
-        await _openSavedDocument(file.path);
+        await openInFileManager(file.path);
       }
       return true;
     } else {
@@ -134,7 +154,7 @@ if (\$dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     final file = File(targetPath);
     await file.parent.create(recursive: true);
     await file.writeAsBytes(bytes, flush: true);
-    await _openSavedDocument(file.path);
+    await openInFileManager(file.path);
     return true;
   } catch (e) {
     return false;

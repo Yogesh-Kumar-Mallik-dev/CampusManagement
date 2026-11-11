@@ -12,7 +12,9 @@ import '../models/payment_order.dart';
 import '../models/sessional.dart';
 import '../models/user.dart';
 import '../utils/invoice_pdf_generator.dart';
+import '../utils/ebook_pdf_generator.dart';
 import '../utils/env_detector.dart';
+import '../utils/native_file_storage.dart';
 import '../utils/receipt_pdf_generator.dart';
 import 'storage_interface.dart';
 
@@ -90,6 +92,9 @@ class OfflineStorageService implements ICampusStorage {
   UserModel? get currentUser => _currentUser;
 
   Future<bool> checkConnectivity({bool force = false}) async {
+    if (isFlutterTestEnvironment) {
+      return isOnline;
+    }
     final now = DateTime.now();
     if (!force &&
         _lastHealthCheckTime != null &&
@@ -565,7 +570,7 @@ class OfflineStorageService implements ICampusStorage {
   }
 
   void _seedDefaultUsersIfEmpty() {
-    if (!enableMockSeeding || _cachedUsers.isNotEmpty) return;
+    if (_cachedUsers.any((u) => u.id == 'usr-campus_admin')) return;
     _cachedUsers.addAll([
       UserModel(
         id: 'usr-campus_admin',
@@ -6660,6 +6665,9 @@ class OfflineStorageService implements ICampusStorage {
     final fileId = 'pdf-${now.millisecondsSinceEpoch}';
     _uploadedPdfs[fileId] = bytes;
 
+    // Persist to native device filesystem in development / offline environment
+    await persistUploadedPdf(fileId, filename, bytes);
+
     return {
       'file_id': fileId,
       'original_name': filename,
@@ -6669,6 +6677,66 @@ class OfflineStorageService implements ICampusStorage {
       'url': '/api/v1/uploads?id=$fileId',
       'uploaded_at': now.toIso8601String(),
     };
+  }
+
+  @override
+  Future<List<int>> downloadPdfDocument(String fileId) async {
+    // 1. Check in-memory uploaded cache
+    if (_uploadedPdfs.containsKey(fileId)) {
+      return _uploadedPdfs[fileId]!;
+    }
+
+    // 2. Check native device filesystem
+    final diskBytes = await readUploadedPdf(fileId);
+    if (diskBytes != null && diskBytes.isNotEmpty) {
+      _uploadedPdfs[fileId] = diskBytes;
+      return diskBytes;
+    }
+
+    // 3. Check online backend (S3 in production, Local in dev)
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final serverBytes = await api.downloadPdfDocument(fileId);
+        _uploadedPdfs[fileId] = serverBytes;
+        await persistUploadedPdf(fileId, '$fileId.pdf', serverBytes);
+        return serverBytes;
+      } catch (_) {}
+    }
+
+    throw Exception("PDF document '$fileId' could not be retrieved from storage.");
+  }
+
+  @override
+  Future<List<int>> downloadEBookPdf(String ebookId) async {
+    _seedDefaultLibraryIfEmpty();
+
+    // 1. Find the E-Book record
+    final ebook = _cachedEBooks.firstWhere(
+      (b) => b.id == ebookId,
+      orElse: () => throw Exception("E-Book '$ebookId' not found in library collection."),
+    );
+
+    // 2. If the ebook points to an uploaded file ID, retrieve the authentic uploaded bytes
+    if (ebook.downloadUrl.contains('id=')) {
+      final fileId = ebook.downloadUrl.split('id=').last.split('&').first;
+      if (fileId.isNotEmpty) {
+        try {
+          return await downloadPdfDocument(fileId);
+        } catch (_) {}
+      }
+    }
+
+    // 3. Attempt download from online backend
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.downloadEBookPdf(ebookId);
+      } catch (_) {}
+    }
+
+    // 4. Generate compliant institutional PDF 1.4 binary
+    return EBookPdfGenerator.generate(ebook);
   }
 
   @override

@@ -1609,6 +1609,25 @@ class ApiService implements ICampusApi {
   }
 
   @override
+  Future<List<int>> downloadPdfDocument(String fileId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/uploads?id=$fileId'));
+    if (res.statusCode == 200) {
+      return res.bodyBytes;
+    }
+    throw Exception('Failed to download PDF document ($fileId): status ${res.statusCode}');
+  }
+
+  @override
+  Future<List<int>> downloadEBookPdf(String ebookId) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/v1/library/ebooks/$ebookId/download'));
+    if (res.statusCode == 200) {
+      return res.bodyBytes;
+    }
+    // Fallback: try direct uploads endpoint
+    return await downloadPdfDocument(ebookId);
+  }
+
+  @override
   Future<EBookModel> createEBook(EBookModel ebook) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/v1/library/ebooks'),

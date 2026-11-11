@@ -16,6 +16,7 @@ import (
 	"campus/backend/internal/idgen"
 	"campus/backend/internal/model"
 	"campus/backend/internal/service"
+	"campus/backend/internal/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,6 +29,7 @@ type ContainerConfig struct {
 	DBName          string
 	RedisAddr       string
 	UseMemoryStores bool
+	SeedDefaults    bool
 }
 
 // Container serves as the Dependency Injection registry for the backend system
@@ -63,11 +65,18 @@ type Container struct {
 	SessionalHandler   *handler.SessionalHandler
 	DigiLockerHandler  *handler.DigiLockerHandler
 	PaymentHandler     *handler.PaymentHandler
+	BlobStorage        storage.BlobStorage
 	UploadHandler      *handler.UploadHandler
 }
 
 // Option allows customizing/mocking dependencies during container initialization
 type Option func(*Container)
+
+func WithBlobStorage(store storage.BlobStorage) Option {
+	return func(c *Container) {
+		c.BlobStorage = store
+	}
+}
 
 func WithCacheStore(store cache.Store) Option {
 	return func(c *Container) {
@@ -203,15 +212,17 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 		opt(c)
 	}
 
-	// Seed defaults
+	// Seed defaults (system roles and permissions)
 	if concretePerm, ok := c.PermissionService.(*service.PermissionService); ok {
 		seedDefaultRoles(concretePerm)
 	}
-	if concreteHostel, ok := c.HostelService.(*service.HostelService); ok {
-		concreteHostel.SeedDefaultRooms()
-	}
-	if concreteMess, ok := c.MessService.(*service.MessService); ok {
-		concreteMess.SeedDefaultMenuAndReviews()
+	if c.Config.SeedDefaults {
+		if concreteHostel, ok := c.HostelService.(*service.HostelService); ok {
+			concreteHostel.SeedDefaultRooms()
+		}
+		if concreteMess, ok := c.MessService.(*service.MessService); ok {
+			concreteMess.SeedDefaultMenuAndReviews()
+		}
 	}
 
 	// 4. Initialize Unified Domain Facade
@@ -243,7 +254,15 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	c.FeeHandler = handler.NewFeeHandler(c.FeeService)
 	c.LibraryHandler = handler.NewLibraryHandler(c.LibraryService)
 	c.SessionalHandler = handler.NewSessionalHandler(c.SessionalService)
-	c.UploadHandler = handler.NewUploadHandler("")
+
+	if c.BlobStorage == nil {
+		blobStore, err := storage.NewStorageFromEnv()
+		if err != nil {
+			blobStore, _ = storage.NewLocalStorage("")
+		}
+		c.BlobStorage = blobStore
+	}
+	c.UploadHandler = handler.NewUploadHandlerWithStorage(c.BlobStorage)
 
 	if c.DigiLockerService == nil {
 		c.DigiLockerService = service.NewDigiLockerService(

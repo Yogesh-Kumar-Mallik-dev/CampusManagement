@@ -16,3 +16,5 @@ Future<bool> triggerPdfDownload({
   html.Url.revokeObjectUrl(url);
   return true;
 }
+
+Future<void> openInFileManager(String filePath) async {}

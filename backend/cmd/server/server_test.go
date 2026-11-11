@@ -20,9 +20,6 @@ func TestServerContainerInitializationAndRouting(t *testing.T) {
 	if concretePerm, ok := container.PermissionService.(*service.PermissionService); ok {
 		seedDefaultRolesAndScopes(concretePerm)
 	}
-	if concreteAcad, ok := container.AcademicService.(*service.AcademicService); ok {
-		seedDefaultAcademics(concreteAcad)
-	}
 
 	mux := container.BuildMux()
 

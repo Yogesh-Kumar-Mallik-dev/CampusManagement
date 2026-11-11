@@ -5,3 +5,5 @@ Future<bool> triggerPdfDownload({
   // Fallback for native/unit testing environments
   return true;
 }
+
+Future<void> openInFileManager(String filePath) async {}

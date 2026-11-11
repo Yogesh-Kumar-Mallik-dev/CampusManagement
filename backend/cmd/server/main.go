@@ -29,9 +29,6 @@ func main() {
 	if concretePerm, ok := container.PermissionService.(*service.PermissionService); ok {
 		seedDefaultRolesAndScopes(concretePerm)
 	}
-	if concreteAcad, ok := container.AcademicService.(*service.AcademicService); ok {
-		seedDefaultAcademics(concreteAcad)
-	}
 
 	webDist := findWebDist()
 	if webDist != "" {

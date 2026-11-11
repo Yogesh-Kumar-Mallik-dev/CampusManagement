@@ -9,6 +9,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../utils/pdf_picker.dart';
+import '../utils/file_downloader.dart';
 import '../utils/app_error_catalog.dart';
 import '../widgets/app_dropdown.dart';
 
@@ -123,6 +124,43 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _downloadEBookPdf(EBookModel ebook) async {
+    try {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Downloading '${ebook.title}' (${ebook.fileSize})..."),
+          backgroundColor: AppColors.wineRed,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      final bytes = await _facade.downloadEBookPdf(ebook.id);
+      final filename = '${ebook.title.replaceAll(RegExp(r'[^\w\s\.-]'), '_').trim()}.pdf';
+      final saved = await triggerPdfDownload(filename: filename, bytes: bytes);
+
+      if (mounted && saved) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Downloading completed: '$filename' (${bytes.length} bytes). Opened in File Manager."),
+            backgroundColor: AppColors.githubGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Download failed: $e"),
+            backgroundColor: AppColors.statusRed,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadLibraryData() async {
@@ -2002,12 +2040,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         onPressed: () {
                           Navigator.of(ctx).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("Downloading '${ebook.title}' (${ebook.fileSize})..."),
-                              backgroundColor: AppColors.wineRed,
-                            ),
-                          );
+                          _downloadEBookPdf(ebook);
                         },
                       ),
                     ),
@@ -4306,14 +4339,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       backgroundColor: AppColors.wineRed,
                       foregroundColor: Colors.white,
                     ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Downloading '${ebook.title}' (${ebook.fileSize})..."),
-                          backgroundColor: AppColors.githubGreen,
-                        ),
-                      );
-                    },
+                    onPressed: () => _downloadEBookPdf(ebook),
                   ),
                 ],
               ),
