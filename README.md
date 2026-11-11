@@ -170,6 +170,7 @@ CampusManagement/
 │   ├── IDENTITY_AND_RBAC.md   # Canonical handle minting & scoped RBAC
 │   ├── API_REFERENCE.md       # Comprehensive REST API reference
 │   ├── UI_AND_DESIGN_SYSTEM.md# Material 3 theme, logo, SVG icons, and layout rules
+│   ├── ERROR_CATALOG.md       # Institutional error catalog & IT resolution registry
 │   └── OPERATIONS_AND_SCRIPTS.md # Script orchestrator and infrastructure guide
 ├── scripts/                   # Individual lifecycle task scripts
 ├── script.sh                  # POSIX Universal Lifecycle Orchestrator

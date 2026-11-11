@@ -131,9 +131,14 @@ The backend and local storage maintain a verified student registry for the activ
 - **Stream Controls**: Dedicated `Pause Stream` and `Conclude & Save` buttons.
 
 ### 5.2 Receiver Scanner (Student Mobile / Device)
-- **Targeting Reticle**: High-contrast scanning frame with smooth laser sweep animation.
-- **Instant Decoding**: Decodes the optical URI prefix immediately.
+- **Targeting Reticle**: High-contrast scanning frame with smooth laser sweep animation (`ALIGN RETICLE WITH CLASSROOM DISPLAY`).
+- **Cross-Platform Camera Pipeline**:
+  - **Android / iOS / macOS**: Hardware camera stream accelerated via AVFoundation / Google ML Kit with platform permissions (`NSCameraUsageDescription`, `android.permission.CAMERA`).
+  - **Web**: HTML5 `<video>` camera stream via browser `mediaDevices.getUserMedia` with fallback error boundaries.
+  - **Linux Desktop**: Direct V4L2 zero-copy hardware MJPEG passthrough via `ffmpeg -input_format mjpeg -c:v copy` with backward-scanning stale frame dropping to guarantee zero-lag live preview. Background decoding via `zbarimg`.
+- **Instant Decoding**: Decodes the optical URI prefix immediately without blocking UI repaint loops.
 - **Visual Feedback**: Displays a green verified confirmation badge with the recorded sequence, course code, student handle, and server timestamp.
+- **Standardized Error Handling**: Optical errors map directly to mild, non-technical error notifications (`CPOS-CAM-101` through `CPOS-CAM-104`, `CPOS-OPT-201` through `CPOS-OPT-204`). Detailed resolution procedures are documented in [Error Catalog](ERROR_CATALOG.md).
 
 ---
 

@@ -13,6 +13,7 @@ Welcome to the **CampusManagement** engineering documentation. This repository h
 | [Identity & Scoped RBAC](IDENTITY_AND_RBAC.md) | Canonical handle generation (`idgen`), scoped roles, dual-role employees, and user lifecycle states. |
 | [API Reference](API_REFERENCE.md) | Comprehensive REST API specification with request/response schemas, error handling, and cURL examples including Fee, Fine, Library, Dispute, AKTU Sessional Hub, and DigiLocker subsystems. |
 | [UI & Design System](UI_AND_DESIGN_SYSTEM.md) | Wine Red & GitHub Green palette, smooth theme transitions, SVG icons, desktop dropdowns, lighter placeholder standards, and non-scrollable viewports. |
+| [Error Catalog & Troubleshooting](ERROR_CATALOG.md) | Institutional error catalog mapping mild user-facing error messages and reference codes (`CPOS-...`) to IT resolution steps. |
 | [Operations & CLI Orchestrator](OPERATIONS_AND_SCRIPTS.md) | Universal lifecycle commands (`./script.sh`), Docker local environment, testing, and deployment. |
 
 ---
