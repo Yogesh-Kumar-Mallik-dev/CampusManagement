@@ -81,7 +81,6 @@ Future<bool> triggerPdfDownload({
           await file.parent.create(recursive: true);
           await file.writeAsBytes(bytes, flush: true);
         }
-        await openInFileManager(file.path);
       }
       return true;
     } else {
@@ -154,7 +153,6 @@ if (\$dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     final file = File(targetPath);
     await file.parent.create(recursive: true);
     await file.writeAsBytes(bytes, flush: true);
-    await openInFileManager(file.path);
     return true;
   } catch (e) {
     return false;

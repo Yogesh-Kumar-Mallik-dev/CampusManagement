@@ -145,7 +145,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Downloading completed: '$filename' (${bytes.length} bytes). Opened in File Manager."),
+            content: Text("Downloading completed: '$filename' (${bytes.length} bytes)."),
             backgroundColor: AppColors.githubGreen,
           ),
         );
