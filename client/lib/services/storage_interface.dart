@@ -82,6 +82,7 @@ abstract class ICampusApi {
   Future<DepartmentModel> createDepartment(Map<String, dynamic> payload);
   Future<DepartmentDetailModel> fetchDepartmentDetail(String id);
   Future<List<ProgramModel>> fetchPrograms();
+  Future<ProgramModel> createProgram(ProgramModel program);
   Future<List<SubjectModel>> fetchSubjects();
   Future<SubjectModel> createSubject(Map<String, dynamic> payload);
   Future<List<SyllabusVersionModel>> fetchSyllabusAudit(String subjectId);
@@ -445,6 +446,11 @@ abstract class ICampusStorage {
   Future<DepartmentModel> addDepartment(Map<String, dynamic> payload);
   Future<DepartmentDetailModel> getDepartmentDetail(String id);
   Future<List<ProgramModel>> getPrograms();
+  Future<ProgramModel> createProgram(ProgramModel program);
+  Future<ProgramModel> addBranchToProgram({
+    required String programId,
+    required String branchName,
+  });
   Future<List<SubjectModel>> getSubjects();
   Future<SubjectModel> createSubject(Map<String, dynamic> payload);
   Future<List<SyllabusVersionModel>> getSubjectSyllabusAudit(String subjectId);

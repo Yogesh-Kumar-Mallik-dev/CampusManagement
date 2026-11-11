@@ -107,6 +107,11 @@ abstract class ICampusFacade {
   Future<DepartmentModel> addDepartment(Map<String, dynamic> payload);
   Future<DepartmentDetailModel> getDepartmentDetail(String id);
   Future<List<ProgramModel>> getPrograms();
+  Future<ProgramModel> createProgram(ProgramModel program);
+  Future<ProgramModel> addBranchToProgram({
+    required String programId,
+    required String branchName,
+  });
   Future<List<SubjectModel>> getSubjects();
   Future<SubjectModel> createSubject(Map<String, dynamic> payload);
   Future<List<SyllabusVersionModel>> getSubjectSyllabusAudit(String subjectId);
@@ -591,6 +596,20 @@ class CampusFacade implements ICampusFacade {
 
   @override
   Future<List<ProgramModel>> getPrograms() => storage.getPrograms();
+
+  @override
+  Future<ProgramModel> createProgram(ProgramModel program) =>
+      storage.createProgram(program);
+
+  @override
+  Future<ProgramModel> addBranchToProgram({
+    required String programId,
+    required String branchName,
+  }) =>
+      storage.addBranchToProgram(
+        programId: programId,
+        branchName: branchName,
+      );
 
   @override
   Future<List<SubjectModel>> getSubjects() => storage.getSubjects();

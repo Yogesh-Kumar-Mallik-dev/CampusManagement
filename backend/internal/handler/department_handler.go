@@ -105,19 +105,54 @@ func (h *DepartmentHandler) getDepartmentDetail(w http.ResponseWriter, r *http.R
 	_ = json.NewEncoder(w).Encode(detail)
 }
 
-// HandlePrograms handles GET /api/v1/academics/programs
+// HandlePrograms handles GET and POST for /api/v1/academics/programs
 func (h *DepartmentHandler) HandlePrograms(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
+		programs, err := h.academicService.ListPrograms(r.Context())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(programs)
+
+	case http.MethodPost:
+		var req model.Program
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.Name) == "" {
+			http.Error(w, "Program name is required", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.Code) == "" {
+			http.Error(w, "Program code is required", http.StatusBadRequest)
+			return
+		}
+		if req.DurationYears <= 0 {
+			if req.TotalSemesters > 0 {
+				req.DurationYears = req.TotalSemesters / 2
+			} else {
+				req.DurationYears = 4
+			}
+		}
+		if req.TotalSemesters <= 0 {
+			req.TotalSemesters = req.DurationYears * 2
+		}
+		created, err := h.academicService.CreateProgram(r.Context(), req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(created)
+
+	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
-	programs, err := h.academicService.ListPrograms(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(programs)
 }
 
 // HandleSubjects handles GET and POST for /api/v1/academics/subjects

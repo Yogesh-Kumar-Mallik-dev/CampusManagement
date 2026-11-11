@@ -582,6 +582,10 @@ class ProgramModel {
   final String name;
   final String degreeLevel;
   final int totalSemesters;
+  final bool hasBranches;
+  final String branch;
+  final int durationYears;
+  final List<String> branches;
 
   ProgramModel({
     required this.id,
@@ -589,15 +593,31 @@ class ProgramModel {
     required this.name,
     required this.degreeLevel,
     required this.totalSemesters,
+    this.hasBranches = false,
+    this.branch = '',
+    this.durationYears = 4,
+    this.branches = const [],
   });
 
   factory ProgramModel.fromJson(Map<String, dynamic> json) {
+    var rawBranches = json['branches'];
+    List<String> parsedBranches = [];
+    if (rawBranches is List) {
+      parsedBranches = rawBranches.map((e) => e.toString()).toList();
+    }
+    final totalSem = json['total_semesters'] as int? ?? ((json['duration_years'] as num?)?.toInt() ?? 4) * 2;
+    final durYears = json['duration_years'] as int? ?? (totalSem ~/ 2);
+
     return ProgramModel(
       id: json['id'] ?? '',
       code: json['code'] ?? '',
       name: json['name'] ?? '',
       degreeLevel: json['degree_level'] ?? 'undergraduate',
-      totalSemesters: json['total_semesters'] ?? 8,
+      totalSemesters: totalSem,
+      hasBranches: json['has_branches'] as bool? ?? false,
+      branch: json['branch'] ?? '',
+      durationYears: durYears > 0 ? durYears : 4,
+      branches: parsedBranches,
     );
   }
 
@@ -607,7 +627,35 @@ class ProgramModel {
         'name': name,
         'degree_level': degreeLevel,
         'total_semesters': totalSemesters,
+        'has_branches': hasBranches,
+        'branch': branch,
+        'duration_years': durationYears,
+        'branches': branches,
       };
+
+  ProgramModel copyWith({
+    String? id,
+    String? code,
+    String? name,
+    String? degreeLevel,
+    int? totalSemesters,
+    bool? hasBranches,
+    String? branch,
+    int? durationYears,
+    List<String>? branches,
+  }) {
+    return ProgramModel(
+      id: id ?? this.id,
+      code: code ?? this.code,
+      name: name ?? this.name,
+      degreeLevel: degreeLevel ?? this.degreeLevel,
+      totalSemesters: totalSemesters ?? this.totalSemesters,
+      hasBranches: hasBranches ?? this.hasBranches,
+      branch: branch ?? this.branch,
+      durationYears: durationYears ?? this.durationYears,
+      branches: branches ?? this.branches,
+    );
+  }
 }
 
 class SyllabusVersionModel {

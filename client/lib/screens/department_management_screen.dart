@@ -34,6 +34,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
   List<DepartmentModel> _cachedFilteredDepts = [];
   List<SectionModel> _cachedFilteredSecs = [];
   List<SubjectModel> _cachedFilteredSubs = [];
+  List<ProgramModel> _cachedFilteredPrograms = [];
   int _aliasedSubjectsCount = 0;
   int _activeSyllabusCount = 0;
   Timer? _searchDebounce;
@@ -41,7 +42,9 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
   PageLoadState _loadState = PageLoadState.pending;
   String? _errorMessage;
   String _searchQuery = '';
-  int _selectedTab = 0; // 0 = Departments, 1 = Cross-Program Sections
+  int _selectedTab = 0; // 0 = Departments, 1 = Cross-Program Sections, 2 = Subjects, 3 = Programs
+
+  List<ProgramModel> get _filteredPrograms => _cachedFilteredPrograms;
 
   void _recomputeMetrics() {
     int aliased = 0;
@@ -63,6 +66,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
       _cachedFilteredDepts = _departments;
       _cachedFilteredSecs = _sections;
       _cachedFilteredSubs = _subjects;
+      _cachedFilteredPrograms = _programs;
       return;
     }
     final q = _searchQuery.toLowerCase().trim();
@@ -81,6 +85,13 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
           s.code.toLowerCase().contains(q) ||
           (s.oddSemCode != null && s.oddSemCode!.toLowerCase().contains(q)) ||
           (s.evenSemCode != null && s.evenSemCode!.toLowerCase().contains(q));
+    }).toList();
+    _cachedFilteredPrograms = _programs.where((p) {
+      return p.name.toLowerCase().contains(q) ||
+          p.code.toLowerCase().contains(q) ||
+          p.degreeLevel.toLowerCase().contains(q) ||
+          p.branch.toLowerCase().contains(q) ||
+          p.branches.any((b) => b.toLowerCase().contains(q));
     }).toList();
   }
 
@@ -231,11 +242,16 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
                     _buildEmptySectionState(isDark)
                   else
                     _buildSectionsGrid(isDark),
-                ] else ...[
+                ] else if (_selectedTab == 2) ...[
                   if (_filteredSubjects.isEmpty)
                     _buildEmptySubjectState(isDark)
                   else
                     _buildSubjectsGrid(isDark),
+                ] else ...[
+                  if (_filteredPrograms.isEmpty)
+                    _buildEmptyProgramState(isDark)
+                  else
+                    _buildProgramsGrid(isDark),
                 ],
               ],
             ],
@@ -267,13 +283,20 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
       color = const Color(0xFF8250DF);
       buttonLabel = 'Add Shared Section';
       buttonAction = _openAddSectionDialog;
-    } else {
+    } else if (_selectedTab == 2) {
       title = 'Curriculum Subjects & Syllabus Audit';
       subtitle = 'Odd/even term code aliasing (e.g. BCA 102/202) and immutable BoS accreditation audit trail';
       icon = AppSvgIcon.book;
       color = AppColors.githubGreen;
       buttonLabel = 'Add Academic Subject';
       buttonAction = _openAddSubjectDialog;
+    } else {
+      title = 'Degree Programs, Branches & Duration';
+      subtitle = 'Configure academic degree courses, branch specializations, and program duration terms';
+      icon = AppSvgIcon.book;
+      color = const Color(0xFF0969DA);
+      buttonLabel = 'Add Degree Program';
+      buttonAction = _openAddProgramDialog;
     }
 
     return LayoutBuilder(
@@ -441,6 +464,17 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
             isDark: isDark,
             onTap: () {
               setState(() => _selectedTab = 2);
+              _clearSearch();
+            },
+          ),
+          _buildToggleButton(
+            title: 'Degree Programs (${_programs.length})',
+            icon: AppSvgIcon.book,
+            isSelected: _selectedTab == 3,
+            activeColor: const Color(0xFF0969DA),
+            isDark: isDark,
+            onTap: () {
+              setState(() => _selectedTab = 3);
               _clearSearch();
             },
           ),
@@ -722,11 +756,13 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
   Widget _buildSearchBar(bool isDark) {
     String hintText;
     if (_selectedTab == 0) {
-      hintText = 'Search department by name, code (e.g. CSE, ECE) or HOD...';
+      hintText = 'Search department by name, code or HOD...';
     } else if (_selectedTab == 1) {
-      hintText = 'Search section by name (e.g. Section B), cohort, or degree program...';
+      hintText = 'Search section by name, cohort, or degree program...';
+    } else if (_selectedTab == 2) {
+      hintText = 'Search subjects by code, odd/even code, or title...';
     } else {
-      hintText = 'Search subjects by code (e.g. BCA 102/202, CS301), odd/even code, or title...';
+      hintText = 'Search programs by code, degree name, branch, or duration...';
     }
 
     return Container(
@@ -1662,6 +1698,419 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // DEGREE PROGRAMS, BRANCHES & DURATION ACTIONS & GRIDS
+  // ---------------------------------------------------------------------------
+
+  void _openAddProgramDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _AddProgramDialog(
+        storage: widget.storage,
+        onCreated: (prog) {
+          setState(() {
+            _programs.removeWhere((p) => p.id == prog.id);
+            _programs.insert(0, prog);
+            _recomputeFilteredLists();
+          });
+        },
+      ),
+    );
+  }
+
+  void _openAddBranchDialog(ProgramModel program) {
+    final branchCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          title: Text('Add Branch to ${program.code}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Add a new branch specialization to "${program.name}":',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: branchCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Branch / Specialization Name',
+                  hintText: 'e.g. Artificial Intelligence & Data Science',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final bName = branchCtrl.text.trim();
+                if (bName.isEmpty) return;
+                Navigator.of(ctx).pop();
+                try {
+                  final updated = await widget.storage.addBranchToProgram(
+                    programId: program.id,
+                    branchName: bName,
+                  );
+                  setState(() {
+                    final idx = _programs.indexWhere((p) => p.id == program.id);
+                    if (idx != -1) {
+                      _programs[idx] = updated;
+                      _recomputeFilteredLists();
+                    }
+                  });
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Branch "$bName" added to ${program.code}'),
+                        backgroundColor: AppColors.githubGreen,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to add branch: $e'),
+                        backgroundColor: AppColors.statusRed,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0969DA), foregroundColor: Colors.white),
+              child: const Text('Add Branch'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyProgramState(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0969DA).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const AppSvgIcon(
+              svgString: AppSvgIcon.book,
+              size: 32,
+              color: Color(0xFF0969DA),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchQuery.isNotEmpty ? 'No degree programs match "$_searchQuery"' : 'No Degree Programs Registered',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'Try refining your search keyword or clearing the filter.'
+                : 'Configure academic degree courses, branch specializations, and program duration terms.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+          if (_searchQuery.isEmpty) ...[
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _openAddProgramDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0969DA),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 14, color: Colors.white),
+              label: const Text('Add Degree Program'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgramsGrid(bool isDark) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 900 ? 3 : (constraints.maxWidth > 600 ? 2 : 1);
+        final spacing = 14.0;
+        final totalSpacing = spacing * (crossAxisCount - 1);
+        final cardWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: _filteredPrograms.map((prog) {
+            return SizedBox(
+              width: cardWidth,
+              child: _buildProgramCard(prog, isDark),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildProgramCard(ProgramModel prog, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Level badge + Duration pill
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0969DA).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFF0969DA).withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  prog.degreeLevel.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0969DA),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${prog.durationYears} Yrs (${prog.totalSemesters} Sems)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Program Code & Name
+          Text(
+            prog.code,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: -0.2),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            prog.name,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Hierarchy Strip: Program -> Branch -> Duration
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  prog.code,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0969DA)),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.grey),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    prog.hasBranches
+                        ? '${prog.branches.length} Branches'
+                        : (prog.branch.isNotEmpty ? prog.branch : 'Single Core'),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(
+                  '${prog.durationYears} Yrs',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Branch Section Header & Toggle Indicator
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Branch Specializations',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: prog.hasBranches
+                      ? AppColors.githubGreen.withValues(alpha: 0.12)
+                      : Colors.grey.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  prog.hasBranches ? 'Multi-Branch' : 'Single Branch',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: prog.hasBranches ? AppColors.githubGreen : Colors.grey,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Branches Chips or Single Branch Tag
+          if (prog.hasBranches) ...[
+            if (prog.branches.isNotEmpty) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: prog.branches.map((b) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      b,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Align(
+              alignment: Alignment.centerLeft,
+              child: InkWell(
+                onTap: () => _openAddBranchDialog(prog),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_circle_outline, size: 14, color: Color(0xFF0969DA)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Add Branch to ${prog.code}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0969DA),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 14, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      prog.branch.isNotEmpty ? 'Core: ${prog.branch}' : 'Direct single-curriculum program',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -6147,6 +6596,455 @@ class _AddSubjectDialogState extends State<_AddSubjectDialog> {
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// ADD DEGREE PROGRAM DIALOG IMPLEMENTATION
+// -----------------------------------------------------------------------------
+
+class _AddProgramDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final ValueChanged<ProgramModel> onCreated;
+
+  const _AddProgramDialog({
+    required this.storage,
+    required this.onCreated,
+  });
+
+  @override
+  State<_AddProgramDialog> createState() => _AddProgramDialogState();
+}
+
+class _AddProgramDialogState extends State<_AddProgramDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _codeController = TextEditingController();
+  final _branchInputController = TextEditingController();
+  final _singleBranchController = TextEditingController();
+
+  String _degreeLevel = 'undergraduate';
+  int _durationYears = 4;
+  bool _hasBranches = true;
+  final List<String> _branches = [];
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _codeController.dispose();
+    _branchInputController.dispose();
+    _singleBranchController.dispose();
+    super.dispose();
+  }
+
+  void _addBranchFromInput() {
+    final text = _branchInputController.text.trim();
+    if (text.isEmpty) return;
+    final parts = text.split(RegExp(r'[,;]')).map((p) => p.trim()).where((p) => p.isNotEmpty);
+    setState(() {
+      for (final p in parts) {
+        if (!_branches.contains(p)) {
+          _branches.add(p);
+        }
+      }
+      _branchInputController.clear();
+      _errorMessage = null;
+    });
+  }
+
+  void _removeBranch(String branch) {
+    setState(() {
+      _branches.remove(branch);
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_hasBranches && _branches.isEmpty) {
+      if (_branchInputController.text.trim().isNotEmpty) {
+        _addBranchFromInput();
+      } else {
+        setState(() {
+          _errorMessage = 'Please specify at least one branch for this program or turn off the branches toggle.';
+        });
+        return;
+      }
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    final code = _codeController.text.trim().toUpperCase();
+    final name = _nameController.text.trim();
+    final effectiveBranch = _hasBranches
+        ? (_branches.isNotEmpty ? _branches.first : '')
+        : _singleBranchController.text.trim();
+
+    final program = ProgramModel(
+      id: 'prog-${code.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-')}',
+      code: code,
+      name: name,
+      degreeLevel: _degreeLevel,
+      totalSemesters: _durationYears * 2,
+      hasBranches: _hasBranches,
+      branch: effectiveBranch,
+      durationYears: _durationYears,
+      branches: _hasBranches ? List.from(_branches) : (effectiveBranch.isNotEmpty ? [effectiveBranch] : []),
+    );
+
+    try {
+      final created = await widget.storage.createProgram(program);
+      if (mounted) {
+        widget.onCreated(created);
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Degree program "$name" (${created.code}) created successfully.'),
+            backgroundColor: AppColors.githubGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 540),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.book, size: 20, color: Color(0xFF0969DA)),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Add Degree Program',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                      onPressed: () => Navigator.of(context).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Define degree program, academic branch specializations, and curriculum duration.',
+                  style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                ),
+                const SizedBox(height: 20),
+
+                // Program Name
+                TextFormField(
+                  key: const Key('input-program-name'),
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Program Name *',
+                    hintText: 'e.g. Bachelor of Technology',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Program name is required' : null,
+                ),
+                const SizedBox(height: 12),
+
+                // Row: Program Code + Degree Level
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        key: const Key('input-program-code'),
+                        controller: _codeController,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(
+                          labelText: 'Program Code *',
+                          hintText: 'e.g. BTECH or MBA',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Code required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Degree Level *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          AppDropdown<String>(
+                            items: const [
+                              AppDropdownItem(value: 'undergraduate', label: 'Undergraduate (Bachelor)'),
+                              AppDropdownItem(value: 'postgraduate', label: 'Postgraduate (Master)'),
+                              AppDropdownItem(value: 'diploma', label: 'Diploma / Polytechnic'),
+                              AppDropdownItem(value: 'doctoral', label: 'Doctoral (Ph.D.)'),
+                            ],
+                            value: _degreeLevel,
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _degreeLevel = val;
+                                  if (val == 'postgraduate' && _durationYears > 2) {
+                                    _durationYears = 2;
+                                  } else if (val == 'diploma' && _durationYears > 3) {
+                                    _durationYears = 3;
+                                  }
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Duration Selector: Program -> Branch -> Duration
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Program Duration & Academic Terms *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    AppDropdown<int>(
+                      items: const [
+                        AppDropdownItem(value: 1, label: '1 Year (2 Semesters)'),
+                        AppDropdownItem(value: 2, label: '2 Years (4 Semesters) - Master / PG'),
+                        AppDropdownItem(value: 3, label: '3 Years (6 Semesters) - BCA / BBA / B.Sc'),
+                        AppDropdownItem(value: 4, label: '4 Years (8 Semesters) - B.Tech / B.E.'),
+                        AppDropdownItem(value: 5, label: '5 Years (10 Semesters) - Dual Degree'),
+                      ],
+                      value: _durationYears,
+                      onChanged: (val) {
+                        if (val != null) setState(() => _durationYears = val);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Hierarchy preview banner: Program -> Branch -> Duration
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Hierarchy:',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Program',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0969DA)),
+                        ),
+                        const Text(' -> ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(
+                          _hasBranches ? 'Branch Specializations' : 'Direct Core',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.githubGreen),
+                        ),
+                        const Text(' -> ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(
+                          '$_durationYears Years (${_durationYears * 2} Sems)',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8250DF)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Branch Support Toggle
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Can this program have branches / specializations?',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _hasBranches
+                                  ? 'Multi-branch enabled (e.g. B.Tech offers CSE, ECE, ME branches).'
+                                  : 'Single-branch / direct curriculum (e.g. BCA or BBA without sub-branches).',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        key: const Key('switch-program-has-branches'),
+                        value: _hasBranches,
+                        activeThumbColor: const Color(0xFF0969DA),
+                        onChanged: (val) => setState(() => _hasBranches = val),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Branch Fields based on Toggle
+                if (_hasBranches) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          key: const Key('input-program-branch-name'),
+                          controller: _branchInputController,
+                          decoration: const InputDecoration(
+                            labelText: 'Add Branch / Specialization',
+                            hintText: 'e.g. Computer Science & Engineering',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onFieldSubmitted: (_) => _addBranchFromInput(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        key: const Key('btn-add-branch-chip'),
+                        onPressed: _addBranchFromInput,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0969DA),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Branch'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (_branches.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _branches.map((b) {
+                        return Chip(
+                          label: Text(b, style: const TextStyle(fontSize: 11)),
+                          deleteIcon: const Icon(Icons.close, size: 12),
+                          onDeleted: () => _removeBranch(b),
+                          backgroundColor: const Color(0xFF0969DA).withValues(alpha: 0.12),
+                          side: BorderSide(color: const Color(0xFF0969DA).withValues(alpha: 0.3)),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 6),
+                  ] else ...[
+                    Text(
+                      'No branches added yet. Enter a branch name above (e.g. Computer Science, Mechanical).',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                  ],
+                ] else ...[
+                  TextFormField(
+                    key: const Key('input-program-single-branch'),
+                    controller: _singleBranchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Primary Focus / Discipline (Optional)',
+                      hintText: 'e.g. Computer Applications, General Management',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+
+                if (_errorMessage != null) ...[
+                  Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                  const SizedBox(height: 10),
+                ],
+
+                // Action buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      key: const Key('btn-submit-create-program'),
+                      onPressed: _isSubmitting ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0969DA),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Create Program'),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),

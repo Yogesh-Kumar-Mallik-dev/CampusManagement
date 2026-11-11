@@ -23,10 +23,14 @@ type Department struct {
 // Program represents an overarching degree course (e.g. B.Tech Computer Science, MBA)
 type Program struct {
 	BaseSyncModel
-	Code           string `json:"code"`            // e.g. 'BTECH-CSE'
-	Name           string `json:"name"`            // e.g. 'Bachelor of Technology in Computer Science'
-	DegreeLevel    string `json:"degree_level"`    // 'undergraduate', 'postgraduate', 'doctoral'
-	TotalSemesters int    `json:"total_semesters"` // e.g. 8
+	Code           string   `json:"code"`                     // e.g. 'BTECH-CSE'
+	Name           string   `json:"name"`                     // e.g. 'Bachelor of Technology in Computer Science'
+	DegreeLevel    string   `json:"degree_level"`             // 'undergraduate', 'postgraduate', 'doctoral', 'diploma'
+	TotalSemesters int      `json:"total_semesters"`          // e.g. 8
+	HasBranches    bool     `json:"has_branches"`             // Toggle: whether program has multiple branch specializations
+	Branch         string   `json:"branch,omitempty"`         // Primary/direct branch e.g. 'Computer Science & Engineering'
+	DurationYears  int      `json:"duration_years,omitempty"` // Duration in years e.g. 4
+	Branches       []string `json:"branches,omitempty"`       // List of branches e.g. ['CSE', 'ECE', 'ME']
 }
 
 // Subject represents an academic subject/course module

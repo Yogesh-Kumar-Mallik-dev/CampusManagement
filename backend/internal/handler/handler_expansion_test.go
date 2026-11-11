@@ -120,13 +120,24 @@ func TestHandlerExpansionEndOpticalAndEdgeCases(t *testing.T) {
 		"name":            "B.Tech Information Technology",
 		"degree_level":    "undergraduate",
 		"total_semesters": 8,
+		"has_branches":    true,
+		"branch":          "Information Technology",
+		"duration_years":  4,
+		"branches":        []string{"Information Technology", "Cyber Security"},
 	}
 	progBody, _ := json.Marshal(progData)
 	reqProgCreate := httptest.NewRequest(http.MethodPost, "/api/v1/academics/programs", bytes.NewReader(progBody))
 	rrProgCreate := httptest.NewRecorder()
 	deptH.HandlePrograms(rrProgCreate, reqProgCreate)
-	if rrProgCreate.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected 405 MethodNotAllowed from HandlePrograms POST, got %d", rrProgCreate.Code)
+	if rrProgCreate.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created from HandlePrograms POST, got %d", rrProgCreate.Code)
+	}
+
+	reqProgInvalidMethod := httptest.NewRequest(http.MethodDelete, "/api/v1/academics/programs", nil)
+	rrProgInvalidMethod := httptest.NewRecorder()
+	deptH.HandlePrograms(rrProgInvalidMethod, reqProgInvalidMethod)
+	if rrProgInvalidMethod.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405 MethodNotAllowed from HandlePrograms DELETE, got %d", rrProgInvalidMethod.Code)
 	}
 
 	// Teachers GET

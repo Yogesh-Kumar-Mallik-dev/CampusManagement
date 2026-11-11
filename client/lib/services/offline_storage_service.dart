@@ -2379,20 +2379,10 @@ class OfflineStorageService implements ICampusStorage {
         name: 'B.Tech in Computer Science & Engineering',
         degreeLevel: 'undergraduate',
         totalSemesters: 8,
-      ),
-      ProgramModel(
-        id: 'prog-btech-aiml',
-        code: 'BTECH-AIML',
-        name: 'B.Tech in Artificial Intelligence & Machine Learning',
-        degreeLevel: 'undergraduate',
-        totalSemesters: 8,
-      ),
-      ProgramModel(
-        id: 'prog-btech-ds',
-        code: 'BTECH-DS',
-        name: 'B.Tech in Data Science',
-        degreeLevel: 'undergraduate',
-        totalSemesters: 8,
+        hasBranches: true,
+        branch: 'Computer Science & Engineering',
+        durationYears: 4,
+        branches: ['Computer Science & Engineering', 'Artificial Intelligence & ML', 'Data Science'],
       ),
       ProgramModel(
         id: 'prog-btech-ece',
@@ -2400,6 +2390,10 @@ class OfflineStorageService implements ICampusStorage {
         name: 'B.Tech in Electronics & Communication',
         degreeLevel: 'undergraduate',
         totalSemesters: 8,
+        hasBranches: true,
+        branch: 'Electronics & Communication',
+        durationYears: 4,
+        branches: ['Electronics & Communication', 'VLSI Design & Embedded Systems'],
       ),
       ProgramModel(
         id: 'prog-btech-mech',
@@ -2407,6 +2401,32 @@ class OfflineStorageService implements ICampusStorage {
         name: 'B.Tech in Mechanical Engineering',
         degreeLevel: 'undergraduate',
         totalSemesters: 8,
+        hasBranches: false,
+        branch: 'Mechanical Engineering',
+        durationYears: 4,
+        branches: ['Mechanical Engineering'],
+      ),
+      ProgramModel(
+        id: 'prog-bca',
+        code: 'BCA',
+        name: 'Bachelor of Computer Applications',
+        degreeLevel: 'undergraduate',
+        totalSemesters: 6,
+        hasBranches: false,
+        branch: 'Computer Applications',
+        durationYears: 3,
+        branches: ['Computer Applications'],
+      ),
+      ProgramModel(
+        id: 'prog-mba',
+        code: 'MBA',
+        name: 'Master of Business Administration',
+        degreeLevel: 'postgraduate',
+        totalSemesters: 4,
+        hasBranches: true,
+        branch: 'Management Studies',
+        durationYears: 2,
+        branches: ['Finance & Analytics', 'Human Resources', 'Marketing & Operations'],
       ),
     ]);
 
@@ -2790,6 +2810,44 @@ class OfflineStorageService implements ICampusStorage {
       } catch (_) {}
     }
     return _cachedPrograms;
+  }
+
+  Future<ProgramModel> createProgram(ProgramModel program) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    await checkConnectivity();
+
+    if (isOnline) {
+      try {
+        final created = await api.createProgram(program);
+        _cachedPrograms.removeWhere((p) => p.id == created.id || p.code == created.code);
+        _cachedPrograms.insert(0, created);
+        return created;
+      } catch (_) {}
+    }
+
+    final effectiveId = program.id.isNotEmpty
+        ? program.id
+        : 'prog-${program.code.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-')}';
+    final created = program.copyWith(id: effectiveId);
+    _cachedPrograms.removeWhere((p) => p.id == effectiveId || p.code == created.code);
+    _cachedPrograms.insert(0, created);
+    return created;
+  }
+
+  Future<ProgramModel> addBranchToProgram({required String programId, required String branchName}) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    final idx = _cachedPrograms.indexWhere((p) => p.id == programId);
+    if (idx != -1) {
+      final p = _cachedPrograms[idx];
+      final branches = List<String>.from(p.branches);
+      if (!branches.contains(branchName)) {
+        branches.add(branchName);
+      }
+      final updated = p.copyWith(hasBranches: true, branches: branches);
+      _cachedPrograms[idx] = updated;
+      return updated;
+    }
+    throw Exception('Program not found: $programId');
   }
 
   Future<List<SubjectModel>> getSubjects() async {
