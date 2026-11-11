@@ -2225,7 +2225,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final program = p['program'] ?? 'btech';
       final semester = p['current_semester'] ?? 1;
       final batchYear = p['batch_year'] ?? (admissionYear + 4);
-      final section = _user.sectionScope ?? p['section_scope'] ?? 'sec:cse-1a';
+      final section = _user.sectionScope ?? p['section_scope'] ?? 'Unassigned';
       final advisor = _user.advisorName ?? p['advisor_name'] ?? 'Assigned Faculty Advisor';
 
       return Container(

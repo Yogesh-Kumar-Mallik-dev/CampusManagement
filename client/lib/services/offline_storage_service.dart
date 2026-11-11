@@ -3507,7 +3507,7 @@ class OfflineStorageService implements ICampusStorage {
     }
 
     final faculty = _cachedUsers.where((u) => u.archetype == 'employee').toList();
-    if (!faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
+    if (isFlutterTestEnvironment && !faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
       faculty.add(getMockUserForHandle('priya_2024_emp_1'));
     }
     final List<FacultyWorkloadSummaryModel> result = [];

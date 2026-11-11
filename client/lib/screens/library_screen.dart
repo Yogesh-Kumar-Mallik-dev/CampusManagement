@@ -77,11 +77,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     if (widget.currentUser != null && widget.currentUser!.id.isNotEmpty) {
       final arch = widget.currentUser!.archetype.toLowerCase();
       if (arch == 'admin' || arch == 'faculty' || arch == 'staff') {
-        return 'usr-harish_2025_l_btech_1';
+        return widget.storage.cachedUsers.where((u) => u.archetype == 'student').firstOrNull?.id ??
+            widget.currentUser!.id;
       }
       return widget.currentUser!.id;
     }
-    return 'usr-harish_2025_l_btech_1';
+    return widget.storage.cachedUsers.where((u) => u.archetype == 'student').firstOrNull?.id ?? '';
   }
 
   @override
@@ -1136,10 +1137,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final authorController = TextEditingController();
     final isbnController = TextEditingController();
     final publisherController = TextEditingController();
-    final editionController = TextEditingController(text: '1st Edition');
-    final copiesController = TextEditingController(text: '3');
-    final shelfController = TextEditingController(text: 'Rack C-1, 2nd Floor Central Wing');
-    final costController = TextEditingController(text: '3500');
+    final editionController = TextEditingController();
+    final copiesController = TextEditingController();
+    final shelfController = TextEditingController();
+    final costController = TextEditingController();
     String selectedCategory = BookCategory.cse;
 
     await showDialog<void>(
@@ -1353,8 +1354,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     final authorController = TextEditingController();
     final publisherController = TextEditingController();
     final descriptionController = TextEditingController();
-    final sizeController = TextEditingController(text: '12.4 MB');
-    final tagsController = TextEditingController(text: 'Textbook, Reference, Engineering');
+    final sizeController = TextEditingController();
+    final tagsController = TextEditingController();
     String selectedCategory = BookCategory.cse;
     final isLibrarian = _canManageLibrary;
     PickedPdfFile? pickedPdfFile;
@@ -1833,7 +1834,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   Future<void> _handleRejectPdf(EBookModel ebook) async {
-    final reasonController = TextEditingController(text: 'Does not meet institutional curriculum criteria');
+    final reasonController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {

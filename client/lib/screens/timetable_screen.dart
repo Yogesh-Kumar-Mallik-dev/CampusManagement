@@ -1836,6 +1836,34 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
     'Seminar Hall',
   ];
 
+  List<Map<String, String>> get _effectiveCatalogCourses {
+    final result = <Map<String, String>>[];
+    final seen = <String>{};
+    for (final c in _catalogCourses) {
+      seen.add(c['code']!);
+      result.add(c);
+    }
+    for (final s in widget.storage.cachedSubjects) {
+      if (!seen.contains(s.code)) {
+        seen.add(s.code);
+        result.add({'code': s.code, 'name': s.name});
+      }
+    }
+    return result;
+  }
+
+  List<String> get _effectiveFacultyList {
+    final result = List<String>.from(_facultyList);
+    final seen = result.toSet();
+    for (final u in widget.storage.cachedUsers) {
+      if (u.archetype == 'employee' && u.fullName.trim().isNotEmpty && !seen.contains(u.fullName)) {
+        seen.add(u.fullName);
+        result.add(u.fullName);
+      }
+    }
+    return result;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -2067,7 +2095,7 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: _catalogCourses.map((c) {
+                children: _effectiveCatalogCourses.map((c) {
                   final isSelected = _codeCtrl.text.toUpperCase() == c['code'];
                   return ActionChip(
                     label: Text(
@@ -2092,7 +2120,8 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               TextField(
                 controller: _codeCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Course Code (e.g. CS301)',
+                  labelText: 'Course Code',
+                  hintText: 'Enter course code',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -2101,7 +2130,8 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               TextField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Course Name (e.g. Operating Systems)',
+                  labelText: 'Course Name',
+                  hintText: 'Enter course name',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -2121,7 +2151,7 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: _facultyList.map((f) {
+                children: _effectiveFacultyList.map((f) {
                   final isSelected = _instructorCtrl.text == f;
                   return ActionChip(
                     label: Text(
@@ -2144,7 +2174,8 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               TextField(
                 controller: _instructorCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Instructor Name (e.g. Dr. Priya Nair)',
+                  labelText: 'Instructor Name',
+                  hintText: 'Enter instructor name',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -2187,7 +2218,8 @@ class _BlockEditorSheetState extends State<_BlockEditorSheet> {
               TextField(
                 controller: _roomCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Room / Venue (e.g. LHC-302)',
+                  labelText: 'Room / Venue',
+                  hintText: 'Enter room or venue',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),

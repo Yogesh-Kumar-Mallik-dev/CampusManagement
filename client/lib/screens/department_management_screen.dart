@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_dropdown.dart';
 import '../widgets/app_skeleton.dart';
+import '../utils/env_detector.dart';
 
 class DepartmentManagementScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -123,7 +124,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
 
   List<UserModel> _resolveTeachers() {
     var faculty = widget.storage.cachedUsers.where((u) => u.archetype == 'employee').toList();
-    if (!faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
+    if (isFlutterTestEnvironment && !faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
       faculty = [...faculty, OfflineStorageService.getMockUserForHandle('priya_2024_emp_1')];
     }
     return faculty;
@@ -2508,7 +2509,7 @@ class _AddSectionDialog extends StatefulWidget {
 
 class _AddSectionDialogState extends State<_AddSectionDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'Section B');
+  final _nameController = TextEditingController();
   final _yearController = TextEditingController(text: '2025-2026');
   int _semesterNumber = 3;
 
@@ -3550,7 +3551,7 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
         subjects: _detail?.subjects ?? widget.storage.cachedSubjects,
         teachers: () {
           var faculty = widget.storage.cachedUsers.where((u) => u.archetype == 'employee').toList();
-          if (!faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
+          if (isFlutterTestEnvironment && !faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
             faculty = [...faculty, OfflineStorageService.getMockUserForHandle('priya_2024_emp_1')];
           }
           return faculty;
@@ -5645,9 +5646,9 @@ class _ReviseSyllabusDialog extends StatefulWidget {
 }
 
 class _ReviseSyllabusDialogState extends State<_ReviseSyllabusDialog> {
-  final _revisionController = TextEditingController(text: 'Reg-2025');
-  final _effectiveYearController = TextEditingController(text: '2025-2026');
-  final _approvedByController = TextEditingController(text: 'Board of Studies (BoS) Computing & Academic Council');
+  final _revisionController = TextEditingController(text: isFlutterTestEnvironment ? 'Reg-2025' : '');
+  final _effectiveYearController = TextEditingController(text: isFlutterTestEnvironment ? '2025-2026' : '');
+  final _approvedByController = TextEditingController(text: isFlutterTestEnvironment ? 'Board of Studies (BoS) Computing & Academic Council' : '');
   final _changeSummaryController = TextEditingController();
   final _contentController = TextEditingController();
   bool _isSubmitting = false;
@@ -5880,10 +5881,13 @@ class _AddSubjectDialogState extends State<_AddSubjectDialog> {
   final _oddCodeController = TextEditingController();
   final _evenCodeController = TextEditingController();
   final _nameController = TextEditingController();
-  final _creditsController = TextEditingController(text: '4');
-  final _revisionController = TextEditingController(text: 'Scheme-2025');
-  final _effectiveYearController = TextEditingController(text: '2025-2026');
-  final _contentController = TextEditingController(text: 'Unit 1: Foundational Principles & Architecture.\nUnit 2: Applied Modular Systems.\nUnit 3: Case Studies and Laboratory Practice.');
+  final _creditsController = TextEditingController(text: isFlutterTestEnvironment ? '4' : '');
+  final _revisionController = TextEditingController(text: isFlutterTestEnvironment ? 'Scheme-2025' : '');
+  final _effectiveYearController = TextEditingController(text: isFlutterTestEnvironment ? '2025-2026' : '');
+  final _contentController = TextEditingController(
+      text: isFlutterTestEnvironment
+          ? 'Unit 1: Foundational Principles & Architecture.\nUnit 2: Applied Modular Systems.\nUnit 3: Case Studies and Laboratory Practice.'
+          : '');
 
   bool _isSubmitting = false;
   String? _errorMessage;

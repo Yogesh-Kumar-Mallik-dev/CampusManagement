@@ -50,11 +50,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   List<Map<String, dynamic>> _heatmapDays = [];
 
   // Selected Lecture Details
-  final String _selectedCourseId = 'CS301';
-  final String _selectedCourseCode = 'CS301';
-  final String _selectedCourseName = 'Operating Systems';
+  String _selectedCourseId = 'CS301';
+  String _selectedCourseCode = 'CS301';
+  String _selectedCourseName = 'Operating Systems';
   final String _selectedRoom = 'LH-101';
-  final String _selectedScope = 'sec:cse-3a';
+  String _selectedScope = 'sec:cse-3a';
 
   // Optical Broadcast Stream State
   OpticalSessionModel? _opticalSession;
@@ -185,6 +185,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
+    final resolvedScope = widget.currentUser.sectionScope ??
+        widget.currentUser.activeScopes.where((s) => s.startsWith('sec:')).firstOrNull ??
+        (widget.currentUser.activeScopes.contains('sec:cse-3a') ? 'sec:cse-3a' : null) ??
+        widget.currentUser.activeScopes.firstOrNull ??
+        'sec:cse-3a';
+    _selectedScope = resolvedScope;
+
+    final cachedSubs = widget.storage.cachedSubjects;
+    if (cachedSubs.isNotEmpty) {
+      final sub = cachedSubs.first;
+      _selectedCourseId = sub.id;
+      _selectedCourseCode = sub.code;
+      _selectedCourseName = sub.name;
+    }
+
     _sweepAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),

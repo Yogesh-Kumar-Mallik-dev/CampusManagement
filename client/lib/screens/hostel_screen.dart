@@ -77,7 +77,7 @@ class _HostelScreenState extends State<HostelScreen> {
 
   void _showCreateRoomDialog() {
     final roomCtrl = TextEditingController();
-    final blockCtrl = TextEditingController(text: 'Block 1');
+    final blockCtrl = TextEditingController();
     String? errorText;
 
     showDialog(

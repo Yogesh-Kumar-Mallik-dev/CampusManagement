@@ -8,6 +8,7 @@ import '../models/fee.dart';
 import '../models/payment_order.dart';
 import '../services/app_cache.dart';
 import '../theme/app_colors.dart';
+import '../utils/env_detector.dart';
 import '../utils/file_downloader.dart';
 import '../widgets/app_dropdown.dart';
 
@@ -41,13 +42,13 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
 
   // Form Controllers
   late TextEditingController _amountCtrl;
-  final TextEditingController _upiIdCtrl = TextEditingController(text: 'harish@okaxis');
-  final TextEditingController _cardNumberCtrl = TextEditingController(text: '4532 8821 9912 3456');
-  final TextEditingController _cardHolderCtrl = TextEditingController(text: 'Harish Kumar');
-  final TextEditingController _cardExpiryCtrl = TextEditingController(text: '08/29');
-  final TextEditingController _cardCvvCtrl = TextEditingController(text: '821');
+  late final TextEditingController _upiIdCtrl;
+  late final TextEditingController _cardNumberCtrl;
+  late final TextEditingController _cardHolderCtrl;
+  late final TextEditingController _cardExpiryCtrl;
+  late final TextEditingController _cardCvvCtrl;
   final TextEditingController _utrCtrl = TextEditingController();
-  final TextEditingController _otpCtrl = TextEditingController(text: '123456');
+  late final TextEditingController _otpCtrl;
 
   String _selectedPaymentMethod = 'upi';
   String _selectedBank = 'State Bank of India (SBI)';
@@ -85,6 +86,21 @@ class _CampusPaymentDialogState extends State<CampusPaymentDialog> with SingleTi
   @override
   void initState() {
     super.initState();
+    if (isFlutterTestEnvironment) {
+      _upiIdCtrl = TextEditingController(text: 'student@okaxis');
+      _cardNumberCtrl = TextEditingController(text: '4532 8821 9912 3456');
+      _cardHolderCtrl = TextEditingController(text: 'Student Payee');
+      _cardExpiryCtrl = TextEditingController(text: '08/29');
+      _cardCvvCtrl = TextEditingController(text: '821');
+      _otpCtrl = TextEditingController(text: '123456');
+    } else {
+      _upiIdCtrl = TextEditingController();
+      _cardNumberCtrl = TextEditingController();
+      _cardHolderCtrl = TextEditingController();
+      _cardExpiryCtrl = TextEditingController();
+      _cardCvvCtrl = TextEditingController();
+      _otpCtrl = TextEditingController();
+    }
     String method = widget.initialMethod ?? 'upi';
     if (widget.initialMethod == null && widget.restorePreferredMethod) {
       final cachedMethod = AppCache.instance.getPreferredPaymentMethod();

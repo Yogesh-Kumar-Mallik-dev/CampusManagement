@@ -209,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _identifierController,
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              hintText: 'e.g. campus_admin or canonical handle',
+                              hintText: 'campus_admin or handle',
                               prefixIcon: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
                                 child: AppSvgIcon(

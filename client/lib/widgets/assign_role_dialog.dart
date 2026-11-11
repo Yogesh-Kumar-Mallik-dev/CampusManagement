@@ -46,25 +46,43 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
+  String _resolveDefaultSectionScope() {
+    if (widget.user.sectionScope != null && widget.user.sectionScope!.isNotEmpty) {
+      return widget.user.sectionScope!;
+    }
+    final existingSec = widget.user.activeScopes.where((s) => s.startsWith('sec:')).firstOrNull;
+    if (existingSec != null) return existingSec;
+    if (widget.storage.cachedSections.isNotEmpty) {
+      return 'sec:${widget.storage.cachedSections.first.name.toLowerCase().replaceAll(' ', '-')}';
+    }
+    return '';
+  }
+
+  String _resolveDefaultDeptScope() {
+    final existingDept = widget.user.activeScopes.where((s) => s.startsWith('dept:')).firstOrNull;
+    if (existingDept != null) return existingDept;
+    if (widget.storage.cachedDepartments.isNotEmpty) {
+      return 'dept:${widget.storage.cachedDepartments.first.code.toLowerCase()}';
+    }
+    return 'global';
+  }
+
   @override
   void initState() {
     super.initState();
     final isStudent = widget.user.archetype == 'student';
+    final initialSection = _resolveDefaultSectionScope();
 
     if (isStudent) {
       _selectedRoleCode = 'class_representative';
       _roleNameController = TextEditingController(text: 'Class Representative');
-      _scopeController = TextEditingController(
-        text: widget.user.sectionScope != null && widget.user.sectionScope!.isNotEmpty
-            ? widget.user.sectionScope!
-            : 'sec:cse-3a',
-      );
-      _clubNameController = TextEditingController(text: 'Example');
+      _scopeController = TextEditingController(text: initialSection);
+      _clubNameController = TextEditingController();
     } else {
       _selectedRoleCode = 'coordinator';
       _roleNameController = TextEditingController(text: 'Section Coordinator');
-      _scopeController = TextEditingController(text: 'sec:cse-3a');
-      _clubNameController = TextEditingController(text: 'Example');
+      _scopeController = TextEditingController(text: initialSection);
+      _clubNameController = TextEditingController();
     }
   }
 
@@ -102,7 +120,7 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
       switch (roleCode) {
         case 'coordinator':
           _roleNameController.text = 'Section Coordinator';
-          _scopeController.text = 'sec:cse-3a';
+          _scopeController.text = _resolveDefaultSectionScope();
           break;
         case 'library_incharge':
           _roleNameController.text = 'Library In-Charge';
@@ -110,35 +128,29 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
           break;
         case 'hod':
           _roleNameController.text = 'Head of Department (HOD)';
-          _scopeController.text = 'dept:cse';
+          _scopeController.text = _resolveDefaultDeptScope();
           break;
         case 'faculty':
           _roleNameController.text = 'Faculty Member';
-          _scopeController.text = 'dept:cse';
+          _scopeController.text = _resolveDefaultDeptScope();
           break;
         case 'warden':
           _roleNameController.text = 'Hostel Warden';
-          _scopeController.text = 'facility:hostel-1';
+          _scopeController.text = 'global';
           break;
         case 'class_representative':
           _roleNameController.text = 'Class Representative';
-          _scopeController.text = widget.user.sectionScope != null && widget.user.sectionScope!.isNotEmpty
-              ? widget.user.sectionScope!
-              : 'sec:cse-3a';
+          _scopeController.text = _resolveDefaultSectionScope();
           break;
         case 'club_president':
           _roleNameController.text = 'Club President';
-          final club = _clubNameController.text.trim().isNotEmpty
-              ? _clubNameController.text.trim()
-              : 'Example';
-          _scopeController.text = 'Club:$club:president';
+          final club = _clubNameController.text.trim();
+          _scopeController.text = club.isNotEmpty ? 'Club:$club:president' : '';
           break;
         case 'club_lead':
           _roleNameController.text = 'Club Lead';
-          final club = _clubNameController.text.trim().isNotEmpty
-              ? _clubNameController.text.trim()
-              : 'example';
-          _scopeController.text = 'club:${club.toLowerCase()}';
+          final club = _clubNameController.text.trim().toLowerCase();
+          _scopeController.text = club.isNotEmpty ? 'club:$club' : '';
           break;
         case 'custom':
           _roleNameController.text = 'Delegated Authority';
@@ -150,14 +162,14 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
 
   void _onClubNameChanged(String val) {
     if (_selectedRoleCode == 'club_president') {
-      final club = val.trim().isNotEmpty ? val.trim() : 'Example';
+      final club = val.trim();
       setState(() {
-        _scopeController.text = 'Club:$club:president';
+        _scopeController.text = club.isNotEmpty ? 'Club:$club:president' : '';
       });
     } else if (_selectedRoleCode == 'club_lead') {
-      final club = val.trim().isNotEmpty ? val.trim().toLowerCase() : 'example';
+      final club = val.trim().toLowerCase();
       setState(() {
-        _scopeController.text = 'club:$club';
+        _scopeController.text = club.isNotEmpty ? 'club:$club' : '';
       });
     }
   }
@@ -406,7 +418,7 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
               // Club Name input for student club presidents
               if (_selectedRoleCode == 'club_president' || _selectedRoleCode == 'club_lead') ...[
                 Text(
-                  'Club Name (e.g. Example, Robotics, Coding)',
+                  'Club Name (e.g. Robotics, Cultural, Coding)',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -420,7 +432,7 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
                   onChanged: _onClubNameChanged,
                   style: const TextStyle(fontSize: 13),
                   decoration: InputDecoration(
-                    hintText: 'e.g. Example',
+                    hintText: 'e.g. Robotics',
                     isDense: true,
                     filled: true,
                     fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
@@ -462,7 +474,7 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
 
               // Scope Code
               Text(
-                'Scope Code Boundary (e.g. sec:cse-3a, dept:cse, Club:Example:president, global)',
+                'Scope Code Boundary (e.g. sec:section-name, dept:dept-code, Club:ClubName:president, global)',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -475,7 +487,7 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
                 controller: _scopeController,
                 style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
                 decoration: InputDecoration(
-                  hintText: 'e.g. sec:cse-3a, Club:Example:president',
+                  hintText: 'e.g. sec:section-name, Club:ClubName:president, global',
                   isDense: true,
                   filled: true,
                   fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,

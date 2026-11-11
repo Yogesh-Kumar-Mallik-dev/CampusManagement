@@ -64,11 +64,12 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
   String get _currentStudentId {
     if (widget.currentUser != null && widget.currentUser!.id.isNotEmpty) {
       if (_canWaiveFines) {
-        return 'usr-harish_2025_l_btech_1';
+        return widget.storage.cachedUsers.where((u) => u.archetype == 'student').firstOrNull?.id ??
+            widget.currentUser!.id;
       }
       return widget.currentUser!.id;
     }
-    return 'usr-harish_2025_l_btech_1';
+    return widget.storage.cachedUsers.where((u) => u.archetype == 'student').firstOrNull?.id ?? '';
   }
 
   bool get _canWaiveFines {

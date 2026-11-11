@@ -69,7 +69,23 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
     if (widget.currentUser != null && widget.currentUser!.isStudent) {
       return widget.currentUser!.id;
     }
-    return 'usr-harish_2025_l_btech_1';
+    return widget.storage.cachedUsers.where((u) => u.archetype == 'student').firstOrNull?.id ??
+        widget.currentUser?.id ??
+        '';
+  }
+
+  List<String> get _availableSubjectCodes {
+    final codes = <String>{};
+    for (final s in widget.storage.cachedSubjects) {
+      if (s.code.trim().isNotEmpty) codes.add(s.code.trim());
+    }
+    for (final r in _records) {
+      if (r.subjectCode.trim().isNotEmpty) codes.add(r.subjectCode.trim());
+    }
+    if (codes.isEmpty) {
+      codes.addAll(['CS301', 'CS302', 'CS303', 'CS301L']);
+    }
+    return codes.toList();
   }
 
   @override
@@ -852,24 +868,27 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
                 children: [
                   const Text('Select Course:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(width: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: ['CS301', 'CS302', 'CS303', 'CS301L'].map((code) {
-                      final isSelected = _selectedSubjectCode == code;
-                      return ChoiceChip(
-                        label: Text(code),
-                        selected: isSelected,
-                        selectedColor: AppColors.wineRed.withValues(alpha: 0.18),
-                        onSelected: (val) {
-                          if (val) {
-                            setState(() {
-                              _selectedSubjectCode = code;
-                            });
-                            _refreshAwardList();
-                          }
-                        },
-                      );
-                    }).toList(),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: _availableSubjectCodes.map((code) {
+                        final isSelected = _selectedSubjectCode == code;
+                        return ChoiceChip(
+                          label: Text(code),
+                          selected: isSelected,
+                          selectedColor: AppColors.wineRed.withValues(alpha: 0.18),
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() {
+                                _selectedSubjectCode = code;
+                              });
+                              _refreshAwardList();
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ],
               ),
@@ -1314,7 +1333,7 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
                       const Text('Course:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       Wrap(
                         spacing: 8,
-                        children: ['CS301', 'CS302', 'CS303', 'CS301L'].map((c) {
+                        children: _availableSubjectCodes.map((c) {
                           final isSelected = _selectedSubjectCode == c;
                           return ChoiceChip(
                             label: Text(c),

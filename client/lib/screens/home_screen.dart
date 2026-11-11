@@ -139,7 +139,11 @@ class _HomeScreenState extends State<HomeScreen> {
           return TimetableScreen(
             key: ValueKey('tab-timetable-${_currentUser.id}'),
             storage: widget.storage,
-            activeScope: _currentUser.activeScopes.contains('sec:cse-3a') ? 'sec:cse-3a' : 'global',
+            activeScope: _currentUser.sectionScope ??
+                _currentUser.activeScopes.where((s) => s.startsWith('sec:')).firstOrNull ??
+                (_currentUser.activeScopes.contains('sec:cse-3a') ? 'sec:cse-3a' : null) ??
+                _currentUser.activeScopes.firstOrNull ??
+                'global',
             currentUser: _currentUser,
           );
         case 2:
@@ -1930,7 +1934,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _getMetricHeaderBadge(String persona) {
     switch (persona) {
       case 'student':
-        return 'Active Semester CSE-3A';
+        final sec = _currentUser.sectionScope?.replaceFirst('sec:', '').toUpperCase();
+        return sec != null && sec.isNotEmpty ? 'Active Semester $sec' : 'Active Semester Roster';
       case 'faculty':
         return 'Faculty & Department Chair';
       case 'warden':

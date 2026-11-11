@@ -859,7 +859,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   final _stuAppNo = TextEditingController();
   final _stuRollNo = TextEditingController();
   final _stuRegNo = TextEditingController();
-  final _stuSection = TextEditingController(text: 'sec:cse-1a');
+  final _stuSection = TextEditingController();
   final _stuAdvisor = TextEditingController();
   int _stuAdmissionYear = DateTime.now().year;
   String _stuEntryType = 'regular'; // 'regular', 'lateral', 'transfer'
@@ -894,12 +894,12 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   final _extPersonalEmail = TextEditingController();
   final _extPhone = TextEditingController();
   int _extOnboardingYear = DateTime.now().year;
-  final _extVendorOrg = TextEditingController(text: 'Sodexo Campus Dining');
+  final _extVendorOrg = TextEditingController();
   String _extServiceType = 'canteen';
   final _extGatePass = TextEditingController();
   final _extSupervisorName = TextEditingController();
   final _extSupervisorPhone = TextEditingController();
-  final _extScopes = TextEditingController(text: 'gate:main, building:canteen');
+  final _extScopes = TextEditingController();
 
   @override
   void initState() {
@@ -1367,11 +1367,11 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('First Name *', _stuFirst, 'e.g. Harish', isDark),
+              child: _buildTextField('First Name *', _stuFirst, 'Enter first name', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField('Last Name *', _stuLast, 'e.g. Kumar', isDark),
+              child: _buildTextField('Last Name *', _stuLast, 'Enter last name', isDark),
             ),
           ],
         ),
@@ -1383,7 +1383,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField('Personal Email', _stuPersonalEmail, 'e.g. harish@gmail.com', isDark),
+              child: _buildTextField('Personal Email', _stuPersonalEmail, 'name@example.com', isDark),
             ),
           ],
         ),
@@ -1391,11 +1391,11 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('Phone Number', _stuPhone, '+91 98765 43210', isDark),
+              child: _buildTextField('Phone Number', _stuPhone, '+91 XXXXX XXXXX', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField('Admission Application No', _stuAppNo, 'e.g. APP-2025-0819', isDark),
+              child: _buildTextField('Admission Application No', _stuAppNo, 'Application reference no', isDark),
             ),
           ],
         ),
@@ -1444,11 +1444,11 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('First Name *', _empFirst, 'e.g. Priya', isDark),
+              child: _buildTextField('First Name *', _empFirst, 'Enter first name', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField('Last Name *', _empLast, 'e.g. Nair', isDark),
+              child: _buildTextField('Last Name *', _empLast, 'Enter last name', isDark),
             ),
           ],
         ),
@@ -1460,7 +1460,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField('Personal Email', _empPersonalEmail, 'e.g. priya@gmail.com', isDark),
+              child: _buildTextField('Personal Email', _empPersonalEmail, 'name@example.com', isDark),
             ),
           ],
         ),
@@ -1468,7 +1468,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('Phone Number', _empPhone, '+91 98111 22334', isDark),
+              child: _buildTextField('Phone Number', _empPhone, '+91 XXXXX XXXXX', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1527,7 +1527,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildTextField('Cabin Location', _empCabin, 'e.g. LH-302', isDark),
+                  child: _buildTextField('Cabin Location', _empCabin, 'Cabin / Room number', isDark),
                 ),
               ],
             ),
@@ -1561,12 +1561,12 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _buildTextField('Designation', _empDesignation, 'e.g. Dean of Student Affairs', isDark),
+                      child: _buildTextField('Designation', _empDesignation, 'Administrative designation', isDark),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildTextField('Office Location', _empOffice, 'e.g. Admin Complex Rm 104', isDark),
+                _buildTextField('Office Location', _empOffice, 'Office room location', isDark),
               ],
             ),
           ),
@@ -1582,11 +1582,11 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('First Name *', _extFirst, 'e.g. Mukesh', isDark),
+              child: _buildTextField('First Name *', _extFirst, 'Enter first name', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField('Last Name *', _extLast, 'e.g. Verma', isDark),
+              child: _buildTextField('Last Name *', _extLast, 'Enter last name', isDark),
             ),
           ],
         ),
@@ -1594,7 +1594,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('Vendor Organization / Firm *', _extVendorOrg, 'e.g. Sodexo Campus Dining', isDark),
+              child: _buildTextField('Vendor Organization / Firm *', _extVendorOrg, 'Organization / Agency name', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1612,7 +1612,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('Gate Pass / Security Badge ID', _extGatePass, 'e.g. GP-2025-0891 (Auto if empty)', isDark),
+              child: _buildTextField('Gate Pass / Security Badge ID', _extGatePass, 'Badge ID (Auto if empty)', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1630,7 +1630,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('Contact Phone', _extPhone, '+91 98333 44556', isDark),
+              child: _buildTextField('Contact Phone', _extPhone, '+91 XXXXX XXXXX', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1642,11 +1642,11 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
-              child: _buildTextField('Site Supervisor Name', _extSupervisorName, 'e.g. Anil Kapoor', isDark),
+              child: _buildTextField('Site Supervisor Name', _extSupervisorName, 'Supervisor name', isDark),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField('Supervisor Phone', _extSupervisorPhone, '+91 98222 11000', isDark),
+              child: _buildTextField('Supervisor Phone', _extSupervisorPhone, '+91 XXXXX XXXXX', isDark),
             ),
           ],
         ),
