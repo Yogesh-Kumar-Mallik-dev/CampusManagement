@@ -30,11 +30,25 @@ class AppTheme {
   static const Duration themeAnimationDuration = Duration(milliseconds: 300);
   static const Curve themeAnimationCurve = Curves.easeInOutCubic;
 
+  // Global Typography Constants
+  static const String defaultFontFamily = 'Inter';
+  static const List<String> fontFallbacks = [
+    'Inter',
+    '-apple-system',
+    'BlinkMacSystemFont',
+    'Segoe UI',
+    'Roboto',
+    'Noto Sans',
+    'sans-serif',
+  ];
+
   // Enterprise Modern Light Theme
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: defaultFontFamily,
+      fontFamilyFallback: fontFallbacks,
       scaffoldBackgroundColor: AppColors.lightBg,
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
@@ -124,13 +138,65 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: AppColors.wineRed, width: 1),
+          borderSide: const BorderSide(color: AppColors.wineRed, width: 1.5),
         ),
-        labelStyle: const TextStyle(color: AppColors.lightTextSecondary, fontSize: 13),
+        labelStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          color: AppColors.lightTextSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          letterSpacing: -0.1,
+        ),
+        floatingLabelStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          color: AppColors.wineRed,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+        ),
         hintStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
           color: AppColors.lightTextPlaceholder,
           fontSize: 13,
           fontWeight: FontWeight.w400,
+          letterSpacing: -0.1,
+        ),
+        helperStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          color: AppColors.lightTextMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+        ),
+        errorStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          color: AppColors.statusRed,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: AppColors.lightTextPrimary,
+          letterSpacing: -0.1,
+          height: 1.35,
+        ),
+        bodyMedium: TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: AppColors.lightTextPrimary,
+          letterSpacing: -0.1,
+          height: 1.35,
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -198,6 +264,8 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: defaultFontFamily,
+      fontFamilyFallback: fontFallbacks,
       scaffoldBackgroundColor: AppColors.darkBg,
       colorScheme: const ColorScheme(
         brightness: Brightness.dark,
@@ -287,13 +355,65 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: AppColors.wineRedDarkText, width: 1),
+          borderSide: const BorderSide(color: AppColors.wineRedDarkText, width: 1.5),
         ),
-        labelStyle: const TextStyle(color: AppColors.darkTextSecondary, fontSize: 13),
+        labelStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          color: AppColors.darkTextSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          letterSpacing: -0.1,
+        ),
+        floatingLabelStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          color: AppColors.wineRedLight,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+        ),
         hintStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
           color: AppColors.darkTextPlaceholder,
           fontSize: 13,
           fontWeight: FontWeight.w400,
+          letterSpacing: -0.1,
+        ),
+        helperStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          color: AppColors.darkTextMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+        ),
+        errorStyle: const TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          color: AppColors.statusRed,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: AppColors.darkTextPrimary,
+          letterSpacing: -0.1,
+          height: 1.35,
+        ),
+        bodyMedium: TextStyle(
+          fontFamily: defaultFontFamily,
+          fontFamilyFallback: fontFallbacks,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: AppColors.darkTextPrimary,
+          letterSpacing: -0.1,
+          height: 1.35,
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(

@@ -1666,10 +1666,10 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
           height: 38,
           child: TextField(
             controller: ctrl,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: -0.1),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder),
+              hintStyle: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder, letterSpacing: -0.1),
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
