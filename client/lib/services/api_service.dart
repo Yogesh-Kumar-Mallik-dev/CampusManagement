@@ -497,6 +497,19 @@ class ApiService implements ICampusApi {
     throw Exception('Failed to create program (${res.statusCode}): ${res.body}');
   }
 
+  @override
+  Future<ProgramModel> updateProgram(ProgramModel program) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/v1/academics/programs'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(program.toJson()),
+    );
+    if (res.statusCode == 200) {
+      return ProgramModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to update program (${res.statusCode}): ${res.body}');
+  }
+
   Future<List<SubjectModel>> fetchSubjects() async {
     final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/subjects'));
     if (res.statusCode == 200) {

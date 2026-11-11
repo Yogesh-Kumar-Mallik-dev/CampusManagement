@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/models/user.dart';
 import 'package:campus_client/screens/department_management_screen.dart';
+import 'package:campus_client/screens/user_management_screen.dart';
 import 'package:campus_client/services/api_service.dart';
 import 'package:campus_client/services/offline_storage_service.dart';
 
@@ -26,8 +27,8 @@ void main() {
     storage = OfflineStorageService(api: api);
   });
 
-  group('ProgramModel Hierarchy Tests', () {
-    test('ProgramModel handles branch toggle and duration semantics', () {
+  group('ProgramModel & ProgramBranchModel Hierarchy Tests', () {
+    test('ProgramModel handles branch codes, toggle and duration semantics', () {
       final prog = ProgramModel(
         id: 'prog-btech',
         name: 'Bachelor of Technology',
@@ -35,20 +36,26 @@ void main() {
         degreeLevel: 'undergraduate',
         totalSemesters: 8,
         hasBranches: true,
-        branches: ['Computer Science', 'Electrical'],
+        branches: const [
+          ProgramBranchModel(name: 'Computer Science', code: 'CSE'),
+          ProgramBranchModel(name: 'Electrical', code: 'EE'),
+        ],
         durationYears: 4,
+        isRetired: false,
       );
 
       final json = prog.toJson();
       expect(json['has_branches'], isTrue);
       expect(json['duration_years'], equals(4));
-      expect(json['branches'], contains('Computer Science'));
+      expect(json['is_retired'], isFalse);
 
       final reconstructed = ProgramModel.fromJson(json);
       expect(reconstructed.id, equals('prog-btech'));
       expect(reconstructed.hasBranches, isTrue);
       expect(reconstructed.durationYears, equals(4));
       expect(reconstructed.branches.length, equals(2));
+      expect(reconstructed.branches.first.code, equals('CSE'));
+      expect(reconstructed.branchNames, contains('Computer Science'));
     });
 
     test('ProgramModel copyWith updates fields correctly', () {
@@ -65,13 +72,19 @@ void main() {
 
       final updated = prog.copyWith(
         hasBranches: true,
-        branches: ['Data Science', 'Cloud Computing'],
+        branches: const [
+          ProgramBranchModel(name: 'Data Science', code: 'DS'),
+          ProgramBranchModel(name: 'Cloud Computing', code: 'CC'),
+        ],
         durationYears: 3,
+        isRetired: true,
       );
 
       expect(updated.hasBranches, isTrue);
       expect(updated.durationYears, equals(3));
-      expect(updated.branches, contains('Data Science'));
+      expect(updated.isRetired, isTrue);
+      expect(updated.branchNames, contains('Data Science'));
+      expect(updated.branches.first.code, equals('DS'));
     });
   });
 
@@ -95,7 +108,7 @@ void main() {
       expect(find.textContaining('Degree Programs ('), findsOneWidget);
     });
 
-    testWidgets('Switching to Degree Programs displays Program -> Branch -> Duration hierarchy',
+    testWidgets('Switching to Degree Programs displays Program -> Branch -> Duration hierarchy and branch codes',
         (tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -119,9 +132,13 @@ void main() {
       // Verify hierarchy components are displayed in program cards
       expect(find.textContaining('Yrs ('), findsWidgets);
       expect(find.text('Branch Specializations'), findsWidgets);
+
+      // Verify branch codes rendered on chips
+      expect(find.text('CSE'), findsWidgets);
+      expect(find.text('AIML'), findsWidgets);
     });
 
-    testWidgets('Add Degree Program dialog supports branch toggle and duration',
+    testWidgets('Add Degree Program dialog supports branch code, toggle and duration',
         (tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -163,15 +180,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Add a custom branch
+      // Add a custom branch with code
       await tester.enterText(
         find.byKey(const Key('input-program-branch-name')),
         'Urban Planning',
       );
+      await tester.enterText(
+        find.byKey(const Key('input-program-branch-code')),
+        'URB',
+      );
       await tester.tap(find.byKey(const Key('btn-add-branch-chip')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Urban Planning'), findsOneWidget);
+      expect(find.textContaining('[URB] Urban Planning'), findsOneWidget);
 
       // Test toggling off branches
       await tester.tap(find.byKey(const Key('switch-program-has-branches')));
@@ -193,7 +214,122 @@ void main() {
       expect(find.text('BARCH'), findsWidgets);
     });
 
-    testWidgets('Add branch dialog appends branch to an existing program card',
+    testWidgets('Retire and reactivate course directly from card action',
+        (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(MaterialApp(
+        home: DepartmentManagementScreen(
+          storage: storage,
+          currentUser: testAdmin,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Switch to Degree Programs tab
+      await tester.tap(find.textContaining('Degree Programs ('));
+      await tester.pumpAndSettle();
+
+      // Tap retire button for BTECH-CSE
+      final retireBtn = find.byKey(const Key('btn-retire-program-BTECH-CSE'));
+      expect(retireBtn, findsOneWidget);
+
+      await tester.tap(retireBtn);
+      await tester.pumpAndSettle();
+
+      // Expect RETIRED badge
+      expect(find.text('RETIRED'), findsWidgets);
+
+      // Reactivate it
+      await tester.tap(retireBtn);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('Edit course directly via edit dialog',
+        (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(MaterialApp(
+        home: DepartmentManagementScreen(
+          storage: storage,
+          currentUser: testAdmin,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Switch to Degree Programs tab
+      await tester.tap(find.textContaining('Degree Programs ('));
+      await tester.pumpAndSettle();
+
+      // Tap edit button for BCA
+      final editBtn = find.byKey(const Key('btn-edit-program-BCA'));
+      expect(editBtn, findsOneWidget);
+
+      await tester.tap(editBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit Course: BCA'), findsOneWidget);
+      expect(find.byKey(const Key('input-edit-program-name')), findsOneWidget);
+      expect(find.byKey(const Key('switch-edit-program-retired')), findsOneWidget);
+
+      // Change program name
+      await tester.enterText(
+        find.byKey(const Key('input-edit-program-name')),
+        'Bachelor of Computer Applications (Honors)',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('btn-submit-edit-program')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Bachelor of Computer Applications (Honors)'), findsOneWidget);
+    });
+
+    testWidgets('Edit branch directly and toggle branch retirement',
+        (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(MaterialApp(
+        home: DepartmentManagementScreen(
+          storage: storage,
+          currentUser: testAdmin,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Switch to Degree Programs tab
+      await tester.tap(find.textContaining('Degree Programs ('));
+      await tester.pumpAndSettle();
+
+      // Tap branch chip
+      final chip = find.byKey(const Key('chip-branch-Data Science'));
+      expect(chip, findsOneWidget);
+
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit Branch: Data Science'), findsOneWidget);
+      expect(find.byKey(const Key('input-edit-branch-code')), findsOneWidget);
+      expect(find.byKey(const Key('switch-edit-branch-retired')), findsOneWidget);
+
+      // Toggle branch retirement to true
+      await tester.tap(find.byKey(const Key('switch-edit-branch-retired')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('btn-save-edit-branch')));
+      await tester.pumpAndSettle();
+
+      // Branch should now display [RETIRED]
+      expect(find.text('[RETIRED]'), findsWidgets);
+    });
+
+    testWidgets('Add branch dialog with branch name and code',
         (tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -217,18 +353,78 @@ void main() {
         await tester.tap(addBranchFinder.first);
         await tester.pumpAndSettle();
 
-        expect(find.widgetWithText(ElevatedButton, 'Add Branch'), findsOneWidget);
+        expect(find.byKey(const Key('btn-dialog-save-branch')), findsOneWidget);
         await tester.enterText(
-          find.widgetWithText(TextField, 'e.g. Artificial Intelligence & Data Science'),
+          find.byKey(const Key('input-dialog-branch-name')),
           'Robotics & Automation',
+        );
+        await tester.enterText(
+          find.byKey(const Key('input-dialog-branch-code')),
+          'ROBO',
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.widgetWithText(ElevatedButton, 'Add Branch'));
+        await tester.tap(find.byKey(const Key('btn-dialog-save-branch')));
         await tester.pumpAndSettle();
 
         expect(find.text('Robotics & Automation'), findsWidgets);
+        expect(find.text('ROBO'), findsWidgets);
       }
+    });
+  });
+
+  group('Employee Onboarding Institutional Track Toggle Tests', () {
+    testWidgets('Academic and Administrative track switches render and toggle state',
+        (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(MaterialApp(
+        home: UserManagementScreen(
+          storage: storage,
+          currentUser: testAdmin,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Tap 'Onboard User' button to open creation dialog
+      await tester.tap(find.text('Onboard User'));
+      await tester.pumpAndSettle();
+
+      // Switch to Employee Onboarding tab
+      await tester.tap(find.text('Employee Onboarding'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Institutional Tracks (Single or Dual-Track Appointment)'), findsOneWidget);
+
+      // Verify toggle switches exist
+      final academicSwitch = find.byKey(const Key('switch-employee-academic-track'));
+      final adminSwitch = find.byKey(const Key('switch-employee-admin-track'));
+
+      expect(academicSwitch, findsOneWidget);
+      expect(adminSwitch, findsOneWidget);
+
+      // Default: academic is true, admin is false
+      expect(tester.widget<Switch>(academicSwitch).value, isTrue);
+      expect(tester.widget<Switch>(adminSwitch).value, isFalse);
+
+      // Scroll to administrative switch and toggle to true
+      await tester.ensureVisible(adminSwitch);
+      await tester.pumpAndSettle();
+      await tester.tap(adminSwitch);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(adminSwitch).value, isTrue);
+      expect(find.text('Primary Administrative Unit'), findsOneWidget);
+
+      // Scroll to academic switch and toggle to false
+      await tester.ensureVisible(academicSwitch);
+      await tester.pumpAndSettle();
+      await tester.tap(academicSwitch);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(academicSwitch).value, isFalse);
     });
   });
 }

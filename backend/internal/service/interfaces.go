@@ -42,6 +42,7 @@ type AcademicServiceInterface interface {
 	ListDepartments(ctx context.Context) ([]model.Department, error)
 	GetDepartmentDetail(ctx context.Context, deptID string, userResolver func(id string) (model.User, bool)) (model.DepartmentDetail, error)
 	CreateProgram(ctx context.Context, p model.Program) (model.Program, error)
+	UpdateProgram(ctx context.Context, p model.Program) (model.Program, error)
 	ListPrograms(ctx context.Context) ([]model.Program, error)
 	CreateSubject(ctx context.Context, sub model.Subject) (model.Subject, error)
 	ListSubjects(ctx context.Context) ([]model.Subject, error)

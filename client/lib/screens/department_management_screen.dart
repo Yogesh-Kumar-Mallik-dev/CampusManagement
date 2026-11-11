@@ -91,7 +91,9 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
           p.code.toLowerCase().contains(q) ||
           p.degreeLevel.toLowerCase().contains(q) ||
           p.branch.toLowerCase().contains(q) ||
-          p.branches.any((b) => b.toLowerCase().contains(q));
+          p.branches.any((b) =>
+              b.name.toLowerCase().contains(q) ||
+              b.code.toLowerCase().contains(q));
     }).toList();
   }
 
@@ -1725,7 +1727,8 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
   }
 
   void _openAddBranchDialog(ProgramModel program) {
-    final branchCtrl = TextEditingController();
+    final branchNameCtrl = TextEditingController();
+    final branchCodeCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) {
@@ -1745,11 +1748,24 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: branchCtrl,
+                key: const Key('input-dialog-branch-name'),
+                controller: branchNameCtrl,
                 autofocus: true,
                 decoration: const InputDecoration(
-                  labelText: 'Branch / Specialization Name',
+                  labelText: 'Branch Name *',
                   hintText: 'e.g. Artificial Intelligence & Data Science',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('input-dialog-branch-code'),
+                controller: branchCodeCtrl,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Branch Code',
+                  hintText: 'e.g. AIDS or AI',
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
@@ -1762,14 +1778,17 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
               child: const Text('Cancel'),
             ),
             ElevatedButton(
+              key: const Key('btn-dialog-save-branch'),
               onPressed: () async {
-                final bName = branchCtrl.text.trim();
+                final bName = branchNameCtrl.text.trim();
+                final bCode = branchCodeCtrl.text.trim().toUpperCase();
                 if (bName.isEmpty) return;
                 Navigator.of(ctx).pop();
                 try {
                   final updated = await widget.storage.addBranchToProgram(
                     programId: program.id,
                     branchName: bName,
+                    branchCode: bCode,
                   );
                   setState(() {
                     final idx = _programs.indexWhere((p) => p.id == program.id);
@@ -1804,6 +1823,204 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
         );
       },
     );
+  }
+
+  void _openEditBranchDialog(ProgramModel program, ProgramBranchModel branch) {
+    final branchNameCtrl = TextEditingController(text: branch.name);
+    final branchCodeCtrl = TextEditingController(text: branch.code);
+    bool isRetired = branch.isRetired;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return AlertDialog(
+              title: Text('Edit Branch: ${branch.name}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    key: const Key('input-edit-branch-name'),
+                    controller: branchNameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Branch Name *',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('input-edit-branch-code'),
+                    controller: branchCodeCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      labelText: 'Branch Code',
+                      hintText: 'e.g. CSE, AIML',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Retire this Branch',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isRetired ? 'Branch is inactive / retired' : 'Branch is currently active',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isRetired ? Colors.orange : AppColors.githubGreen,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          key: const Key('switch-edit-branch-retired'),
+                          value: isRetired,
+                          activeThumbColor: Colors.orange,
+                          onChanged: (val) => setDialogState(() => isRetired = val),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  key: const Key('btn-save-edit-branch'),
+                  onPressed: () async {
+                    final newName = branchNameCtrl.text.trim();
+                    final newCode = branchCodeCtrl.text.trim().toUpperCase();
+                    if (newName.isEmpty) return;
+                    Navigator.of(ctx).pop();
+                    try {
+                      final updated = await widget.storage.updateBranchInProgram(
+                        programId: program.id,
+                        oldBranchName: branch.name,
+                        updatedBranch: ProgramBranchModel(
+                          name: newName,
+                          code: newCode,
+                          isRetired: isRetired,
+                        ),
+                      );
+                      setState(() {
+                        final idx = _programs.indexWhere((p) => p.id == program.id);
+                        if (idx != -1) {
+                          _programs[idx] = updated;
+                          _recomputeFilteredLists();
+                        }
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Branch "$newName" updated successfully.'),
+                            backgroundColor: AppColors.githubGreen,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to update branch: $e'),
+                            backgroundColor: AppColors.statusRed,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0969DA), foregroundColor: Colors.white),
+                  child: const Text('Save Branch'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openEditProgramDialog(ProgramModel program) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _EditProgramDialog(
+        storage: widget.storage,
+        program: program,
+        onUpdated: (updated) {
+          setState(() {
+            final idx = _programs.indexWhere((p) => p.id == updated.id);
+            if (idx != -1) {
+              _programs[idx] = updated;
+            } else {
+              _programs.insert(0, updated);
+            }
+            _recomputeFilteredLists();
+          });
+        },
+      ),
+    );
+  }
+
+  Future<void> _toggleProgramRetired(ProgramModel program) async {
+    final nextState = !program.isRetired;
+    try {
+      final updated = await widget.storage.setProgramRetired(
+        programId: program.id,
+        isRetired: nextState,
+      );
+      setState(() {
+        final idx = _programs.indexWhere((p) => p.id == program.id);
+        if (idx != -1) {
+          _programs[idx] = updated;
+          _recomputeFilteredLists();
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(nextState
+                ? 'Course "${program.name}" (${program.code}) has been retired.'
+                : 'Course "${program.name}" (${program.code}) has been reactivated.'),
+            backgroundColor: nextState ? Colors.orange : AppColors.githubGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update course status: $e'),
+            backgroundColor: AppColors.statusRed,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildEmptyProgramState(bool isDark) {
@@ -1896,48 +2113,103 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
         color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-          width: 1,
+          color: prog.isRetired
+              ? Colors.orange.withValues(alpha: 0.5)
+              : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+          width: prog.isRetired ? 1.5 : 1,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Level badge + Duration pill
+          // Header: Level badge + Duration pill + Retired badge + Actions
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0969DA).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFF0969DA).withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  prog.degreeLevel.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0969DA),
-                    letterSpacing: 0.5,
-                  ),
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0969DA).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFF0969DA).withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        prog.degreeLevel.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0969DA),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${prog.durationYears} Yrs (${prog.totalSemesters} Sems)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        ),
+                      ),
+                    ),
+                    if (prog.isRetired)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                        ),
+                        child: const Text(
+                          'RETIRED',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '${prog.durationYears} Yrs (${prog.totalSemesters} Sems)',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    key: Key('btn-edit-program-${prog.code}'),
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    tooltip: 'Edit Course',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    onPressed: () => _openEditProgramDialog(prog),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    key: Key('btn-retire-program-${prog.code}'),
+                    icon: Icon(
+                      prog.isRetired ? Icons.restart_alt : Icons.archive_outlined,
+                      size: 16,
+                      color: prog.isRetired ? AppColors.githubGreen : Colors.orange,
+                    ),
+                    tooltip: prog.isRetired ? 'Reactivate Course' : 'Retire Course',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    onPressed: () => _toggleProgramRetired(prog),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1946,7 +2218,13 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
           // Program Code & Name
           Text(
             prog.code,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: -0.2),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.2,
+              decoration: prog.isRetired ? TextDecoration.lineThrough : null,
+              color: prog.isRetired ? Colors.grey : null,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -2047,15 +2325,67 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
                 spacing: 6,
                 runSpacing: 6,
                 children: prog.branches.map((b) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      b,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                  return InkWell(
+                    key: Key('chip-branch-${b.name}'),
+                    onTap: () => _openEditBranchDialog(prog, b),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: b.isRetired
+                            ? (isDark ? const Color(0xFF1B1F23) : const Color(0xFFF1F5F9))
+                            : (isDark ? const Color(0xFF21262D) : const Color(0xFFE2E8F0)),
+                        borderRadius: BorderRadius.circular(4),
+                        border: b.isRetired
+                            ? Border.all(color: Colors.orange.withValues(alpha: 0.4), width: 1)
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (b.code.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: (b.isRetired ? Colors.grey : const Color(0xFF0969DA)).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                b.code,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: b.isRetired ? Colors.grey : const Color(0xFF0969DA),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                          Flexible(
+                            child: Text(
+                              b.name,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                decoration: b.isRetired ? TextDecoration.lineThrough : null,
+                                color: b.isRetired
+                                    ? (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted)
+                                    : null,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (b.isRetired) ...[
+                            const SizedBox(width: 4),
+                            const Text(
+                              '[RETIRED]',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.orange),
+                            ),
+                          ],
+                          const SizedBox(width: 4),
+                          const Icon(Icons.edit, size: 11, color: Colors.grey),
+                        ],
+                      ),
                     ),
                   );
                 }).toList(),
@@ -2106,6 +2436,13 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
                         color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                       ),
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 14),
+                    tooltip: 'Edit Course',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _openEditProgramDialog(prog),
                   ),
                 ],
               ),
@@ -6626,12 +6963,14 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
   final _nameController = TextEditingController();
   final _codeController = TextEditingController();
   final _branchInputController = TextEditingController();
+  final _branchCodeInputController = TextEditingController();
   final _singleBranchController = TextEditingController();
+  final _singleBranchCodeController = TextEditingController();
 
   String _degreeLevel = 'undergraduate';
   int _durationYears = 4;
   bool _hasBranches = true;
-  final List<String> _branches = [];
+  final List<ProgramBranchModel> _branches = [];
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -6640,26 +6979,31 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
     _nameController.dispose();
     _codeController.dispose();
     _branchInputController.dispose();
+    _branchCodeInputController.dispose();
     _singleBranchController.dispose();
+    _singleBranchCodeController.dispose();
     super.dispose();
   }
 
   void _addBranchFromInput() {
-    final text = _branchInputController.text.trim();
-    if (text.isEmpty) return;
-    final parts = text.split(RegExp(r'[,;]')).map((p) => p.trim()).where((p) => p.isNotEmpty);
+    final name = _branchInputController.text.trim();
+    final code = _branchCodeInputController.text.trim().toUpperCase();
+    if (name.isEmpty) return;
     setState(() {
-      for (final p in parts) {
-        if (!_branches.contains(p)) {
-          _branches.add(p);
-        }
+      if (!_branches.any((b) => b.name.toLowerCase() == name.toLowerCase())) {
+        _branches.add(ProgramBranchModel(
+          name: name,
+          code: code,
+          isRetired: false,
+        ));
       }
       _branchInputController.clear();
+      _branchCodeInputController.clear();
       _errorMessage = null;
     });
   }
 
-  void _removeBranch(String branch) {
+  void _removeBranch(ProgramBranchModel branch) {
     setState(() {
       _branches.remove(branch);
     });
@@ -6687,8 +7031,11 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
     final code = _codeController.text.trim().toUpperCase();
     final name = _nameController.text.trim();
     final effectiveBranch = _hasBranches
-        ? (_branches.isNotEmpty ? _branches.first : '')
+        ? (_branches.isNotEmpty ? _branches.first.name : '')
         : _singleBranchController.text.trim();
+    final effectiveBranchCode = _hasBranches
+        ? (_branches.isNotEmpty ? _branches.first.code : '')
+        : _singleBranchCodeController.text.trim().toUpperCase();
 
     final program = ProgramModel(
       id: 'prog-${code.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '-')}',
@@ -6699,7 +7046,11 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
       hasBranches: _hasBranches,
       branch: effectiveBranch,
       durationYears: _durationYears,
-      branches: _hasBranches ? List.from(_branches) : (effectiveBranch.isNotEmpty ? [effectiveBranch] : []),
+      branches: _hasBranches
+          ? List.from(_branches)
+          : (effectiveBranch.isNotEmpty
+              ? [ProgramBranchModel(name: effectiveBranch, code: effectiveBranchCode)]
+              : []),
     );
 
     try {
@@ -6949,12 +7300,29 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
                   Row(
                     children: [
                       Expanded(
+                        flex: 3,
                         child: TextFormField(
                           key: const Key('input-program-branch-name'),
                           controller: _branchInputController,
                           decoration: const InputDecoration(
-                            labelText: 'Add Branch / Specialization',
+                            labelText: 'Add Branch Name',
                             hintText: 'e.g. Computer Science & Engineering',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onFieldSubmitted: (_) => _addBranchFromInput(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          key: const Key('input-program-branch-code'),
+                          controller: _branchCodeInputController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: const InputDecoration(
+                            labelText: 'Branch Code',
+                            hintText: 'e.g. CSE',
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -6982,8 +7350,9 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
                       spacing: 6,
                       runSpacing: 6,
                       children: _branches.map((b) {
+                        final labelText = b.code.isNotEmpty ? '[${b.code}] ${b.name}' : b.name;
                         return Chip(
-                          label: Text(b, style: const TextStyle(fontSize: 11)),
+                          label: Text(labelText, style: const TextStyle(fontSize: 11)),
                           deleteIcon: const Icon(Icons.close, size: 12),
                           onDeleted: () => _removeBranch(b),
                           backgroundColor: const Color(0xFF0969DA).withValues(alpha: 0.12),
@@ -6994,7 +7363,7 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
                     const SizedBox(height: 6),
                   ] else ...[
                     Text(
-                      'No branches added yet. Enter a branch name above (e.g. Computer Science, Mechanical).',
+                      'No branches added yet. Enter a branch name and code above.',
                       style: TextStyle(
                         fontSize: 11,
                         fontStyle: FontStyle.italic,
@@ -7003,15 +7372,37 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
                     ),
                   ],
                 ] else ...[
-                  TextFormField(
-                    key: const Key('input-program-single-branch'),
-                    controller: _singleBranchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Primary Focus / Discipline (Optional)',
-                      hintText: 'e.g. Computer Applications, General Management',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          key: const Key('input-program-single-branch'),
+                          controller: _singleBranchController,
+                          decoration: const InputDecoration(
+                            labelText: 'Primary Focus / Discipline (Optional)',
+                            hintText: 'e.g. Computer Applications, General Management',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          key: const Key('input-program-single-branch-code'),
+                          controller: _singleBranchCodeController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: const InputDecoration(
+                            labelText: 'Discipline Code',
+                            hintText: 'e.g. BCA-GEN',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
                 const SizedBox(height: 18),
@@ -7041,6 +7432,335 @@ class _AddProgramDialogState extends State<_AddProgramDialog> {
                       child: _isSubmitting
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Text('Create Program'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// EDIT DEGREE PROGRAM DIALOG IMPLEMENTATION
+// -----------------------------------------------------------------------------
+
+class _EditProgramDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final ProgramModel program;
+  final ValueChanged<ProgramModel> onUpdated;
+
+  const _EditProgramDialog({
+    required this.storage,
+    required this.program,
+    required this.onUpdated,
+  });
+
+  @override
+  State<_EditProgramDialog> createState() => _EditProgramDialogState();
+}
+
+class _EditProgramDialogState extends State<_EditProgramDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _codeController;
+  late final TextEditingController _branchController;
+
+  late String _degreeLevel;
+  late int _durationYears;
+  late bool _hasBranches;
+  late bool _isRetired;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.program.name);
+    _codeController = TextEditingController(text: widget.program.code);
+    _branchController = TextEditingController(text: widget.program.branch);
+    _degreeLevel = widget.program.degreeLevel;
+    _durationYears = widget.program.durationYears;
+    _hasBranches = widget.program.hasBranches;
+    _isRetired = widget.program.isRetired;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _codeController.dispose();
+    _branchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    final updated = widget.program.copyWith(
+      name: _nameController.text.trim(),
+      code: _codeController.text.trim().toUpperCase(),
+      degreeLevel: _degreeLevel,
+      durationYears: _durationYears,
+      totalSemesters: _durationYears * 2,
+      hasBranches: _hasBranches,
+      branch: _branchController.text.trim(),
+      isRetired: _isRetired,
+    );
+
+    try {
+      final saved = await widget.storage.updateProgram(updated);
+      if (mounted) {
+        widget.onUpdated(saved);
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Degree course "${saved.name}" (${saved.code}) updated.'),
+            backgroundColor: AppColors.githubGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 540),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const AppSvgIcon(svgString: AppSvgIcon.book, size: 20, color: Color(0xFF0969DA)),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Edit Course: ${widget.program.code}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const AppSvgIcon(svgString: AppSvgIcon.close, size: 16),
+                      onPressed: () => Navigator.of(context).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Update course metadata, branches configuration, and retirement lifecycle.',
+                  style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                ),
+                const SizedBox(height: 20),
+
+                // Program Name
+                TextFormField(
+                  key: const Key('input-edit-program-name'),
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Program / Course Name *',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Name required' : null,
+                ),
+                const SizedBox(height: 12),
+
+                // Row: Code + Degree Level
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        key: const Key('input-edit-program-code'),
+                        controller: _codeController,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(
+                          labelText: 'Course Code *',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Code required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Degree Level *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          AppDropdown<String>(
+                            items: const [
+                              AppDropdownItem(value: 'undergraduate', label: 'Undergraduate (Bachelor)'),
+                              AppDropdownItem(value: 'postgraduate', label: 'Postgraduate (Master)'),
+                              AppDropdownItem(value: 'diploma', label: 'Diploma / Polytechnic'),
+                              AppDropdownItem(value: 'doctoral', label: 'Doctoral (Ph.D.)'),
+                            ],
+                            value: _degreeLevel,
+                            onChanged: (val) {
+                              if (val != null) setState(() => _degreeLevel = val);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Duration Selector
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Duration & Academic Terms *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    AppDropdown<int>(
+                      items: const [
+                        AppDropdownItem(value: 1, label: '1 Year (2 Semesters)'),
+                        AppDropdownItem(value: 2, label: '2 Years (4 Semesters)'),
+                        AppDropdownItem(value: 3, label: '3 Years (6 Semesters)'),
+                        AppDropdownItem(value: 4, label: '4 Years (8 Semesters)'),
+                        AppDropdownItem(value: 5, label: '5 Years (10 Semesters)'),
+                      ],
+                      value: _durationYears,
+                      onChanged: (val) {
+                        if (val != null) setState(() => _durationYears = val);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Has Branches Toggle
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Can this program have multiple branches / specializations?',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Switch(
+                        key: const Key('switch-edit-program-has-branches'),
+                        value: _hasBranches,
+                        activeThumbColor: const Color(0xFF0969DA),
+                        onChanged: (val) => setState(() => _hasBranches = val),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Retire Course Toggle
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Retire this Course / Program',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _isRetired
+                                  ? 'Course is currently retired (discontinued curriculum).'
+                                  : 'Course is active and accepting student enrollments.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: _isRetired ? Colors.orange : AppColors.githubGreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        key: const Key('switch-edit-program-retired'),
+                        value: _isRetired,
+                        activeThumbColor: Colors.orange,
+                        onChanged: (val) => setState(() => _isRetired = val),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                if (_errorMessage != null) ...[
+                  Text(_errorMessage!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                  const SizedBox(height: 10),
+                ],
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      key: const Key('btn-submit-edit-program'),
+                      onPressed: _isSubmitting ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0969DA),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Save Changes'),
                     ),
                   ],
                 ),

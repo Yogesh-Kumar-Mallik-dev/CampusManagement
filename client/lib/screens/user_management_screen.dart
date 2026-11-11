@@ -1504,13 +1504,47 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         const SizedBox(height: 8),
 
         // Academic Track Toggle
-        CheckboxListTile(
-          value: _empIsAcademic,
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Academic Track (Teaching & Research duties)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          onChanged: (val) => setState(() => _empIsAcademic = val ?? false),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Academic Track (Teaching & Research duties)',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Enables academic rank and faculty course assignments',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                key: const Key('switch-employee-academic-track'),
+                value: _empIsAcademic,
+                activeThumbColor: const Color(0xFF0969DA),
+                onChanged: (val) => setState(() => _empIsAcademic = val),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 8),
         if (_empIsAcademic) ...[
           Padding(
             padding: const EdgeInsets.only(left: 20),
@@ -1536,13 +1570,47 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         ],
 
         // Administrative Track Toggle
-        CheckboxListTile(
-          value: _empIsAdmin,
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Administrative Track (Operations & Governance duties)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          onChanged: (val) => setState(() => _empIsAdmin = val ?? false),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Administrative Track (Operations & Governance duties)',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Enables administrative unit, designation, and governance roles',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                key: const Key('switch-employee-admin-track'),
+                value: _empIsAdmin,
+                activeThumbColor: const Color(0xFF0969DA),
+                onChanged: (val) => setState(() => _empIsAdmin = val),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 8),
         if (_empIsAdmin) ...[
           Padding(
             padding: const EdgeInsets.only(left: 20),

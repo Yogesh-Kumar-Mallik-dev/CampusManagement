@@ -150,6 +150,34 @@ func (h *DepartmentHandler) HandlePrograms(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(created)
 
+	case http.MethodPut:
+		var req model.Program
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(req.ID) == "" {
+			http.Error(w, "Program ID is required", http.StatusBadRequest)
+			return
+		}
+		if req.DurationYears <= 0 {
+			if req.TotalSemesters > 0 {
+				req.DurationYears = req.TotalSemesters / 2
+			} else {
+				req.DurationYears = 4
+			}
+		}
+		if req.TotalSemesters <= 0 {
+			req.TotalSemesters = req.DurationYears * 2
+		}
+		updated, err := h.academicService.UpdateProgram(r.Context(), req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(updated)
+
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}

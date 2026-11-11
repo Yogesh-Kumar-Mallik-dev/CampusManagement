@@ -576,6 +576,62 @@ class DepartmentModel {
       };
 }
 
+class ProgramBranchModel {
+  final String name;
+  final String code;
+  final bool isRetired;
+
+  const ProgramBranchModel({
+    required this.name,
+    this.code = '',
+    this.isRetired = false,
+  });
+
+  factory ProgramBranchModel.fromJson(dynamic json) {
+    if (json is String) {
+      return ProgramBranchModel(name: json);
+    }
+    if (json is Map<String, dynamic>) {
+      return ProgramBranchModel(
+        name: json['name'] as String? ?? '',
+        code: json['code'] as String? ?? '',
+        isRetired: json['is_retired'] as bool? ?? json['isRetired'] as bool? ?? false,
+      );
+    }
+    return const ProgramBranchModel(name: '');
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'code': code,
+        'is_retired': isRetired,
+      };
+
+  ProgramBranchModel copyWith({
+    String? name,
+    String? code,
+    bool? isRetired,
+  }) {
+    return ProgramBranchModel(
+      name: name ?? this.name,
+      code: code ?? this.code,
+      isRetired: isRetired ?? this.isRetired,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProgramBranchModel &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          code == other.code &&
+          isRetired == other.isRetired;
+
+  @override
+  int get hashCode => name.hashCode ^ code.hashCode ^ isRetired.hashCode;
+}
+
 class ProgramModel {
   final String id;
   final String code;
@@ -585,7 +641,8 @@ class ProgramModel {
   final bool hasBranches;
   final String branch;
   final int durationYears;
-  final List<String> branches;
+  final List<ProgramBranchModel> branches;
+  final bool isRetired;
 
   ProgramModel({
     required this.id,
@@ -597,13 +654,18 @@ class ProgramModel {
     this.branch = '',
     this.durationYears = 4,
     this.branches = const [],
+    this.isRetired = false,
   });
+
+  List<String> get branchNames => branches.map((b) => b.name).toList();
 
   factory ProgramModel.fromJson(Map<String, dynamic> json) {
     var rawBranches = json['branches'];
-    List<String> parsedBranches = [];
+    List<ProgramBranchModel> parsedBranches = [];
     if (rawBranches is List) {
-      parsedBranches = rawBranches.map((e) => e.toString()).toList();
+      for (final item in rawBranches) {
+        parsedBranches.add(ProgramBranchModel.fromJson(item));
+      }
     }
     final totalSem = json['total_semesters'] as int? ?? ((json['duration_years'] as num?)?.toInt() ?? 4) * 2;
     final durYears = json['duration_years'] as int? ?? (totalSem ~/ 2);
@@ -618,6 +680,7 @@ class ProgramModel {
       branch: json['branch'] ?? '',
       durationYears: durYears > 0 ? durYears : 4,
       branches: parsedBranches,
+      isRetired: json['is_retired'] as bool? ?? false,
     );
   }
 
@@ -630,7 +693,8 @@ class ProgramModel {
         'has_branches': hasBranches,
         'branch': branch,
         'duration_years': durationYears,
-        'branches': branches,
+        'branches': branches.map((b) => b.toJson()).toList(),
+        'is_retired': isRetired,
       };
 
   ProgramModel copyWith({
@@ -642,7 +706,8 @@ class ProgramModel {
     bool? hasBranches,
     String? branch,
     int? durationYears,
-    List<String>? branches,
+    List<ProgramBranchModel>? branches,
+    bool? isRetired,
   }) {
     return ProgramModel(
       id: id ?? this.id,
@@ -654,6 +719,7 @@ class ProgramModel {
       branch: branch ?? this.branch,
       durationYears: durationYears ?? this.durationYears,
       branches: branches ?? this.branches,
+      isRetired: isRetired ?? this.isRetired,
     );
   }
 }

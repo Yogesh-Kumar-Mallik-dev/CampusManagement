@@ -2382,7 +2382,11 @@ class OfflineStorageService implements ICampusStorage {
         hasBranches: true,
         branch: 'Computer Science & Engineering',
         durationYears: 4,
-        branches: ['Computer Science & Engineering', 'Artificial Intelligence & ML', 'Data Science'],
+        branches: [
+          const ProgramBranchModel(name: 'Computer Science & Engineering', code: 'CSE'),
+          const ProgramBranchModel(name: 'Artificial Intelligence & ML', code: 'AIML'),
+          const ProgramBranchModel(name: 'Data Science', code: 'DS'),
+        ],
       ),
       ProgramModel(
         id: 'prog-btech-ece',
@@ -2393,7 +2397,10 @@ class OfflineStorageService implements ICampusStorage {
         hasBranches: true,
         branch: 'Electronics & Communication',
         durationYears: 4,
-        branches: ['Electronics & Communication', 'VLSI Design & Embedded Systems'],
+        branches: [
+          const ProgramBranchModel(name: 'Electronics & Communication', code: 'ECE'),
+          const ProgramBranchModel(name: 'VLSI Design & Embedded Systems', code: 'VLSI'),
+        ],
       ),
       ProgramModel(
         id: 'prog-btech-mech',
@@ -2404,7 +2411,9 @@ class OfflineStorageService implements ICampusStorage {
         hasBranches: false,
         branch: 'Mechanical Engineering',
         durationYears: 4,
-        branches: ['Mechanical Engineering'],
+        branches: [
+          const ProgramBranchModel(name: 'Mechanical Engineering', code: 'ME'),
+        ],
       ),
       ProgramModel(
         id: 'prog-bca',
@@ -2415,7 +2424,9 @@ class OfflineStorageService implements ICampusStorage {
         hasBranches: false,
         branch: 'Computer Applications',
         durationYears: 3,
-        branches: ['Computer Applications'],
+        branches: [
+          const ProgramBranchModel(name: 'Computer Applications', code: 'BCA-GEN'),
+        ],
       ),
       ProgramModel(
         id: 'prog-mba',
@@ -2426,7 +2437,11 @@ class OfflineStorageService implements ICampusStorage {
         hasBranches: true,
         branch: 'Management Studies',
         durationYears: 2,
-        branches: ['Finance & Analytics', 'Human Resources', 'Marketing & Operations'],
+        branches: [
+          const ProgramBranchModel(name: 'Finance & Analytics', code: 'FIN'),
+          const ProgramBranchModel(name: 'Human Resources', code: 'HR'),
+          const ProgramBranchModel(name: 'Marketing & Operations', code: 'MKT'),
+        ],
       ),
     ]);
 
@@ -2834,20 +2849,106 @@ class OfflineStorageService implements ICampusStorage {
     return created;
   }
 
-  Future<ProgramModel> addBranchToProgram({required String programId, required String branchName}) async {
+  Future<ProgramModel> updateProgram(ProgramModel program) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    await checkConnectivity();
+
+    if (isOnline) {
+      try {
+        final updated = await api.updateProgram(program);
+        final idx = _cachedPrograms.indexWhere((p) => p.id == program.id);
+        if (idx != -1) {
+          _cachedPrograms[idx] = updated;
+        } else {
+          _cachedPrograms.insert(0, updated);
+        }
+        return updated;
+      } catch (_) {}
+    }
+
+    final idx = _cachedPrograms.indexWhere((p) => p.id == program.id);
+    if (idx != -1) {
+      _cachedPrograms[idx] = program;
+      return program;
+    }
+    _cachedPrograms.insert(0, program);
+    return program;
+  }
+
+  Future<ProgramModel> setProgramRetired({required String programId, required bool isRetired}) async {
     _seedDefaultAcademicHierarchyIfEmpty();
     final idx = _cachedPrograms.indexWhere((p) => p.id == programId);
     if (idx != -1) {
       final p = _cachedPrograms[idx];
-      final branches = List<String>.from(p.branches);
-      if (!branches.contains(branchName)) {
-        branches.add(branchName);
-      }
-      final updated = p.copyWith(hasBranches: true, branches: branches);
-      _cachedPrograms[idx] = updated;
-      return updated;
+      final updated = p.copyWith(isRetired: isRetired);
+      return updateProgram(updated);
     }
     throw Exception('Program not found: $programId');
+  }
+
+  Future<ProgramModel> addBranchToProgram({
+    required String programId,
+    required String branchName,
+    String branchCode = '',
+  }) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    final idx = _cachedPrograms.indexWhere((p) => p.id == programId);
+    if (idx != -1) {
+      final p = _cachedPrograms[idx];
+      final branches = List<ProgramBranchModel>.from(p.branches);
+      if (!branches.any((b) => b.name.toLowerCase() == branchName.toLowerCase())) {
+        branches.add(ProgramBranchModel(
+          name: branchName,
+          code: branchCode,
+          isRetired: false,
+        ));
+      }
+      final updated = p.copyWith(hasBranches: true, branches: branches);
+      return updateProgram(updated);
+    }
+    throw Exception('Program not found: $programId');
+  }
+
+  Future<ProgramModel> updateBranchInProgram({
+    required String programId,
+    required String oldBranchName,
+    required ProgramBranchModel updatedBranch,
+  }) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    final idx = _cachedPrograms.indexWhere((p) => p.id == programId);
+    if (idx != -1) {
+      final p = _cachedPrograms[idx];
+      final branches = List<ProgramBranchModel>.from(p.branches);
+      final bIdx = branches.indexWhere((b) => b.name.toLowerCase() == oldBranchName.toLowerCase());
+      if (bIdx != -1) {
+        branches[bIdx] = updatedBranch;
+      } else {
+        branches.add(updatedBranch);
+      }
+      final updated = p.copyWith(branches: branches);
+      return updateProgram(updated);
+    }
+    throw Exception('Program not found: $programId');
+  }
+
+  Future<ProgramModel> setBranchRetired({
+    required String programId,
+    required String branchName,
+    required bool isRetired,
+  }) async {
+    _seedDefaultAcademicHierarchyIfEmpty();
+    final idx = _cachedPrograms.indexWhere((p) => p.id == programId);
+    if (idx != -1) {
+      final p = _cachedPrograms[idx];
+      final branches = List<ProgramBranchModel>.from(p.branches);
+      final bIdx = branches.indexWhere((b) => b.name.toLowerCase() == branchName.toLowerCase());
+      if (bIdx != -1) {
+        branches[bIdx] = branches[bIdx].copyWith(isRetired: isRetired);
+        final updated = p.copyWith(branches: branches);
+        return updateProgram(updated);
+      }
+    }
+    throw Exception('Branch $branchName not found in program $programId');
   }
 
   Future<List<SubjectModel>> getSubjects() async {

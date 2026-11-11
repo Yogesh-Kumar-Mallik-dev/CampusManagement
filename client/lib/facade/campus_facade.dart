@@ -108,9 +108,25 @@ abstract class ICampusFacade {
   Future<DepartmentDetailModel> getDepartmentDetail(String id);
   Future<List<ProgramModel>> getPrograms();
   Future<ProgramModel> createProgram(ProgramModel program);
+  Future<ProgramModel> updateProgram(ProgramModel program);
+  Future<ProgramModel> setProgramRetired({
+    required String programId,
+    required bool isRetired,
+  });
   Future<ProgramModel> addBranchToProgram({
     required String programId,
     required String branchName,
+    String branchCode,
+  });
+  Future<ProgramModel> updateBranchInProgram({
+    required String programId,
+    required String oldBranchName,
+    required ProgramBranchModel updatedBranch,
+  });
+  Future<ProgramModel> setBranchRetired({
+    required String programId,
+    required String branchName,
+    required bool isRetired,
   });
   Future<List<SubjectModel>> getSubjects();
   Future<SubjectModel> createSubject(Map<String, dynamic> payload);
@@ -602,13 +618,53 @@ class CampusFacade implements ICampusFacade {
       storage.createProgram(program);
 
   @override
+  Future<ProgramModel> updateProgram(ProgramModel program) =>
+      storage.updateProgram(program);
+
+  @override
+  Future<ProgramModel> setProgramRetired({
+    required String programId,
+    required bool isRetired,
+  }) =>
+      storage.setProgramRetired(
+        programId: programId,
+        isRetired: isRetired,
+      );
+
+  @override
   Future<ProgramModel> addBranchToProgram({
     required String programId,
     required String branchName,
+    String branchCode = '',
   }) =>
       storage.addBranchToProgram(
         programId: programId,
         branchName: branchName,
+        branchCode: branchCode,
+      );
+
+  @override
+  Future<ProgramModel> updateBranchInProgram({
+    required String programId,
+    required String oldBranchName,
+    required ProgramBranchModel updatedBranch,
+  }) =>
+      storage.updateBranchInProgram(
+        programId: programId,
+        oldBranchName: oldBranchName,
+        updatedBranch: updatedBranch,
+      );
+
+  @override
+  Future<ProgramModel> setBranchRetired({
+    required String programId,
+    required String branchName,
+    required bool isRetired,
+  }) =>
+      storage.setBranchRetired(
+        programId: programId,
+        branchName: branchName,
+        isRetired: isRetired,
       );
 
   @override

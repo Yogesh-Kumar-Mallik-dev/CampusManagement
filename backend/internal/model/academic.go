@@ -1,5 +1,7 @@
 package model
 
+import "encoding/json"
+
 // Department represents an academic department (e.g. Computer Science, Electronics, Mathematics)
 type Department struct {
 	BaseSyncModel
@@ -20,17 +22,42 @@ type Department struct {
 	SemesterCount int `json:"semester_count"`
 }
 
+// ProgramBranch represents an academic branch/specialization with code and lifecycle status
+type ProgramBranch struct {
+	Name      string `json:"name"`
+	Code      string `json:"code,omitempty"`
+	IsRetired bool   `json:"is_retired"`
+}
+
+func (pb *ProgramBranch) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		pb.Name = s
+		pb.Code = ""
+		pb.IsRetired = false
+		return nil
+	}
+	type Alias ProgramBranch
+	var aux Alias
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	*pb = ProgramBranch(aux)
+	return nil
+}
+
 // Program represents an overarching degree course (e.g. B.Tech Computer Science, MBA)
 type Program struct {
 	BaseSyncModel
-	Code           string   `json:"code"`                     // e.g. 'BTECH-CSE'
-	Name           string   `json:"name"`                     // e.g. 'Bachelor of Technology in Computer Science'
-	DegreeLevel    string   `json:"degree_level"`             // 'undergraduate', 'postgraduate', 'doctoral', 'diploma'
-	TotalSemesters int      `json:"total_semesters"`          // e.g. 8
-	HasBranches    bool     `json:"has_branches"`             // Toggle: whether program has multiple branch specializations
-	Branch         string   `json:"branch,omitempty"`         // Primary/direct branch e.g. 'Computer Science & Engineering'
-	DurationYears  int      `json:"duration_years,omitempty"` // Duration in years e.g. 4
-	Branches       []string `json:"branches,omitempty"`       // List of branches e.g. ['CSE', 'ECE', 'ME']
+	Code           string          `json:"code"`                     // e.g. 'BTECH-CSE'
+	Name           string          `json:"name"`                     // e.g. 'Bachelor of Technology in Computer Science'
+	DegreeLevel    string          `json:"degree_level"`             // 'undergraduate', 'postgraduate', 'doctoral', 'diploma'
+	TotalSemesters int             `json:"total_semesters"`          // e.g. 8
+	HasBranches    bool            `json:"has_branches"`             // Toggle: whether program has multiple branch specializations
+	Branch         string          `json:"branch,omitempty"`         // Primary/direct branch e.g. 'Computer Science & Engineering'
+	DurationYears  int             `json:"duration_years,omitempty"` // Duration in years e.g. 4
+	Branches       []ProgramBranch `json:"branches,omitempty"`       // List of branches e.g. [{Name: 'CSE', Code: 'CS'}]
+	IsRetired      bool            `json:"is_retired"`               // Whether course/program is retired
 }
 
 // Subject represents an academic subject/course module

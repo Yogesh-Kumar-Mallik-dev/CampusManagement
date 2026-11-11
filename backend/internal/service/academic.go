@@ -945,6 +945,21 @@ func (s *AcademicService) CreateProgram(ctx context.Context, p model.Program) (m
 	return p, nil
 }
 
+func (s *AcademicService) UpdateProgram(ctx context.Context, p model.Program) (model.Program, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	existing, exists := s.programs[p.ID]
+	if !exists {
+		return model.Program{}, fmt.Errorf("program not found: %s", p.ID)
+	}
+
+	p.CreatedAt = existing.CreatedAt
+	p.UpdatedAt = time.Now().UTC()
+	s.programs[p.ID] = p
+	return p, nil
+}
+
 func (s *AcademicService) ListPrograms(ctx context.Context) ([]model.Program, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
