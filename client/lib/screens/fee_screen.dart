@@ -10,6 +10,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../utils/file_downloader.dart';
+import '../utils/app_error_catalog.dart';
 import '../widgets/app_dropdown.dart';
 import '../widgets/campus_payment_dialog.dart';
 import 'complaints_screen.dart';
@@ -1341,7 +1342,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Failed to download invoice PDF: $err'),
+          content: Text(AppErrorCatalog.feeReceiptDownloadFailed.displayString),
           backgroundColor: AppColors.statusRed,
         ),
       );
@@ -1376,7 +1377,7 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
       messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Failed to download receipt PDF: $err'),
+          content: Text(AppErrorCatalog.feeReceiptDownloadFailed.displayString),
           backgroundColor: AppColors.statusRed,
         ),
       );
@@ -1511,7 +1512,10 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
                   } catch (err) {
                     messenger.clearSnackBars();
                     messenger.showSnackBar(
-                      SnackBar(content: Text('Appeal submission failed: $err'), backgroundColor: AppColors.statusRed),
+                      SnackBar(
+                        content: Text(AppErrorCatalog.resolveException(err, defaultError: AppErrorCatalog.feeInvoiceQueryFailed).displayString),
+                        backgroundColor: AppColors.statusRed,
+                      ),
                     );
                   }
                 },
@@ -1556,7 +1560,10 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
       } catch (err) {
         messenger.clearSnackBars();
         messenger.showSnackBar(
-          SnackBar(content: Text('Waiver failed: $err'), backgroundColor: AppColors.statusRed),
+          SnackBar(
+            content: Text(AppErrorCatalog.resolveException(err, defaultError: AppErrorCatalog.feeInvoiceQueryFailed).displayString),
+            backgroundColor: AppColors.statusRed,
+          ),
         );
       }
     }
@@ -1654,7 +1661,10 @@ class _FeeScreenState extends State<FeeScreen> with SingleTickerProviderStateMix
       );
     } catch (err) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Failed to load receipt: $err'), backgroundColor: AppColors.statusRed),
+        SnackBar(
+          content: Text(AppErrorCatalog.resolveException(err, defaultError: AppErrorCatalog.feeInvoiceQueryFailed).displayString),
+          backgroundColor: AppColors.statusRed,
+        ),
       );
     }
   }

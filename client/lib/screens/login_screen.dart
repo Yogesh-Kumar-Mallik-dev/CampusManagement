@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/smooth_theme_toggle.dart';
+import '../utils/app_error_catalog.dart';
 
 class LoginScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -57,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Authentication failed. Please verify your handle and password.';
+          _errorMessage = AppErrorCatalog.authCredentialsMismatch.displayString;
           _isLoading = false;
         });
       }

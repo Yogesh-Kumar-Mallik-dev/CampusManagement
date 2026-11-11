@@ -13,6 +13,7 @@ import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/campus_camera_scanner.dart';
+import '../utils/app_error_catalog.dart';
 
 enum AttendanceViewMode {
   summary,
@@ -362,21 +363,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   Future<void> _processOpticalPayload(String rawPayload) async {
     final clean = rawPayload.trim();
     if (clean.isEmpty) {
-      setState(() => _scanError = 'Please capture or enter a rolling optical frame payload.');
+      setState(() => _scanError = AppErrorCatalog.opticalUnrecognized.displayString);
       return;
     }
 
     final packet = OpticalFramePacket.decode(clean);
     if (packet == null) {
-      setState(() => _scanError = 'Invalid optical packet format. Ensure live QR is in view.');
+      setState(() => _scanError = AppErrorCatalog.opticalUnrecognized.displayString);
       return;
     }
 
     // Freshness check: Reject expired frames
     if (packet.isExpired(maxAgeSeconds: 8)) {
-      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final drift = nowSec - packet.timestamp;
-      setState(() => _scanError = 'Expired Optical Frame: Frame #${packet.sequence} was broadcast ${drift}s ago. Tokens expire in 6s. Scan directly from the live lecture display.');
+      setState(() => _scanError = AppErrorCatalog.opticalExpired.displayString);
       return;
     }
 
@@ -401,7 +400,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     } catch (e) {
       if (mounted) {
         setState(() {
-          _scanError = e.toString().replaceFirst('Exception: ', '');
+          _scanError = AppErrorCatalog.resolveException(e, defaultError: AppErrorCatalog.opticalVerificationFailed).displayString;
           _isVerifying = false;
         });
       }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../utils/app_error_catalog.dart';
 
 class CampusCameraScanner extends StatefulWidget {
   final void Function(String payload) onScanned;
@@ -62,12 +63,12 @@ class _CampusCameraScannerWebState extends State<CampusCameraScanner> with Singl
               const AppSvgIcon(svgString: AppSvgIcon.alertTriangle, size: 28, color: AppColors.statusRed),
               const SizedBox(height: 10),
               Text(
-                'Camera Access Blocked or Unsupported',
+                AppErrorCatalog.cameraPermissionDenied.title,
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
               ),
               const SizedBox(height: 4),
               Text(
-                _errorMessage!,
+                _errorMessage ?? AppErrorCatalog.cameraPermissionDenied.displayString,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.darkTextSecondary, fontSize: 11),
               ),
@@ -102,11 +103,13 @@ class _CampusCameraScannerWebState extends State<CampusCameraScanner> with Singl
               }
             },
             errorBuilder: (context, error) {
+              final errItem = AppErrorCatalog.resolveMobileScannerError(error.errorCode.name);
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'Camera unavailable: ${error.errorCode.name}',
+                    errItem.displayString,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(color: AppColors.statusRed, fontSize: 12),
                   ),
                 ),

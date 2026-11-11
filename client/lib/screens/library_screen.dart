@@ -9,6 +9,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../utils/pdf_picker.dart';
+import '../utils/app_error_catalog.dart';
 import '../widgets/app_dropdown.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -264,15 +265,19 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
+  }
+
+  void _showMildError(Object e, {AppErrorItem defaultError = AppErrorCatalog.systemUnexpected}) {
+    if (!mounted) return;
+    final err = AppErrorCatalog.resolveException(e, defaultError: defaultError);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(err.displayString),
+        backgroundColor: AppColors.statusRed,
+      ),
+    );
   }
 
   Future<void> _handleApproveBorrow(BorrowRecordModel record) async {
@@ -362,14 +367,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -479,14 +477,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -614,14 +605,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -712,14 +696,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -821,14 +798,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -859,14 +829,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -963,14 +926,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -1072,14 +1028,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -1138,14 +1087,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -1761,14 +1703,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 
@@ -1846,14 +1781,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         await _loadLibraryData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppColors.statusRed,
-          ),
-        );
-      }
+      _showMildError(e, defaultError: AppErrorCatalog.libBookUnavailable);
     }
   }
 

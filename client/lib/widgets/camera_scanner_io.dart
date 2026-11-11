@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../utils/app_error_catalog.dart';
 
 class CampusCameraScanner extends StatefulWidget {
   final void Function(String payload) onScanned;
@@ -66,7 +67,7 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
     if (!hasVideo0) {
       if (mounted) {
         setState(() {
-          _hardwareStatus = 'No /dev/video0 webcam detected';
+          _hardwareStatus = AppErrorCatalog.cameraNotFound.displayString;
         });
       }
       return;
@@ -295,7 +296,8 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Camera unavailable: ${error.errorCode.name}',
+                      AppErrorCatalog.resolveMobileScannerError(error.errorCode.name).displayString,
+                      textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.statusRed, fontSize: 12),
                     ),
                   ),
