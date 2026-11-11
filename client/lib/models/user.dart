@@ -273,6 +273,15 @@ class UserModel {
       isFaculty ||
       hasPermission('attendance:broadcast', targetScope);
 
+  bool canManageAttendanceCriteria([String? targetScope]) =>
+      isAdmin ||
+      isHOD ||
+      isFaculty ||
+      hasRole('section_coordinator', targetScope) ||
+      hasRole('coordinator', targetScope) ||
+      hasPermission('attendance:set_criteria', targetScope) ||
+      hasPermission('attendance:manage', targetScope);
+
   bool canScanAttendance([String? targetScope]) =>
       isStudent ||
       hasPermission('attendance:scan', targetScope);

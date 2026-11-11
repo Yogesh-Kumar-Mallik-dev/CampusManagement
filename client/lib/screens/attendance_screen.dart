@@ -78,6 +78,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   List<AttendanceSummaryModel> _atRiskList = [];
   List<AttendanceSummaryModel> _safeList = [];
 
+  double _interimThreshold = 75.0;
+
   void _recomputeSummaryStats() {
     final held = _summaries.fold<int>(0, (sum, item) => sum + item.totalSessions);
     final attended = _summaries.fold<int>(0, (sum, item) => sum + item.attended);
@@ -85,13 +87,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     _totalHeld = held;
     _totalAttended = attended;
     _overallPct = pct;
-    _atRiskList = _summaries.where((s) => s.percentage < 75.0).toList();
-    _safeList = _summaries.where((s) => s.percentage >= 75.0).toList();
-    _safeMargin = held > 0 && pct >= 75.0
-        ? math.max(0, ((4 * attended - 3 * held) / 3).floor())
+    _atRiskList = _summaries.where((s) => s.percentage < _interimThreshold).toList();
+    _safeList = _summaries.where((s) => s.percentage >= _interimThreshold).toList();
+    final t = _interimThreshold / 100.0;
+    _safeMargin = held > 0 && pct >= _interimThreshold
+        ? math.max(0, ((attended - t * held) / t).floor())
         : 0;
-    _recoveryReq = held > 0 && pct < 75.0
-        ? math.max(0, 3 * held - 4 * attended)
+    _recoveryReq = held > 0 && pct < _interimThreshold
+        ? math.max(0, ((t * held - attended) / (1.0 - t)).ceil())
         : 0;
   }
 
@@ -186,6 +189,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
+    _interimThreshold =
+        widget.storage.getAttendanceThreshold(sectionScope: _selectedScope);
     _heatmapDays = _buildDynamicHeatmapDays();
     final cached = widget.storage.cachedSummaries;
     if (cached.isNotEmpty) {
@@ -218,6 +223,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       if (mounted) {
         setState(() {
           _summaries = data;
+          _interimThreshold =
+              widget.storage.getAttendanceThreshold(sectionScope: _selectedScope);
           _recomputeSummaryStats();
           _heatmapDays = _buildDynamicHeatmapDays();
           _loadState = PageLoadState.success;
@@ -763,7 +770,91 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
+
+              // Coordinator Interim Criteria Bar
+              if (isFacultyOrAdmin)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.wineRed.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const AppSvgIcon(
+                          svgString: AppSvgIcon.layers,
+                          size: 14,
+                          color: AppColors.wineRed,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Interim Section Attendance Criteria: ${_interimThreshold.toStringAsFixed(0)}%',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Coordinator threshold for $_selectedScope (Bound: 40% min to 75% max)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark
+                                    ? AppColors.darkTextSecondary
+                                    : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        key: const Key('btn-configure-attendance-criteria'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.wineRed,
+                          side: BorderSide(
+                            color: AppColors.wineRed.withValues(alpha: 0.4),
+                            width: 1,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6)),
+                        ),
+                        icon: const AppSvgIcon(
+                          svgString: AppSvgIcon.layers,
+                          size: 13,
+                          color: AppColors.wineRed,
+                        ),
+                        label: const Text(
+                          'Set Criteria',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: _showInterimCriteriaDialog,
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 18),
 
               // Course Attendance Summaries
               const Text(
@@ -805,7 +896,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   Widget _buildSummaryCard(AttendanceSummaryModel s, bool isDark) {
-    final meetsThreshold = s.percentage >= 75.0;
+    final meetsThreshold = s.percentage >= _interimThreshold;
     final badgeStyle = meetsThreshold ? AppColors.greenBadge(isDark) : AppColors.redBadge(isDark);
 
     return Container(
@@ -945,7 +1036,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Statutory 75% regulatory compliance engine, safe bunk margins, and optical scanner.',
+                        _interimThreshold == 75.0
+                            ? 'Statutory 75% regulatory compliance engine, safe bunk margins, and optical scanner.'
+                            : 'Interim ${_interimThreshold.toStringAsFixed(0)}% section compliance criteria, safe bunk margins, and optical scanner.',
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -1149,7 +1242,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     int safeMargin,
     int recoveryReq,
   ) {
-    final meetsRegulatory = overallPct >= 75.0;
+    final meetsRegulatory = overallPct >= _interimThreshold;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1184,12 +1277,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Statutory 75% Regulatory Compliance Gauge',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          Text(
+                            _interimThreshold == 75.0
+                                ? 'Statutory 75% Regulatory Compliance Gauge'
+                                : 'Interim ${_interimThreshold.toStringAsFixed(0)}% Section Compliance Gauge',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            'Dual-ring radial measurement against official university threshold',
+                            _interimThreshold == 75.0
+                                ? 'Dual-ring radial measurement against official university threshold'
+                                : 'Dual-ring radial measurement against section interim criteria (Min 40%, Max 75%)',
                             style: TextStyle(
                               fontSize: 11,
                               color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -1239,6 +1336,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       size: const Size(150, 150),
                       painter: _AttendanceRadialPainter(
                         percentage: overallPct,
+                        threshold: _interimThreshold,
                         isDark: isDark,
                       ),
                     ),
@@ -1270,7 +1368,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            meetsRegulatory ? '>= 75% PASS' : '< 75% RISK',
+                            meetsRegulatory
+                                ? '>= ${_interimThreshold.toStringAsFixed(0)}% PASS'
+                                : '< ${_interimThreshold.toStringAsFixed(0)}% RISK',
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
@@ -1324,8 +1424,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                               const SizedBox(height: 2),
                               Text(
                                 meetsRegulatory
-                                    ? 'You can safely miss up to $safeMargin more lecture${safeMargin == 1 ? '' : 's'} across enrolled courses while staying above the statutory 75% boundary.'
-                                    : 'You are below statutory threshold. Attend the next $recoveryReq consecutive class${recoveryReq == 1 ? '' : 'es'} without absence to clear examination eligibility.',
+                                    ? 'You can safely miss up to $safeMargin more lecture${safeMargin == 1 ? '' : 's'} across enrolled courses while staying above the ${_interimThreshold == 75.0 ? 'statutory 75%' : 'interim ${_interimThreshold.toStringAsFixed(0)}%'} boundary.'
+                                    : 'You are below the ${_interimThreshold == 75.0 ? 'statutory 75%' : 'interim ${_interimThreshold.toStringAsFixed(0)}%'} threshold. Attend the next $recoveryReq consecutive class${recoveryReq == 1 ? '' : 'es'} without absence to clear examination eligibility.',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -1694,12 +1794,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Course Benchmark vs. 75% Cutoff',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          Text(
+                            _interimThreshold == 75.0
+                                ? 'Course Benchmark vs. 75% Cutoff'
+                                : 'Course Benchmark vs. ${_interimThreshold.toStringAsFixed(0)}% Cutoff',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            'Mandatory statutory cutoff across enrolled subjects',
+                            _interimThreshold == 75.0
+                                ? 'Mandatory statutory cutoff across enrolled subjects'
+                                : 'Interim section cutoff across enrolled subjects (Min 40%, Max 75%)',
                             style: TextStyle(
                               fontSize: 11,
                               color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -1720,7 +1824,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
                 ),
                 child: Text(
-                  'Cutoff: 75.0%',
+                  'Cutoff: ${_interimThreshold.toStringAsFixed(1)}%',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -1733,12 +1837,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           const SizedBox(height: 18),
 
           ..._summaries.map((s) {
-            final meets = s.percentage >= 75.0;
+            final meets = s.percentage >= _interimThreshold;
+            final t = _interimThreshold / 100.0;
             final margin = meets
-                ? math.max(0, ((4 * s.attended - 3 * s.totalSessions) / 3).floor())
+                ? math.max(0, ((s.attended - t * s.totalSessions) / t).floor())
                 : 0;
             final recovery = !meets
-                ? math.max(0, 3 * s.totalSessions - 4 * s.attended)
+                ? math.max(0, ((t * s.totalSessions - s.attended) / (1.0 - t)).ceil())
                 : 0;
 
             return InkWell(
@@ -1791,7 +1896,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final totalWidth = constraints.maxWidth;
-                        final cutoffPosition = totalWidth * 0.75;
+                        final cutoffPosition =
+                            totalWidth * (_interimThreshold / 100.0);
                         final barWidth = totalWidth * (s.percentage / 100.0).clamp(0.0, 1.0);
 
                         return SizedBox(
@@ -2054,12 +2160,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   void _showCourseInspectorDialog(BuildContext context, AttendanceSummaryModel s, bool isDark) {
-    final meetsThreshold = s.percentage >= 75.0;
+    final meetsThreshold = s.percentage >= _interimThreshold;
+    final t = _interimThreshold / 100.0;
     final margin = meetsThreshold
-        ? math.max(0, ((4 * s.attended - 3 * s.totalSessions) / 3).floor())
+        ? math.max(0, ((s.attended - t * s.totalSessions) / t).floor())
         : 0;
     final recovery = !meetsThreshold
-        ? math.max(0, 3 * s.totalSessions - 4 * s.attended)
+        ? math.max(0, ((t * s.totalSessions - s.attended) / (1.0 - t)).ceil())
         : 0;
 
     showDialog(
@@ -2193,8 +2300,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                     Expanded(
                       child: Text(
                         meetsThreshold
-                            ? 'Statutory Buffer: You are currently compliant with institutional requirements (>=75%). You may miss up to $margin upcoming lecture${margin == 1 ? '' : 's'} while preserving semester exam clearance.'
-                            : 'Debarment Warning: Your attendance has fallen below the mandatory 75% threshold. You must attend the next $recovery consecutive lecture${recovery == 1 ? '' : 's'} without absence to restore eligibility.',
+                            ? 'Interim Buffer: You are currently compliant with section requirements (>=${_interimThreshold.toStringAsFixed(0)}%). You may miss up to $margin upcoming lecture${margin == 1 ? '' : 's'} while preserving semester exam clearance.'
+                            : 'Debarment Warning: Your attendance has fallen below the ${_interimThreshold.toStringAsFixed(0)}% section threshold. You must attend the next $recovery consecutive lecture${recovery == 1 ? '' : 's'} without absence to restore eligibility.',
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.4,
@@ -2289,6 +2396,260 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           ),
         ],
       ),
+    );
+  }
+
+  void _showInterimCriteriaDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    double tempThreshold = _interimThreshold;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isMinimum = tempThreshold <= 40.0;
+            final isMaximum = tempThreshold >= 75.0;
+
+            return AlertDialog(
+              backgroundColor:
+                  isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  width: 1,
+                ),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.wineRed.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const AppSvgIcon(
+                      svgString: AppSvgIcon.layers,
+                      size: 18,
+                      color: AppColors.wineRed,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Section Interim Criteria',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Section coordinators can set the interim attendance threshold for $_selectedScope. Statutory limits enforce a minimum of 40% and a maximum of 75%.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Value Banner
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.darkBackground
+                            : AppColors.lightBackground,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.lightBorder,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ACTIVE THRESHOLD',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.1,
+                                  color: isDark
+                                      ? AppColors.darkTextMuted
+                                      : AppColors.lightTextMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${tempThreshold.toStringAsFixed(0)}%',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.wineRed,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: isMaximum
+                                  ? AppColors.primaryBadge(isDark).background
+                                  : (isMinimum
+                                      ? AppColors.redBadge(isDark).background
+                                      : AppColors.neutralBadge(isDark)
+                                          .background),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isMaximum
+                                    ? AppColors.primaryBadge(isDark).border
+                                    : (isMinimum
+                                        ? AppColors.redBadge(isDark).border
+                                        : AppColors.neutralBadge(isDark)
+                                            .border),
+                              ),
+                            ),
+                            child: Text(
+                              isMaximum
+                                  ? 'Statutory Max (75%)'
+                                  : (isMinimum
+                                      ? 'Minimum Allowed (40%)'
+                                      : 'Interim Criteria'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isMaximum
+                                    ? AppColors.primaryBadge(isDark).text
+                                    : (isMinimum
+                                        ? AppColors.redBadge(isDark).text
+                                        : AppColors.neutralBadge(isDark).text),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Interactive Slider
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: AppColors.wineRed,
+                        inactiveTrackColor: isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFCBD5E1),
+                        thumbColor: AppColors.wineRed,
+                        overlayColor: AppColors.wineRed.withValues(alpha: 0.15),
+                        valueIndicatorColor: AppColors.wineRed,
+                      ),
+                      child: Slider(
+                        key: const Key('slider-attendance-interim-criteria'),
+                        value: tempThreshold,
+                        min: 40.0,
+                        max: 75.0,
+                        divisions: 35,
+                        label: '${tempThreshold.toStringAsFixed(0)}%',
+                        onChanged: (val) {
+                          setDialogState(() {
+                            tempThreshold = val.roundToDouble();
+                          });
+                        },
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Min: 40%',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppColors.darkTextMuted
+                                : AppColors.lightTextMuted,
+                          ),
+                        ),
+                        Text(
+                          'Max: 75%',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppColors.darkTextMuted
+                                : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  key: const Key('btn-save-attendance-interim-criteria'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.wineRed,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final navigator = Navigator.of(ctx);
+                    final clamped = tempThreshold.clamp(40.0, 75.0);
+                    await widget.storage.setAttendanceThreshold(
+                      sectionScope: _selectedScope,
+                      threshold: clamped,
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _interimThreshold = clamped;
+                        _recomputeSummaryStats();
+                      });
+                      navigator.pop();
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Section interim attendance threshold updated to ${clamped.toStringAsFixed(0)}%.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Save Criteria'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -3029,10 +3390,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
 
 class _AttendanceRadialPainter extends CustomPainter {
   final double percentage;
+  final double threshold;
   final bool isDark;
 
   const _AttendanceRadialPainter({
     required this.percentage,
+    this.threshold = 75.0,
     required this.isDark,
   });
 
@@ -3053,7 +3416,7 @@ class _AttendanceRadialPainter extends CustomPainter {
 
     // 2. Active Progress Arc
     final sweepAngle = (percentage / 100.0).clamp(0.0, 1.0) * 2 * math.pi;
-    final isSafe = percentage >= 75.0;
+    final isSafe = percentage >= threshold;
 
     final progressPaint = Paint()
       ..color = isSafe ? AppColors.githubGreen : AppColors.statusRed
@@ -3070,9 +3433,9 @@ class _AttendanceRadialPainter extends CustomPainter {
       progressPaint,
     );
 
-    // 3. 75% Statutory Regulatory Benchmark Tick Marker
-    // Starting at -pi/2, 75% is -pi/2 + 0.75 * 2*pi = pi (9 o'clock)
-    const benchmarkAngle = -math.pi / 2 + (0.75 * 2 * math.pi);
+    // 3. Benchmark Tick Marker (Clamped to 40% - 75% range)
+    final benchmarkFraction = (threshold / 100.0).clamp(0.40, 0.75);
+    final benchmarkAngle = -math.pi / 2 + (benchmarkFraction * 2 * math.pi);
     final innerTickRadius = radius - strokeWidth / 2 - 4;
     final outerTickRadius = radius + strokeWidth / 2 + 4;
 

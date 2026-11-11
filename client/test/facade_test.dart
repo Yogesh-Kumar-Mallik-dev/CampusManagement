@@ -320,6 +320,21 @@ void main() {
       final summaries = await facade.getAttendanceSummary(student.id);
       expect(summaries, isA<List<AttendanceSummaryModel>>());
 
+      // Interim attendance threshold criteria (Bound: 40% - 75%)
+      expect(facade.getAttendanceThreshold(sectionScope: 'sec:cse-3a'), equals(75.0));
+      await facade.setAttendanceThreshold(sectionScope: 'sec:cse-3a', threshold: 60.0);
+      expect(facade.getAttendanceThreshold(sectionScope: 'sec:cse-3a'), equals(60.0));
+      expect(facade.getAttendanceThreshold(sectionScope: 'sec:cse-3b'), equals(75.0));
+
+      // Test boundary clamping [40, 75]
+      await facade.setAttendanceThreshold(sectionScope: 'sec:cse-3a', threshold: 25.0);
+      expect(facade.getAttendanceThreshold(sectionScope: 'sec:cse-3a'), equals(40.0));
+      await facade.setAttendanceThreshold(sectionScope: 'sec:cse-3a', threshold: 90.0);
+      expect(facade.getAttendanceThreshold(sectionScope: 'sec:cse-3a'), equals(75.0));
+
+      // Reset to 75.0 for downstream tests
+      await facade.setAttendanceThreshold(sectionScope: 'sec:cse-3a', threshold: 75.0);
+
       // Optical attendance
       final session = await facade.startOpticalSession(
         courseId: 'crs-1',

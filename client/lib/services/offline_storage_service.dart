@@ -51,6 +51,7 @@ class OfflineStorageService implements ICampusStorage {
   final Map<String, List<LabBatchModel>> _cachedSectionBatches = {};
   final Map<String, List<FacultyAllocationModel>> _cachedSectionAllocations = {};
   final Map<String, String> _studentBatchMap = {};
+  final Map<String, double> _sectionAttendanceThresholds = {};
 
   // Optical Attendance active session & live verified roster
   OpticalSessionModel? _activeOpticalSession;
@@ -2010,6 +2011,24 @@ class OfflineStorageService implements ICampusStorage {
       _cachedSummaries.addAll(_getDefaultStudentSummaries());
     }
     return _cachedSummaries;
+  }
+
+  @override
+  double getAttendanceThreshold({String? sectionScope}) {
+    if (sectionScope != null &&
+        _sectionAttendanceThresholds.containsKey(sectionScope)) {
+      return _sectionAttendanceThresholds[sectionScope]!;
+    }
+    return _sectionAttendanceThresholds['global'] ?? 75.0;
+  }
+
+  @override
+  Future<void> setAttendanceThreshold({
+    required String sectionScope,
+    required double threshold,
+  }) async {
+    final clamped = threshold.clamp(40.0, 75.0);
+    _sectionAttendanceThresholds[sectionScope] = clamped;
   }
 
   static List<AttendanceSummaryModel> _getDefaultStudentSummaries() {

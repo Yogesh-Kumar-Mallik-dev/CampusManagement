@@ -400,6 +400,11 @@ abstract class ICampusStorage {
   Future<List<TimetableConflictModel>> checkTimetableConflicts(TimetableSlotModel candidate);
   Future<List<NoticeModel>> getNotices(List<String> scopes);
   Future<List<AttendanceSummaryModel>> getAttendanceSummary(String studentId);
+  double getAttendanceThreshold({String? sectionScope});
+  Future<void> setAttendanceThreshold({
+    required String sectionScope,
+    required double threshold,
+  });
 
   // Optical Attendance
   Future<OpticalSessionModel> startOpticalSession({

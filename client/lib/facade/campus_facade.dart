@@ -70,6 +70,11 @@ abstract class ICampusFacade {
   Future<List<TimetableConflictModel>> checkTimetableConflicts(TimetableSlotModel candidate);
   Future<List<NoticeModel>> getNotices(List<String> scopes);
   Future<List<AttendanceSummaryModel>> getAttendanceSummary(String studentId);
+  double getAttendanceThreshold({String? sectionScope});
+  Future<void> setAttendanceThreshold({
+    required String sectionScope,
+    required double threshold,
+  });
 
   // Optical Attendance Session
   Future<OpticalSessionModel> startOpticalSession({
@@ -492,6 +497,20 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<List<AttendanceSummaryModel>> getAttendanceSummary(String studentId) =>
       storage.getAttendanceSummary(studentId);
+
+  @override
+  double getAttendanceThreshold({String? sectionScope}) =>
+      storage.getAttendanceThreshold(sectionScope: sectionScope);
+
+  @override
+  Future<void> setAttendanceThreshold({
+    required String sectionScope,
+    required double threshold,
+  }) =>
+      storage.setAttendanceThreshold(
+        sectionScope: sectionScope,
+        threshold: threshold,
+      );
 
   @override
   Future<OpticalSessionModel> startOpticalSession({

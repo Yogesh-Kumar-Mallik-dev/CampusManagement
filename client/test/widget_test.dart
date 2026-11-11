@@ -890,6 +890,51 @@ void main() {
     expect(find.text('ALIGN RETICLE WITH CLASSROOM DISPLAY'), findsOneWidget);
   });
 
+  testWidgets(
+      'Section Coordinator can configure interim attendance criteria within statutory range [40% - 75%]',
+      (WidgetTester tester) async {
+    final api = ApiService(baseUrl: 'http://localhost:8080');
+    final storage = OfflineStorageService(api: api);
+    final faculty = OfflineStorageService.getMockUserForHandle('priya_2024_emp_1');
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: AttendanceScreen(
+          storage: storage,
+          currentUser: faculty,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Verify Coordinator criteria bar
+    expect(find.byKey(const Key('btn-configure-attendance-criteria')), findsOneWidget);
+    expect(find.textContaining('Interim Section Attendance Criteria: 75%'), findsOneWidget);
+
+    // 2. Open Interim Criteria Dialog
+    await tester.tap(find.byKey(const Key('btn-configure-attendance-criteria')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Section Interim Criteria'), findsOneWidget);
+    expect(find.text('Min: 40%'), findsOneWidget);
+    expect(find.text('Max: 75%'), findsOneWidget);
+
+    // 3. Move slider
+    final sliderFinder = find.byKey(const Key('slider-attendance-interim-criteria'));
+    expect(sliderFinder, findsOneWidget);
+
+    await tester.drag(sliderFinder, const Offset(-100, 0));
+    await tester.pumpAndSettle();
+
+    // 4. Save Criteria
+    await tester.tap(find.byKey(const Key('btn-save-attendance-interim-criteria')));
+    await tester.pumpAndSettle();
+
+    // 5. Verify threshold updated within bounds [40, 75]
+    expect(storage.getAttendanceThreshold(sectionScope: 'sec:cse-3a'), lessThanOrEqualTo(75.0));
+    expect(storage.getAttendanceThreshold(sectionScope: 'sec:cse-3a'), greaterThanOrEqualTo(40.0));
+  });
+
   testWidgets('Timetable: 9 AM to 5 PM 1-hour blocks, consecutive grouping, standard units, and Free vs Off distinction', (tester) async {
     final api = ApiService(baseUrl: 'http://localhost:8080');
     final storage = OfflineStorageService(api: api);
