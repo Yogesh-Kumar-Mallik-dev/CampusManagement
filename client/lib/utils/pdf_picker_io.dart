@@ -45,23 +45,36 @@ Future<PickedPdfFile?> pickPdfFile() async {
   try {
     final file = await FilePicker.pickFile(
       type: FileType.custom,
-      allowedExtensions: ['pdf'],
+      allowedExtensions: ['pdf', 'PDF'],
       dialogTitle: 'Select PDF E-Book Document',
     );
 
-    if (file != null) {
-      final bytes = await file.readAsBytes();
-      if (bytes.isNotEmpty) {
-        final size = file.lengthSync() ?? bytes.length;
-        return PickedPdfFile(
-          name: file.name,
-          size: size,
-          bytes: bytes.toList(),
-        );
-      }
-    } else {
+    if (file == null) {
       // User explicitly cancelled dialog
       return null;
+    }
+
+    List<int> bytes = [];
+    try {
+      bytes = await file.readAsBytes();
+    } catch (_) {}
+
+    if (bytes.isEmpty && file.path != null && file.path!.isNotEmpty) {
+      try {
+        final ioFile = File(file.path!);
+        if (await ioFile.exists()) {
+          bytes = await ioFile.readAsBytes();
+        }
+      } catch (_) {}
+    }
+
+    if (bytes.isNotEmpty) {
+      final size = file.lengthSync() ?? bytes.length;
+      return PickedPdfFile(
+        name: file.name,
+        size: size,
+        bytes: bytes.toList(),
+      );
     }
   } catch (_) {
     // If native plugin channel is not registered, continue to OS-specific shell fallbacks below
@@ -73,7 +86,31 @@ Future<PickedPdfFile?> pickPdfFile() async {
       final res = await Process.run('zenity', [
         '--file-selection',
         '--title=Select PDF E-Book Document',
-        '--file-filter=PDF Documents (*.pdf) | *.pdf',
+        '--file-filter=PDF Documents (*.pdf) | *.pdf *.PDF',
+      ]);
+      if (res.exitCode == 0) {
+        final filePath = res.stdout.toString().trim();
+        if (filePath.isNotEmpty) {
+          final file = File(filePath);
+          if (await file.exists()) {
+            final bytes = await file.readAsBytes();
+            final segments = file.uri.pathSegments.where((s) => s.isNotEmpty).toList();
+            return PickedPdfFile(
+              name: segments.isNotEmpty ? segments.last : 'document.pdf',
+              size: bytes.length,
+              bytes: bytes,
+            );
+          }
+        }
+      } else if (res.exitCode == 1) {
+        return null;
+      }
+    } catch (_) {}
+
+    try {
+      final res = await Process.run('kdialog', [
+        '--title', 'Select PDF E-Book Document',
+        '--getopenfilename', '.', '*.pdf *.PDF|PDF Documents (*.pdf)',
       ]);
       if (res.exitCode == 0) {
         final filePath = res.stdout.toString().trim();

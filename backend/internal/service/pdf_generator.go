@@ -384,3 +384,140 @@ func GenerateReceiptPDF(receipt *model.FeeReceipt) ([]byte, error) {
 
 	return pdf.Bytes(), nil
 }
+
+// GenerateEBookPDF generates a standard PDF 1.4 document for digital institutional e-books
+func GenerateEBookPDF(ebook *model.EBook) ([]byte, error) {
+	if ebook == nil {
+		return nil, fmt.Errorf("ebook cannot be nil")
+	}
+
+	var stream bytes.Buffer
+
+	text := func(font string, size float64, x, y float64, str string, r, g, b float64) {
+		stream.WriteString(fmt.Sprintf("BT /%s %.1f Tf %.3f %.3f %.3f rg %.2f %.2f Td (%s) Tj ET\n",
+			font, size, r, g, b, x, y, escapePDF(str)))
+	}
+	rectFill := func(x, y, w, h float64, r, g, b float64) {
+		stream.WriteString(fmt.Sprintf("%.3f %.3f %.3f rg %.2f %.2f %.2f %.2f re f\n",
+			r, g, b, x, y, w, h))
+	}
+	rectStroke := func(x, y, w, h float64, r, g, b, lineWidth float64) {
+		stream.WriteString(fmt.Sprintf("%.2f w %.3f %.3f %.3f RG %.2f %.2f %.2f %.2f re S\n",
+			lineWidth, r, g, b, x, y, w, h))
+	}
+	line := func(x1, y1, x2, y2 float64, r, g, b, lineWidth float64) {
+		stream.WriteString(fmt.Sprintf("%.2f w %.3f %.3f %.3f RG %.2f %.2f m %.2f %.2f l S\n",
+			lineWidth, r, g, b, x1, y1, x2, y2))
+	}
+
+	// 1. Header Banner
+	rectFill(40, 775, 515, 36, 0.478, 0.110, 0.188) // Wine red
+	text("F2", 14, 55, 788, "CAMPUS CENTRAL DIGITAL LIBRARY", 1.0, 1.0, 1.0)
+	text("F1", 9, 395, 788, "E-BOOK REPOSITORY & SCHOLARSHIP", 0.95, 0.95, 0.95)
+
+	// 2. Book Title & Author
+	text("F2", 18, 40, 730, ebook.Title, 0.15, 0.15, 0.15)
+	text("F1", 12, 40, 705, fmt.Sprintf("Author: %s", ebook.Author), 0.3, 0.3, 0.3)
+	text("F1", 10, 40, 685, fmt.Sprintf("Publisher: %s | Category: %s | Format: %s (%s)",
+		ebook.Publisher, ebook.Category, ebook.Format, ebook.FileSize), 0.4, 0.4, 0.4)
+
+	line(40, 670, 555, 670, 0.8, 0.8, 0.8, 1.0)
+
+	// 3. Metadata Panel
+	rectFill(40, 580, 515, 75, 0.96, 0.97, 0.98)
+	rectStroke(40, 580, 515, 75, 0.85, 0.88, 0.92, 1.0)
+
+	text("F2", 9, 55, 635, "ASSET ID:", 0.3, 0.3, 0.3)
+	text("F1", 9, 130, 635, ebook.ID, 0.15, 0.15, 0.15)
+	text("F2", 9, 320, 635, "BORROW MODEL:", 0.3, 0.3, 0.3)
+	text("F1", 9, 420, 635, "Infinite Concurrent Access", 0.15, 0.15, 0.15)
+
+	text("F2", 9, 55, 615, "STATUS:", 0.3, 0.3, 0.3)
+	text("F1", 9, 130, 615, strings.ToUpper(ebook.Status), 0.15, 0.15, 0.15)
+	text("F2", 9, 320, 615, "TOTAL READERS:", 0.3, 0.3, 0.3)
+	text("F1", 9, 420, 615, fmt.Sprintf("%d Scholars", ebook.TotalReaders), 0.15, 0.15, 0.15)
+
+	text("F2", 9, 55, 595, "CATALOG DATE:", 0.3, 0.3, 0.3)
+	text("F1", 9, 130, 595, ebook.CreatedAt.Format("02 Jan 2006"), 0.15, 0.15, 0.15)
+
+	// 4. Description & Synopsis
+	text("F2", 11, 40, 545, "DOCUMENT SCOPE & SYNOPSIS", 0.2, 0.2, 0.2)
+	line(40, 538, 555, 538, 0.85, 0.85, 0.85, 0.5)
+
+	desc := ebook.Description
+	if desc == "" {
+		desc = "Institutional academic digital asset authorized for student and faculty research."
+	}
+	descWords := strings.Fields(desc)
+	currentLine := ""
+	yPos := 520.0
+	for _, word := range descWords {
+		if len(currentLine)+len(word)+1 > 85 {
+			text("F1", 9.5, 40, yPos, currentLine, 0.25, 0.25, 0.25)
+			yPos -= 16
+			currentLine = word
+		} else {
+			if currentLine == "" {
+				currentLine = word
+			} else {
+				currentLine += " " + word
+			}
+		}
+	}
+	if currentLine != "" {
+		text("F1", 9.5, 40, yPos, currentLine, 0.25, 0.25, 0.25)
+		yPos -= 25
+	}
+
+	// 5. Indexing Tags
+	if len(ebook.Tags) > 0 {
+		text("F2", 9.5, 40, yPos, "Associated Index Tags: "+strings.Join(ebook.Tags, " | "), 0.4, 0.4, 0.4)
+		yPos -= 30
+	}
+
+	// 6. Security & Integrity Seal
+	footerY := 80.0
+	line(40, footerY+30, 555, footerY+30, 0.80, 0.80, 0.80, 0.8)
+
+	rawHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%s", ebook.ID, ebook.Title, ebook.Author)))
+	hashHex := hex.EncodeToString(rawHash[:16])
+
+	text("F2", 8, 40, footerY+15, "DIGITAL TAMPER-EVIDENT ARCHIVAL SEAL:", 0.4, 0.4, 0.4)
+	text("F1", 7.5, 235, footerY+15, strings.ToUpper(hashHex), 0.2, 0.2, 0.2)
+	text("F1", 7.5, 40, footerY, "This document is an electronically catalogued PDF digital textbook verified by Institutional Library.", 0.5, 0.5, 0.5)
+	text("F1", 7.5, 40, footerY-10, fmt.Sprintf("Retrieved on: %s | Campus Central Library Digital Services v1.0", time.Now().UTC().Format(time.RFC1123)), 0.5, 0.5, 0.5)
+
+	// Assemble PDF 1.4 binary structure
+	var pdf bytes.Buffer
+	pdf.WriteString("%PDF-1.4\n")
+	pdf.WriteString("%\xe2\xe3\xcf\xd3\n")
+
+	var offsets []int
+	writeObj := func(objNum int, body string) {
+		offsets = append(offsets, pdf.Len())
+		pdf.WriteString(fmt.Sprintf("%d 0 obj\n%s\nendobj\n", objNum, body))
+	}
+
+	writeObj(1, "<< /Type /Catalog /Pages 2 0 R >>")
+	writeObj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+	writeObj(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>")
+
+	streamBytes := stream.Bytes()
+	streamObj := fmt.Sprintf("<< /Length %d >>\nstream\n%sendstream", len(streamBytes), string(streamBytes))
+	writeObj(4, streamObj)
+
+	writeObj(5, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+	writeObj(6, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
+
+	xrefOffset := pdf.Len()
+	pdf.WriteString(fmt.Sprintf("xref\n0 %d\n", len(offsets)+1))
+	pdf.WriteString("0000000000 65535 f \n")
+	for _, off := range offsets {
+		pdf.WriteString(fmt.Sprintf("%010d 00000 n \n", off))
+	}
+
+	pdf.WriteString(fmt.Sprintf("trailer\n<< /Size %d /Root 1 0 R >>\n", len(offsets)+1))
+	pdf.WriteString(fmt.Sprintf("startxref\n%d\n%%%%EOF\n", xrefOffset))
+
+	return pdf.Bytes(), nil
+}

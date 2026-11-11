@@ -88,15 +88,15 @@ func (h *UploadHandler) HandleUploadPDF(w http.ResponseWriter, r *http.Request) 
 	}
 	defer file.Close()
 
-	// Read first 512 bytes to verify magic header
-	buf := make([]byte, 512)
+	// Read first 1024 bytes to verify magic header per ISO 32000-1 §7.5.2
+	buf := make([]byte, 1024)
 	n, err := file.Read(buf)
 	if err != nil && err != io.EOF {
 		http.Error(w, `{"error":"failed to read uploaded file"}`, http.StatusBadRequest)
 		return
 	}
 
-	if n < 4 || !bytes.HasPrefix(buf[:n], []byte("%PDF-")) {
+	if n < 4 || !bytes.Contains(buf[:n], []byte("%PDF-")) {
 		http.Error(w, `{"error":"invalid file signature: only authentic PDF files with %PDF- header are accepted"}`, http.StatusBadRequest)
 		return
 	}

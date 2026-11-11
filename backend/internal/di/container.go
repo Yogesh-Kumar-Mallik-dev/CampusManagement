@@ -416,6 +416,7 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/library/renew/approve", c.LibraryHandler.HandleApproveRenewal)
 		mux.HandleFunc("/api/v1/library/renew/reject", c.LibraryHandler.HandleRejectRenewal)
 		mux.HandleFunc("/api/v1/library/ebooks", c.LibraryHandler.HandleEBooks)
+		mux.HandleFunc("/api/v1/library/ebooks/", c.LibraryHandler.HandleEBooks)
 		mux.HandleFunc("/api/v1/library/ebooks/approve", c.LibraryHandler.HandleApproveEBook)
 		mux.HandleFunc("/api/v1/library/ebooks/reject", c.LibraryHandler.HandleRejectEBook)
 	}

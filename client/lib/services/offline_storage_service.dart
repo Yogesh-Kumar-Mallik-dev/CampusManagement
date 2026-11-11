@@ -6569,16 +6569,24 @@ class OfflineStorageService implements ICampusStorage {
     if (isOnline) {
       try {
         final list = await api.getEBooks(query: query, category: category);
+        // Retain any local submissions not yet reflected on the remote server
+        final serverIds = list.map((e) => e.id).toSet();
+        final localOnly = _cachedEBooks.where((e) => !serverIds.contains(e.id)).toList();
         _cachedEBooks.clear();
+        _cachedEBooks.addAll(localOnly);
         _cachedEBooks.addAll(list);
-        return list;
+        return _filterEBooksList(_cachedEBooks, query: query, category: category);
       } catch (_) {}
     }
 
+    return _filterEBooksList(_cachedEBooks, query: query, category: category);
+  }
+
+  List<EBookModel> _filterEBooksList(List<EBookModel> source, {String? query, String? category}) {
     final cleanQuery = query?.trim().toLowerCase() ?? '';
     final cleanCategory = category?.trim();
 
-    return _cachedEBooks.where((e) {
+    return source.where((e) {
       if (cleanCategory != null &&
           cleanCategory.isNotEmpty &&
           cleanCategory != 'All Categories' &&
