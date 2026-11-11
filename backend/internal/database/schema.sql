@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS users (
 
     is_active BOOLEAN DEFAULT TRUE,
     status VARCHAR(32) DEFAULT 'active', -- 'active', 'graduated', 'discontinued', 'suspended', 'resigned', 'retired'
+    password_hash VARCHAR(255),
+    must_change_password BOOLEAN DEFAULT TRUE,
     discontinuation_reason TEXT,
     discontinued_at TIMESTAMPTZ,
     discontinued_by VARCHAR(128),
@@ -48,6 +50,9 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     is_deleted BOOLEAN DEFAULT FALSE
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_users_campus_handle ON users(campus_handle);
 CREATE INDEX IF NOT EXISTS idx_users_archetype ON users(archetype);

@@ -132,8 +132,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           _loadUsers();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Successfully onboarded ${newUser.fullName} (${newUser.campusHandle})!'),
+              content: Text('Onboarded ${newUser.fullName} (${newUser.campusHandle}). Initial password is set to username (${newUser.campusHandle}), with mandatory password change on first login.'),
               backgroundColor: AppColors.githubGreen,
+              duration: const Duration(seconds: 5),
             ),
           );
         },

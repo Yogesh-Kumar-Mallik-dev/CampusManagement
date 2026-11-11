@@ -14,6 +14,11 @@ abstract class ICampusApi {
   String get baseUrl;
 
   Future<UserModel> login(String identifier, String password);
+  Future<UserModel> changePassword({
+    required String identifier,
+    required String currentPassword,
+    required String newPassword,
+  });
   Future<bool> checkHealth();
 
   // Academics, Timetable, Notices & Attendance
@@ -359,6 +364,11 @@ abstract class ICampusStorage {
 
   Future<bool> checkConnectivity({bool force = false});
   Future<UserModel> authenticate(String identifier, String password);
+  Future<UserModel> changePassword({
+    required String identifier,
+    required String currentPassword,
+    required String newPassword,
+  });
   void logout();
 
   // User Management & Lifecycle

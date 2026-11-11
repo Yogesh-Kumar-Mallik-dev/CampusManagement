@@ -29,6 +29,8 @@ type User struct {
 	UniversityRegNo        string     `json:"university_reg_no,omitempty"`
 	IsActive               bool       `json:"is_active"`
 	Status                 string     `json:"status"` // 'active', 'graduated', 'discontinued', 'suspended', 'resigned', 'retired'
+	MustChangePassword     bool       `json:"must_change_password"`
+	PasswordHash           string     `json:"-"`
 	DiscontinuationReason  string     `json:"discontinuation_reason,omitempty"`
 	DiscontinuedAt         *time.Time `json:"discontinued_at,omitempty"`
 	DiscontinuedBy         string     `json:"discontinued_by,omitempty"`

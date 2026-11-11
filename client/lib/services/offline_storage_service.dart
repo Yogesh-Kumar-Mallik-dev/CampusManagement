@@ -116,18 +116,34 @@ class OfflineStorageService implements ICampusStorage {
     return isOnline;
   }
 
+  @override
   Future<UserModel> authenticate(String identifier, String password) async {
     try {
       await checkConnectivity(force: true);
       if (isOnline) {
         final user = await api.login(identifier, password);
         _currentUser = user;
+        final idx = _cachedUsers.indexWhere((u) => u.id == user.id || u.campusHandle == user.campusHandle);
+        if (idx >= 0) {
+          _cachedUsers[idx] = user;
+        } else {
+          _cachedUsers.insert(0, user);
+        }
         return user;
       }
     } catch (_) {}
 
+    final clean = identifier.trim().toLowerCase();
+    final cached = _cachedUsers.cast<UserModel?>().firstWhere(
+      (u) => u != null && (u.campusHandle.toLowerCase() == clean || u.email.toLowerCase() == clean || u.id.toLowerCase() == clean),
+      orElse: () => null,
+    );
+    if (cached != null) {
+      _currentUser = cached;
+      return cached;
+    }
+
     if (enableMockSeeding) {
-      final clean = identifier.trim().toLowerCase();
       final user = getMockUserForHandle(clean);
       _currentUser = user;
       final idx = _cachedUsers.indexWhere((u) => u.id == user.id || u.campusHandle == user.campusHandle);
@@ -141,6 +157,48 @@ class OfflineStorageService implements ICampusStorage {
 
     throw Exception(
         'Authentication failed: Unable to connect to institutional auth directory.');
+  }
+
+  @override
+  Future<UserModel> changePassword({
+    required String identifier,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final updated = await api.changePassword(
+          identifier: identifier,
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
+        final idx = _cachedUsers.indexWhere((u) => u.id == updated.id || u.campusHandle == updated.campusHandle);
+        if (idx >= 0) {
+          _cachedUsers[idx] = updated;
+        } else {
+          _cachedUsers.insert(0, updated);
+        }
+        _currentUser = updated;
+        return updated;
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final clean = identifier.trim().toLowerCase();
+    final idx = _cachedUsers.indexWhere((u) =>
+        u.campusHandle.toLowerCase() == clean ||
+        u.email.toLowerCase() == clean ||
+        u.id.toLowerCase() == clean);
+    if (idx >= 0) {
+      final u = _cachedUsers[idx];
+      final updated = u.copyWith(mustChangePassword: false);
+      _cachedUsers[idx] = updated;
+      _currentUser = updated;
+      return updated;
+    }
+    throw Exception('User not found in local directory');
   }
 
   void logout() {
@@ -788,6 +846,7 @@ class OfflineStorageService implements ICampusStorage {
       admissionApplicationNo: req['admission_application_no'],
       universityRollNo: req['university_roll_no'],
       status: 'active',
+      mustChangePassword: true,
       activeScopes: ['global', ?sectionScope],
       studentProfile: {
         'admission_year': year,
@@ -830,6 +889,7 @@ class OfflineStorageService implements ICampusStorage {
       phone: req['phone'],
       archetype: 'employee',
       status: 'active',
+      mustChangePassword: true,
       activeScopes: ['global'],
       employeeRecord: {
         'joining_date': DateTime.now().toIso8601String(),
@@ -890,6 +950,7 @@ class OfflineStorageService implements ICampusStorage {
       archetype: 'external',
       universityRollNo: gatePass,
       status: 'active',
+      mustChangePassword: true,
       activeScopes: req['permitted_scopes'] is List ? List<String>.from(req['permitted_scopes']) : ['gate:main'],
       contractorProfile: {
         'onboarding_year': year,

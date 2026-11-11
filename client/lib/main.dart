@@ -9,6 +9,7 @@ import 'services/offline_storage_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/svg_icons.dart';
 import 'widgets/circular_theme_reveal.dart';
+import 'widgets/force_password_change_dialog.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,14 +80,29 @@ class _CampusManagementAppState extends State<CampusManagementApp> {
                     setState(() => _loggedInUser = user);
                   },
                 )
-              : HomeScreen(
-                  storage: widget.storage,
-                  currentUser: _loggedInUser,
-                  restoreCachedTab: widget.restoreCachedTab,
-                  onLogout: () {
-                    setState(() => _loggedInUser = null);
-                  },
-                ),
+              : _loggedInUser!.mustChangePassword
+                  ? Scaffold(
+                      body: Center(
+                        child: ForcePasswordChangeDialog(
+                          user: _loggedInUser!,
+                          storage: widget.storage,
+                          onPasswordChanged: (updated) {
+                            setState(() => _loggedInUser = updated);
+                          },
+                          onCancel: () {
+                            setState(() => _loggedInUser = null);
+                          },
+                        ),
+                      ),
+                    )
+                  : HomeScreen(
+                      storage: widget.storage,
+                      currentUser: _loggedInUser,
+                      restoreCachedTab: widget.restoreCachedTab,
+                      onLogout: () {
+                        setState(() => _loggedInUser = null);
+                      },
+                    ),
         );
       },
     );

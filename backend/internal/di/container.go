@@ -264,7 +264,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 		c.UserHandler.FindUser,
 		c.UserHandler.ListTeachers,
 	)
-	c.AuthHandler = handler.NewAuthHandler(c.PermissionService)
+	c.AuthHandler = handler.NewAuthHandler(c.PermissionService, c.UserHandler)
 	c.HostelHandler = handler.NewHostelHandler(c.HostelService)
 	c.MessHandler = handler.NewMessHandler(c.MessService)
 	c.ComplaintHandler = handler.NewComplaintHandler(c.ComplaintService)
@@ -314,6 +314,7 @@ func (c *Container) BuildMux() *http.ServeMux {
 	// Authentication Endpoints
 	if c.AuthHandler != nil {
 		mux.HandleFunc("/api/v1/auth/login", c.AuthHandler.Login)
+		mux.HandleFunc("/api/v1/auth/change-password", c.AuthHandler.ChangePassword)
 	}
 
 	// Health check endpoints

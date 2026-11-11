@@ -4,6 +4,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/force_password_change_dialog.dart';
 import '../widgets/smooth_theme_toggle.dart';
 import '../utils/app_error_catalog.dart';
 
@@ -53,7 +54,20 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (mounted) {
-        widget.onLoginSuccess(user);
+        if (user.mustChangePassword) {
+          setState(() => _isLoading = false);
+          final updatedUser = await ForcePasswordChangeDialog.show(
+            context,
+            user: user,
+            storage: widget.storage,
+            initialPassword: _passwordController.text,
+          );
+          if (updatedUser != null && mounted) {
+            widget.onLoginSuccess(updatedUser);
+          }
+        } else {
+          widget.onLoginSuccess(user);
+        }
       }
     } catch (e) {
       if (mounted) {

@@ -25,6 +25,11 @@ abstract class ICampusFacade {
 
   // Authentication & User Identity
   Future<UserModel> login(String identifier, String password);
+  Future<UserModel> changePassword({
+    required String identifier,
+    required String currentPassword,
+    required String newPassword,
+  });
   void logout();
   Future<UserModel> getUserProfile(String idOrHandle);
   Future<UserModel> updateUserProfile({
@@ -407,6 +412,18 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<UserModel> login(String identifier, String password) =>
       storage.authenticate(identifier, password);
+
+  @override
+  Future<UserModel> changePassword({
+    required String identifier,
+    required String currentPassword,
+    required String newPassword,
+  }) =>
+      storage.changePassword(
+        identifier: identifier,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
 
   @override
   void logout() => storage.logout();

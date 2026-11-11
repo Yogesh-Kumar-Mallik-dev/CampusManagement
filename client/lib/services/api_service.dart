@@ -53,6 +53,38 @@ class ApiService implements ICampusApi {
     throw Exception('Authentication failed (${res.statusCode})');
   }
 
+  Future<UserModel> changePassword({
+    required String identifier,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/change-password'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'identifier': identifier,
+            'current_password': currentPassword,
+            'new_password': newPassword,
+          }),
+        )
+        .timeout(const Duration(seconds: 4));
+
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      final userMap = data['user'] as Map<String, dynamic>;
+      return UserModel.fromJson(userMap);
+    }
+    try {
+      final err = jsonDecode(res.body);
+      final msg = err is Map && err['error'] != null ? err['error'] : res.body;
+      throw Exception(msg.toString().isNotEmpty ? msg : 'Failed to change password');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Failed to change password: ${res.body}');
+    }
+  }
+
   Future<bool> checkHealth() async {
     try {
       final res = await http

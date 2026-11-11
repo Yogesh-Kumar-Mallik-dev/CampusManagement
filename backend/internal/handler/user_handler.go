@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,6 +16,18 @@ import (
 	"campus/backend/internal/service"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func HashPassword(password string) string {
+	hash := sha256.Sum256([]byte("campus_salt_v1:" + password))
+	return hex.EncodeToString(hash[:])
+}
+
+func VerifyPassword(password, hash string) bool {
+	if hash == "" {
+		return false
+	}
+	return HashPassword(password) == hash
+}
 
 type UserHandler struct {
 	idGen       idgen.IDServiceInterface
@@ -62,18 +76,24 @@ func (h *UserHandler) loadUsersFromDB() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := h.db.Query(ctx, `SELECT id, campus_handle, first_name, last_name, email, COALESCE(personal_email, ''), COALESCE(phone, ''), archetype, COALESCE(admission_application_no, ''), COALESCE(university_roll_no, ''), COALESCE(university_reg_no, ''), is_active, status, created_at, updated_at, is_deleted FROM users WHERE is_deleted = false`)
+	rows, err := h.db.Query(ctx, `SELECT id, campus_handle, first_name, last_name, email, COALESCE(personal_email, ''), COALESCE(phone, ''), archetype, COALESCE(admission_application_no, ''), COALESCE(university_roll_no, ''), COALESCE(university_reg_no, ''), is_active, status, COALESCE(password_hash, ''), COALESCE(must_change_password, true), created_at, updated_at, is_deleted FROM users WHERE is_deleted = false`)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
 			var u model.User
-			var personal, phone, appNo, roll, reg string
-			if err := rows.Scan(&u.ID, &u.CampusHandle, &u.FirstName, &u.LastName, &u.Email, &personal, &phone, &u.Archetype, &appNo, &roll, &reg, &u.IsActive, &u.Status, &u.CreatedAt, &u.UpdatedAt, &u.IsDeleted); err == nil {
+			var personal, phone, appNo, roll, reg, passHash string
+			if err := rows.Scan(&u.ID, &u.CampusHandle, &u.FirstName, &u.LastName, &u.Email, &personal, &phone, &u.Archetype, &appNo, &roll, &reg, &u.IsActive, &u.Status, &passHash, &u.MustChangePassword, &u.CreatedAt, &u.UpdatedAt, &u.IsDeleted); err == nil {
 				u.PersonalEmail = personal
 				u.Phone = phone
 				u.AdmissionApplicationNo = appNo
 				u.UniversityRollNo = roll
 				u.UniversityRegNo = reg
+				if passHash == "" {
+					u.PasswordHash = HashPassword(u.CampusHandle)
+					u.MustChangePassword = true
+				} else {
+					u.PasswordHash = passHash
+				}
 				h.users[u.ID] = u
 				h.handleToID[u.CampusHandle] = u.ID
 			}
@@ -230,6 +250,7 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC()
+	passHash := HashPassword(handle)
 	user := model.User{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        "usr-" + handle,
@@ -248,6 +269,8 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		UniversityRegNo:        req.UniversityRegNo,
 		IsActive:               true,
 		Status:                 "active",
+		MustChangePassword:     true,
+		PasswordHash:           passHash,
 	}
 
 	profile := model.StudentProfile{
@@ -276,8 +299,8 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			_, _ = h.db.Exec(ctx, `
-				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, admission_application_no, university_roll_no, university_reg_no, is_active, status, created_at, updated_at, is_deleted)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, false)
+				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, admission_application_no, university_roll_no, university_reg_no, is_active, status, password_hash, must_change_password, created_at, updated_at, is_deleted)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, false)
 				ON CONFLICT (id) DO UPDATE SET
 					campus_handle = EXCLUDED.campus_handle,
 					first_name = EXCLUDED.first_name,
@@ -288,8 +311,10 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 					admission_application_no = EXCLUDED.admission_application_no,
 					university_roll_no = EXCLUDED.university_roll_no,
 					university_reg_no = EXCLUDED.university_reg_no,
+					password_hash = EXCLUDED.password_hash,
+					must_change_password = EXCLUDED.must_change_password,
 					updated_at = EXCLUDED.updated_at
-			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.AdmissionApplicationNo, user.UniversityRollNo, user.UniversityRegNo, user.IsActive, user.Status, user.CreatedAt, user.UpdatedAt)
+			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.AdmissionApplicationNo, user.UniversityRollNo, user.UniversityRegNo, user.IsActive, user.Status, user.PasswordHash, user.MustChangePassword, user.CreatedAt, user.UpdatedAt)
 
 			_, _ = h.db.Exec(ctx, `
 				INSERT INTO student_profiles (user_id, admission_year, entry_type, program, current_semester, batch_year)
@@ -366,22 +391,25 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC()
+	passHash := HashPassword(handle)
 	user := model.User{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        "usr-" + handle,
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		CampusHandle:     handle,
-		FirstName:        req.FirstName,
-		LastName:         req.LastName,
-		Email:            req.Email,
-		PersonalEmail:    req.PersonalEmail,
-		Phone:            req.Phone,
-		Archetype:        model.ArchetypeEmployee,
-		UniversityRollNo: req.EmployeeCode,
-		IsActive:         true,
-		Status:           "active",
+		CampusHandle:       handle,
+		FirstName:          req.FirstName,
+		LastName:           req.LastName,
+		Email:              req.Email,
+		PersonalEmail:      req.PersonalEmail,
+		Phone:              req.Phone,
+		Archetype:          model.ArchetypeEmployee,
+		UniversityRollNo:   req.EmployeeCode,
+		IsActive:           true,
+		Status:             "active",
+		MustChangePassword: true,
+		PasswordHash:       passHash,
 	}
 
 	empRecord := model.EmployeeRecord{
@@ -432,8 +460,8 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			_, _ = h.db.Exec(ctx, `
-				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, is_active, status, created_at, updated_at, is_deleted)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false)
+				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, is_active, status, password_hash, must_change_password, created_at, updated_at, is_deleted)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, false)
 				ON CONFLICT (id) DO UPDATE SET
 					campus_handle = EXCLUDED.campus_handle,
 					first_name = EXCLUDED.first_name,
@@ -442,8 +470,10 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 					personal_email = EXCLUDED.personal_email,
 					phone = EXCLUDED.phone,
 					university_roll_no = EXCLUDED.university_roll_no,
+					password_hash = EXCLUDED.password_hash,
+					must_change_password = EXCLUDED.must_change_password,
 					updated_at = EXCLUDED.updated_at
-			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.UniversityRollNo, user.IsActive, user.Status, user.CreatedAt, user.UpdatedAt)
+			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.UniversityRollNo, user.IsActive, user.Status, user.PasswordHash, user.MustChangePassword, user.CreatedAt, user.UpdatedAt)
 
 			_, _ = h.db.Exec(ctx, `
 				INSERT INTO employee_records (user_id, joining_date, employee_code, employment_type, is_academic, is_administrative)
@@ -532,22 +562,25 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC()
+	passHash := HashPassword(handle)
 	user := model.User{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        "usr-" + handle,
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		CampusHandle:     handle,
-		FirstName:        req.FirstName,
-		LastName:         req.LastName,
-		Email:            req.Email,
-		PersonalEmail:    req.PersonalEmail,
-		Phone:            req.Phone,
-		Archetype:        model.ArchetypeExternal,
-		UniversityRollNo: gatePassID,
-		IsActive:         true,
-		Status:           "active",
+		CampusHandle:       handle,
+		FirstName:          req.FirstName,
+		LastName:           req.LastName,
+		Email:              req.Email,
+		PersonalEmail:      req.PersonalEmail,
+		Phone:              req.Phone,
+		Archetype:          model.ArchetypeExternal,
+		UniversityRollNo:   gatePassID,
+		IsActive:           true,
+		Status:             "active",
+		MustChangePassword: true,
+		PasswordHash:       passHash,
 	}
 
 	contractorProfile := model.ContractorProfile{
@@ -573,8 +606,8 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			_, _ = h.db.Exec(ctx, `
-				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, is_active, status, created_at, updated_at, is_deleted)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false)
+				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, is_active, status, password_hash, must_change_password, created_at, updated_at, is_deleted)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, false)
 				ON CONFLICT (id) DO UPDATE SET
 					campus_handle = EXCLUDED.campus_handle,
 					first_name = EXCLUDED.first_name,
@@ -583,8 +616,10 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 					personal_email = EXCLUDED.personal_email,
 					phone = EXCLUDED.phone,
 					university_roll_no = EXCLUDED.university_roll_no,
+					password_hash = EXCLUDED.password_hash,
+					must_change_password = EXCLUDED.must_change_password,
 					updated_at = EXCLUDED.updated_at
-			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.UniversityRollNo, user.IsActive, user.Status, user.CreatedAt, user.UpdatedAt)
+			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.UniversityRollNo, user.IsActive, user.Status, user.PasswordHash, user.MustChangePassword, user.CreatedAt, user.UpdatedAt)
 
 			_, _ = h.db.Exec(ctx, `
 				INSERT INTO contractor_profiles (user_id, onboarding_year, vendor_organization, service_type, contract_expires_at)
@@ -1002,20 +1037,68 @@ func (h *UserHandler) CheckPermission(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// FindUser resolves a user by ID or campus handle
+// FindUser resolves a user by ID, campus handle, or email
 func (h *UserHandler) FindUser(identifier string) (model.User, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	if u, ok := h.users[identifier]; ok {
+	clean := strings.TrimSpace(strings.ToLower(identifier))
+	if u, ok := h.users[clean]; ok {
 		return u, true
 	}
-	if id, ok := h.handleToID[identifier]; ok {
+	if id, ok := h.handleToID[clean]; ok {
 		if u, ok := h.users[id]; ok {
 			return u, true
 		}
 	}
+	for _, u := range h.users {
+		if strings.ToLower(u.CampusHandle) == clean || strings.ToLower(u.Email) == clean || strings.ToLower(u.ID) == clean {
+			return u, true
+		}
+	}
 	return model.User{}, false
+}
+
+// UpdateUserPassword updates a user's password, sets must_change_password to false, and persists to DB
+func (h *UserHandler) UpdateUserPassword(identifier, newPassword string) (model.User, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	clean := strings.TrimSpace(strings.ToLower(identifier))
+	var targetID string
+
+	if u, ok := h.users[clean]; ok {
+		targetID = u.ID
+	} else if id, ok := h.handleToID[clean]; ok {
+		targetID = id
+	} else {
+		for _, u := range h.users {
+			if strings.ToLower(u.CampusHandle) == clean || strings.ToLower(u.Email) == clean || strings.ToLower(u.ID) == clean {
+				targetID = u.ID
+				break
+			}
+		}
+	}
+
+	if targetID == "" {
+		return model.User{}, fmt.Errorf("user not found")
+	}
+
+	u := h.users[targetID]
+	u.PasswordHash = HashPassword(newPassword)
+	u.MustChangePassword = false
+	u.UpdatedAt = time.Now().UTC()
+	h.users[targetID] = u
+
+	if h.db != nil {
+		go func(uid, hash string, updated time.Time) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = h.db.Exec(ctx, `UPDATE users SET password_hash = $1, must_change_password = false, updated_at = $2 WHERE id = $3`, hash, updated, uid)
+		}(targetID, u.PasswordHash, u.UpdatedAt)
+	}
+
+	return u, nil
 }
 
 // ListTeachers returns all academic employee users for department assignment

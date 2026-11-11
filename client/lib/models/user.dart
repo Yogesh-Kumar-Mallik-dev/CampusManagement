@@ -66,6 +66,7 @@ class UserModel {
   final String? discontinuationReason;
   final String? discontinuedAt;
   final String? discontinuedBy;
+  final bool mustChangePassword;
   final List<String> activeScopes;
   final List<UserRoleAssignmentModel> assignedRoles;
   final List<String> permissions;
@@ -97,6 +98,7 @@ class UserModel {
     this.discontinuationReason,
     this.discontinuedAt,
     this.discontinuedBy,
+    this.mustChangePassword = false,
     this.activeScopes = const [],
     this.assignedRoles = const [],
     this.permissions = const [],
@@ -400,6 +402,7 @@ class UserModel {
       discontinuationReason: json['discontinuation_reason'],
       discontinuedAt: json['discontinued_at']?.toString(),
       discontinuedBy: json['discontinued_by'],
+      mustChangePassword: json['must_change_password'] as bool? ?? false,
       activeScopes: json['active_scopes'] != null
           ? List<String>.from(json['active_scopes'])
           : [],
@@ -434,6 +437,7 @@ class UserModel {
       'discontinuation_reason': discontinuationReason,
       'discontinued_at': discontinuedAt,
       'discontinued_by': discontinuedBy,
+      'must_change_password': mustChangePassword,
       'active_scopes': activeScopes,
       'assigned_roles': assignedRoles.map((r) => r.toJson()).toList(),
       'permissions': permissions,
@@ -465,6 +469,7 @@ class UserModel {
     String? discontinuationReason,
     String? discontinuedAt,
     String? discontinuedBy,
+    bool? mustChangePassword,
     List<String>? activeScopes,
     List<UserRoleAssignmentModel>? assignedRoles,
     List<String>? permissions,
@@ -494,6 +499,7 @@ class UserModel {
       discontinuationReason: discontinuationReason ?? this.discontinuationReason,
       discontinuedAt: discontinuedAt ?? this.discontinuedAt,
       discontinuedBy: discontinuedBy ?? this.discontinuedBy,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
       activeScopes: activeScopes ?? this.activeScopes,
       assignedRoles: assignedRoles ?? this.assignedRoles,
       permissions: permissions ?? this.permissions,
