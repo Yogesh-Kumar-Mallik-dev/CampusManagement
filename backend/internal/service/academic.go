@@ -6,7 +6,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -69,7 +71,7 @@ type AcademicService struct {
 }
 
 func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permService *PermissionService) *AcademicService {
-	return &AcademicService{
+	svc := &AcademicService{
 		db:                 db,
 		cache:              cache,
 		permService:        permService,
@@ -104,6 +106,174 @@ func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permSer
 		facultyAllocations: make(map[string]model.FacultyAllocation),
 		secAllocations:     make(map[string][]string),
 	}
+	if db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = svc.loadFromDB(ctx)
+	}
+	return svc
+}
+
+func (s *AcademicService) CountPrograms() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	count := 0
+	for _, p := range s.programs {
+		if !p.IsDeleted {
+			count++
+		}
+	}
+	return count
+}
+
+func (s *AcademicService) loadFromDB(ctx context.Context) error {
+	if s.db == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 1. Load Programs
+	rows, err := s.db.Query(ctx, `SELECT id, code, name, degree_level, total_semesters, has_branches, branch, duration_years, branches, is_retired, created_at, updated_at FROM programs WHERE is_deleted = false`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var p model.Program
+			var branchesJSON []byte
+			if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.DegreeLevel, &p.TotalSemesters, &p.HasBranches, &p.Branch, &p.DurationYears, &branchesJSON, &p.IsRetired, &p.CreatedAt, &p.UpdatedAt); err == nil {
+				if len(branchesJSON) > 0 {
+					_ = json.Unmarshal(branchesJSON, &p.Branches)
+				}
+				s.programs[p.ID] = p
+			}
+		}
+	}
+
+	// 2. Load Subjects
+	subRows, err := s.db.Query(ctx, `SELECT id, code, name, credits, COALESCE(odd_sem_code, ''), COALESCE(even_sem_code, ''), created_at, updated_at FROM subjects WHERE is_deleted = false`)
+	if err == nil {
+		defer subRows.Close()
+		for subRows.Next() {
+			var sub model.Subject
+			if err := subRows.Scan(&sub.ID, &sub.Code, &sub.Name, &sub.Credits, &sub.OddSemCode, &sub.EvenSemCode, &sub.CreatedAt, &sub.UpdatedAt); err == nil {
+				s.subjects[sub.ID] = sub
+			}
+		}
+	}
+
+	// 3. Load Syllabus Versions
+	sylRows, err := s.db.Query(ctx, `SELECT id, subject_id, revision_code, effective_from_year, COALESCE(effective_to_year, ''), is_active, content, COALESCE(change_summary, ''), COALESCE(approved_by, ''), approved_at, created_at, updated_at FROM syllabus_versions WHERE is_deleted = false ORDER BY created_at ASC`)
+	if err == nil {
+		defer sylRows.Close()
+		for sylRows.Next() {
+			var syl model.SyllabusVersion
+			var appAt *time.Time
+			if err := sylRows.Scan(&syl.ID, &syl.SubjectID, &syl.RevisionCode, &syl.EffectiveFromYear, &syl.EffectiveToYear, &syl.IsActive, &syl.Content, &syl.ChangeSummary, &syl.ApprovedBy, &appAt, &syl.CreatedAt, &syl.UpdatedAt); err == nil {
+				if appAt != nil {
+					appStr := appAt.Format(time.RFC3339)
+					syl.ApprovedAt = &appStr
+				}
+				s.syllabusVersions[syl.SubjectID] = append(s.syllabusVersions[syl.SubjectID], syl)
+				if syl.IsActive {
+					if sub, found := s.subjects[syl.SubjectID]; found {
+						activeCopy := syl
+						sub.ActiveSyllabus = &activeCopy
+						s.subjects[syl.SubjectID] = sub
+					}
+				}
+			}
+		}
+	}
+
+	// 4. Load Departments
+	deptRows, err := s.db.Query(ctx, `SELECT id, code, name, COALESCE(description, ''), COALESCE(hod_id, ''), created_at, updated_at FROM departments WHERE is_deleted = false`)
+	if err == nil {
+		defer deptRows.Close()
+		for deptRows.Next() {
+			var d model.Department
+			var hodID string
+			if err := deptRows.Scan(&d.ID, &d.Code, &d.Name, &d.Description, &hodID, &d.CreatedAt, &d.UpdatedAt); err == nil {
+				if hodID != "" {
+					d.HODID = &hodID
+				}
+				s.departments[d.ID] = d
+			}
+		}
+	}
+
+	// 5. Load Department M:N relationships
+	dsRows, err := s.db.Query(ctx, `SELECT department_id, subject_id FROM department_subjects`)
+	if err == nil {
+		defer dsRows.Close()
+		for dsRows.Next() {
+			var dID, sID string
+			if err := dsRows.Scan(&dID, &sID); err == nil {
+				if s.deptSubjects[dID] == nil {
+					s.deptSubjects[dID] = make(map[string]bool)
+				}
+				s.deptSubjects[dID][sID] = true
+			}
+		}
+	}
+	dtRows, err := s.db.Query(ctx, `SELECT department_id, teacher_id FROM department_teachers`)
+	if err == nil {
+		defer dtRows.Close()
+		for dtRows.Next() {
+			var dID, tID string
+			if err := dtRows.Scan(&dID, &tID); err == nil {
+				if s.deptTeachers[dID] == nil {
+					s.deptTeachers[dID] = make(map[string]bool)
+				}
+				s.deptTeachers[dID][tID] = true
+			}
+		}
+	}
+	dsemRows, err := s.db.Query(ctx, `SELECT department_id, semester_id FROM department_semesters`)
+	if err == nil {
+		defer dsemRows.Close()
+		for dsemRows.Next() {
+			var dID, semID string
+			if err := dsemRows.Scan(&dID, &semID); err == nil {
+				if s.deptSemesters[dID] == nil {
+					s.deptSemesters[dID] = make(map[string]bool)
+				}
+				s.deptSemesters[dID][semID] = true
+			}
+		}
+	}
+
+	// 6. Load Sections
+	secRows, err := s.db.Query(ctx, `SELECT id, name, semester_number, academic_year, display_name, COALESCE(department_id, ''), created_at, updated_at FROM sections WHERE is_deleted = false`)
+	if err == nil {
+		defer secRows.Close()
+		for secRows.Next() {
+			var sec model.Section
+			var dID string
+			if err := secRows.Scan(&sec.ID, &sec.Name, &sec.SemesterNumber, &sec.AcademicYear, &sec.DisplayName, &dID, &sec.CreatedAt, &sec.UpdatedAt); err == nil {
+				if dID != "" {
+					sec.DepartmentID = &dID
+				}
+				s.sections[sec.ID] = sec
+			}
+		}
+	}
+
+	// 7. Load Section M:N relationships
+	spRows, err := s.db.Query(ctx, `SELECT section_id, program_id FROM section_programs`)
+	if err == nil {
+		defer spRows.Close()
+		for spRows.Next() {
+			var secID, progID string
+			if err := spRows.Scan(&secID, &progID); err == nil {
+				if s.secPrograms[secID] == nil {
+					s.secPrograms[secID] = make(map[string]bool)
+				}
+				s.secPrograms[secID][progID] = true
+			}
+		}
+	}
+
+	return nil
 }
 
 // ----------------------------------------------------
@@ -859,6 +1029,53 @@ func (s *AcademicService) CreateDepartment(ctx context.Context, req model.Create
 	dept.SemesterCount = len(s.deptSemesters[deptID])
 
 	s.departments[deptID] = dept
+
+	if s.db != nil {
+		var hodVal *string = dept.HODID
+		if hodVal != nil && *hodVal == "" {
+			hodVal = nil
+		}
+		if hodVal != nil {
+			var exists bool
+			_ = s.db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", *hodVal).Scan(&exists)
+			if !exists {
+				hodVal = nil
+			}
+		}
+
+		query := `
+			INSERT INTO departments (id, code, name, description, hod_id, created_at, updated_at, is_deleted)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, false)
+			ON CONFLICT (id) DO UPDATE SET
+				code = EXCLUDED.code,
+				name = EXCLUDED.name,
+				description = EXCLUDED.description,
+				hod_id = EXCLUDED.hod_id,
+				updated_at = EXCLUDED.updated_at,
+				is_deleted = false
+		`
+		if _, err := s.db.Exec(ctx, query, dept.ID, dept.Code, dept.Name, dept.Description, hodVal, dept.CreatedAt, dept.UpdatedAt); err != nil {
+			log.Printf("[DB Error] Failed to persist department %s: %v", dept.ID, err)
+		}
+		for _, subID := range req.SubjectIDs {
+			_, _ = s.db.Exec(ctx, `INSERT INTO department_subjects (department_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, dept.ID, subID)
+		}
+		for _, tID := range req.TeacherIDs {
+			var exists bool
+			_ = s.db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", tID).Scan(&exists)
+			if exists {
+				_, _ = s.db.Exec(ctx, `INSERT INTO department_teachers (department_id, teacher_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, dept.ID, tID)
+			}
+		}
+		for _, semID := range req.SemesterIDs {
+			_, _ = s.db.Exec(ctx, `INSERT INTO department_semesters (department_id, semester_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, dept.ID, semID)
+		}
+	}
+
+	if s.cache != nil {
+		_ = s.cache.Delete(ctx, "academic:departments:all")
+	}
+
 	return dept, nil
 }
 
@@ -942,6 +1159,34 @@ func (s *AcademicService) CreateProgram(ctx context.Context, p model.Program) (m
 	p.CreatedAt = now
 	p.UpdatedAt = now
 	s.programs[p.ID] = p
+
+	if s.db != nil {
+		branchesJSON, _ := json.Marshal(p.Branches)
+		query := `
+			INSERT INTO programs (id, code, name, degree_level, total_semesters, has_branches, branch, duration_years, branches, is_retired, created_at, updated_at, is_deleted)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			ON CONFLICT (id) DO UPDATE SET
+				code = EXCLUDED.code,
+				name = EXCLUDED.name,
+				degree_level = EXCLUDED.degree_level,
+				total_semesters = EXCLUDED.total_semesters,
+				has_branches = EXCLUDED.has_branches,
+				branch = EXCLUDED.branch,
+				duration_years = EXCLUDED.duration_years,
+				branches = EXCLUDED.branches,
+				is_retired = EXCLUDED.is_retired,
+				updated_at = EXCLUDED.updated_at,
+				is_deleted = EXCLUDED.is_deleted
+		`
+		if _, err := s.db.Exec(ctx, query, p.ID, p.Code, p.Name, p.DegreeLevel, p.TotalSemesters, p.HasBranches, p.Branch, p.DurationYears, branchesJSON, p.IsRetired, p.CreatedAt, p.UpdatedAt, p.IsDeleted); err != nil {
+			log.Printf("[DB Error] Failed to persist program %s: %v", p.ID, err)
+		}
+	}
+
+	if s.cache != nil {
+		_ = s.cache.Delete(ctx, "academic:programs:all")
+	}
+
 	return p, nil
 }
 
@@ -957,6 +1202,34 @@ func (s *AcademicService) UpdateProgram(ctx context.Context, p model.Program) (m
 	p.CreatedAt = existing.CreatedAt
 	p.UpdatedAt = time.Now().UTC()
 	s.programs[p.ID] = p
+
+	if s.db != nil {
+		branchesJSON, _ := json.Marshal(p.Branches)
+		query := `
+			INSERT INTO programs (id, code, name, degree_level, total_semesters, has_branches, branch, duration_years, branches, is_retired, created_at, updated_at, is_deleted)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			ON CONFLICT (id) DO UPDATE SET
+				code = EXCLUDED.code,
+				name = EXCLUDED.name,
+				degree_level = EXCLUDED.degree_level,
+				total_semesters = EXCLUDED.total_semesters,
+				has_branches = EXCLUDED.has_branches,
+				branch = EXCLUDED.branch,
+				duration_years = EXCLUDED.duration_years,
+				branches = EXCLUDED.branches,
+				is_retired = EXCLUDED.is_retired,
+				updated_at = EXCLUDED.updated_at,
+				is_deleted = EXCLUDED.is_deleted
+		`
+		if _, err := s.db.Exec(ctx, query, p.ID, p.Code, p.Name, p.DegreeLevel, p.TotalSemesters, p.HasBranches, p.Branch, p.DurationYears, branchesJSON, p.IsRetired, p.CreatedAt, p.UpdatedAt, p.IsDeleted); err != nil {
+			log.Printf("[DB Error] Failed to update program %s: %v", p.ID, err)
+		}
+	}
+
+	if s.cache != nil {
+		_ = s.cache.Delete(ctx, "academic:programs:all")
+	}
+
 	return p, nil
 }
 
@@ -1015,6 +1288,48 @@ func (s *AcademicService) CreateSubject(ctx context.Context, sub model.Subject) 
 	}
 
 	s.subjects[sub.ID] = sub
+
+	if s.db != nil {
+		query := `
+			INSERT INTO subjects (id, code, name, credits, odd_sem_code, even_sem_code, created_at, updated_at, is_deleted)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
+			ON CONFLICT (id) DO UPDATE SET
+				code = EXCLUDED.code,
+				name = EXCLUDED.name,
+				credits = EXCLUDED.credits,
+				odd_sem_code = EXCLUDED.odd_sem_code,
+				even_sem_code = EXCLUDED.even_sem_code,
+				updated_at = EXCLUDED.updated_at,
+				is_deleted = false
+		`
+		if _, err := s.db.Exec(ctx, query, sub.ID, sub.Code, sub.Name, sub.Credits, sub.OddSemCode, sub.EvenSemCode, sub.CreatedAt, sub.UpdatedAt); err != nil {
+			log.Printf("[DB Error] Failed to persist subject %s: %v", sub.ID, err)
+		}
+
+		if sub.ActiveSyllabus != nil {
+			syl := *sub.ActiveSyllabus
+			sylQuery := `
+				INSERT INTO syllabus_versions (id, subject_id, revision_code, effective_from_year, effective_to_year, is_active, content, change_summary, approved_by, approved_at, created_at, updated_at, is_deleted)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false)
+				ON CONFLICT (id) DO UPDATE SET
+					revision_code = EXCLUDED.revision_code,
+					effective_from_year = EXCLUDED.effective_from_year,
+					effective_to_year = EXCLUDED.effective_to_year,
+					is_active = EXCLUDED.is_active,
+					content = EXCLUDED.content,
+					change_summary = EXCLUDED.change_summary,
+					approved_by = EXCLUDED.approved_by,
+					approved_at = EXCLUDED.approved_at,
+					updated_at = EXCLUDED.updated_at
+			`
+			_, _ = s.db.Exec(ctx, sylQuery, syl.ID, syl.SubjectID, syl.RevisionCode, syl.EffectiveFromYear, syl.EffectiveToYear, syl.IsActive, syl.Content, syl.ChangeSummary, syl.ApprovedBy, syl.ApprovedAt, syl.CreatedAt, syl.UpdatedAt)
+		}
+	}
+
+	if s.cache != nil {
+		_ = s.cache.Delete(ctx, "academic:subjects:all")
+	}
+
 	return sub, nil
 }
 

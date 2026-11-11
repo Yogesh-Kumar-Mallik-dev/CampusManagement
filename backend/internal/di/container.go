@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"campus/backend/internal/cache"
@@ -171,7 +173,14 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	if cfg.UseMemoryStores || cfg.RedisAddr == "" {
 		c.CacheStore = cache.NewMemoryStore()
 	} else {
-		c.CacheStore = cache.NewRedisStore(cfg.RedisAddr, "", 0)
+		redisStore := cache.NewRedisStore(cfg.RedisAddr, "", 0)
+		if redisStore.IsAvailable() {
+			c.CacheStore = redisStore
+			log.Printf("[DI] Connected to Redis Cache at %s", cfg.RedisAddr)
+		} else {
+			log.Printf("[DI Notice] Redis not available at %s, falling back to in-memory cache", cfg.RedisAddr)
+			c.CacheStore = cache.NewMemoryStore()
+		}
 	}
 	c.CacheManager = cache.NewResilientManager(c.CacheStore)
 
@@ -189,8 +198,16 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 		pool, err := database.ConnectPostgres(dbConfig)
 		if err != nil {
 			log.Printf("[DI Notice] Postgres initial connect error: %v (falling back to memory)", err)
-		} else {
-			c.DBPool = pool
+		} else if pool != nil {
+			pingCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			if err := pool.Ping(pingCtx); err == nil {
+				c.DBPool = pool
+				log.Printf("[DI] Connected to PostgreSQL at %s:%d/%s", cfg.DBHost, cfg.DBPort, cfg.DBName)
+			} else {
+				log.Printf("[DI Notice] Postgres ping unreachable at %s:%d: %v (falling back to memory)", cfg.DBHost, cfg.DBPort, err)
+				pool.Close()
+			}
+			cancel()
 		}
 	}
 
@@ -240,7 +257,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 	}
 
 	// 5. Initialize Handlers with Injected Interfaces
-	c.UserHandler = handler.NewUserHandler(c.IDService, c.PermissionService)
+	c.UserHandler = handler.NewUserHandler(c.IDService, c.PermissionService, c.DBPool)
 	c.AcademicHandler = handler.NewAcademicHandler(c.AcademicService)
 	c.DepartmentHandler = handler.NewDepartmentHandler(
 		c.AcademicService,
@@ -503,13 +520,46 @@ func seedDefaultRoles(s *service.PermissionService) {
 	s.AddMemoryScope(model.Scope{Code: "sec:cse-3a", Name: "Section CSE-3A", ScopeType: "section"})
 }
 
+func loadDotEnv() {
+	candidates := []string{".env", "../.env", "../../.env"}
+	for _, path := range candidates {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			lines := strings.Split(string(data), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					val := strings.TrimSpace(parts[1])
+					val = strings.Trim(val, `"'`)
+					if os.Getenv(key) == "" {
+						os.Setenv(key, val)
+					}
+				}
+			}
+			break
+		}
+	}
+}
+
 // NewDefaultContainer builds a container using environment variables
 func NewDefaultContainer() (*Container, error) {
+	loadDotEnv()
+
 	dbHost := os.Getenv("POSTGRES_HOST")
 	if dbHost == "" {
 		dbHost = "localhost"
 	}
-	dbPort := 5432
+	dbPort := 5435
+	if pStr := os.Getenv("POSTGRES_PORT"); pStr != "" {
+		if p, err := strconv.Atoi(pStr); err == nil && p > 0 {
+			dbPort = p
+		}
+	}
 	dbUser := os.Getenv("POSTGRES_USER")
 	if dbUser == "" {
 		dbUser = "campus_user"
@@ -524,7 +574,11 @@ func NewDefaultContainer() (*Container, error) {
 	}
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
-		redisAddr = "localhost:6379"
+		if rPort := os.Getenv("REDIS_PORT"); rPort != "" {
+			redisAddr = "localhost:" + rPort
+		} else {
+			redisAddr = "localhost:6380"
+		}
 	}
 
 	cfg := ContainerConfig{

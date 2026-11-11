@@ -147,6 +147,14 @@ func (rm *ResilientManager) FetchOrCompute(
 	return result.([]byte), nil
 }
 
+// Delete removes a key from cache
+func (rm *ResilientManager) Delete(ctx context.Context, key string) error {
+	if rm == nil || rm.store == nil {
+		return nil
+	}
+	return rm.store.Delete(ctx, key)
+}
+
 // MemoryStore provides thread-safe in-memory caching for isolated tests and offline mode
 type MemoryStore struct {
 	mu   sync.RWMutex

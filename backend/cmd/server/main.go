@@ -30,6 +30,15 @@ func main() {
 		seedDefaultRolesAndScopes(concretePerm)
 	}
 
+	if concreteAcad, ok := container.AcademicService.(*service.AcademicService); ok {
+		if concreteAcad.CountPrograms() == 0 {
+			log.Println("[Academics] Database has no programs. Seeding default academic hierarchy...")
+			seedDefaultAcademics(concreteAcad)
+		} else {
+			log.Printf("[Academics] Loaded %d existing programs from database. Skipping default seed.", concreteAcad.CountPrograms())
+		}
+	}
+
 	webDist := findWebDist()
 	if webDist != "" {
 		log.Printf("Serving Flutter Web App at http://localhost:%s/ from %s", port, webDist)
@@ -515,30 +524,65 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		Name:           "B.Tech in Computer Science & Engineering",
 		DegreeLevel:    "undergraduate",
 		TotalSemesters: 8,
-	})
-	_, _ = svc.CreateProgram(ctx, model.Program{
-		Code:           "BTECH-AIML",
-		Name:           "B.Tech in Artificial Intelligence & Machine Learning",
-		DegreeLevel:    "undergraduate",
-		TotalSemesters: 8,
-	})
-	_, _ = svc.CreateProgram(ctx, model.Program{
-		Code:           "BTECH-DS",
-		Name:           "B.Tech in Data Science",
-		DegreeLevel:    "undergraduate",
-		TotalSemesters: 8,
+		HasBranches:    true,
+		Branch:         "Computer Science & Engineering",
+		DurationYears:  4,
+		Branches: []model.ProgramBranch{
+			{Name: "Computer Science & Engineering", Code: "CSE"},
+			{Name: "Artificial Intelligence & ML", Code: "AIML"},
+			{Name: "Data Science", Code: "DS"},
+		},
 	})
 	_, _ = svc.CreateProgram(ctx, model.Program{
 		Code:           "BTECH-ECE",
 		Name:           "B.Tech in Electronics & Communication",
 		DegreeLevel:    "undergraduate",
 		TotalSemesters: 8,
+		HasBranches:    true,
+		Branch:         "Electronics & Communication",
+		DurationYears:  4,
+		Branches: []model.ProgramBranch{
+			{Name: "Electronics & Communication", Code: "ECE"},
+			{Name: "VLSI Design & Technology", Code: "VLSI"},
+		},
 	})
 	_, _ = svc.CreateProgram(ctx, model.Program{
 		Code:           "BTECH-MECH",
 		Name:           "B.Tech in Mechanical Engineering",
 		DegreeLevel:    "undergraduate",
 		TotalSemesters: 8,
+		HasBranches:    false,
+		Branch:         "Mechanical Engineering",
+		DurationYears:  4,
+		Branches: []model.ProgramBranch{
+			{Name: "Mechanical Engineering", Code: "ME"},
+		},
+	})
+	_, _ = svc.CreateProgram(ctx, model.Program{
+		Code:           "BCA",
+		Name:           "Bachelor of Computer Applications",
+		DegreeLevel:    "undergraduate",
+		TotalSemesters: 6,
+		HasBranches:    false,
+		Branch:         "Computer Applications",
+		DurationYears:  3,
+		Branches: []model.ProgramBranch{
+			{Name: "Computer Applications", Code: "BCA-GEN"},
+		},
+	})
+	_, _ = svc.CreateProgram(ctx, model.Program{
+		Code:           "MBA",
+		Name:           "Master of Business Administration",
+		DegreeLevel:    "postgraduate",
+		TotalSemesters: 4,
+		HasBranches:    true,
+		Branch:         "Business Administration",
+		DurationYears:  2,
+		Branches: []model.ProgramBranch{
+			{Name: "Finance", Code: "FIN"},
+			{Name: "Human Resources", Code: "HR"},
+			{Name: "Marketing", Code: "MKT"},
+		},
 	})
 
 	// 5. Seed Catalog Subjects
@@ -630,14 +674,12 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 	})
 
 	// 7. Seed Departments (with M:N relations)
-	hodID := "usr-priya_2024_emp_1"
 	_, _ = svc.CreateDepartment(ctx, model.CreateDepartmentRequest{
 		Code:        "CSE",
 		Name:        "Department of Computer Science & Engineering",
 		Description: "Advancing computing frontiers through cutting-edge systems, AI, and cybersecurity research.",
-		HODID:       &hodID,
 		SubjectIDs:  []string{"subj-cs301", "subj-cs302", "subj-cs303", "subj-ma101"},
-		TeacherIDs:  []string{"usr-priya_2024_emp_1"},
+		TeacherIDs:  []string{},
 		SemesterIDs: []string{"sem-btech-cse-5-3a", "sem-btech-cse-3-2a"},
 	})
 
@@ -645,9 +687,8 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		Code:        "ECE",
 		Name:        "Department of Electronics & Communication",
 		Description: "Leading innovations in embedded robotics, VLSI architectures, and RF communication.",
-		HODID:       &hodID,
 		SubjectIDs:  []string{"subj-ec201", "subj-ma101"},
-		TeacherIDs:  []string{"usr-priya_2024_emp_1"},
+		TeacherIDs:  []string{},
 		SemesterIDs: []string{"sem-btech-ece-5-1a"},
 	})
 
@@ -656,7 +697,7 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		Name:        "Department of Mathematics & Computing",
 		Description: "Theoretical foundational sciences, numerical computing, and applied mathematical statistics.",
 		SubjectIDs:  []string{"subj-ma101"},
-		TeacherIDs:  []string{"usr-priya_2024_emp_1"},
+		TeacherIDs:  []string{},
 		SemesterIDs: []string{"sem-btech-cse-3-2a"},
 	})
 

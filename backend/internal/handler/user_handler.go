@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,11 +12,13 @@ import (
 	"campus/backend/internal/idgen"
 	"campus/backend/internal/model"
 	"campus/backend/internal/service"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserHandler struct {
 	idGen       idgen.IDServiceInterface
 	permService service.PermissionServiceInterface
+	db          *pgxpool.Pool
 
 	mu                 sync.RWMutex
 	users              map[string]model.User // Key: user.ID
@@ -27,10 +30,15 @@ type UserHandler struct {
 	contractorProfiles map[string]model.ContractorProfile
 }
 
-func NewUserHandler(idGen idgen.IDServiceInterface, permService service.PermissionServiceInterface) *UserHandler {
+func NewUserHandler(idGen idgen.IDServiceInterface, permService service.PermissionServiceInterface, dbPool ...*pgxpool.Pool) *UserHandler {
+	var pool *pgxpool.Pool
+	if len(dbPool) > 0 {
+		pool = dbPool[0]
+	}
 	h := &UserHandler{
 		idGen:              idGen,
 		permService:        permService,
+		db:                 pool,
 		users:              make(map[string]model.User),
 		handleToID:         make(map[string]string),
 		studentProfiles:    make(map[string]model.StudentProfile),
@@ -40,8 +48,59 @@ func NewUserHandler(idGen idgen.IDServiceInterface, permService service.Permissi
 		contractorProfiles: make(map[string]model.ContractorProfile),
 	}
 
-	h.seedDefaultUsers()
+	h.loadUsersFromDB()
+	if len(h.users) == 0 {
+		h.seedDefaultUsers()
+	}
 	return h
+}
+
+func (h *UserHandler) loadUsersFromDB() {
+	if h.db == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := h.db.Query(ctx, `SELECT id, campus_handle, first_name, last_name, email, COALESCE(personal_email, ''), COALESCE(phone, ''), archetype, COALESCE(admission_application_no, ''), COALESCE(university_roll_no, ''), COALESCE(university_reg_no, ''), is_active, status, created_at, updated_at, is_deleted FROM users WHERE is_deleted = false`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var u model.User
+			var personal, phone, appNo, roll, reg string
+			if err := rows.Scan(&u.ID, &u.CampusHandle, &u.FirstName, &u.LastName, &u.Email, &personal, &phone, &u.Archetype, &appNo, &roll, &reg, &u.IsActive, &u.Status, &u.CreatedAt, &u.UpdatedAt, &u.IsDeleted); err == nil {
+				u.PersonalEmail = personal
+				u.Phone = phone
+				u.AdmissionApplicationNo = appNo
+				u.UniversityRollNo = roll
+				u.UniversityRegNo = reg
+				h.users[u.ID] = u
+				h.handleToID[u.CampusHandle] = u.ID
+			}
+		}
+	}
+
+	empRows, err := h.db.Query(ctx, `SELECT user_id, joining_date, COALESCE(employee_code, ''), employment_type, is_academic, is_administrative FROM employee_records`)
+	if err == nil {
+		defer empRows.Close()
+		for empRows.Next() {
+			var rec model.EmployeeRecord
+			if err := empRows.Scan(&rec.UserID, &rec.JoiningDate, &rec.EmployeeCode, &rec.EmploymentType, &rec.IsAcademic, &rec.IsAdministrative); err == nil {
+				h.employeeRecords[rec.UserID] = rec
+			}
+		}
+	}
+
+	stuRows, err := h.db.Query(ctx, `SELECT user_id, admission_year, entry_type, program, current_semester, batch_year FROM student_profiles`)
+	if err == nil {
+		defer stuRows.Close()
+		for stuRows.Next() {
+			var sp model.StudentProfile
+			if err := stuRows.Scan(&sp.UserID, &sp.AdmissionYear, &sp.EntryType, &sp.Program, &sp.CurrentSemester, &sp.BatchYear); err == nil {
+				h.studentProfiles[sp.UserID] = sp
+			}
+		}
+	}
 }
 
 func (h *UserHandler) seedDefaultUsers() {
@@ -88,6 +147,21 @@ func (h *UserHandler) seedDefaultUsers() {
 	if h.permService != nil {
 		_ = h.permService.AssignRole(nil, adminID, "campus_director", "global", nil)
 		_ = h.permService.AssignRole(nil, adminID, "admin", "global", nil)
+	}
+
+	if h.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = h.db.Exec(ctx, `
+			INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, is_active, status, created_at, updated_at, is_deleted)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false)
+			ON CONFLICT (id) DO NOTHING
+		`, adminID, adminHandle, "Campus", "Administrator", "admin@campus.edu", "director@campus-governance.org", "+91 98000 00001", model.ArchetypeEmployee, "ADM-2023-0001", true, "active", now.Add(-365*24*time.Hour), now)
+		_, _ = h.db.Exec(ctx, `
+			INSERT INTO employee_records (user_id, joining_date, employee_code, employment_type, is_academic, is_administrative)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (user_id) DO NOTHING
+		`, adminID, adminJoining, "ADM-DIR-001", "permanent", false, true)
 	}
 }
 
@@ -185,6 +259,39 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	h.handleToID[handle] = user.ID
 	h.studentProfiles[user.ID] = profile
 	h.mu.Unlock()
+
+	if h.db != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = h.db.Exec(ctx, `
+				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, admission_application_no, university_roll_no, university_reg_no, is_active, status, created_at, updated_at, is_deleted)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, false)
+				ON CONFLICT (id) DO UPDATE SET
+					campus_handle = EXCLUDED.campus_handle,
+					first_name = EXCLUDED.first_name,
+					last_name = EXCLUDED.last_name,
+					email = EXCLUDED.email,
+					personal_email = EXCLUDED.personal_email,
+					phone = EXCLUDED.phone,
+					admission_application_no = EXCLUDED.admission_application_no,
+					university_roll_no = EXCLUDED.university_roll_no,
+					university_reg_no = EXCLUDED.university_reg_no,
+					updated_at = EXCLUDED.updated_at
+			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.AdmissionApplicationNo, user.UniversityRollNo, user.UniversityRegNo, user.IsActive, user.Status, user.CreatedAt, user.UpdatedAt)
+
+			_, _ = h.db.Exec(ctx, `
+				INSERT INTO student_profiles (user_id, admission_year, entry_type, program, current_semester, batch_year)
+				VALUES ($1, $2, $3, $4, $5, $6)
+				ON CONFLICT (user_id) DO UPDATE SET
+					admission_year = EXCLUDED.admission_year,
+					entry_type = EXCLUDED.entry_type,
+					program = EXCLUDED.program,
+					current_semester = EXCLUDED.current_semester,
+					batch_year = EXCLUDED.batch_year
+			`, profile.UserID, profile.AdmissionYear, profile.EntryType, profile.Program, profile.CurrentSemester, profile.BatchYear)
+		}()
+	}
 
 	// Assign baseline student role
 	if h.permService != nil {
@@ -308,6 +415,37 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		adminProfile = &ad
 	}
 	h.mu.Unlock()
+
+	if h.db != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = h.db.Exec(ctx, `
+				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, is_active, status, created_at, updated_at, is_deleted)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false)
+				ON CONFLICT (id) DO UPDATE SET
+					campus_handle = EXCLUDED.campus_handle,
+					first_name = EXCLUDED.first_name,
+					last_name = EXCLUDED.last_name,
+					email = EXCLUDED.email,
+					personal_email = EXCLUDED.personal_email,
+					phone = EXCLUDED.phone,
+					university_roll_no = EXCLUDED.university_roll_no,
+					updated_at = EXCLUDED.updated_at
+			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.UniversityRollNo, user.IsActive, user.Status, user.CreatedAt, user.UpdatedAt)
+
+			_, _ = h.db.Exec(ctx, `
+				INSERT INTO employee_records (user_id, joining_date, employee_code, employment_type, is_academic, is_administrative)
+				VALUES ($1, $2, $3, $4, $5, $6)
+				ON CONFLICT (user_id) DO UPDATE SET
+					joining_date = EXCLUDED.joining_date,
+					employee_code = EXCLUDED.employee_code,
+					employment_type = EXCLUDED.employment_type,
+					is_academic = EXCLUDED.is_academic,
+					is_administrative = EXCLUDED.is_administrative
+			`, empRecord.UserID, empRecord.JoiningDate, empRecord.EmployeeCode, empRecord.EmploymentType, empRecord.IsAcademic, empRecord.IsAdministrative)
+		}()
+	}
 
 	// Assign roles based on capability
 	if h.permService != nil {
