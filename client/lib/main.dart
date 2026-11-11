@@ -19,7 +19,10 @@ void main() {
   AppTheme.initFromCache();
 
   // Initialize unified IoC container and decoupled dependencies
-  final di = CampusDI.setup(defaultBaseUrl: 'http://localhost:8080');
+  final di = CampusDI.setup(
+    defaultBaseUrl: 'http://localhost:8080',
+    seedTestData: false,
+  );
   final storage = di.get<OfflineStorageService>();
   final facade = di.get<ICampusFacade>();
 

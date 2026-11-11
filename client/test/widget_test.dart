@@ -103,6 +103,8 @@ void main() {
     }
 
     // 2. Perform Login action
+    await tester.tap(find.text('Student'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
 
@@ -205,6 +207,8 @@ void main() {
 
     await tester.pumpWidget(CampusManagementApp(storage: storage));
     await tester.pump();
+    await tester.tap(find.text('Student'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
 
@@ -1475,6 +1479,8 @@ void main() {
     await tester.pump();
 
     // Login to reach HomeScreen
+    await tester.tap(find.text('Student'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
 
@@ -1564,7 +1570,9 @@ void main() {
     await tester.pumpWidget(CampusManagementApp(storage: storage));
     await tester.pumpAndSettle();
 
-    // Login as student Alex
+    // Login as student
+    await tester.tap(find.text('Student'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
 

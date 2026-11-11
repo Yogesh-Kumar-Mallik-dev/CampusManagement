@@ -12,11 +12,13 @@ import '../models/payment_order.dart';
 import '../models/sessional.dart';
 import '../models/user.dart';
 import '../utils/invoice_pdf_generator.dart';
+import '../utils/env_detector.dart';
 import '../utils/receipt_pdf_generator.dart';
 import 'storage_interface.dart';
 
 class OfflineStorageService implements ICampusStorage {
   final ICampusApi api;
+  final bool enableMockSeeding;
 
   // In-memory local cache accessible on Web, Mobile, and Desktop
   final List<CourseModel> _cachedCourses = [];
@@ -65,17 +67,22 @@ class OfflineStorageService implements ICampusStorage {
   DateTime? _lastHealthCheckTime;
   bool _isCheckingHealth = false;
 
-  OfflineStorageService({required this.api}) {
+  OfflineStorageService({
+    required this.api,
+    bool? enableMockSeeding,
+  }) : enableMockSeeding = enableMockSeeding ?? isFlutterTestEnvironment {
     _lastHealthCheckTime = DateTime.now();
-    _seedDefaultUsersIfEmpty();
-    _seedDefaultAcademicHierarchyIfEmpty();
-    _seedDefaultTimetableIfEmpty();
-    _seedDefaultNoticesIfEmpty();
-    _seedDefaultHostelRoomsIfEmpty();
-    _seedDefaultLibraryIfEmpty();
-    _seedDefaultSessionalIfEmpty();
-    if (_cachedSummaries.isEmpty) {
-      _cachedSummaries.addAll(_getDefaultStudentSummaries());
+    if (this.enableMockSeeding) {
+      _seedDefaultUsersIfEmpty();
+      _seedDefaultAcademicHierarchyIfEmpty();
+      _seedDefaultTimetableIfEmpty();
+      _seedDefaultNoticesIfEmpty();
+      _seedDefaultHostelRoomsIfEmpty();
+      _seedDefaultLibraryIfEmpty();
+      _seedDefaultSessionalIfEmpty();
+      if (_cachedSummaries.isEmpty) {
+        _cachedSummaries.addAll(_getDefaultStudentSummaries());
+      }
     }
   }
 
@@ -113,10 +120,15 @@ class OfflineStorageService implements ICampusStorage {
       }
     } catch (_) {}
 
-    final clean = identifier.trim().toLowerCase();
-    final user = getMockUserForHandle(clean);
-    _currentUser = user;
-    return user;
+    if (enableMockSeeding) {
+      final clean = identifier.trim().toLowerCase();
+      final user = getMockUserForHandle(clean);
+      _currentUser = user;
+      return user;
+    }
+
+    throw Exception(
+        'Authentication failed: Unable to connect to institutional auth directory.');
   }
 
   void logout() {
@@ -339,7 +351,7 @@ class OfflineStorageService implements ICampusStorage {
   }
 
   void _seedDefaultUsersIfEmpty() {
-    if (_cachedUsers.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedUsers.isNotEmpty) return;
     _cachedUsers.addAll([
       UserModel(
         id: 'usr-campus_admin',
@@ -1281,7 +1293,7 @@ class OfflineStorageService implements ICampusStorage {
   }
 
   void _seedDefaultTimetableIfEmpty() {
-    if (_cachedTimetable.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedTimetable.isNotEmpty) return;
     _cachedTimetable.addAll(_buildCanonicalDefaultSlots());
   }
 
@@ -1938,7 +1950,7 @@ class OfflineStorageService implements ICampusStorage {
   }
 
   void _seedDefaultNoticesIfEmpty() {
-    if (_cachedNotices.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedNotices.isNotEmpty) return;
     _cachedNotices.addAll([
       NoticeModel(
         id: 'not-1',
@@ -1994,7 +2006,7 @@ class OfflineStorageService implements ICampusStorage {
         }
       } catch (_) {}
     }
-    if (_cachedSummaries.isEmpty) {
+    if (enableMockSeeding && _cachedSummaries.isEmpty) {
       _cachedSummaries.addAll(_getDefaultStudentSummaries());
     }
     return _cachedSummaries;
@@ -2232,7 +2244,7 @@ class OfflineStorageService implements ICampusStorage {
   // ----------------------------------------------------
 
   void _seedDefaultAcademicHierarchyIfEmpty() {
-    if (_cachedDepartments.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedDepartments.isNotEmpty) return;
 
     // Seed sample programs
     _cachedPrograms.addAll([
@@ -3395,7 +3407,7 @@ class OfflineStorageService implements ICampusStorage {
   // ----------------------------------------------------
 
   void _seedDefaultHostelRoomsIfEmpty() {
-    if (_cachedHostelRooms.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedHostelRooms.isNotEmpty) return;
 
     final now = DateTime.now();
 
@@ -3831,7 +3843,7 @@ class OfflineStorageService implements ICampusStorage {
   // ----------------------------------------------------
 
   void _seedDefaultMessDataIfEmpty() {
-    if (_cachedMessMeals.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedMessMeals.isNotEmpty) return;
 
     final days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     for (final day in days) {
@@ -4147,7 +4159,7 @@ class OfflineStorageService implements ICampusStorage {
   // ----------------------------------------------------
 
   void _seedDefaultComplaintsIfEmpty() {
-    if (_cachedComplaints.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedComplaints.isNotEmpty) return;
 
     final now = DateTime.now();
     _cachedComplaints.addAll([
@@ -4495,7 +4507,7 @@ class OfflineStorageService implements ICampusStorage {
   // ----------------------------------------------------
 
   void _seedDefaultFeesIfEmpty() {
-    if (_cachedFeeInvoices.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedFeeInvoices.isNotEmpty) return;
 
     final now = DateTime.now();
     const studentId = 'usr-harish_2025_l_btech_1';
@@ -5268,7 +5280,7 @@ class OfflineStorageService implements ICampusStorage {
   // Institutional Library Subsystem & Fine Portal Synchronization
 
   void _seedDefaultLibraryIfEmpty() {
-    if (_cachedPhysicalBooks.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedPhysicalBooks.isNotEmpty) return;
 
     final now = DateTime.now();
 
@@ -6657,7 +6669,7 @@ class OfflineStorageService implements ICampusStorage {
   // =========================================================================
 
   void _seedDefaultSessionalIfEmpty() {
-    if (_cachedSessionalRecords.isNotEmpty) return;
+    if (!enableMockSeeding || _cachedSessionalRecords.isNotEmpty) return;
 
     _cachedSessionalSchedules.addAll([
       SessionalScheduleModel(

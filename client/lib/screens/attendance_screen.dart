@@ -47,38 +47,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   String _courseFilter = 'all'; // 'all', 'at_risk', 'safe'
   String? _selectedHeatmapDayInfo;
 
-  static final List<Map<String, dynamic>> _heatmapDays = [
-    {'day': 1, 'date': 'Oct 01', 'status': 'full', 'desc': 'Oct 01 (Wed): Attended 4/4 sessions (100%) - CS301, CS302, CS304, CS303'},
-    {'day': 2, 'date': 'Oct 02', 'status': 'full', 'desc': 'Oct 02 (Thu): Attended 4/4 sessions (100%) - Operating Systems Lab & Lecture'},
-    {'day': 3, 'date': 'Oct 03', 'status': 'partial', 'desc': 'Oct 03 (Fri): Attended 3/4 sessions (75%) - Missed MA101 Discrete Math'},
-    {'day': 4, 'date': 'Oct 06', 'status': 'full', 'desc': 'Oct 06 (Mon): Attended 4/4 sessions (100%) - Neural Networks Lab & Theory'},
-    {'day': 5, 'date': 'Oct 07', 'status': 'full', 'desc': 'Oct 07 (Tue): Attended 4/4 sessions (100%) - DBMS Transactions & Concurrency'},
-    {'day': 6, 'date': 'Oct 08', 'status': 'full', 'desc': 'Oct 08 (Wed): Attended 4/4 sessions (100%) - Full attendance verified'},
-    {'day': 7, 'date': 'Oct 09', 'status': 'absent', 'desc': 'Oct 09 (Thu): Attended 0/4 sessions (0%) - Absence on Academic Leave'},
-    {'day': 8, 'date': 'Oct 10', 'status': 'full', 'desc': 'Oct 10 (Fri): Attended 4/4 sessions (100%) - Algorithms Dynamic Programming'},
-    {'day': 9, 'date': 'Oct 13', 'status': 'full', 'desc': 'Oct 13 (Mon): Attended 4/4 sessions (100%) - Operating Systems Virtual Memory'},
-    {'day': 10, 'date': 'Oct 14', 'status': 'full', 'desc': 'Oct 14 (Tue): Attended 4/4 sessions (100%) - All lectures verified'},
-    {'day': 11, 'date': 'Oct 15', 'status': 'full', 'desc': 'Oct 15 (Wed): Attended 4/4 sessions (100%) - Full attendance verified'},
-    {'day': 12, 'date': 'Oct 16', 'status': 'partial', 'desc': 'Oct 16 (Thu): Attended 2/4 sessions (50%) - Lab Attended, Missed Theory'},
-    {'day': 13, 'date': 'Oct 17', 'status': 'full', 'desc': 'Oct 17 (Fri): Attended 4/4 sessions (100%) - Discrete Math Graph Theory'},
-    {'day': 14, 'date': 'Oct 20', 'status': 'full', 'desc': 'Oct 20 (Mon): Attended 4/4 sessions (100%) - Deep Learning Backprop'},
-    {'day': 15, 'date': 'Oct 21', 'status': 'full', 'desc': 'Oct 21 (Tue): Attended 4/4 sessions (100%) - Full attendance verified'},
-    {'day': 16, 'date': 'Oct 22', 'status': 'full', 'desc': 'Oct 22 (Wed): Attended 4/4 sessions (100%) - Full attendance verified'},
-    {'day': 17, 'date': 'Oct 23', 'status': 'full', 'desc': 'Oct 23 (Thu): Attended 4/4 sessions (100%) - OS File Systems'},
-    {'day': 18, 'date': 'Oct 24', 'status': 'absent', 'desc': 'Oct 24 (Fri): Attended 0/4 sessions (0%) - Personal Medical Leave'},
-    {'day': 19, 'date': 'Oct 27', 'status': 'full', 'desc': 'Oct 27 (Mon): Attended 4/4 sessions (100%) - DBMS Indexing B+ Trees'},
-    {'day': 20, 'date': 'Oct 28', 'status': 'full', 'desc': 'Oct 28 (Tue): Attended 4/4 sessions (100%) - Algorithms Greedy Heuristics'},
-    {'day': 21, 'date': 'Oct 29', 'status': 'full', 'desc': 'Oct 29 (Wed): Attended 4/4 sessions (100%) - Full attendance verified'},
-    {'day': 22, 'date': 'Oct 30', 'status': 'full', 'desc': 'Oct 30 (Thu): Attended 4/4 sessions (100%) - Deep Learning CNN Architectures'},
-    {'day': 23, 'date': 'Oct 31', 'status': 'partial', 'desc': 'Oct 31 (Fri): Attended 3/4 sessions (75%) - Missed Algorithms Lab'},
-    {'day': 24, 'date': 'Nov 03', 'status': 'full', 'desc': 'Nov 03 (Mon): Attended 4/4 sessions (100%) - Operating Systems Deadlocks'},
-    {'day': 25, 'date': 'Nov 04', 'status': 'full', 'desc': 'Nov 04 (Tue): Attended 4/4 sessions (100%) - DBMS Normalization 3NF/BCNF'},
-    {'day': 26, 'date': 'Nov 05', 'status': 'full', 'desc': 'Nov 05 (Wed): Attended 4/4 sessions (100%) - Continuous 12-day streak active'},
-    {'day': 27, 'date': 'Nov 06', 'status': 'full', 'desc': 'Nov 06 (Thu): Attended 4/4 sessions (100%) - Full attendance verified'},
-    {'day': 28, 'date': 'Nov 07', 'status': 'full', 'desc': 'Nov 07 (Fri): Attended 4/4 sessions (100%) - Discrete Math Combinatorics'},
-    {'day': 29, 'date': 'Nov 10', 'status': 'full', 'desc': 'Nov 10 (Mon): Attended 4/4 sessions (100%) - Deep Learning Transformers'},
-    {'day': 30, 'date': 'Nov 11', 'status': 'full', 'desc': 'Nov 11 (Tue): Attended 4/4 sessions (100%) - Today: All classes verified'},
-  ];
+  List<Map<String, dynamic>> _heatmapDays = [];
 
   // Selected Lecture Details
   final String _selectedCourseId = 'CS301';
@@ -132,32 +101,83 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   bool _isVerifying = false;
   late AnimationController _sweepAnimController;
 
-  final List<AttendanceRecordModel> _manualRoster = [
-    AttendanceRecordModel(
-      id: 'rec-1',
-      sessionId: '',
-      studentId: 'usr-harish_2025_l_btech_1',
-      studentName: 'Harish Kumar',
-      campusHandle: 'harish_2025_l_btech_1',
-      status: 'present',
-    ),
-    AttendanceRecordModel(
-      id: 'rec-2',
-      sessionId: '',
-      studentId: 'usr-priya_2024_emp_1',
-      studentName: 'Dr. Priya Nair',
-      campusHandle: 'priya_2024_emp_1',
-      status: 'present',
-    ),
-    AttendanceRecordModel(
-      id: 'rec-3',
-      sessionId: '',
-      studentId: 'usr-ramesh_2023_emp_1',
-      studentName: 'Ramesh Singh',
-      campusHandle: 'ramesh_2023_emp_1',
-      status: 'present',
-    ),
-  ];
+  final List<AttendanceRecordModel> _manualRoster = [];
+
+  List<Map<String, dynamic>> _buildDynamicHeatmapDays() {
+    final now = DateTime.now();
+    final List<Map<String, dynamic>> days = [];
+    final monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    final verifiedSessionDates = <String, int>{};
+    for (final s in widget.storage.attendanceOutbox) {
+      verifiedSessionDates[s.sessionDate] =
+          (verifiedSessionDates[s.sessionDate] ?? 0) + 1;
+    }
+
+    var dayCounter = 1;
+    for (int i = 41; i >= 0; i--) {
+      final d = now.subtract(Duration(days: i));
+      if (d.weekday == DateTime.saturday || d.weekday == DateTime.sunday) {
+        continue;
+      }
+      if (days.length >= 30) break;
+
+      final dateStr =
+          '${monthNames[d.month - 1]} ${d.day.toString().padLeft(2, '0')}';
+      final isoDate =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final dayName = weekdayNames[d.weekday - 1];
+
+      final sessionCount = verifiedSessionDates[isoDate] ?? 0;
+      final String status;
+      final String desc;
+
+      if (sessionCount > 0) {
+        status = 'full';
+        desc =
+            '$dateStr ($dayName): $sessionCount institutional lecture session(s) verified';
+      } else {
+        status = 'none';
+        desc = '$dateStr ($dayName): No recorded sessions for this date';
+      }
+
+      days.add({
+        'day': dayCounter++,
+        'date': dateStr,
+        'status': status,
+        'desc': desc,
+      });
+    }
+
+    return days;
+  }
+
+  Future<void> _loadManualRoster() async {
+    try {
+      final students = await widget.storage.getUsers(archetype: 'student');
+      if (mounted) {
+        setState(() {
+          _manualRoster.clear();
+          for (final s in students) {
+            _manualRoster.add(
+              AttendanceRecordModel(
+                id: 'rec-${s.id}-${DateTime.now().millisecondsSinceEpoch}',
+                sessionId: '',
+                studentId: s.id,
+                studentName: s.fullName,
+                campusHandle: s.campusHandle,
+                status: 'present',
+              ),
+            );
+          }
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -166,6 +186,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
+    _heatmapDays = _buildDynamicHeatmapDays();
     final cached = widget.storage.cachedSummaries;
     if (cached.isNotEmpty) {
       _summaries = List.from(cached);
@@ -173,6 +194,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       _loadState = PageLoadState.success;
     }
     _loadSummary();
+    _loadManualRoster();
   }
 
   @override
@@ -197,6 +219,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         setState(() {
           _summaries = data;
           _recomputeSummaryStats();
+          _heatmapDays = _buildDynamicHeatmapDays();
           _loadState = PageLoadState.success;
           _errorMessage = null;
         });
@@ -446,6 +469,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   // ----------------------------------------------------
 
   Future<void> _saveManualAttendanceLocally() async {
+    if (_manualRoster.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No enrolled students available in this section roster.'),
+        ),
+      );
+      return;
+    }
     final now = DateTime.now();
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final sessionId = 'sess-local-${DateTime.now().millisecondsSinceEpoch}';
@@ -2919,7 +2950,30 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               ),
               const SizedBox(height: 14),
 
-              ..._manualRoster.map((r) {
+              if (_manualRoster.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      width: 1,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'No students enrolled in section roster.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ..._manualRoster.map((r) {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

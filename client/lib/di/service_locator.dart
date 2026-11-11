@@ -62,6 +62,7 @@ class CampusDI {
     ICampusFacade? facade,
     AppCache? cache,
     String defaultBaseUrl = 'http://localhost:8080',
+    bool? seedTestData,
   }) {
     final di = CampusDI.instance;
     di.reset();
@@ -73,8 +74,11 @@ class CampusDI {
     final effectiveApi = api ?? ApiService(baseUrl: defaultBaseUrl);
     di.registerSingleton<ICampusApi>(effectiveApi);
 
-    final effectiveStorage =
-        storage ?? OfflineStorageService(api: effectiveApi);
+    final effectiveStorage = storage ??
+        OfflineStorageService(
+          api: effectiveApi,
+          enableMockSeeding: seedTestData,
+        );
     di.registerSingleton<ICampusStorage>(effectiveStorage);
     // Also register concrete OfflineStorageService if needed for backward-compatibility
     if (effectiveStorage is OfflineStorageService) {
