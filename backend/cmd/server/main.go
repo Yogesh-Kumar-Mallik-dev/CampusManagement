@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -200,6 +199,7 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 			{Code: "attendance:broadcast"},
 			{Code: "attendance:view_roster"},
 			{Code: "attendance:approve"},
+			{Code: "attendance:set_criteria"},
 			{Code: "syllabus:view"},
 			{Code: "syllabus:approve"},
 			{Code: "faculty:assign_workload"},
@@ -210,23 +210,84 @@ func seedDefaultRolesAndScopes(svc *service.PermissionService) {
 		},
 	})
 
-	// 5. Class Representative
+	// 5. Section / Academic Coordinator
+	svc.AddMemoryRole(model.Role{
+		Code: "coordinator",
+		Name: "Section / Academic Coordinator",
+		Permissions: []model.Permission{
+			{Code: "timetable:view"},
+			{Code: "timetable:edit"},
+			{Code: "attendance:mark"},
+			{Code: "attendance:broadcast"},
+			{Code: "attendance:view_roster"},
+			{Code: "attendance:set_criteria"},
+			{Code: "notice:section_post"},
+		},
+	})
+	svc.AddMemoryRole(model.Role{
+		Code: "section_coordinator",
+		Name: "Section Coordinator",
+		Permissions: []model.Permission{
+			{Code: "timetable:view"},
+			{Code: "timetable:edit"},
+			{Code: "attendance:mark"},
+			{Code: "attendance:broadcast"},
+			{Code: "attendance:view_roster"},
+			{Code: "attendance:set_criteria"},
+			{Code: "notice:section_post"},
+		},
+	})
+
+	// 6. Library In-Charge
+	svc.AddMemoryRole(model.Role{
+		Code: "library_incharge",
+		Name: "Library In-Charge",
+		Permissions: []model.Permission{
+			{Code: "library:view"},
+			{Code: "library:issue"},
+			{Code: "library:return"},
+			{Code: "library:manage_inventory"},
+			{Code: "library:view_fines"},
+			{Code: "library:approve"},
+		},
+	})
+
+	// 7. Class Representative
+	svc.AddMemoryRole(model.Role{
+		Code: "class_representative",
+		Name: "Class Representative",
+		Permissions: []model.Permission{
+			{Code: "attendance:mark"},
+			{Code: "notice:section_post"},
+			{Code: "timetable:view"},
+		},
+	})
 	svc.AddMemoryRole(model.Role{
 		Code: "class_rep",
 		Name: "Class Representative",
 		Permissions: []model.Permission{
 			{Code: "attendance:mark"},
 			{Code: "notice:section_post"},
+			{Code: "timetable:view"},
 		},
 	})
 
-	// 6. Club President
+	// 8. Club Leadership
 	svc.AddMemoryRole(model.Role{
 		Code: "club_president",
 		Name: "Club President",
 		Permissions: []model.Permission{
 			{Code: "club:publish_event"},
 			{Code: "club:spend_budget"},
+			{Code: "club:manage_members"},
+			{Code: "notice:club_post"},
+		},
+	})
+	svc.AddMemoryRole(model.Role{
+		Code: "club_lead",
+		Name: "Club Lead",
+		Permissions: []model.Permission{
+			{Code: "club:publish_event"},
 			{Code: "club:manage_members"},
 		},
 	})
@@ -612,7 +673,7 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		DepartmentID:   &deptCSEID,
 		ProgramIDs:     []string{"prog-btech-cse", "prog-btech-aiml", "prog-btech-ds"},
 		SubjectIDs:     []string{"subj-cs301", "subj-cs302", "subj-ma101"},
-		TeacherIDs:     []string{"usr-priya_2024_emp_1"},
+		TeacherIDs:     []string{},
 	})
 	_ = secB
 
@@ -624,8 +685,9 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		DepartmentID:   &deptCSEID,
 		ProgramIDs:     []string{"prog-btech-cse", "prog-btech-aiml"},
 		SubjectIDs:     []string{"subj-cs301", "subj-cs302", "subj-cs303"},
-		TeacherIDs:     []string{"usr-priya_2024_emp_1"},
+		TeacherIDs:     []string{},
 	})
+	_ = secA
 	// Allocate AI/ML specialized elective into Section A
 	progAIMLID := "prog-btech-aiml"
 	_ = svc.AllocateSubjectToSection(ctx, secA.ID, model.SectionSubjectAllocation{
@@ -638,98 +700,15 @@ func seedDefaultAcademics(svc *service.AcademicService) {
 		ProgramName: stringPtr("B.Tech in Artificial Intelligence & Machine Learning"),
 	})
 
-	// 9. Enroll Student Harish into Semester 5 & Section A (Degree: BTECH-CSE)
-	_ = svc.AssignStudentToSemester(ctx, "usr-harish_2025_l_btech_1", "sem-btech-cse-5-3a")
-	_ = svc.AssignStudentToSection(ctx, "usr-harish_2025_l_btech_1", secA.ID, "prog-btech-cse")
-
-	// 10. Seed Lab Batches for Section B (Practical sub-divisions)
-	batchB1, _ := svc.CreateLabBatch(ctx, model.CreateLabBatchRequest{
+	// Seed Lab Batches for Section B (Practical sub-divisions)
+	_, _ = svc.CreateLabBatch(ctx, model.CreateLabBatchRequest{
 		SectionID: secB.ID,
 		Name:      "Batch B1",
 	})
-	batchB2, _ := svc.CreateLabBatch(ctx, model.CreateLabBatchRequest{
+	_, _ = svc.CreateLabBatch(ctx, model.CreateLabBatchRequest{
 		SectionID: secB.ID,
 		Name:      "Batch B2",
 	})
-	_ = batchB2
-
-	// 11. Seed Faculty Subject Allocations
-	teacherPriya := "usr-priya_2024_emp_1"
-	// Prof. Priya Nair -> Section A: CS301 (Theory, 4 hrs)
-	_, _ = svc.AssignFacultyAllocation(ctx, model.AssignFacultyAllocationRequest{
-		SectionID:     secA.ID,
-		SubjectID:     "subj-cs301",
-		TeacherID:     teacherPriya,
-		ComponentType: "theory",
-		WeeklyHours:   4,
-	}, nil)
-
-	// Prof. Priya Nair -> Section A: CS302 (Theory, 3 hrs)
-	_, _ = svc.AssignFacultyAllocation(ctx, model.AssignFacultyAllocationRequest{
-		SectionID:     secA.ID,
-		SubjectID:     "subj-cs302",
-		TeacherID:     teacherPriya,
-		ComponentType: "theory",
-		WeeklyHours:   3,
-	}, nil)
-
-	// Prof. Priya Nair -> Section B: BCA 102/202 (Theory, 4 hrs)
-	_, _ = svc.AssignFacultyAllocation(ctx, model.AssignFacultyAllocationRequest{
-		SectionID:     secB.ID,
-		SubjectID:     bcaSub.ID,
-		TeacherID:     teacherPriya,
-		ComponentType: "theory",
-		WeeklyHours:   4,
-	}, nil)
-
-	// Prof. Priya Nair -> Section B: BCA 102/202 Lab (Practical for Batch B1, 2 hrs)
-	batchB1ID := batchB1.ID
-	_, _ = svc.AssignFacultyAllocation(ctx, model.AssignFacultyAllocationRequest{
-		SectionID:     secB.ID,
-		SubjectID:     bcaSub.ID,
-		TeacherID:     teacherPriya,
-		ComponentType: "practical",
-		BatchID:       &batchB1ID,
-		WeeklyHours:   2,
-	}, nil)
-
-	// 12. Seed Student Attendance Sessions for Student Harish
-	studentHarishID := "usr-harish_2025_l_btech_1"
-	seedCourseAttendance := func(courseID, courseCode, courseName string, total, attended int) {
-		for i := 1; i <= total; i++ {
-			status := model.StatusPresent
-			if i > attended {
-				status = model.StatusAbsent
-			}
-			dateStr := fmt.Sprintf("2026-10-%02d", (i%28)+1)
-			_, _ = svc.SyncAttendanceBatch(ctx, teacherPriya, model.OfflineAttendanceBatch{
-				Sessions: []model.AttendanceSession{
-					{
-						ID:          fmt.Sprintf("sess-seed-%s-%d", courseID, i),
-						CourseID:    courseID,
-						CourseCode:  courseCode,
-						CourseName:  courseName,
-						ScopeCode:   "sec:cse-3a",
-						SessionDate: dateStr,
-						Topic:       fmt.Sprintf("Session %d: Foundations & Practical Applications", i),
-						IsFinalized: true,
-						Records: []model.AttendanceRecord{
-							{
-								StudentID: studentHarishID,
-								Status:    status,
-							},
-						},
-					},
-				},
-			})
-		}
-	}
-
-	seedCourseAttendance(c1.ID, c1.Code, c1.Name, 32, 28)                                  // 87.5%
-	seedCourseAttendance(c2.ID, c2.Code, c2.Name, 30, 24)                                  // 80.0%
-	seedCourseAttendance(c3.ID, c3.Code, c3.Name, 24, 17)                                  // 70.8%
-	seedCourseAttendance("subj-cs304", "CS304", "Deep Learning & Neural Networks", 30, 29) // 96.7%
-	seedCourseAttendance("subj-ma101", "MA101", "Discrete Mathematics", 20, 12)           // 60.0%
 }
 
 func stringPtr(s string) *string {

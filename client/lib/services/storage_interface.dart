@@ -70,6 +70,12 @@ abstract class ICampusApi {
     required String discontinuedBy,
   });
   Future<UserModel> reactivateUser(String userId);
+  Future<bool> assignUserRole({
+    required String userId,
+    required String roleCode,
+    required String scopeCode,
+    DateTime? validUntil,
+  });
 
   // Department & Academics
   Future<List<DepartmentModel>> fetchDepartments();
@@ -378,6 +384,14 @@ abstract class ICampusStorage {
     required String discontinuedBy,
   });
   Future<UserModel> reactivateUser(String userId);
+  Future<UserModel> assignUserRole({
+    required String userId,
+    required String roleCode,
+    required String roleName,
+    required String scopeCode,
+    List<String>? permissions,
+    DateTime? validUntil,
+  });
 
   // Outbox & Sync
   Future<void> refreshConnectivityAndSync(String userId);

@@ -807,22 +807,14 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _maintenancePages = Set.from(widget.maintenancePages);
     _showcasePages = Set.from(widget.showcasePages);
-    _personas = [
-      OfflineStorageService.getMockUserForHandle('campus_admin'),
-      OfflineStorageService.getMockUserForHandle('priya_2024_emp_1'),
-      OfflineStorageService.getMockUserForHandle('harish_2025_l_btech_1'),
-      OfflineStorageService.getMockUserForHandle('ramesh_2023_emp_1'),
-      OfflineStorageService.getMockUserForHandle('mukesh_2025_ext_1'),
-    ];
-    final initial = widget.currentUser ??
-        _personas.firstWhere(
-          (p) => p.campusHandle == 'harish_2025_l_btech_1',
-          orElse: () => _personas.first,
-        );
-    if (!_personas.contains(initial)) {
-      _personas.insert(0, initial);
+    final adminUser = OfflineStorageService.getMockUserForHandle('campus_admin');
+    final initial = widget.currentUser ?? adminUser;
+    _personas = [initial];
+    if (initial.campusHandle != adminUser.campusHandle) {
+      _personas.add(adminUser);
     }
-    _currentUser = _personas.firstWhere((p) => p == initial);
+    _currentUser = initial;
+    _loadDirectoryPersonas();
 
     int effectiveIndex = widget.initialTab ?? 0;
     if (widget.initialTab == null && widget.restoreCachedTab) {
@@ -849,6 +841,21 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     });
+  }
+
+  Future<void> _loadDirectoryPersonas() async {
+    try {
+      final users = await widget.storage.getUsers();
+      if (mounted && users.isNotEmpty) {
+        setState(() {
+          for (final u in users) {
+            if (!_personas.any((p) => p.campusHandle == u.campusHandle || p.id == u.id)) {
+              _personas.add(u);
+            }
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override

@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_dropdown.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/assign_role_dialog.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -1634,12 +1635,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         children: [
                           Icon(Icons.link_off, size: 14, color: AppColors.yellowBadge(isDark).text),
                           const SizedBox(width: 6),
-                          Text(
-                            'DigiLocker Not Linked',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.yellowBadge(isDark).text,
+                          Flexible(
+                            child: Text(
+                              'DigiLocker Not Linked',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.yellowBadge(isDark).text,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -1666,7 +1670,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 ElevatedButton.icon(
                   key: const Key('btn-connect-digilocker'),
@@ -2344,16 +2350,44 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 1. Assigned Roles
-          if (roles.isNotEmpty) ...[
-            Text(
-              'Institutional Roles (${roles.length})',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Text(
+                'Institutional Roles (${roles.length})',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
+              if (widget.currentAdminUser?.canManageUsers ?? true)
+                InkWell(
+                  key: const Key('btn-assign-role-scopes'),
+                  onTap: _openAssignRoleDialog,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        AppSvgIcon(svgString: AppSvgIcon.plus, size: 11, color: AppColors.wineRed),
+                        SizedBox(width: 4),
+                        Text(
+                          'Assign Role',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.wineRed),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (roles.isNotEmpty) ...[
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -2605,6 +2639,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ),
           if (canManage) ...[
+            ElevatedButton.icon(
+              key: const Key('btn-assign-role'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.wineRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                elevation: 0,
+              ),
+              icon: const AppSvgIcon(
+                svgString: AppSvgIcon.shield,
+                size: 14,
+                color: Colors.white,
+              ),
+              label: const Text(
+                'Assign Role & Permissions',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: _openAssignRoleDialog,
+            ),
             if (_user.isActive)
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
@@ -2640,6 +2694,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  void _openAssignRoleDialog() {
+    AssignRoleDialog.show(
+      context,
+      user: _user,
+      storage: widget.storage,
+      onAssigned: (updatedUser) {
+        setState(() {
+          _user = updatedUser;
+        });
+        widget.onUserUpdated?.call();
+      },
     );
   }
 }

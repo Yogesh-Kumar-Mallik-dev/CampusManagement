@@ -372,6 +372,26 @@ class ApiService implements ICampusApi {
     throw Exception('Failed to reactivate user: ${res.body}');
   }
 
+  @override
+  Future<bool> assignUserRole({
+    required String userId,
+    required String roleCode,
+    required String scopeCode,
+    DateTime? validUntil,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/permissions/assign'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': userId,
+        'role_code': roleCode,
+        'scope_code': scopeCode,
+        if (validUntil != null) 'valid_until': validUntil.toIso8601String(),
+      }),
+    );
+    return res.statusCode == 200;
+  }
+
   // ----------------------------------------------------
   // OPTICAL DATA TRANSFER ATTENDANCE
   // ----------------------------------------------------

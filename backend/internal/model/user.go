@@ -53,6 +53,7 @@ type UserProfileResponse struct {
 	AdministrativeProfile *AdministrativeProfile `json:"administrative_profile,omitempty"`
 	ContractorProfile     *ContractorProfile     `json:"contractor_profile,omitempty"`
 	AssignedRoles         []UserRoleAssignment   `json:"assigned_roles,omitempty"`
+	Permissions           []string               `json:"permissions,omitempty"`
 }
 
 // UpdateUserProfileRequest holds self-service editable contact fields

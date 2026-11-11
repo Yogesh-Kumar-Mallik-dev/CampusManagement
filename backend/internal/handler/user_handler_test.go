@@ -339,6 +339,18 @@ func TestUpdateUserProfile(t *testing.T) {
 	permSvc := service.NewPermissionService(nil, nil)
 	h := NewUserHandler(idSvc, permSvc)
 
+	// Set up test user Harish for this test
+	h.users["usr-harish_2025_l_btech_1"] = model.User{
+		BaseSyncModel: model.BaseSyncModel{ID: "usr-harish_2025_l_btech_1"},
+		CampusHandle:  "harish_2025_l_btech_1",
+		FirstName:     "Harish",
+		LastName:      "Kumar",
+		Archetype:     model.ArchetypeStudent,
+		IsActive:      true,
+		Status:        "active",
+	}
+	h.handleToID["harish_2025_l_btech_1"] = "usr-harish_2025_l_btech_1"
+
 	// Update Harish's contact info
 	updateBody := `{
 		"user_id": "usr-harish_2025_l_btech_1",
@@ -373,5 +385,169 @@ func TestUpdateUserProfile(t *testing.T) {
 	}
 	if user.Address != "Flat 302, Green Valley Apartments" {
 		t.Fatalf("expected address Flat 302, Green Valley Apartments, got %s", user.Address)
+	}
+}
+
+func TestRoleAndPermissionAssignmentForEmployeesAndStudents(t *testing.T) {
+	idSvc := idgen.NewIDService(nil)
+	permSvc := service.NewPermissionService(nil, nil)
+
+	// Register roles
+	permSvc.AddMemoryRole(model.Role{
+		Code: "coordinator",
+		Name: "Section Coordinator",
+		Permissions: []model.Permission{
+			{Code: "attendance:mark"},
+			{Code: "attendance:set_criteria"},
+			{Code: "timetable:edit"},
+		},
+	})
+	permSvc.AddMemoryRole(model.Role{
+		Code: "library_incharge",
+		Name: "Library In-Charge",
+		Permissions: []model.Permission{
+			{Code: "library:issue"},
+			{Code: "library:return"},
+			{Code: "library:manage_inventory"},
+		},
+	})
+	permSvc.AddMemoryRole(model.Role{
+		Code: "hod",
+		Name: "Head of Department",
+		Permissions: []model.Permission{
+			{Code: "department:manage"},
+			{Code: "attendance:approve"},
+		},
+	})
+	permSvc.AddMemoryRole(model.Role{
+		Code: "class_representative",
+		Name: "Class Representative",
+		Permissions: []model.Permission{
+			{Code: "attendance:mark"},
+			{Code: "notice:section_post"},
+		},
+	})
+	permSvc.AddMemoryRole(model.Role{
+		Code: "club_president",
+		Name: "Club President",
+		Permissions: []model.Permission{
+			{Code: "club:publish_event"},
+			{Code: "club:manage_members"},
+		},
+	})
+
+	h := NewUserHandler(idSvc, permSvc)
+
+	// 1. Create Employee Dr. Sharma
+	reqEmpBody := `{"first_name":"Rajesh","last_name":"Sharma","email":"rajesh.sharma@campus.edu","joining_year":2024,"employment_type":"permanent","is_academic":true}`
+	recEmp := httptest.NewRecorder()
+	reqEmp := httptest.NewRequest(http.MethodPost, "/api/v1/users/employee", bytes.NewBufferString(reqEmpBody))
+	h.CreateEmployee(recEmp, reqEmp)
+	if recEmp.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for employee, got %d", recEmp.Code)
+	}
+	var empRes map[string]interface{}
+	_ = json.Unmarshal(recEmp.Body.Bytes(), &empRes)
+	empUser := empRes["user"].(map[string]interface{})
+	empID := empUser["id"].(string)
+
+	// 2. Create Student Ananya
+	reqStuBody := `{"first_name":"Ananya","last_name":"Roy","email":"ananya.roy@campus.edu","admission_year":2025,"entry_type":"regular","program":"btech"}`
+	recStu := httptest.NewRecorder()
+	reqStu := httptest.NewRequest(http.MethodPost, "/api/v1/users/student", bytes.NewBufferString(reqStuBody))
+	h.CreateStudent(recStu, reqStu)
+	if recStu.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for student, got %d", recStu.Code)
+	}
+	var stuRes map[string]interface{}
+	_ = json.Unmarshal(recStu.Body.Bytes(), &stuRes)
+	stuUser := stuRes["user"].(map[string]interface{})
+	stuID := stuUser["id"].(string)
+
+	// 3. Assign Employee Roles: coordinator, library_incharge, hod
+	rolesToAssignEmp := []struct {
+		Role  string
+		Scope string
+	}{
+		{"coordinator", "sec:cse-3a"},
+		{"library_incharge", "global"},
+		{"hod", "dept:cse"},
+	}
+	for _, r := range rolesToAssignEmp {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"user_id":    empID,
+			"role_code":  r.Role,
+			"scope_code": r.Scope,
+		})
+		recAssign := httptest.NewRecorder()
+		reqAssign := httptest.NewRequest(http.MethodPost, "/api/v1/permissions/assign", bytes.NewReader(payload))
+		h.AssignRole(recAssign, reqAssign)
+		if recAssign.Code != http.StatusOK {
+			t.Fatalf("failed assigning role %s to employee: %s", r.Role, recAssign.Body.String())
+		}
+	}
+
+	// 4. Assign Student Roles: class_representative, Club:Example:president
+	rolesToAssignStu := []struct {
+		Role  string
+		Scope string
+	}{
+		{"class_representative", "sec:cse-3a"},
+		{"club_president", "Club:Example:president"},
+	}
+	for _, r := range rolesToAssignStu {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"user_id":    stuID,
+			"role_code":  r.Role,
+			"scope_code": r.Scope,
+		})
+		recAssign := httptest.NewRecorder()
+		reqAssign := httptest.NewRequest(http.MethodPost, "/api/v1/permissions/assign", bytes.NewReader(payload))
+		h.AssignRole(recAssign, reqAssign)
+		if recAssign.Code != http.StatusOK {
+			t.Fatalf("failed assigning role %s to student: %s", r.Role, recAssign.Body.String())
+		}
+	}
+
+	// 5. Verify Employee permissions
+	recEmpRoles := httptest.NewRecorder()
+	reqEmpRoles := httptest.NewRequest(http.MethodGet, "/api/v1/users/roles?user_id="+empID, nil)
+	h.GetUserRoles(recEmpRoles, reqEmpRoles)
+	if recEmpRoles.Code != http.StatusOK {
+		t.Fatalf("failed getting employee roles: %s", recEmpRoles.Body.String())
+	}
+	var empRoleData map[string]interface{}
+	_ = json.Unmarshal(recEmpRoles.Body.Bytes(), &empRoleData)
+	empPerms := empRoleData["permissions"].([]interface{})
+	if len(empPerms) < 5 {
+		t.Fatalf("expected at least 5 permissions for employee with 3 roles, got %d (%v)", len(empPerms), empPerms)
+	}
+
+	// Verify Student permissions
+	recStuRoles := httptest.NewRecorder()
+	reqStuRoles := httptest.NewRequest(http.MethodGet, "/api/v1/users/roles?user_id="+stuID, nil)
+	h.GetUserRoles(recStuRoles, reqStuRoles)
+	if recStuRoles.Code != http.StatusOK {
+		t.Fatalf("failed getting student roles: %s", recStuRoles.Body.String())
+	}
+	var stuRoleData map[string]interface{}
+	_ = json.Unmarshal(recStuRoles.Body.Bytes(), &stuRoleData)
+	stuPerms := stuRoleData["permissions"].([]interface{})
+	if len(stuPerms) < 3 {
+		t.Fatalf("expected at least 3 permissions for student with CR and Club President, got %d (%v)", len(stuPerms), stuPerms)
+	}
+
+	// Verify Can checks
+	allowed, _ := permSvc.Can(nil, empID, "attendance:set_criteria", "sec:cse-3a")
+	if !allowed {
+		t.Errorf("expected coordinator to be allowed attendance:set_criteria")
+	}
+	allowedLib, _ := permSvc.Can(nil, empID, "library:issue", "global")
+	if !allowedLib {
+		t.Errorf("expected library_incharge to be allowed library:issue")
+	}
+	allowedClub, _ := permSvc.Can(nil, stuID, "club:publish_event", "Club:Example:president")
+	if !allowedClub {
+		t.Errorf("expected Club:Example:president to be allowed club:publish_event")
 	}
 }

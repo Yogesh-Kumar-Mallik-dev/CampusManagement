@@ -130,7 +130,12 @@ class UserModel {
   bool hasRole(String roleCode, [String? targetScope]) {
     for (final assign in assignedRoles) {
       if (!assign.isActive) continue;
-      if (assign.roleCode == roleCode) {
+      final assignRole = assign.roleCode.toLowerCase();
+      final targetRole = roleCode.toLowerCase();
+      if (assignRole == targetRole ||
+          (targetRole == 'club_president' && assignRole.contains('president')) ||
+          (targetRole == 'coordinator' && assignRole.contains('coordinator')) ||
+          (targetRole == 'class_representative' && (assignRole.contains('representative') || assignRole == 'class_rep'))) {
         if (targetScope == null || isScopeCovered(assign.scopeCode, targetScope)) {
           return true;
         }
@@ -216,9 +221,37 @@ class UserModel {
       hasRole('librarian') ||
       hasPermission('library:approve') ||
       hasPermission('library:manage') ||
+      hasPermission('library:issue') ||
+      hasPermission('library:view_fines') ||
       permissions.contains('*');
 
   bool get canManageLibrary => isLibraryInCharge;
+
+  bool get isCoordinator =>
+      isAdmin ||
+      hasRole('coordinator') ||
+      hasRole('section_coordinator') ||
+      hasPermission('attendance:set_criteria');
+
+  bool get isClassRepresentative =>
+      hasRole('class_representative') ||
+      hasRole('class_rep') ||
+      assignedRoles.any((r) => r.isActive && r.roleCode.toLowerCase().contains('representative'));
+
+  bool get isClubPresident =>
+      hasRole('club_president') ||
+      assignedRoles.any((r) =>
+          r.isActive &&
+          (r.roleCode.toLowerCase().contains('president') ||
+           (r.scopeCode != null && r.scopeCode!.toLowerCase().contains('president'))));
+
+  List<String> get clubPresidentScopes => assignedRoles
+      .where((r) =>
+          r.isActive &&
+          (r.roleCode.toLowerCase().contains('president') ||
+           (r.scopeCode != null && r.scopeCode!.toLowerCase().contains('president'))))
+      .map((r) => r.scopeCode ?? r.roleCode)
+      .toList();
 
   bool canManageComplaintsFor(String category) {
     final cat = category.trim().toLowerCase();

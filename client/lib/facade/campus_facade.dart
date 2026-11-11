@@ -52,6 +52,14 @@ abstract class ICampusFacade {
     required String discontinuedBy,
   });
   Future<UserModel> reactivateUser(String userId);
+  Future<UserModel> assignUserRole({
+    required String userId,
+    required String roleCode,
+    required String roleName,
+    required String scopeCode,
+    List<String>? permissions,
+    DateTime? validUntil,
+  });
 
   // Academics & Timetable
   List<CourseModel> getCachedCourses();
@@ -447,6 +455,24 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<UserModel> reactivateUser(String userId) =>
       storage.reactivateUser(userId);
+
+  @override
+  Future<UserModel> assignUserRole({
+    required String userId,
+    required String roleCode,
+    required String roleName,
+    required String scopeCode,
+    List<String>? permissions,
+    DateTime? validUntil,
+  }) =>
+      storage.assignUserRole(
+        userId: userId,
+        roleCode: roleCode,
+        roleName: roleName,
+        scopeCode: scopeCode,
+        permissions: permissions,
+        validUntil: validUntil,
+      );
 
   @override
   List<CourseModel> getCachedCourses() => storage.cachedCourses;

@@ -209,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _identifierController,
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              hintText: 'e.g. harish_2025_l_btech_1',
+                              hintText: 'e.g. campus_admin or canonical handle',
                               prefixIcon: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
                                 child: AppSvgIcon(
@@ -349,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Divider(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
                           const SizedBox(height: 10),
                           Text(
-                            'Quick Access Personas (1-Click Fill)',
+                            'Institutional Access (1-Click Fill)',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 11,
@@ -363,21 +363,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             spacing: 8,
                             runSpacing: 6,
                             children: [
-                              _buildQuickPersonaChip(
-                                label: 'Student',
-                                handle: 'harish_2025_l_btech_1',
-                                badgeStyle: AppColors.primaryBadge(isDark),
-                              ),
-                              _buildQuickPersonaChip(
-                                label: 'Faculty',
-                                handle: 'priya_2024_emp_1',
-                                badgeStyle: AppColors.greenBadge(isDark),
-                              ),
-                              _buildQuickPersonaChip(
-                                label: 'Security',
-                                handle: 'ramesh_2023_emp_1',
-                                badgeStyle: AppColors.neutralBadge(isDark),
-                              ),
                               _buildQuickPersonaChip(
                                 label: 'Admin',
                                 handle: 'campus_admin',

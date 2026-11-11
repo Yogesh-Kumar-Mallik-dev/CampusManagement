@@ -58,54 +58,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 
 	switch cleanID {
-	case "harish_2025_l_btech_1", "harish_2025_l_btech_1@campus.edu", "harish_student", "student":
-		user = model.User{
-			BaseSyncModel: model.BaseSyncModel{
-				ID:        "usr-harish_2025_l_btech_1",
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			CampusHandle: "harish_2025_l_btech_1",
-			FirstName:    "Harish",
-			LastName:     "Kumar",
-			Email:        "harish_2025_l_btech_1@campus.edu",
-			Archetype:    model.ArchetypeStudent,
-			IsActive:     true,
-		}
-		scopes = []string{"global", "sec:cse-3a", "club:robotics"}
-
-	case "priya_2024_emp_1", "priya_2024_emp_1@campus.edu":
-		user = model.User{
-			BaseSyncModel: model.BaseSyncModel{
-				ID:        "usr-priya_2024_emp_1",
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			CampusHandle: "priya_2024_emp_1",
-			FirstName:    "Dr. Priya",
-			LastName:     "Nair",
-			Email:        "priya_2024_emp_1@campus.edu",
-			Archetype:    model.ArchetypeEmployee,
-			IsActive:     true,
-		}
-		scopes = []string{"global", "dept:cse", "sec:cse-3a", "unit:student_affairs"}
-
-	case "ramesh_2023_emp_1", "ramesh_2023_emp_1@campus.edu":
-		user = model.User{
-			BaseSyncModel: model.BaseSyncModel{
-				ID:        "usr-ramesh_2023_emp_1",
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			CampusHandle: "ramesh_2023_emp_1",
-			FirstName:    "Ramesh",
-			LastName:     "Singh",
-			Email:        "ramesh_2023_emp_1@campus.edu",
-			Archetype:    model.ArchetypeEmployee,
-			IsActive:     true,
-		}
-		scopes = []string{"global", "unit:security", "facility:gate-1"}
-
 	case "campus_admin", "admin", "admin@campus.edu", "director", "director@campus.edu":
 		user = model.User{
 			BaseSyncModel: model.BaseSyncModel{
@@ -121,22 +73,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			IsActive:     true,
 		}
 		scopes = []string{"global"}
-
-	case "mukesh_2025_ext_1", "mukesh_2025_ext_1@campus.edu":
-		user = model.User{
-			BaseSyncModel: model.BaseSyncModel{
-				ID:        "usr-mukesh_2025_ext_1",
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			CampusHandle: "mukesh_2025_ext_1",
-			FirstName:    "Mukesh",
-			LastName:     "Verma",
-			Email:        "mukesh_2025_ext_1@campus.edu",
-			Archetype:    model.ArchetypeExternal,
-			IsActive:     true,
-		}
-		scopes = []string{"gate:main", "building:canteen"}
 
 	default:
 		// Generic fallback for any canonical format {name}_{year}_...

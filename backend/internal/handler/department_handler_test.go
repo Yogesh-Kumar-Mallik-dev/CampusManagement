@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"campus/backend/internal/idgen"
 	"campus/backend/internal/model"
@@ -24,6 +25,36 @@ func setupTestAcademicEnv(t *testing.T) (*service.AcademicService, *UserHandler,
 		userHandler.FindUser,
 		userHandler.ListTeachers,
 	)
+
+	// Set up test faculty and student in userHandler for this test suite
+	now := time.Now().UTC()
+	userHandler.users["usr-priya_2024_emp_1"] = model.User{
+		BaseSyncModel: model.BaseSyncModel{ID: "usr-priya_2024_emp_1", CreatedAt: now, UpdatedAt: now},
+		CampusHandle:  "priya_2024_emp_1",
+		FirstName:     "Dr. Priya",
+		LastName:      "Nair",
+		Email:         "priya_2024_emp_1@campus.edu",
+		Archetype:     model.ArchetypeEmployee,
+		IsActive:      true,
+		Status:        "active",
+	}
+	userHandler.handleToID["priya_2024_emp_1"] = "usr-priya_2024_emp_1"
+	userHandler.employeeRecords["usr-priya_2024_emp_1"] = model.EmployeeRecord{
+		UserID:     "usr-priya_2024_emp_1",
+		IsAcademic: true,
+	}
+
+	userHandler.users["usr-harish_2025_l_btech_1"] = model.User{
+		BaseSyncModel: model.BaseSyncModel{ID: "usr-harish_2025_l_btech_1", CreatedAt: now, UpdatedAt: now},
+		CampusHandle:  "harish_2025_l_btech_1",
+		FirstName:     "Harish",
+		LastName:      "Kumar",
+		Email:         "harish_2025_l_btech_1@campus.edu",
+		Archetype:     model.ArchetypeStudent,
+		IsActive:      true,
+		Status:        "active",
+	}
+	userHandler.handleToID["harish_2025_l_btech_1"] = "usr-harish_2025_l_btech_1"
 
 	// Seed Sample Programs
 	_, _ = academicService.CreateProgram(context.Background(), model.Program{

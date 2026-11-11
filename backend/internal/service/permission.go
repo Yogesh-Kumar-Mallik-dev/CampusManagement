@@ -144,6 +144,18 @@ func (s *PermissionService) GetUserPermissions(userID string) []string {
 		}
 		role, roleExists := s.memRoles[assign.RoleCode]
 		if !roleExists {
+			lower := strings.ToLower(assign.RoleCode)
+			if strings.Contains(lower, "president") {
+				role, roleExists = s.memRoles["club_president"]
+			} else if strings.Contains(lower, "coordinator") {
+				role, roleExists = s.memRoles["coordinator"]
+			} else if strings.Contains(lower, "library") {
+				role, roleExists = s.memRoles["library_incharge"]
+			} else if strings.Contains(lower, "representative") || strings.Contains(lower, "class_rep") {
+				role, roleExists = s.memRoles["class_representative"]
+			}
+		}
+		if !roleExists {
 			continue
 		}
 		for _, perm := range role.Permissions {
@@ -179,6 +191,18 @@ func (s *PermissionService) Can(ctx context.Context, userID, permissionCode, req
 		}
 
 		role, roleExists := s.memRoles[assign.RoleCode]
+		if !roleExists {
+			lower := strings.ToLower(assign.RoleCode)
+			if strings.Contains(lower, "president") {
+				role, roleExists = s.memRoles["club_president"]
+			} else if strings.Contains(lower, "coordinator") {
+				role, roleExists = s.memRoles["coordinator"]
+			} else if strings.Contains(lower, "library") {
+				role, roleExists = s.memRoles["library_incharge"]
+			} else if strings.Contains(lower, "representative") || strings.Contains(lower, "class_rep") {
+				role, roleExists = s.memRoles["class_representative"]
+			}
+		}
 		if !roleExists {
 			continue
 		}

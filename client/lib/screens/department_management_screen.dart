@@ -113,13 +113,20 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
       _programs = List.from(widget.storage.cachedPrograms);
       _subjects = List.from(widget.storage.cachedSubjects);
       _semesters = List.from(widget.storage.cachedSemesters);
-      final users = widget.storage.cachedUsers;
-      _teachers = users.where((u) => u.archetype == 'employee').toList();
+      _teachers = _resolveTeachers();
       _recomputeMetrics();
       _recomputeFilteredLists();
       _loadState = PageLoadState.success;
     }
     _loadData();
+  }
+
+  List<UserModel> _resolveTeachers() {
+    var faculty = widget.storage.cachedUsers.where((u) => u.archetype == 'employee').toList();
+    if (!faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
+      faculty = [...faculty, OfflineStorageService.getMockUserForHandle('priya_2024_emp_1')];
+    }
+    return faculty;
   }
 
   @override
@@ -142,8 +149,7 @@ class _DepartmentManagementScreenState extends State<DepartmentManagementScreen>
       final subs = await widget.storage.getSubjects();
       final sems = await widget.storage.getSemesters();
 
-      final users = widget.storage.cachedUsers;
-      final faculty = users.where((u) => u.archetype == 'employee').toList();
+      final faculty = _resolveTeachers();
 
       if (mounted) {
         setState(() {
@@ -3542,7 +3548,13 @@ class _SectionDetailDialogState extends State<_SectionDetailDialog> with SingleT
         storage: widget.storage,
         section: widget.section,
         subjects: _detail?.subjects ?? widget.storage.cachedSubjects,
-        teachers: widget.storage.cachedUsers.where((u) => u.archetype == 'employee').toList(),
+        teachers: () {
+          var faculty = widget.storage.cachedUsers.where((u) => u.archetype == 'employee').toList();
+          if (!faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
+            faculty = [...faculty, OfflineStorageService.getMockUserForHandle('priya_2024_emp_1')];
+          }
+          return faculty;
+        }(),
         batches: _detail?.labBatches ?? [],
         onAssigned: () {
           _loadDetail();

@@ -23,6 +23,20 @@ func setupTestHandlers() (*AcademicHandler, *DepartmentHandler, *UserHandler, *H
 	complaintSvc := service.NewComplaintService()
 
 	userH := NewUserHandler(idSvc, permSvc)
+	userH.users["usr-priya_2024_emp_1"] = model.User{
+		BaseSyncModel: model.BaseSyncModel{ID: "usr-priya_2024_emp_1"},
+		CampusHandle:  "priya_2024_emp_1",
+		FirstName:     "Dr. Priya",
+		LastName:      "Nair",
+		Archetype:     model.ArchetypeEmployee,
+		IsActive:      true,
+		Status:        "active",
+	}
+	userH.handleToID["priya_2024_emp_1"] = "usr-priya_2024_emp_1"
+	userH.employeeRecords["usr-priya_2024_emp_1"] = model.EmployeeRecord{
+		UserID:     "usr-priya_2024_emp_1",
+		IsAcademic: true,
+	}
 	acadH := NewAcademicHandler(acadSvc)
 	deptH := NewDepartmentHandler(acadSvc, userH.FindUser, userH.ListTeachers)
 	hostelH := NewHostelHandler(hostelSvc)

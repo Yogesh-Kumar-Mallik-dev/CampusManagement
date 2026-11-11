@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_dropdown.dart';
 import '../widgets/app_skeleton.dart';
+import '../widgets/assign_role_dialog.dart';
 import 'user_profile_screen.dart';
 
 class UserManagementScreen extends StatefulWidget {
@@ -153,6 +154,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
+  void _openAssignRoleDialog(UserModel user) {
+    AssignRoleDialog.show(
+      context,
+      user: user,
+      storage: widget.storage,
+      onAssigned: (_) => _loadUsers(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -242,6 +252,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         child: _UserDirectoryCard(
                           user: u,
                           onTap: () => _openUserProfile(u),
+                          onAssignRole: () => _openAssignRoleDialog(u),
                         ),
                       );
                     }).toList(),
@@ -564,10 +575,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 class _UserDirectoryCard extends StatefulWidget {
   final UserModel user;
   final VoidCallback onTap;
+  final VoidCallback onAssignRole;
 
   const _UserDirectoryCard({
     required this.user,
     required this.onTap,
+    required this.onAssignRole,
   });
 
   @override
@@ -754,6 +767,59 @@ class _UserDirectoryCardState extends State<_UserDirectoryCard> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.end,
+                    ),
+                  ),
+                ],
+              ),
+              if (u.assignedRoles.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: u.assignedRoles.map((r) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: AppColors.wineRed.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        r.roleName.isNotEmpty ? r.roleName : r.roleCode,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.wineRed,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  InkWell(
+                    key: Key('btn-card-assign-role-${u.campusHandle}'),
+                    onTap: widget.onAssignRole,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          AppSvgIcon(svgString: AppSvgIcon.shield, size: 12, color: AppColors.wineRed),
+                          SizedBox(width: 4),
+                          Text(
+                            'Assign Role',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.wineRed),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

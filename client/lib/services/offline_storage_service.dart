@@ -125,6 +125,12 @@ class OfflineStorageService implements ICampusStorage {
       final clean = identifier.trim().toLowerCase();
       final user = getMockUserForHandle(clean);
       _currentUser = user;
+      final idx = _cachedUsers.indexWhere((u) => u.id == user.id || u.campusHandle == user.campusHandle);
+      if (idx >= 0) {
+        _cachedUsers[idx] = user;
+      } else {
+        _cachedUsers.add(user);
+      }
       return user;
     }
 
@@ -144,6 +150,7 @@ class OfflineStorageService implements ICampusStorage {
         firstName: 'Campus',
         lastName: 'Administrator',
         email: 'admin@campus.edu',
+        personalEmail: 'director@campus-governance.org',
         phone: '+91 98000 00001',
         archetype: 'employee',
         universityRollNo: 'ADM-2023-0001',
@@ -166,6 +173,18 @@ class OfflineStorageService implements ICampusStorage {
           ),
         ],
         permissions: ['*'],
+        employeeRecord: {
+          'joining_date': '2023-01-01T00:00:00Z',
+          'employee_code': 'ADM-DIR-001',
+          'employment_type': 'permanent',
+          'is_academic': false,
+          'is_administrative': true,
+        },
+        administrativeProfile: {
+          'primary_unit': 'unit:administration',
+          'designation': 'Campus Administrator',
+          'office_location': 'Central Admin Complex',
+        },
       );
     } else if (clean.contains('priya') || clean.contains('nair') || clean.contains('faculty') || clean.contains('hod')) {
       return UserModel(
@@ -212,14 +231,32 @@ class OfflineStorageService implements ICampusStorage {
           'complaints:student',
           'complaints:employee',
         ],
+        employeeRecord: {
+          'joining_date': '2024-01-15T00:00:00Z',
+          'employee_code': 'FAC-CS-012',
+          'employment_type': 'permanent',
+          'is_academic': true,
+          'is_administrative': true,
+        },
+        academicProfile: {
+          'academic_rank': 'Professor',
+          'cabin_location': 'LH-302, Academic Block B',
+          'departments': ['dept:cse'],
+        },
+        administrativeProfile: {
+          'primary_unit': 'unit:student_affairs',
+          'designation': 'Head of Department',
+          'office_location': 'Academic Block B Room 104',
+        },
       );
-    } else if (clean.contains('ramesh') || clean.contains('security')) {
+    } else if (clean.contains('ramesh') || clean.contains('security') || clean.contains('warden')) {
       return UserModel(
         id: 'usr-ramesh_2023_emp_1',
         campusHandle: 'ramesh_2023_emp_1',
         firstName: 'Ramesh',
         lastName: 'Singh',
         email: 'ramesh_2023_emp_1@campus.edu',
+        personalEmail: 'ramesh.singh@campus-ops.net',
         phone: '+91 97222 33445',
         archetype: 'employee',
         universityRollNo: 'EMP-2023-0089',
@@ -242,6 +279,18 @@ class OfflineStorageService implements ICampusStorage {
           'complaints:hostel',
           'complaints:campus',
         ],
+        employeeRecord: {
+          'joining_date': '2023-06-01T00:00:00Z',
+          'employee_code': 'ADM-SEC-089',
+          'employment_type': 'permanent',
+          'is_academic': false,
+          'is_administrative': true,
+        },
+        administrativeProfile: {
+          'primary_unit': 'unit:security',
+          'designation': 'Chief Hostel Warden',
+          'office_location': 'Main Gate Security HQ',
+        },
       );
     } else if (clean.contains('mukesh') || clean.contains('ext_1') || clean.contains('canteen')) {
       return UserModel(
@@ -250,6 +299,7 @@ class OfflineStorageService implements ICampusStorage {
         firstName: 'Mukesh',
         lastName: 'Verma',
         email: 'mukesh_2025_ext_1@campus.edu',
+        personalEmail: 'mukesh.verma@sodexo-dining.com',
         phone: '+91 98333 44556',
         archetype: 'external',
         universityRollNo: 'GP-2025-0891',
@@ -273,44 +323,207 @@ class OfflineStorageService implements ICampusStorage {
           'menu:update',
           'complaints:contractor',
         ],
+        contractorProfile: {
+          'onboarding_year': 2025,
+          'vendor_organization': 'Sodexo Campus Dining',
+          'service_type': 'canteen',
+          'contract_expires_at': DateTime.now().add(const Duration(days: 300)).toIso8601String(),
+          'gate_pass_id': 'GP-2025-0891',
+          'supervisor_name': 'Anil Kapoor',
+          'supervisor_phone': '+91 98222 11000',
+          'permitted_scopes': ['gate:main', 'building:canteen'],
+        },
       );
     }
+
+    final isEmployee = clean.contains('emp') || clean.contains('coordinator') || clean.contains('library') || clean.contains('librarian');
+    final isExternal = clean.contains('ext') || clean.contains('vendor');
+    final archetype = isExternal ? 'external' : (isEmployee ? 'employee' : 'student');
+    final effectiveHandle = clean.contains('harish') ? 'harish_2025_l_btech_1' : clean;
+    final nameParts = clean.split('_');
+    final firstName = nameParts.isNotEmpty && nameParts[0].isNotEmpty
+        ? (clean.contains('harish') ? 'Harish' : nameParts[0][0].toUpperCase() + nameParts[0].substring(1))
+        : 'User';
+    final lastName = clean.contains('harish') ? 'Kumar' : '';
+
+    final studentProfile = !isEmployee && !isExternal
+        ? {
+            'admission_year': 2025,
+            'entry_type': 'lateral',
+            'program': 'btech',
+            'current_semester': 3,
+            'batch_year': 2029,
+            'section_scope': 'sec:cse-3a',
+            'abc_id': '8912-3456-7890',
+            'digilocker_verified': true,
+            'digilocker_verified_at': '2025-08-15T10:30:00Z',
+            'verified_documents': [
+              {
+                'document_type': 'apaar_abc',
+                'document_title': 'APAAR / Academic Bank of Credits (ABC) ID',
+                'issuer': 'National Academic Depository (NAD) / MeitY',
+                'doc_ref_masked': '8912-XXXX-7890',
+                'issued_year': 2023,
+                'is_verified': true,
+                'verification_hash': 'sha256:7b4f539e28f3a5dc1093c0d801e7492cbf3a41e97d10c7104b901a1e0b53ad62',
+                'verified_at': '2025-08-15 10:30 IST',
+                'status': 'verified',
+              },
+              {
+                'document_type': 'class_x',
+                'document_title': 'Secondary School Certificate (Class X)',
+                'issuer': 'Central Board of Secondary Education (CBSE)',
+                'doc_ref_masked': 'ROLL-12894104',
+                'issued_year': 2021,
+                'is_verified': true,
+                'verification_hash': 'sha256:a18f23c907b8d145e69eef71410294b810938f2940ba19028e34891209384fa1',
+                'verified_at': '2025-08-15 10:31 IST',
+                'status': 'verified',
+              },
+              {
+                'document_type': 'class_xii',
+                'document_title': 'Senior School Certificate (Class XII - PCM)',
+                'issuer': 'Central Board of Secondary Education (CBSE)',
+                'doc_ref_masked': 'ROLL-61928401',
+                'issued_year': 2023,
+                'is_verified': true,
+                'verification_hash': 'sha256:3948af019284baef71829340ab19284091823749812739481928374918273948',
+                'verified_at': '2025-08-15 10:31 IST',
+                'status': 'verified',
+              },
+              {
+                'document_type': 'aadhaar_kyc',
+                'document_title': 'Aadhaar Identity Verification',
+                'issuer': 'Unique Identification Authority of India (UIDAI)',
+                'doc_ref_masked': 'XXXX-XXXX-4091',
+                'issued_year': 2024,
+                'is_verified': true,
+                'verification_hash': 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+                'verified_at': '2025-08-15 10:32 IST',
+                'status': 'verified',
+              },
+              {
+                'document_type': 'domicile',
+                'document_title': 'Uttar Pradesh State Domicile Certificate',
+                'issuer': 'Revenue Department, Govt of Uttar Pradesh',
+                'doc_ref_masked': 'UP-DOM-2023-90812',
+                'issued_year': 2023,
+                'is_verified': true,
+                'verification_hash': 'sha256:f52f82c471829038471928409182374981729384019283749182739481729384',
+                'verified_at': '2025-08-15 10:33 IST',
+                'status': 'verified',
+              },
+            ],
+          }
+        : null;
+
+    final assignedRoles = isEmployee
+        ? [
+            UserRoleAssignmentModel(
+              id: 'assign-$clean-1',
+              userId: 'usr-$clean',
+              roleCode: clean.contains('coordinator')
+                  ? 'coordinator'
+                  : (clean.contains('library') ? 'library_incharge' : 'faculty'),
+              roleName: clean.contains('coordinator')
+                  ? 'Section Coordinator'
+                  : (clean.contains('library') ? 'Library In-Charge' : 'Faculty Member'),
+              scopeCode: 'dept:cse',
+            ),
+          ]
+        : (isExternal
+            ? [
+                UserRoleAssignmentModel(
+                  id: 'assign-$clean-1',
+                  userId: 'usr-$clean',
+                  roleCode: 'contractor_manager',
+                  roleName: 'Contractor Manager',
+                  scopeCode: 'global',
+                ),
+              ]
+            : [
+                UserRoleAssignmentModel(
+                  id: 'assign-$clean-1',
+                  userId: 'usr-$clean',
+                  roleCode: 'student_base',
+                  roleName: 'Student Base',
+                  scopeCode: 'sec:cse-3a',
+                ),
+                if (clean.contains('harish') || clean.contains('president') || clean.contains('robotics'))
+                  UserRoleAssignmentModel(
+                    id: 'assign-$clean-2',
+                    userId: 'usr-$clean',
+                    roleCode: 'club_president',
+                    roleName: 'Club President',
+                    scopeCode: 'club:robotics',
+                  ),
+                if (clean.contains('rep') || clean.contains('cr'))
+                  UserRoleAssignmentModel(
+                    id: 'assign-$clean-3',
+                    userId: 'usr-$clean',
+                    roleCode: 'class_representative',
+                    roleName: 'Class Representative',
+                    scopeCode: 'sec:cse-3a',
+                  ),
+              ]);
+
+    final permissions = isEmployee
+        ? [
+            'timetable:view',
+            'timetable:edit',
+            'attendance:mark',
+            'attendance:broadcast',
+            'attendance:view_roster',
+            'attendance:approve',
+            'syllabus:view',
+            'notice:publish',
+            'complaints:student',
+            if (clean.contains('coordinator')) 'attendance:criteria_override',
+            if (clean.contains('library')) 'library:approve',
+          ]
+        : (isExternal
+            ? [
+                'gatepass:present',
+                'profile:view_self',
+                'canteen:operate',
+              ]
+            : [
+                'timetable:view',
+                'attendance:view_self',
+                'attendance:scan',
+                'fees:pay',
+                'notices:view',
+                'library:view',
+                if (clean.contains('harish') || clean.contains('president') || clean.contains('robotics')) ...[
+                  'club:publish_event',
+                  'club:spend_budget',
+                  'club:manage_members',
+                ],
+                if (clean.contains('rep') || clean.contains('cr')) ...[
+                  'class_rep:notice',
+                  'attendance:flag_discrepancy',
+                ],
+              ]);
+
     return UserModel(
-      id: 'usr-harish_2025_l_btech_1',
-      campusHandle: 'harish_2025_l_btech_1',
-      firstName: 'Harish',
-      lastName: 'Kumar',
-      email: 'harish_2025_l_btech_1@campus.edu',
-      archetype: 'student',
-      universityRollNo: '2025-CS-042',
+      id: 'usr-$effectiveHandle',
+      campusHandle: effectiveHandle,
+      firstName: firstName,
+      lastName: lastName,
+      email: '$effectiveHandle@campus.edu',
+      personalEmail: '$clean@example.com',
+      phone: '+91 98765 43210',
+      emergencyContactName: 'Emergency Contact',
+      emergencyContactPhone: '+91 98765 00112',
+      bloodGroup: 'O+',
+      address: 'Campus Hostel',
+      archetype: archetype,
+      universityRollNo: isEmployee ? 'EMP-2024-0012' : (isExternal ? 'GP-2025-0891' : '2025-CS-042'),
       status: 'active',
-      activeScopes: ['global', 'sec:cse-3a', 'club:robotics'],
-      assignedRoles: [
-        UserRoleAssignmentModel(
-          id: 'assign-harish-1',
-          userId: 'usr-harish_2025_l_btech_1',
-          roleCode: 'student_base',
-          roleName: 'Student Base',
-          scopeCode: 'sec:cse-3a',
-        ),
-        UserRoleAssignmentModel(
-          id: 'assign-harish-2',
-          userId: 'usr-harish_2025_l_btech_1',
-          roleCode: 'club_president',
-          roleName: 'Club President',
-          scopeCode: 'club:robotics',
-        ),
-      ],
-      permissions: [
-        'timetable:view',
-        'attendance:view_self',
-        'attendance:scan',
-        'fees:pay',
-        'notices:view',
-        'club:publish_event',
-        'club:spend_budget',
-        'club:manage_members',
-      ],
+      activeScopes: ['global', if (!isEmployee && !isExternal) 'sec:cse-3a', if (clean.contains('harish')) 'club:robotics'],
+      studentProfile: studentProfile,
+      assignedRoles: assignedRoles,
+      permissions: permissions,
     );
   }
 
@@ -396,290 +609,6 @@ class OfflineStorageService implements ICampusStorage {
           'office_location': 'Central Admin Tower 501',
         },
       ),
-      UserModel(
-        id: 'usr-harish_2025_l_btech_1',
-        campusHandle: 'harish_2025_l_btech_1',
-        firstName: 'Harish',
-        lastName: 'Kumar',
-        email: 'harish_2025_l_btech_1@campus.edu',
-        personalEmail: 'harish.kumar@example.com',
-        phone: '+91 98765 43210',
-        emergencyContactName: 'Suresh Kumar (Father)',
-        emergencyContactPhone: '+91 98765 00112',
-        bloodGroup: 'O+',
-        address: 'Room 204, Block 2, BBDIT Hostel',
-        archetype: 'student',
-        universityRollNo: '2025-CS-042',
-        admissionApplicationNo: 'APP-2025-0819',
-        universityRegNo: 'REG-2025-9921',
-        status: 'active',
-        activeScopes: ['global', 'sec:cse-3a', 'club:robotics'],
-        assignedRoles: [
-          UserRoleAssignmentModel(
-            id: 'assign-harish-1',
-            userId: 'usr-harish_2025_l_btech_1',
-            roleCode: 'student_base',
-            roleName: 'Student Base',
-            scopeCode: 'sec:cse-3a',
-          ),
-          UserRoleAssignmentModel(
-            id: 'assign-harish-2',
-            userId: 'usr-harish_2025_l_btech_1',
-            roleCode: 'club_president',
-            roleName: 'Club President',
-            scopeCode: 'club:robotics',
-          ),
-        ],
-        permissions: [
-          'timetable:view',
-          'attendance:view_self',
-          'attendance:scan',
-          'fees:pay',
-          'notices:view',
-          'club:publish_event',
-          'club:spend_budget',
-          'club:manage_members',
-        ],
-        studentProfile: {
-          'admission_year': 2025,
-          'entry_type': 'lateral',
-          'program': 'btech',
-          'current_semester': 3,
-          'batch_year': 2029,
-          'section_scope': 'sec:cse-3a',
-          'abc_id': '8912-3456-7890',
-          'digilocker_verified': true,
-          'digilocker_verified_at': '2025-08-15T10:30:00Z',
-          'verified_documents': [
-            {
-              'document_type': 'apaar_abc',
-              'document_title': 'APAAR / Academic Bank of Credits (ABC) ID',
-              'issuer': 'National Academic Depository (NAD) / MeitY',
-              'doc_ref_masked': '8912-XXXX-7890',
-              'issued_year': 2023,
-              'is_verified': true,
-              'verification_hash': 'sha256:7b4f539e28f3a5dc1093c0d801e7492cbf3a41e97d10c7104b901a1e0b53ad62',
-              'verified_at': '2025-08-15 10:30 IST',
-              'status': 'verified',
-            },
-            {
-              'document_type': 'class_x',
-              'document_title': 'Secondary School Certificate (Class X)',
-              'issuer': 'Central Board of Secondary Education (CBSE)',
-              'doc_ref_masked': 'ROLL-12894104',
-              'issued_year': 2021,
-              'is_verified': true,
-              'verification_hash': 'sha256:a18f23c907b8d145e69eef71410294b810938f2940ba19028e34891209384fa1',
-              'verified_at': '2025-08-15 10:31 IST',
-              'status': 'verified',
-            },
-            {
-              'document_type': 'class_xii',
-              'document_title': 'Senior School Certificate (Class XII - PCM)',
-              'issuer': 'Central Board of Secondary Education (CBSE)',
-              'doc_ref_masked': 'ROLL-61928401',
-              'issued_year': 2023,
-              'is_verified': true,
-              'verification_hash': 'sha256:3948af019284baef71829340ab19284091823749812739481928374918273948',
-              'verified_at': '2025-08-15 10:31 IST',
-              'status': 'verified',
-            },
-            {
-              'document_type': 'aadhaar_kyc',
-              'document_title': 'Aadhaar Identity Verification',
-              'issuer': 'Unique Identification Authority of India (UIDAI)',
-              'doc_ref_masked': 'XXXX-XXXX-4091',
-              'issued_year': 2024,
-              'is_verified': true,
-              'verification_hash': 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-              'verified_at': '2025-08-15 10:32 IST',
-              'status': 'verified',
-            },
-            {
-              'document_type': 'domicile',
-              'document_title': 'Uttar Pradesh State Domicile Certificate',
-              'issuer': 'Revenue Department, Govt of Uttar Pradesh',
-              'doc_ref_masked': 'UP-DOM-2023-90812',
-              'issued_year': 2023,
-              'is_verified': true,
-              'verification_hash': 'sha256:f52f82c471829038471928409182374981729384019283749182739481729384',
-              'verified_at': '2025-08-15 10:33 IST',
-              'status': 'verified',
-            },
-          ],
-        },
-      ),
-      UserModel(
-        id: 'usr-priya_2024_emp_1',
-        campusHandle: 'priya_2024_emp_1',
-        firstName: 'Dr. Priya',
-        lastName: 'Nair',
-        email: 'priya_2024_emp_1@campus.edu',
-        personalEmail: 'p.nair@academic-research.org',
-        phone: '+91 98111 22334',
-        archetype: 'employee',
-        universityRollNo: 'EMP-2024-0012',
-        status: 'active',
-        activeScopes: ['global', 'dept:cse', 'sec:cse-3a', 'unit:student_affairs'],
-        assignedRoles: [
-          UserRoleAssignmentModel(
-            id: 'assign-priya-1',
-            userId: 'usr-priya_2024_emp_1',
-            roleCode: 'hod',
-            roleName: 'Head of Department',
-            scopeCode: 'dept:cse',
-          ),
-          UserRoleAssignmentModel(
-            id: 'assign-priya-2',
-            userId: 'usr-priya_2024_emp_1',
-            roleCode: 'faculty',
-            roleName: 'Faculty Member',
-            scopeCode: 'dept:cse',
-          ),
-        ],
-        permissions: [
-          'timetable:view',
-          'timetable:edit',
-          'timetable:declare_off',
-          'attendance:mark',
-          'attendance:broadcast',
-          'attendance:view_roster',
-          'attendance:approve',
-          'syllabus:view',
-          'syllabus:approve',
-          'faculty:assign_workload',
-          'department:manage',
-          'notice:publish',
-          'complaints:student',
-          'complaints:employee',
-        ],
-        employeeRecord: {
-          'joining_date': '2024-01-15T00:00:00Z',
-          'employee_code': 'FAC-CS-012',
-          'employment_type': 'permanent',
-          'is_academic': true,
-          'is_administrative': true,
-        },
-        academicProfile: {
-          'academic_rank': 'Professor',
-          'cabin_location': 'LH-302, Academic Block B',
-          'departments': ['dept:cse'],
-        },
-        administrativeProfile: {
-          'primary_unit': 'unit:student_affairs',
-          'designation': 'Dean of Student Affairs',
-          'office_location': 'Administrative Complex Room 104',
-        },
-      ),
-      UserModel(
-        id: 'usr-ramesh_2023_emp_1',
-        campusHandle: 'ramesh_2023_emp_1',
-        firstName: 'Ramesh',
-        lastName: 'Singh',
-        email: 'ramesh_2023_emp_1@campus.edu',
-        personalEmail: 'ramesh.singh@campus-ops.net',
-        phone: '+91 97222 33445',
-        archetype: 'employee',
-        universityRollNo: 'EMP-2023-0089',
-        status: 'active',
-        activeScopes: ['global', 'unit:security', 'facility:gate-1'],
-        assignedRoles: [
-          UserRoleAssignmentModel(
-            id: 'assign-ramesh-1',
-            userId: 'usr-ramesh_2023_emp_1',
-            roleCode: 'warden',
-            roleName: 'Hostel Warden',
-            scopeCode: 'facility:gate-1',
-          ),
-        ],
-        permissions: [
-          'gatepass:approve',
-          'room:inspect',
-          'hostel:manage',
-          'hostel:edit_room',
-          'complaints:hostel',
-          'complaints:campus',
-        ],
-        employeeRecord: {
-          'joining_date': '2023-06-01T00:00:00Z',
-          'employee_code': 'ADM-SEC-089',
-          'employment_type': 'permanent',
-          'is_academic': false,
-          'is_administrative': true,
-        },
-        administrativeProfile: {
-          'primary_unit': 'unit:security',
-          'designation': 'Chief Security Officer',
-          'office_location': 'Main Gate Security HQ',
-        },
-      ),
-      UserModel(
-        id: 'usr-vikram_2021_r_btech_1',
-        campusHandle: 'vikram_2021_r_btech_1',
-        firstName: 'Vikram',
-        lastName: 'Malhotra',
-        email: 'vikram_2021_r_btech_1@campus.edu',
-        personalEmail: 'vikram.malhotra@alumni.org',
-        phone: '+91 99000 11223',
-        archetype: 'student',
-        universityRollNo: '2021-CS-001',
-        admissionApplicationNo: 'APP-2021-0044',
-        status: 'graduated',
-        discontinuationReason: 'Graduated Class of 2025 (B.Tech CSE with First Class Honors)',
-        discontinuedAt: '2025-06-30T10:00:00Z',
-        discontinuedBy: 'usr-priya_2024_emp_1',
-        activeScopes: [],
-        assignedRoles: [],
-        permissions: [],
-        studentProfile: {
-          'admission_year': 2021,
-          'entry_type': 'regular',
-          'program': 'btech',
-          'current_semester': 8,
-          'batch_year': 2025,
-        },
-      ),
-      UserModel(
-        id: 'usr-mukesh_2025_ext_1',
-        campusHandle: 'mukesh_2025_ext_1',
-        firstName: 'Mukesh',
-        lastName: 'Verma',
-        email: 'mukesh_2025_ext_1@campus.edu',
-        personalEmail: 'mukesh.verma@sodexo-dining.com',
-        phone: '+91 98333 44556',
-        archetype: 'external',
-        universityRollNo: 'GP-2025-0891',
-        status: 'active',
-        activeScopes: ['gate:main', 'building:canteen'],
-        assignedRoles: [
-          UserRoleAssignmentModel(
-            id: 'assign-mukesh-1',
-            userId: 'usr-mukesh_2025_ext_1',
-            roleCode: 'canteen_manager',
-            roleName: 'Canteen Manager',
-            scopeCode: 'building:canteen',
-          ),
-        ],
-        permissions: [
-          'gatepass:present',
-          'profile:view_self',
-          'canteen:operate',
-          'mess:edit_menu',
-          'mess:manage',
-          'menu:update',
-          'complaints:contractor',
-        ],
-        contractorProfile: {
-          'onboarding_year': 2025,
-          'vendor_organization': 'Sodexo Campus Dining',
-          'service_type': 'canteen',
-          'contract_expires_at': DateTime.now().add(const Duration(days: 300)).toIso8601String(),
-          'gate_pass_id': 'GP-2025-0891',
-          'supervisor_name': 'Anil Kapoor',
-          'supervisor_phone': '+91 98222 11000',
-          'permitted_scopes': ['gate:main', 'building:canteen'],
-        },
-      ),
     ]);
   }
 
@@ -747,15 +676,11 @@ class OfflineStorageService implements ICampusStorage {
 
     final cached = _cachedUsers.firstWhere(
       (u) => u.id == idOrHandle || u.campusHandle == idOrHandle,
-      orElse: () => UserModel(
-        id: idOrHandle,
-        campusHandle: idOrHandle,
-        firstName: 'Campus',
-        lastName: 'Member',
-        email: '$idOrHandle@campus.edu',
-        archetype: 'student',
-        status: 'active',
-      ),
+      orElse: () {
+        final mock = getMockUserForHandle(idOrHandle.replaceFirst('usr-', ''));
+        _cachedUsers.add(mock);
+        return mock;
+      },
     );
     return cached;
   }
@@ -964,6 +889,16 @@ class OfflineStorageService implements ICampusStorage {
     return newUser;
   }
 
+  void registerUser(UserModel user) {
+    _seedDefaultUsersIfEmpty();
+    final idx = _cachedUsers.indexWhere((u) => u.id == user.id || u.campusHandle == user.campusHandle);
+    if (idx >= 0) {
+      _cachedUsers[idx] = user;
+    } else {
+      _cachedUsers.insert(0, user);
+    }
+  }
+
   Future<UserModel> discontinueUser({
     required String userId,
     required String status,
@@ -1033,6 +968,172 @@ class OfflineStorageService implements ICampusStorage {
       return updated;
     }
     throw Exception('User not found in cache');
+  }
+
+  @override
+  Future<UserModel> assignUserRole({
+    required String userId,
+    required String roleCode,
+    required String roleName,
+    required String scopeCode,
+    List<String>? permissions,
+    DateTime? validUntil,
+  }) async {
+    _seedDefaultUsersIfEmpty();
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        await api.assignUserRole(
+          userId: userId,
+          roleCode: roleCode,
+          scopeCode: scopeCode,
+          validUntil: validUntil,
+        );
+      } catch (_) {}
+    }
+
+    final resolvedPermissions = <String>{};
+    if (permissions != null && permissions.isNotEmpty) {
+      resolvedPermissions.addAll(permissions);
+    } else {
+      final lowerRole = roleCode.toLowerCase();
+      if (lowerRole.contains('coordinator')) {
+        resolvedPermissions.addAll([
+          'timetable:view',
+          'timetable:edit',
+          'attendance:mark',
+          'attendance:broadcast',
+          'attendance:view_roster',
+          'attendance:set_criteria',
+          'notice:section_post',
+        ]);
+      } else if (lowerRole.contains('library')) {
+        resolvedPermissions.addAll([
+          'library:view',
+          'library:issue',
+          'library:return',
+          'library:manage_inventory',
+          'library:view_fines',
+          'library:approve',
+        ]);
+      } else if (lowerRole.contains('hod')) {
+        resolvedPermissions.addAll([
+          'timetable:view',
+          'timetable:edit',
+          'timetable:declare_off',
+          'attendance:mark',
+          'attendance:broadcast',
+          'attendance:view_roster',
+          'attendance:approve',
+          'attendance:set_criteria',
+          'syllabus:view',
+          'syllabus:approve',
+          'faculty:assign_workload',
+          'department:manage',
+          'notice:publish',
+          'complaints:student',
+          'complaints:employee',
+        ]);
+      } else if (lowerRole.contains('representative') || lowerRole == 'class_rep') {
+        resolvedPermissions.addAll([
+          'attendance:mark',
+          'notice:section_post',
+          'timetable:view',
+        ]);
+      } else if (lowerRole.contains('president') || scopeCode.toLowerCase().contains('president')) {
+        resolvedPermissions.addAll([
+          'club:publish_event',
+          'club:spend_budget',
+          'club:manage_members',
+          'notice:club_post',
+        ]);
+      } else if (lowerRole.contains('faculty')) {
+        resolvedPermissions.addAll([
+          'timetable:view',
+          'timetable:edit',
+          'attendance:mark',
+          'attendance:broadcast',
+          'attendance:view_roster',
+          'syllabus:view',
+          'notice:publish',
+        ]);
+      } else if (lowerRole.contains('warden')) {
+        resolvedPermissions.addAll([
+          'gatepass:approve',
+          'room:inspect',
+          'hostel:manage',
+          'hostel:edit_room',
+          'complaints:hostel',
+          'complaints:campus',
+        ]);
+      }
+    }
+
+    final idx = _cachedUsers.indexWhere(
+      (u) => u.id == userId || u.campusHandle == userId,
+    );
+
+    UserModel target;
+    if (idx != -1) {
+      target = _cachedUsers[idx];
+    } else {
+      target = UserModel(
+        id: userId,
+        campusHandle: userId,
+        firstName: userId,
+        lastName: '',
+        email: '$userId@campus.edu',
+        archetype: roleCode.contains('president') || roleCode.contains('representative') ? 'student' : 'employee',
+      );
+      _cachedUsers.add(target);
+    }
+
+    final newAssignment = UserRoleAssignmentModel(
+      id: 'assign-${DateTime.now().millisecondsSinceEpoch}',
+      userId: target.id,
+      roleCode: roleCode,
+      roleName: roleName.isNotEmpty ? roleName : roleCode,
+      scopeCode: scopeCode,
+      validUntil: validUntil?.toIso8601String(),
+      isActive: true,
+    );
+
+    final updatedRoles = List<UserRoleAssignmentModel>.from(target.assignedRoles);
+    final existingRoleIdx = updatedRoles.indexWhere(
+      (r) => r.roleCode == roleCode && r.scopeCode == scopeCode,
+    );
+    if (existingRoleIdx != -1) {
+      updatedRoles[existingRoleIdx] = newAssignment;
+    } else {
+      updatedRoles.add(newAssignment);
+    }
+
+    final updatedScopes = Set<String>.from(target.activeScopes);
+    if (scopeCode.isNotEmpty) {
+      updatedScopes.add(scopeCode);
+    }
+
+    final updatedPermissions = Set<String>.from(target.permissions);
+    updatedPermissions.addAll(resolvedPermissions);
+
+    final updatedUser = target.copyWith(
+      assignedRoles: updatedRoles,
+      activeScopes: updatedScopes.toList(),
+      permissions: updatedPermissions.toList(),
+    );
+
+    final updateIdx = _cachedUsers.indexWhere(
+      (u) => u.id == target.id || u.campusHandle == target.campusHandle,
+    );
+    if (updateIdx != -1) {
+      _cachedUsers[updateIdx] = updatedUser;
+    }
+
+    if (_currentUser?.id == target.id || _currentUser?.campusHandle == target.campusHandle) {
+      _currentUser = updatedUser;
+    }
+
+    return updatedUser;
   }
 
   int get pendingSyncCount => _attendanceOutbox.length;
@@ -2655,7 +2756,12 @@ class OfflineStorageService implements ICampusStorage {
     );
 
     final subjects = _cachedSubjects.where((s) => dept.subjectIds.contains(s.id)).toList();
-    final teachers = _cachedUsers.where((u) => dept.teacherIds.contains(u.id)).toList();
+    final teachers = dept.teacherIds.map((tId) {
+      return _cachedUsers.firstWhere(
+        (u) => u.id == tId || u.campusHandle == tId,
+        orElse: () => getMockUserForHandle(tId.replaceFirst('usr-', '')),
+      );
+    }).toList();
     final semesters = _cachedSemesters.where((sem) => dept.semesterIds.contains(sem.id)).toList();
 
     return DepartmentDetailModel(
@@ -2968,7 +3074,10 @@ class OfflineStorageService implements ICampusStorage {
 
     final programs = _cachedPrograms.where((p) => sec.programIds.contains(p.id)).toList();
     final subjects = _cachedSubjects.where((s) => sec.subjectIds.contains(s.id)).toList();
-    final teachers = _cachedUsers.where((u) => sec.teacherIds.contains(u.id)).toList();
+    final teachers = sec.teacherIds.map((tid) => _cachedUsers.firstWhere(
+      (u) => u.id == tid,
+      orElse: () => getMockUserForHandle(tid.replaceFirst('usr-', '')),
+    )).toList();
 
     // Allocations (fallback to default core allocations if none defined)
     var allocs = _sectionAllocations[sec.id];
@@ -2985,10 +3094,13 @@ class OfflineStorageService implements ICampusStorage {
     }
 
     // Students enrolled in this section
-    final enrolledStudents = _cachedUsers.where((u) {
-      if (u.archetype != 'student') return false;
-      return _studentSectionMap[u.id] == sec.id;
-    }).toList();
+    final enrolledStudents = _studentSectionMap.entries
+        .where((e) => e.value == sec.id)
+        .map((e) => _cachedUsers.firstWhere(
+              (u) => u.id == e.key,
+              orElse: () => getMockUserForHandle(e.key.replaceFirst('usr-', '')),
+            ))
+        .toList();
 
     // Program breakdown
     final breakdown = <String, int>{};
@@ -3220,9 +3332,9 @@ class OfflineStorageService implements ICampusStorage {
     final prefix = payload['prefix'] as String? ?? 'Batch';
 
     // Fetch enrolled students
-    final enrolledStudents = _cachedUsers
-        .where((u) => u.archetype == 'student' && _studentSectionMap[u.id] == secId)
-        .map((u) => u.id)
+    final enrolledStudents = _studentSectionMap.entries
+        .where((e) => e.value == secId)
+        .map((e) => e.key)
         .toList()
       ..sort();
 
@@ -3390,6 +3502,9 @@ class OfflineStorageService implements ICampusStorage {
     }
 
     final faculty = _cachedUsers.where((u) => u.archetype == 'employee').toList();
+    if (!faculty.any((u) => u.id == 'usr-priya_2024_emp_1')) {
+      faculty.add(getMockUserForHandle('priya_2024_emp_1'));
+    }
     final List<FacultyWorkloadSummaryModel> result = [];
 
     for (final teacher in faculty) {
@@ -7382,6 +7497,8 @@ class OfflineStorageService implements ICampusStorage {
     final idx = _cachedUsers.indexWhere((u) => u.id == studentId || u.campusHandle == studentId);
     if (idx >= 0) {
       _cachedUsers[idx] = updated;
+    } else {
+      _cachedUsers.add(updated);
     }
 
     return updated;
@@ -7444,6 +7561,8 @@ class OfflineStorageService implements ICampusStorage {
     final idx = _cachedUsers.indexWhere((u) => u.id == studentId || u.campusHandle == studentId);
     if (idx >= 0) {
       _cachedUsers[idx] = updated;
+    } else {
+      _cachedUsers.add(updated);
     }
 
     return updated;

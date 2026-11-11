@@ -81,8 +81,7 @@ void main() {
     expect(find.text('Campus Handle or Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Sign In'), findsOneWidget);
-    expect(find.text('Student'), findsOneWidget);
-    expect(find.text('Faculty'), findsOneWidget);
+    expect(find.text('Admin'), findsOneWidget);
 
     // Verify Login Screen is strictly non-scrollable (no SingleChildScrollView)
     expect(find.descendant(of: find.byType(LoginScreen), matching: find.byType(SingleChildScrollView)), findsNothing);
@@ -103,7 +102,8 @@ void main() {
     }
 
     // 2. Perform Login action
-    await tester.tap(find.text('Student'));
+    await tester.enterText(find.byType(TextField).first, 'harish_2025_l_btech_1');
+    await tester.enterText(find.byType(TextField).last, 'pass123');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -136,7 +136,7 @@ void main() {
     expect(personaSwitcher, findsOneWidget);
     await tester.tap(personaSwitcher);
     await tester.pumpAndSettle();
-    expect(find.textContaining('Dr. Priya Nair'), findsWidgets);
+    expect(find.textContaining('Campus Administrator'), findsWidgets);
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();
 
@@ -178,6 +178,9 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
+    // Register contractor persona for directory filter verification
+    storage.registerUser(OfflineStorageService.getMockUserForHandle('mukesh_2025_ext_1'));
+
     // 6. Test Filter by Contractors & Vendors
     await tester.tap(find.text('Contractors & Vendors'));
     await tester.pumpAndSettle();
@@ -207,7 +210,8 @@ void main() {
 
     await tester.pumpWidget(CampusManagementApp(storage: storage));
     await tester.pump();
-    await tester.tap(find.text('Student'));
+    await tester.enterText(find.byType(TextField).first, 'harish_2025_l_btech_1');
+    await tester.enterText(find.byType(TextField).last, 'pass123');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -249,7 +253,7 @@ void main() {
     await tester.pump();
 
     // Select Faculty persona for optical broadcast capabilities
-    await tester.tap(find.text('Faculty'));
+    await tester.tap(find.text('Admin'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -293,7 +297,7 @@ void main() {
     await tester.pump();
 
     // Login as Faculty / Admin
-    await tester.tap(find.text('Faculty'));
+    await tester.tap(find.text('Admin'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -383,7 +387,7 @@ void main() {
     await tester.pump();
 
     // Login as Faculty / Admin
-    await tester.tap(find.text('Faculty'));
+    await tester.tap(find.text('Admin'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -492,7 +496,7 @@ void main() {
     await tester.pump();
 
     // Log in as Faculty / Admin
-    await tester.tap(find.text('Faculty'));
+    await tester.tap(find.text('Admin'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -622,7 +626,7 @@ void main() {
     await tester.pump();
 
     // Login as Faculty / Admin
-    await tester.tap(find.text('Faculty'));
+    await tester.tap(find.text('Admin'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -813,7 +817,8 @@ void main() {
     await tester.pump();
 
     // Select Student persona
-    await tester.tap(find.text('Student'));
+    await tester.enterText(find.byType(TextField).first, 'harish_2025_l_btech_1');
+    await tester.enterText(find.byType(TextField).last, 'pass123');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -1524,7 +1529,7 @@ void main() {
     await tester.pump();
 
     // Login to reach HomeScreen
-    await tester.tap(find.text('Student'));
+    await tester.tap(find.text('Admin'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
@@ -1616,7 +1621,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Login as student
-    await tester.tap(find.text('Student'));
+    await tester.enterText(find.byType(TextField).first, 'harish_2025_l_btech_1');
+    await tester.enterText(find.byType(TextField).last, 'pass123');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign In'));
     await tester.pumpAndSettle();
