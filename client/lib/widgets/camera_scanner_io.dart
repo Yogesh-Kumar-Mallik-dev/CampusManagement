@@ -72,71 +72,122 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
       return;
     }
 
-    try {
-      // Stream live MJPEG video frames from /dev/video0 at 15 fps
-      _ffmpegProcess = await Process.start('ffmpeg', [
-        '-f', 'v4l2',
-        '-video_size', '640x480',
-        '-framerate', '15',
-        '-i', '/dev/video0',
-        '-f', 'image2pipe',
-        '-vcodec', 'mjpeg',
-        '-q:v', '5',
-        '-loglevel', 'quiet',
-        'pipe:1',
-      ]);
+    // Low-latency hardware MJPEG direct streaming flags
+    final lowLatencyHardwareArgs = [
+      '-fflags', 'nobuffer',
+      '-flags', 'low_delay',
+      '-probesize', '32',
+      '-analyzeduration', '0',
+      '-f', 'v4l2',
+      '-input_format', 'mjpeg',
+      '-video_size', '640x480',
+      '-framerate', '30',
+      '-i', '/dev/video0',
+      '-c:v', 'copy',
+      '-flush_packets', '1',
+      '-f', 'image2pipe',
+      '-loglevel', 'quiet',
+      'pipe:1',
+    ];
 
-      if (mounted) {
-        setState(() {
-          _isHardwareCameraActive = true;
-          _hardwareStatus = 'Live Linux Webcam (/dev/video0)';
-        });
+    final lowLatencySoftwareArgs = [
+      '-fflags', 'nobuffer',
+      '-flags', 'low_delay',
+      '-probesize', '32',
+      '-analyzeduration', '0',
+      '-f', 'v4l2',
+      '-video_size', '640x480',
+      '-framerate', '15',
+      '-i', '/dev/video0',
+      '-c:v', 'mjpeg',
+      '-q:v', '5',
+      '-flush_packets', '1',
+      '-f', 'image2pipe',
+      '-loglevel', 'quiet',
+      'pipe:1',
+    ];
+
+    Process? process;
+    try {
+      process = await Process.start('ffmpeg', lowLatencyHardwareArgs);
+    } catch (_) {
+      try {
+        process = await Process.start('ffmpeg', lowLatencySoftwareArgs);
+      } catch (_) {
+        _startFallbackZbar();
+        return;
+      }
+    }
+
+    _ffmpegProcess = process;
+
+    if (mounted) {
+      setState(() {
+        _isHardwareCameraActive = true;
+        _hardwareStatus = 'Live Linux Webcam (/dev/video0)';
+      });
+    }
+
+    var pendingBytes = <int>[];
+    var lastRenderTimeMs = 0;
+    var lastScanTimeMs = 0;
+
+    _ffmpegSub = _ffmpegProcess!.stdout.listen((data) {
+      pendingBytes.addAll(data);
+
+      // Find the LATEST complete JPEG frame in the accumulated buffer
+      // Search backwards from the end for EOI (0xFF, 0xD9)
+      var lastEoi = -1;
+      for (var i = pendingBytes.length - 2; i >= 0; i--) {
+        if (pendingBytes[i] == 0xFF && pendingBytes[i + 1] == 0xD9) {
+          lastEoi = i;
+          break;
+        }
       }
 
-      final buffer = BytesBuilder(copy: false);
-
-      _ffmpegSub = _ffmpegProcess!.stdout.listen((data) {
-        buffer.add(data);
-        final bytes = buffer.toBytes();
-
-        // Search for JPEG SOI (0xFF, 0xD8)
-        var startIndex = -1;
-        for (var i = 0; i < bytes.length - 1; i++) {
-          if (bytes[i] == 0xFF && bytes[i + 1] == 0xD8) {
-            startIndex = i;
+      if (lastEoi >= 0) {
+        // Search backwards from EOI for corresponding SOI (0xFF, 0xD8)
+        var lastSoi = -1;
+        for (var i = lastEoi - 1; i >= 0; i--) {
+          if (pendingBytes[i] == 0xFF && pendingBytes[i + 1] == 0xD8) {
+            lastSoi = i;
             break;
           }
         }
 
-        if (startIndex >= 0) {
-          // Search for JPEG EOI (0xFF, 0xD9)
-          for (var i = startIndex + 2; i < bytes.length - 1; i++) {
-            if (bytes[i] == 0xFF && bytes[i + 1] == 0xD9) {
-              final endIndex = i + 2;
-              final frame = Uint8List.fromList(bytes.sublist(startIndex, endIndex));
+        if (lastSoi >= 0) {
+          final latestFrame = Uint8List.fromList(pendingBytes.sublist(lastSoi, lastEoi + 2));
 
-              buffer.clear();
-              if (endIndex < bytes.length) {
-                buffer.add(bytes.sublist(endIndex));
-              }
+          // Critical zero-lag guarantee: Drop ALL stale frames that arrived before this latest frame
+          pendingBytes = pendingBytes.sublist(lastEoi + 2);
 
-              if (mounted) {
-                setState(() {
-                  _latestFrame = frame;
-                });
-                _analyzeFrameForBarcode(frame);
-              }
-              break;
+          final now = DateTime.now().millisecondsSinceEpoch;
+
+          // Render preview at up to 30 FPS with zero buffer backlog
+          if (now - lastRenderTimeMs >= 33) {
+            lastRenderTimeMs = now;
+            if (mounted) {
+              setState(() {
+                _latestFrame = latestFrame;
+              });
             }
           }
-        } else if (bytes.length > 500000) {
-          buffer.clear();
+
+          // Scan rolling optical QR code every ~120ms (8+ scans/sec) without stalling event loop
+          if (!_isAnalyzingFrame && !widget.isVerifying && (now - lastScanTimeMs >= 120)) {
+            lastScanTimeMs = now;
+            _analyzeFrameForBarcode(latestFrame);
+          }
         }
-      });
-    } catch (_) {
-      // Fallback to headless zbarcam if ffmpeg binary is not present
+      }
+
+      // Memory safeguard against corrupted packet streams
+      if (pendingBytes.length > 500000) {
+        pendingBytes.clear();
+      }
+    }, onError: (_) {
       _startFallbackZbar();
-    }
+    });
   }
 
   void _analyzeFrameForBarcode(Uint8List frame) async {
@@ -148,7 +199,12 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
       proc.stdin.add(frame);
       await proc.stdin.close();
 
-      final output = await proc.stdout.transform(utf8.decoder).join();
+      // Guard with a 200ms timeout to prevent process hangs
+      final output = await proc.stdout.transform(utf8.decoder).join().timeout(
+        const Duration(milliseconds: 200),
+        onTimeout: () => '',
+      );
+
       final clean = output.trim();
       if (clean.isNotEmpty && !widget.isVerifying && mounted) {
         widget.onScanned(clean);
@@ -156,7 +212,9 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
     } catch (_) {
       // Ignore frame decode errors
     } finally {
-      _isAnalyzingFrame = false;
+      if (mounted) {
+        _isAnalyzingFrame = false;
+      }
     }
   }
 
@@ -244,7 +302,7 @@ class _CampusCameraScannerIOState extends State<CampusCameraScanner> with Single
                 );
               },
             )
-          // 2. Linux Desktop live camera frames via ffmpeg
+          // 2. Linux Desktop live camera frames via low-latency ffmpeg
           else if (_latestFrame != null)
             Positioned.fill(
               child: Image.memory(
