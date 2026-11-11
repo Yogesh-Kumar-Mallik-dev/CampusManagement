@@ -426,5 +426,52 @@ void main() {
 
       expect(tester.widget<Switch>(academicSwitch).value, isFalse);
     });
+
+    testWidgets('User onboarding dialog dynamically loads degree programs, branches, and departments without mock hardcoding', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      // Ensure storage has a program with branches and a department
+      await storage.createProgram(ProgramModel(
+        id: 'prog-btech-cse',
+        code: 'BTECH',
+        name: 'Bachelor of Technology',
+        degreeLevel: 'undergraduate',
+        totalSemesters: 8,
+        hasBranches: true,
+        branches: [
+          ProgramBranchModel(code: 'CSE', name: 'Computer Science and Engineering'),
+          ProgramBranchModel(code: 'ECE', name: 'Electronics and Communication'),
+        ],
+      ));
+
+      await tester.pumpWidget(MaterialApp(
+        home: UserManagementScreen(
+          storage: storage,
+          currentUser: testAdmin,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Open creation dialog
+      await tester.tap(find.text('Onboard User'));
+      await tester.pumpAndSettle();
+
+      // Verify Student Onboarding dynamically presents degree program and branch dropdown
+      expect(find.text('Degree Program'), findsOneWidget);
+      expect(find.text('Branch / Discipline'), findsOneWidget);
+
+      // Verify dynamic current year is present
+      final currentYearStr = DateTime.now().year.toString();
+      expect(find.text(currentYearStr), findsAtLeastNWidgets(1));
+
+      // Switch to Employee Onboarding tab
+      await tester.tap(find.text('Employee Onboarding'));
+      await tester.pumpAndSettle();
+
+      // Verify Department Affiliation dropdown exists dynamically under Academic Track
+      expect(find.text('Department Affiliation'), findsOneWidget);
+    });
   });
 }

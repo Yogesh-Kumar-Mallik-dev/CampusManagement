@@ -101,6 +101,17 @@ func (h *UserHandler) loadUsersFromDB() {
 			}
 		}
 	}
+
+	contRows, err := h.db.Query(ctx, `SELECT user_id, onboarding_year, vendor_organization, service_type, contract_expires_at FROM contractor_profiles`)
+	if err == nil {
+		defer contRows.Close()
+		for contRows.Next() {
+			var cp model.ContractorProfile
+			if err := contRows.Scan(&cp.UserID, &cp.OnboardingYear, &cp.VendorOrganization, &cp.ServiceType, &cp.ContractExpiresAt); err == nil {
+				h.contractorProfiles[cp.UserID] = cp
+			}
+		}
+	}
 }
 
 func (h *UserHandler) seedDefaultUsers() {
@@ -556,6 +567,36 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 	h.handleToID[handle] = user.ID
 	h.contractorProfiles[user.ID] = contractorProfile
 	h.mu.Unlock()
+
+	if h.db != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = h.db.Exec(ctx, `
+				INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, is_active, status, created_at, updated_at, is_deleted)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false)
+				ON CONFLICT (id) DO UPDATE SET
+					campus_handle = EXCLUDED.campus_handle,
+					first_name = EXCLUDED.first_name,
+					last_name = EXCLUDED.last_name,
+					email = EXCLUDED.email,
+					personal_email = EXCLUDED.personal_email,
+					phone = EXCLUDED.phone,
+					university_roll_no = EXCLUDED.university_roll_no,
+					updated_at = EXCLUDED.updated_at
+			`, user.ID, user.CampusHandle, user.FirstName, user.LastName, user.Email, user.PersonalEmail, user.Phone, user.Archetype, user.UniversityRollNo, user.IsActive, user.Status, user.CreatedAt, user.UpdatedAt)
+
+			_, _ = h.db.Exec(ctx, `
+				INSERT INTO contractor_profiles (user_id, onboarding_year, vendor_organization, service_type, contract_expires_at)
+				VALUES ($1, $2, $3, $4, $5)
+				ON CONFLICT (user_id) DO UPDATE SET
+					onboarding_year = EXCLUDED.onboarding_year,
+					vendor_organization = EXCLUDED.vendor_organization,
+					service_type = EXCLUDED.service_type,
+					contract_expires_at = EXCLUDED.contract_expires_at
+			`, contractorProfile.UserID, contractorProfile.OnboardingYear, contractorProfile.VendorOrganization, contractorProfile.ServiceType, contractorProfile.ContractExpiresAt)
+		}()
+	}
 
 	// Assign contractor / vendor role
 	if h.permService != nil {

@@ -765,10 +765,16 @@ class OfflineStorageService implements ICampusStorage {
 
     // Offline optimistic creation
     final firstName = (req['first_name'] ?? 'student').toString().toLowerCase();
-    final year = req['admission_year'] ?? 2025;
+    final year = req['admission_year'] ?? DateTime.now().year;
     final entry = (req['entry_type'] ?? 'regular').toString().toLowerCase().substring(0, 1);
     final prog = (req['program'] ?? 'btech').toString().toLowerCase();
-    final handle = '${firstName}_${year}_${entry}_${prog}_${_cachedUsers.length + 1}';
+    final branch = (req['branch'] ?? '').toString().toLowerCase();
+    final progPart = branch.isNotEmpty ? '${prog}_$branch' : prog;
+    final handle = '${firstName}_${year}_${entry}_${progPart}_${_cachedUsers.length + 1}';
+
+    final sectionScope = (req['section_scope'] != null && req['section_scope'].toString().isNotEmpty)
+        ? req['section_scope'].toString()
+        : null;
 
     final newUser = UserModel(
       id: 'usr-$handle',
@@ -780,14 +786,18 @@ class OfflineStorageService implements ICampusStorage {
       phone: req['phone'],
       archetype: 'student',
       admissionApplicationNo: req['admission_application_no'],
+      universityRollNo: req['university_roll_no'],
       status: 'active',
-      activeScopes: ['global', 'sec:cse-3a'],
+      activeScopes: ['global', ?sectionScope],
       studentProfile: {
         'admission_year': year,
         'entry_type': req['entry_type'] ?? 'regular',
         'program': prog,
-        'current_semester': 1,
-        'batch_year': year + 4,
+        if (branch.isNotEmpty) 'branch': branch,
+        'current_semester': req['current_semester'] ?? 1,
+        'batch_year': req['batch_year'] ?? (year + 4),
+        'section_scope': ?sectionScope,
+        if (req['advisor_name'] != null) 'advisor_name': req['advisor_name'],
       },
     );
     _cachedUsers.insert(0, newUser);
@@ -831,12 +841,14 @@ class OfflineStorageService implements ICampusStorage {
           ? {
               'academic_rank': req['academic_rank'] ?? 'Assistant Professor',
               'cabin_location': req['cabin_location'],
-              'departments': req['department_affiliations'] ?? ['dept:cse'],
+              'departments': req['department_affiliations'] is List
+                  ? List<String>.from(req['department_affiliations'])
+                  : <String>[],
             }
           : null,
       administrativeProfile: req['is_administrative'] == true
           ? {
-              'primary_unit': req['primary_unit'] ?? 'registrar',
+              'primary_unit': req['primary_unit'] ?? 'unit:registrar',
               'designation': req['designation'] ?? 'Staff',
               'office_location': req['office_location'],
             }
@@ -881,8 +893,8 @@ class OfflineStorageService implements ICampusStorage {
       activeScopes: req['permitted_scopes'] is List ? List<String>.from(req['permitted_scopes']) : ['gate:main'],
       contractorProfile: {
         'onboarding_year': year,
-        'vendor_organization': req['vendor_organization'] ?? 'Campus External Vendor',
-        'service_type': req['service_type'] ?? 'canteen',
+        'vendor_organization': req['vendor_organization'] ?? '',
+        'service_type': req['service_type'] ?? 'maintenance',
         'contract_expires_at': req['contract_expires_at'] ?? DateTime.now().add(const Duration(days: 365)).toIso8601String(),
         'gate_pass_id': gatePass,
         'supervisor_name': req['supervisor_name'],

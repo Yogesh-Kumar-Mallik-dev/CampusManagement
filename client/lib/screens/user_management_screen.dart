@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../models/academic.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
@@ -850,6 +851,11 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
+  // Dynamic program & department options
+  List<ProgramModel> _availablePrograms = [];
+  List<DepartmentModel> _availableDepartments = [];
+  String? _stuBranch;
+
   // Student Form Controllers
   final _stuFirst = TextEditingController();
   final _stuLast = TextEditingController();
@@ -863,7 +869,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   final _stuAdvisor = TextEditingController();
   int _stuAdmissionYear = DateTime.now().year;
   String _stuEntryType = 'regular'; // 'regular', 'lateral', 'transfer'
-  String _stuProgram = 'btech'; // 'btech', 'mtech', 'phd'
+  String _stuProgram = 'btech'; // code or id
 
   // Employee Form Controllers
   final _empFirst = TextEditingController();
@@ -879,7 +885,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   bool _empIsAcademic = true;
   String _empAcademicRank = 'Assistant Professor';
   final _empCabin = TextEditingController();
-  final String _empDept = 'dept:cse';
+  String _empDept = 'dept:cse';
 
   // Administrative track options
   bool _empIsAdmin = false;
@@ -904,6 +910,55 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   @override
   void initState() {
     super.initState();
+    _loadAcademicOptions();
+  }
+
+  Future<void> _loadAcademicOptions() async {
+    try {
+      final progs = await widget.storage.getPrograms();
+      final depts = await widget.storage.getDepartments();
+      if (mounted) {
+        setState(() {
+          _availablePrograms = progs.where((p) => !p.isRetired).toList();
+          _availableDepartments = depts;
+          if (_availablePrograms.isNotEmpty) {
+            final firstProg = _availablePrograms.first;
+            _stuProgram = firstProg.code.isNotEmpty ? firstProg.code : firstProg.id;
+            final activeBranches = firstProg.branches.where((b) => !b.isRetired).toList();
+            if (activeBranches.isNotEmpty) {
+              _stuBranch = activeBranches.first.code.isNotEmpty ? activeBranches.first.code : activeBranches.first.name;
+            } else {
+              _stuBranch = null;
+            }
+          }
+          if (_availableDepartments.isNotEmpty) {
+            final firstDept = _availableDepartments.first;
+            _empDept = firstDept.code.isNotEmpty ? 'dept:${firstDept.code.toLowerCase()}' : firstDept.id;
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  List<String> _getAdmissionYears() {
+    final now = DateTime.now().year;
+    return [
+      (now - 3).toString(),
+      (now - 2).toString(),
+      (now - 1).toString(),
+      now.toString(),
+      (now + 1).toString(),
+    ];
+  }
+
+  List<String> _getJoiningYears() {
+    final now = DateTime.now().year;
+    return List.generate(7, (i) => (now - 5 + i).toString());
+  }
+
+  List<String> _getOnboardingYears() {
+    final now = DateTime.now().year;
+    return List.generate(5, (i) => (now - 2 + i).toString());
   }
 
   @override
@@ -947,7 +1002,10 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
     final cleanName = name.replaceAll(RegExp(r'[^a-z0-9]'), '');
     final prefixName = cleanName.isEmpty ? 'name' : cleanName;
     final entryCode = _stuEntryType == 'regular' ? 'r' : (_stuEntryType == 'lateral' ? 'l' : 't');
-    return '${prefixName}_${_stuAdmissionYear}_${entryCode}_${_stuProgram}_#';
+    final progPart = (_stuBranch != null && _stuBranch!.isNotEmpty)
+        ? '${_stuProgram}_${_stuBranch!}'.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')
+        : _stuProgram.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return '${prefixName}_${_stuAdmissionYear}_${entryCode}_${progPart}_#';
   }
 
   String _generateEmployeeHandlePreview() {
@@ -997,6 +1055,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'admission_year': _stuAdmissionYear,
         'entry_type': _stuEntryType,
         'program': _stuProgram,
+        if (_stuBranch != null && _stuBranch!.isNotEmpty) 'branch': _stuBranch,
         'admission_application_no': _stuAppNo.text.trim(),
         'university_roll_no': _stuRollNo.text.trim(),
         'university_reg_no': _stuRegNo.text.trim(),
@@ -1052,7 +1111,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'is_academic': _empIsAcademic,
         'academic_rank': _empAcademicRank,
         'cabin_location': _empCabin.text.trim(),
-        'department_affiliations': [_empDept],
+        'department_affiliations': _empDept.isNotEmpty ? [_empDept] : <String>[],
         'is_administrative': _empIsAdmin,
         'primary_unit': _empAdminUnit,
         'designation': _empDesignation.text.trim().isNotEmpty ? _empDesignation.text.trim() : 'Staff Member',
@@ -1113,7 +1172,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'gate_pass_id': _extGatePass.text.trim(),
         'supervisor_name': _extSupervisorName.text.trim(),
         'supervisor_phone': _extSupervisorPhone.text.trim(),
-        'permitted_scopes': scopes.isNotEmpty ? scopes : ['gate:main', 'building:canteen'],
+        'permitted_scopes': scopes.isNotEmpty ? scopes : ['gate:main'],
       });
       if (mounted) {
         Navigator.of(context).pop();
@@ -1406,7 +1465,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
               child: _buildDropdown(
                 'Admission Year',
                 _stuAdmissionYear.toString(),
-                ['2023', '2024', '2025', '2026'],
+                _getAdmissionYears(),
                 (val) => setState(() => _stuAdmissionYear = int.parse(val!)),
                 isDark,
               ),
@@ -1424,15 +1483,77 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
             const SizedBox(width: 12),
             Expanded(
               child: _buildDropdown(
-                'Program',
+                'Degree Program',
                 _stuProgram,
-                ['btech', 'mtech', 'phd'],
-                (val) => setState(() => _stuProgram = val!),
+                _availablePrograms.isNotEmpty
+                    ? _availablePrograms.map((p) => p.code.isNotEmpty ? p.code : p.id).toList()
+                    : ['btech', 'mtech', 'phd', 'bba', 'mba', 'bca', 'mca'],
+                (val) {
+                  if (val == null) return;
+                  setState(() {
+                    _stuProgram = val;
+                    if (_availablePrograms.isNotEmpty) {
+                      final pMatch = _availablePrograms.cast<ProgramModel?>().firstWhere(
+                        (p) => p != null && (p.code.toLowerCase() == val.toLowerCase() || p.id.toLowerCase() == val.toLowerCase()),
+                        orElse: () => null,
+                      );
+                      if (pMatch != null && pMatch.hasBranches && pMatch.branches.isNotEmpty) {
+                        final act = pMatch.branches.where((b) => !b.isRetired).toList();
+                        _stuBranch = act.isNotEmpty ? (act.first.code.isNotEmpty ? act.first.code : act.first.name) : null;
+                      } else {
+                        _stuBranch = null;
+                      }
+                    }
+                  });
+                },
                 isDark,
+                itemLabels: _availablePrograms.isNotEmpty
+                    ? {
+                        for (final p in _availablePrograms)
+                          (p.code.isNotEmpty ? p.code : p.id): '${p.name} (${p.code})',
+                      }
+                    : const {
+                        'btech': 'B.Tech (Bachelor of Technology)',
+                        'mtech': 'M.Tech (Master of Technology)',
+                        'phd': 'Ph.D (Doctor of Philosophy)',
+                        'bba': 'BBA (Bachelor of Business Administration)',
+                        'mba': 'MBA (Master of Business Administration)',
+                        'bca': 'BCA (Bachelor of Computer Applications)',
+                        'mca': 'MCA (Master of Computer Applications)',
+                      },
               ),
             ),
           ],
         ),
+        if (_availablePrograms.isNotEmpty) ...[
+          () {
+            final pMatch = _availablePrograms.cast<ProgramModel?>().firstWhere(
+              (p) => p != null && (p.code.toLowerCase() == _stuProgram.toLowerCase() || p.id.toLowerCase() == _stuProgram.toLowerCase()),
+              orElse: () => null,
+            );
+            if (pMatch != null && pMatch.hasBranches && pMatch.branches.isNotEmpty) {
+              final act = pMatch.branches.where((b) => !b.isRetired).toList();
+              if (act.isNotEmpty) {
+                final currentBranch = _stuBranch ?? (act.first.code.isNotEmpty ? act.first.code : act.first.name);
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _buildDropdown(
+                    'Branch / Discipline',
+                    currentBranch,
+                    act.map((b) => b.code.isNotEmpty ? b.code : b.name).toList(),
+                    (val) => setState(() => _stuBranch = val),
+                    isDark,
+                    itemLabels: {
+                      for (final b in act)
+                        (b.code.isNotEmpty ? b.code : b.name): '${b.name} (${b.code})',
+                    },
+                  ),
+                );
+              }
+            }
+            return const SizedBox.shrink();
+          }(),
+        ],
       ],
     );
   }
@@ -1475,7 +1596,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
               child: _buildDropdown(
                 'Joining Year',
                 _empJoiningYear.toString(),
-                ['2022', '2023', '2024', '2025', '2026'],
+                _getJoiningYears(),
                 (val) => setState(() => _empJoiningYear = int.parse(val!)),
                 isDark,
               ),
@@ -1548,21 +1669,48 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         if (_empIsAcademic) ...[
           Padding(
             padding: const EdgeInsets.only(left: 20),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: _buildDropdown(
-                    'Academic Rank',
-                    _empAcademicRank,
-                    ['Assistant Professor', 'Associate Professor', 'Professor', 'Lecturer'],
-                    (val) => setState(() => _empAcademicRank = val!),
-                    isDark,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDropdown(
+                        'Department Affiliation',
+                        _empDept,
+                        _availableDepartments.isNotEmpty
+                            ? _availableDepartments.map((d) => d.code.isNotEmpty ? 'dept:${d.code.toLowerCase()}' : d.id).toList()
+                            : ['dept:cse', 'dept:ece', 'dept:me', 'dept:mgmt'],
+                        (val) => setState(() => _empDept = val!),
+                        isDark,
+                        itemLabels: _availableDepartments.isNotEmpty
+                            ? {
+                                for (final d in _availableDepartments)
+                                  (d.code.isNotEmpty ? 'dept:${d.code.toLowerCase()}' : d.id): '${d.name} (${d.code})',
+                              }
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildDropdown(
+                        'Academic Rank',
+                        _empAcademicRank,
+                        [
+                          'Assistant Professor',
+                          'Associate Professor',
+                          'Professor',
+                          'Lecturer',
+                          'Head of Department (HOD)',
+                          'Dean / Director',
+                        ],
+                        (val) => setState(() => _empAcademicRank = val!),
+                        isDark,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTextField('Cabin Location', _empCabin, 'Cabin / Room number', isDark),
-                ),
+                const SizedBox(height: 8),
+                _buildTextField('Cabin Location', _empCabin, 'Cabin / Room number', isDark),
               ],
             ),
           ),
@@ -1622,9 +1770,28 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                       child: _buildDropdown(
                         'Primary Administrative Unit',
                         _empAdminUnit,
-                        ['unit:student_affairs', 'unit:security', 'registrar', 'library', 'it_center'],
+                        [
+                          'unit:student_affairs',
+                          'unit:security',
+                          'unit:registrar',
+                          'unit:library',
+                          'unit:it_center',
+                          'unit:finance',
+                          'unit:examination',
+                          'unit:estate_maintenance',
+                        ],
                         (val) => setState(() => _empAdminUnit = val!),
                         isDark,
+                        itemLabels: const {
+                          'unit:student_affairs': 'Student Affairs',
+                          'unit:security': 'Security & Safety Office',
+                          'unit:registrar': 'Registrar & Academic Secretariat',
+                          'unit:library': 'Central University Library',
+                          'unit:it_center': 'Information Technology & Computing',
+                          'unit:finance': 'Finance & Accounts Office',
+                          'unit:examination': 'Examination & Evaluation Cell',
+                          'unit:estate_maintenance': 'Estate & Campus Maintenance',
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1687,7 +1854,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
               child: _buildDropdown(
                 'Onboarding Year',
                 _extOnboardingYear.toString(),
-                ['2024', '2025', '2026', '2027'],
+                _getOnboardingYears(),
                 (val) => setState(() => _extOnboardingYear = int.parse(val!)),
                 isDark,
               ),
@@ -1719,7 +1886,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
           ],
         ),
         const SizedBox(height: 12),
-        _buildTextField('Permitted Access Zones / Gate Scopes', _extScopes, 'e.g. gate:main, building:canteen', isDark),
+        _buildTextField('Permitted Access Zones / Gate Scopes', _extScopes, 'e.g. gate:main, building:admin', isDark),
       ],
     );
   }
@@ -1750,18 +1917,26 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
     );
   }
 
-  Widget _buildDropdown(String label, String value, List<String> options, ValueChanged<String?> onChanged, bool isDark) {
+  Widget _buildDropdown(
+    String label,
+    String value,
+    List<String> options,
+    ValueChanged<String?> onChanged,
+    bool isDark, {
+    Map<String, String>? itemLabels,
+  }) {
+    final effectiveValue = options.contains(value) ? value : (options.isNotEmpty ? options.first : value);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         AppDropdown<String>(
-          value: value,
+          value: effectiveValue,
           items: options.map((opt) {
             return AppDropdownItem<String>(
               value: opt,
-              label: opt.toUpperCase(),
+              label: itemLabels?[opt] ?? opt.toUpperCase(),
             );
           }).toList(),
           onChanged: onChanged,
