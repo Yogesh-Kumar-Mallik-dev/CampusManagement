@@ -3,6 +3,7 @@ import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import 'app_dropdown.dart';
 
 class AssignRoleDialog extends StatefulWidget {
   final UserModel user;
@@ -385,43 +386,20 @@ class _AssignRoleDialogState extends State<AssignRoleDialog> {
                 const SizedBox(height: 14),
               ],
 
-              // Role Selector Dropdown / Radios
-              Text(
-                'Select Role Preset',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkBg : AppColors.lightBg,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    key: const Key('dropdown-role-preset'),
-                    value: _selectedRoleCode,
-                    isExpanded: true,
-                    dropdownColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                    items: options.map((opt) {
-                      return DropdownMenuItem<String>(
-                        value: opt.$1,
-                        child: Text(
-                          opt.$2,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) _onRoleSelected(val);
-                    },
-                  ),
-                ),
+              // Role Selector Dropdown
+              AppDropdown<String>(
+                key: const Key('dropdown-role-preset'),
+                labelText: 'Select Role Preset',
+                value: _selectedRoleCode,
+                items: options
+                    .map((opt) => AppDropdownItem<String>(
+                          value: opt.$1,
+                          label: opt.$2,
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) _onRoleSelected(val);
+                },
               ),
               const SizedBox(height: 14),
 
