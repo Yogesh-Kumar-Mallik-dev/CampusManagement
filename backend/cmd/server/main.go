@@ -32,10 +32,14 @@ func main() {
 
 	if concreteAcad, ok := container.AcademicService.(*service.AcademicService); ok {
 		if concreteAcad.CountPrograms() == 0 {
-			log.Println("[Academics] Database has no programs. Seeding default academic hierarchy...")
-			seedDefaultAcademics(concreteAcad)
+			if os.Getenv("SEED_DEFAULTS") == "true" {
+				log.Println("[Academics] Database has no programs. SEED_DEFAULTS=true, seeding defaults...")
+				seedDefaultAcademics(concreteAcad)
+			} else {
+				log.Println("[Academics] Clean-slate mode: Database has 0 programs. No dummy data seeded.")
+			}
 		} else {
-			log.Printf("[Academics] Loaded %d existing programs from database. Skipping default seed.", concreteAcad.CountPrograms())
+			log.Printf("[Academics] Loaded %d existing programs from database.", concreteAcad.CountPrograms())
 		}
 	}
 

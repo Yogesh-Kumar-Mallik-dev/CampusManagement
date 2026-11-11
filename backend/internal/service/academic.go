@@ -1083,7 +1083,7 @@ func (s *AcademicService) ListDepartments(ctx context.Context) ([]model.Departme
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var result []model.Department
+	result := []model.Department{}
 	for _, d := range s.departments {
 		if !d.IsDeleted {
 			d.SubjectCount = len(s.deptSubjects[d.ID])
@@ -1237,7 +1237,7 @@ func (s *AcademicService) ListPrograms(ctx context.Context) ([]model.Program, er
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var result []model.Program
+	result := []model.Program{}
 	for _, p := range s.programs {
 		if !p.IsDeleted {
 			result = append(result, p)
@@ -1337,7 +1337,7 @@ func (s *AcademicService) ListSubjects(ctx context.Context) ([]model.Subject, er
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var result []model.Subject
+	result := []model.Subject{}
 	for _, sub := range s.subjects {
 		if !sub.IsDeleted {
 			versions := s.syllabusVersions[sub.ID]
