@@ -16,16 +16,16 @@ All tasks are executed through the single-entrypoint lifecycle runner:
 # ----------------------------------------------------
 # 1. SETUP & DEPENDENCIES
 # ----------------------------------------------------
-./script.sh deps
-# - Fetches Go modules via 'go mod download'
-# - Fetches Flutter dependencies via 'flutter pub get'
+./script.sh deps                 # Installs both Go modules and Flutter packages
+./script.sh deps backend         # Installs Go modules ('go mod download && go mod tidy')
+./script.sh deps client          # Installs Flutter dependencies ('flutter pub get')
 
 # ----------------------------------------------------
 # 2. LOCAL DOCKER INFRASTRUCTURE
 # ----------------------------------------------------
 ./script.sh envi
 # - Generates .env from .env.example if missing
-# - Starts PostgreSQL 16 (port 5432) and Redis 7 (port 6379) via docker-compose
+# - Starts PostgreSQL 16 (port 5435) and Redis 7 (port 6380) via docker-compose
 # - Verifies health checks before releasing control
 
 ./script.sh uenvi
@@ -38,38 +38,37 @@ All tasks are executed through the single-entrypoint lifecycle runner:
 # ----------------------------------------------------
 # 3. DEVELOPMENT SERVER
 # ----------------------------------------------------
-./script.sh dev
-# - Kills any orphan processes bound to port 8080 (deterministic cleanup)
-# - Runs Go backend server locally with hot compilation
-# - Seeds default roles, sample academic schedules, and pre-provisioned users
+./script.sh dev                  # Starts infra, Go backend, and Flutter Linux client
+./script.sh dev --backend-only   # Starts infra and Go backend server only
+./script.sh dev --web            # Starts infra, Go backend, and Chrome web client
 
 # ----------------------------------------------------
 # 4. FLUTTER CLIENT LAUNCHER
 # ----------------------------------------------------
-./script.sh app run          # Native Linux Desktop application
-./script.sh app web          # Google Chrome web client
-./script.sh app build        # Native release binary
+./script.sh app run              # Native Linux Desktop application
+./script.sh app web              # Google Chrome web client
+./script.sh app build            # Native release binary
+./script.sh app apk              # Android APK build
 
 # ----------------------------------------------------
 # 5. QUALITY ASSURANCE & TESTING
 # ----------------------------------------------------
-./script.sh check
-# - Runs Go static analysis ('go vet ./...')
-# - Runs Flutter static analysis ('flutter analyze')
-# - Enforces 0 warnings / 0 errors policy
+./script.sh check                # Runs both Go vet and Flutter analyze
+./script.sh check backend        # Runs Go static analysis ('go vet ./...')
+./script.sh check client         # Runs Flutter static analysis ('flutter analyze')
 
-./script.sh test
-# - Executes backend Go test suite ('go test -v ./...')
-# - Executes Flutter client test suite ('flutter test')
-# - Supports argument forwarding (e.g. './script.sh test --plain-name "Department"')
-# - Tests widget hierarchy, optical packet math, academic models, and anti-proxy freshness logic
+./script.sh test                 # Executes all backend and client test suites
+./script.sh test backend [args]  # Executes Go test suite (e.g. ./script.sh test backend -run TestDigiLocker)
+./script.sh test client [args]   # Executes Flutter client test suite (e.g. ./script.sh test client test/facade_test.dart)
 
 # ----------------------------------------------------
 # 6. PRODUCTION RELEASE BUILD
 # ----------------------------------------------------
-./script.sh build
-# - Compiles optimized Go backend binary to 'backend/bin/server'
-# - Compiles Flutter web production bundle to 'client/build/web'
+./script.sh build                # Compiles Go backend binary and Flutter web bundle
+./script.sh build backend        # Compiles Go backend binary to 'backend/bin/server'
+./script.sh build web            # Compiles Flutter web production bundle to 'client/build/web'
+./script.sh build linux          # Compiles Flutter Linux desktop bundle
+./script.sh build apk            # Compiles Flutter Android release APK
 ```
 
 ---

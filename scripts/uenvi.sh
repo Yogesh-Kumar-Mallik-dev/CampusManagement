@@ -6,6 +6,19 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+if [ "${1:-}" = "help" ] || [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  echo "Usage: ./script.sh uenvi"
+  echo "Tears down local Docker containers (campus_postgres, campus_redis)."
+  exit 0
+fi
+
+# Load environment variables if available
+if [ -f "$ROOT_DIR/.env" ]; then
+  set -a
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
 if command -v docker >/dev/null 2>&1; then
   echo "==> [uenvi] Stopping and removing CampusManagement containers..."
   cd "$ROOT_DIR"
@@ -16,4 +29,6 @@ if command -v docker >/dev/null 2>&1; then
     fi
   done
   echo "[uenvi] Containers stopped and cleaned up."
+else
+  echo "[warning] [uenvi] Docker not found. No containers to stop."
 fi

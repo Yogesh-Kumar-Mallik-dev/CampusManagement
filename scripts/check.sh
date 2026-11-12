@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # scripts/check.sh - Run static analyzers and typecheckers
+# Usage:
+#   ./script.sh check              # Run both Go vet and Flutter analyze
+#   ./script.sh check backend      # Run only Go vet
+#   ./script.sh check client       # Run only Flutter analyze
 # ==============================================================================
 set -euo pipefail
 
@@ -13,12 +17,39 @@ if ! command -v flutter >/dev/null 2>&1; then
   fi
 fi
 
-echo "==> [check] Running Go static analysis (go vet)..."
-cd "$ROOT_DIR/backend"
-go vet ./...
+TARGET="${1:-all}"
 
-echo "==> [check] Running Flutter static analysis (flutter analyze)..."
-cd "$ROOT_DIR/client"
-flutter analyze
+case "$TARGET" in
+  backend|go)
+    echo "==> [check] Running Go static analysis (go vet)..."
+    cd "$ROOT_DIR/backend"
+    go vet ./...
+    echo "[check] Go static analysis passed cleanly."
+    ;;
+  client|flutter|frontend)
+    echo "==> [check] Running Flutter static analysis (flutter analyze)..."
+    cd "$ROOT_DIR/client"
+    flutter analyze
+    echo "[check] Flutter static analysis passed cleanly."
+    ;;
+  all)
+    echo "==> [check] Running Go static analysis (go vet)..."
+    cd "$ROOT_DIR/backend"
+    go vet ./...
 
-echo "[check] All Go and Flutter checks passed cleanly."
+    echo "==> [check] Running Flutter static analysis (flutter analyze)..."
+    cd "$ROOT_DIR/client"
+    flutter analyze
+
+    echo "[check] All Go and Flutter checks passed cleanly."
+    ;;
+  help|--help|-h)
+    echo "Usage: ./script.sh check [all|backend|client]"
+    exit 0
+    ;;
+  *)
+    echo "Unknown check target: $TARGET"
+    echo "Usage: ./script.sh check [all|backend|client]"
+    exit 1
+    ;;
+esac
