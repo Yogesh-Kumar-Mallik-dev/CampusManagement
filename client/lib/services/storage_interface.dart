@@ -64,10 +64,20 @@ abstract class ICampusApi {
     String? emergencyContactPhone,
     String? bloodGroup,
     String? address,
+    String? gender,
+    String? academicName,
+    String? academicNameSource,
+    String? classXDocumentRef,
   });
   Future<UserModel> createStudent(Map<String, dynamic> req);
   Future<UserModel> createEmployee(Map<String, dynamic> req);
   Future<UserModel> createContractor(Map<String, dynamic> req);
+  Future<UserModel> verifyClassXWithPdf({
+    required String userId,
+    required String academicName,
+    required String fileName,
+    required List<int> fileBytes,
+  });
   Future<UserModel> discontinueUser({
     required String userId,
     required String status,
@@ -387,10 +397,20 @@ abstract class ICampusStorage {
     String? emergencyContactPhone,
     String? bloodGroup,
     String? address,
+    String? gender,
+    String? academicName,
+    String? academicNameSource,
+    String? classXDocumentRef,
   });
   Future<UserModel> createStudent(Map<String, dynamic> req);
   Future<UserModel> createEmployee(Map<String, dynamic> req);
   Future<UserModel> createContractor(Map<String, dynamic> req);
+  Future<UserModel> verifyClassXWithPdf({
+    required String userId,
+    required String academicName,
+    required String fileName,
+    required List<int> fileBytes,
+  });
   Future<UserModel> discontinueUser({
     required String userId,
     required String status,

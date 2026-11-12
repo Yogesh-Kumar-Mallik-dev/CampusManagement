@@ -757,6 +757,10 @@ class OfflineStorageService implements ICampusStorage {
     String? emergencyContactPhone,
     String? bloodGroup,
     String? address,
+    String? gender,
+    String? academicName,
+    String? academicNameSource,
+    String? classXDocumentRef,
   }) async {
     _seedDefaultUsersIfEmpty();
     await checkConnectivity();
@@ -772,6 +776,10 @@ class OfflineStorageService implements ICampusStorage {
           emergencyContactPhone: emergencyContactPhone,
           bloodGroup: bloodGroup,
           address: address,
+          gender: gender,
+          academicName: academicName,
+          academicNameSource: academicNameSource,
+          classXDocumentRef: classXDocumentRef,
         );
       } catch (_) {}
     }
@@ -779,6 +787,22 @@ class OfflineStorageService implements ICampusStorage {
     final idx = _cachedUsers.indexWhere((u) => u.id == userId || u.campusHandle == userId);
     if (idx != -1) {
       final current = _cachedUsers[idx];
+      Map<String, dynamic>? updatedStudentProfile = current.studentProfile != null
+          ? Map<String, dynamic>.from(current.studentProfile!)
+          : (current.archetype == 'student' ? <String, dynamic>{} : null);
+      if (updatedStudentProfile != null) {
+        if (academicName != null && academicName.isNotEmpty) {
+          updatedStudentProfile['academic_name'] = academicName;
+        }
+        if (academicNameSource != null && academicNameSource.isNotEmpty) {
+          updatedStudentProfile['academic_name_source'] = academicNameSource;
+          updatedStudentProfile['academic_name_verified'] = true;
+        }
+        if (classXDocumentRef != null && classXDocumentRef.isNotEmpty) {
+          updatedStudentProfile['class_x_document_ref'] = classXDocumentRef;
+        }
+      }
+
       updated ??= current.copyWith(
         personalEmail: personalEmail ?? current.personalEmail,
         phone: phone ?? current.phone,
@@ -786,6 +810,9 @@ class OfflineStorageService implements ICampusStorage {
         emergencyContactPhone: emergencyContactPhone ?? current.emergencyContactPhone,
         bloodGroup: bloodGroup ?? current.bloodGroup,
         address: address ?? current.address,
+        gender: gender ?? current.gender,
+        academicName: academicName ?? current.academicName,
+        studentProfile: updatedStudentProfile,
       );
       _cachedUsers[idx] = updated;
     } else if (updated != null) {
@@ -799,6 +826,8 @@ class OfflineStorageService implements ICampusStorage {
         email: '$userId@campus.edu',
         personalEmail: personalEmail,
         phone: phone,
+        gender: gender,
+        academicName: academicName,
         emergencyContactName: emergencyContactName,
         emergencyContactPhone: emergencyContactPhone,
         bloodGroup: bloodGroup,
@@ -808,6 +837,27 @@ class OfflineStorageService implements ICampusStorage {
       _cachedUsers.add(updated);
     }
     return updated;
+  }
+
+  @override
+  Future<UserModel> verifyClassXWithPdf({
+    required String userId,
+    required String academicName,
+    required String fileName,
+    required List<int> fileBytes,
+  }) async {
+    final uploadRes = await uploadPdfDocument(
+      bytes: fileBytes,
+      filename: fileName,
+    );
+    final fileId = uploadRes['file_id']?.toString() ?? fileName;
+
+    return updateUserProfile(
+      userId: userId,
+      academicName: academicName,
+      academicNameSource: 'class_x_pdf:$fileName',
+      classXDocumentRef: fileId,
+    );
   }
 
   Future<UserModel> createStudent(Map<String, dynamic> req) async {
@@ -842,6 +892,8 @@ class OfflineStorageService implements ICampusStorage {
       email: req['email'] ?? '$handle@campus.edu',
       personalEmail: req['personal_email'],
       phone: req['phone'],
+      gender: req['gender']?.toString(),
+      academicName: req['academic_name']?.toString(),
       emergencyContactName: req['emergency_contact_name'],
       emergencyContactPhone: req['emergency_contact_phone'],
       bloodGroup: req['blood_group'],
@@ -860,6 +912,11 @@ class OfflineStorageService implements ICampusStorage {
         'current_semester': req['current_semester'] ?? 1,
         'batch_year': req['batch_year'] ?? (year + 4),
         'section_scope': ?sectionScope,
+        if (req['academic_name'] != null && req['academic_name'].toString().isNotEmpty)
+          'academic_name': req['academic_name'].toString(),
+        'academic_name_verified': false,
+        if (req['academic_name_source'] != null)
+          'academic_name_source': req['academic_name_source'],
         if (req['advisor_name'] != null) 'advisor_name': req['advisor_name'],
         if (req['emergency_contact_name'] != null) 'emergency_contact_name': req['emergency_contact_name'],
         if (req['emergency_contact_phone'] != null) 'emergency_contact_phone': req['emergency_contact_phone'],
@@ -893,6 +950,7 @@ class OfflineStorageService implements ICampusStorage {
       email: req['email'] ?? '$handle@campus.edu',
       personalEmail: req['personal_email'],
       phone: req['phone'],
+      gender: req['gender']?.toString(),
       emergencyContactName: req['emergency_contact_name'],
       emergencyContactPhone: req['emergency_contact_phone'],
       bloodGroup: req['blood_group'],
@@ -968,6 +1026,7 @@ class OfflineStorageService implements ICampusStorage {
       email: req['email'] ?? '$handle@campus.edu',
       personalEmail: req['personal_email'],
       phone: req['phone'],
+      gender: req['gender']?.toString(),
       emergencyContactName: req['emergency_contact_name'],
       emergencyContactPhone: req['emergency_contact_phone'],
       bloodGroup: req['blood_group'],

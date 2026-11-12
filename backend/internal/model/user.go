@@ -19,6 +19,8 @@ type User struct {
 	Email                  string     `json:"email"`
 	PersonalEmail          string     `json:"personal_email,omitempty"`
 	Phone                  string     `json:"phone,omitempty"`
+	Gender                 string     `json:"gender,omitempty"` // 'male', 'female', 'other', 'prefer_not_to_say'
+	AcademicName           string     `json:"academic_name,omitempty"` // Official name as verified on 10th/Matriculation record
 	EmergencyContactName   string     `json:"emergency_contact_name,omitempty"`
 	EmergencyContactPhone  string     `json:"emergency_contact_phone,omitempty"`
 	BloodGroup             string     `json:"blood_group,omitempty"`
@@ -63,6 +65,10 @@ type UpdateUserProfileRequest struct {
 	UserID                string `json:"user_id"`
 	PersonalEmail         string `json:"personal_email,omitempty"`
 	Phone                 string `json:"phone,omitempty"`
+	Gender                string `json:"gender,omitempty"`
+	AcademicName          string `json:"academic_name,omitempty"`
+	AcademicNameSource    string `json:"academic_name_source,omitempty"`
+	ClassXDocumentRef     string `json:"class_x_document_ref,omitempty"`
 	EmergencyContactName  string `json:"emergency_contact_name,omitempty"`
 	EmergencyContactPhone string `json:"emergency_contact_phone,omitempty"`
 	BloodGroup            string `json:"blood_group,omitempty"`
@@ -88,6 +94,10 @@ type StudentProfile struct {
 	AdmissionYear         int                `json:"admission_year"`
 	EntryType             string             `json:"entry_type"` // 'regular', 'lateral', 'transfer'
 	Program               string             `json:"program"`    // 'btech', 'mtech', 'phd'
+	AcademicName          string             `json:"academic_name,omitempty"` // Official name as per 10th / equivalent certificate
+	AcademicNameVerified  bool               `json:"academic_name_verified"`
+	AcademicNameSource    string             `json:"academic_name_source,omitempty"` // 'digilocker_class_x', 'manual_pdf_upload', 'direct_entry'
+	ClassXDocumentRef     string             `json:"class_x_document_ref,omitempty"`
 	ProgramID             *string            `json:"program_id,omitempty"` // Degree program e.g. 'prog-btech-cse'
 	ProgramCode           string             `json:"program_code,omitempty"`
 	ProgramName           string             `json:"program_name,omitempty"`

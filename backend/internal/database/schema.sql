@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(32);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS academic_name VARCHAR(255);
 
 CREATE INDEX IF NOT EXISTS idx_users_campus_handle ON users(campus_handle);
 CREATE INDEX IF NOT EXISTS idx_users_archetype ON users(archetype);
@@ -124,6 +126,11 @@ CREATE TABLE IF NOT EXISTS student_profiles (
     current_semester INT DEFAULT 1,
     batch_year INT NOT NULL
 );
+
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS academic_name VARCHAR(255);
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS academic_name_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS academic_name_source VARCHAR(64);
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS class_x_document_ref VARCHAR(255);
 
 -- Unified Employee Record (HR & Payroll anchor for both Faculty and Staff)
 CREATE TABLE IF NOT EXISTS employee_records (

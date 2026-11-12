@@ -54,6 +54,8 @@ class UserModel {
   final String email;
   final String? personalEmail;
   final String? phone;
+  final String? gender;
+  final String? academicName;
   final String? emergencyContactName;
   final String? emergencyContactPhone;
   final String? bloodGroup;
@@ -86,6 +88,8 @@ class UserModel {
     required this.email,
     this.personalEmail,
     this.phone,
+    this.gender,
+    this.academicName,
     this.emergencyContactName,
     this.emergencyContactPhone,
     this.bloodGroup,
@@ -111,6 +115,15 @@ class UserModel {
 
   String get fullName => '$firstName $lastName';
   bool get isActive => status.toLowerCase() == 'active';
+
+  String? get effectiveAcademicName =>
+      studentProfile?['academic_name'] as String? ?? academicName;
+  bool get isAcademicNameVerified =>
+      studentProfile?['academic_name_verified'] == true;
+  String? get academicNameSource =>
+      studentProfile?['academic_name_source'] as String?;
+  String? get classXDocumentRef =>
+      studentProfile?['class_x_document_ref'] as String?;
 
   // Scoped RBAC Engine
   bool isScopeCovered(String? grantedScope, String? targetScope) {
@@ -390,6 +403,9 @@ class UserModel {
       email: json['email'] ?? '',
       personalEmail: json['personal_email'],
       phone: json['phone'],
+      gender: json['gender'] as String?,
+      academicName: json['academic_name'] as String? ??
+          (json['student_profile'] is Map ? json['student_profile']['academic_name'] as String? : null),
       emergencyContactName: json['emergency_contact_name'],
       emergencyContactPhone: json['emergency_contact_phone'],
       bloodGroup: json['blood_group'] ?? json['bloodGroup'],
@@ -425,6 +441,8 @@ class UserModel {
       'email': email,
       'personal_email': personalEmail,
       'phone': phone,
+      'gender': gender,
+      'academic_name': academicName,
       'emergency_contact_name': emergencyContactName,
       'emergency_contact_phone': emergencyContactPhone,
       'blood_group': bloodGroup,
@@ -457,6 +475,8 @@ class UserModel {
     String? email,
     String? personalEmail,
     String? phone,
+    String? gender,
+    String? academicName,
     String? emergencyContactName,
     String? emergencyContactPhone,
     String? bloodGroup,
@@ -487,6 +507,8 @@ class UserModel {
       email: email ?? this.email,
       personalEmail: personalEmail ?? this.personalEmail,
       phone: phone ?? this.phone,
+      gender: gender ?? this.gender,
+      academicName: academicName ?? this.academicName,
       emergencyContactName: emergencyContactName ?? this.emergencyContactName,
       emergencyContactPhone: emergencyContactPhone ?? this.emergencyContactPhone,
       bloodGroup: bloodGroup ?? this.bloodGroup,

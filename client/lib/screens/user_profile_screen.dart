@@ -9,6 +9,7 @@ import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/svg_icons.dart';
+import '../utils/pdf_picker.dart';
 import '../widgets/app_dropdown.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/assign_role_dialog.dart';
@@ -303,6 +304,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (!bloodGroups.contains(selectedBloodGroup)) {
       selectedBloodGroup = '';
     }
+    String selectedGender = _user.gender ?? '';
+    final genderOptions = ['', 'male', 'female', 'other', 'prefer_not_to_say'];
+    if (!genderOptions.contains(selectedGender)) {
+      selectedGender = '';
+    }
+    final academicNameCtrl = TextEditingController(text: _user.effectiveAcademicName ?? '');
     String? editError;
 
     showDialog(
@@ -399,26 +406,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Emergency Contact Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              const Text('Gender', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 6),
-                              TextField(
-                                controller: emergNameCtrl,
-                                decoration: InputDecoration(
-                                  hintText: 'e.g. Parent / Guardian Name',
-                                  hintStyle: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
-                                  ),
-                                  prefixIcon: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-                                    child: AppSvgIcon(
-                                      svgString: AppSvgIcon.user,
-                                      size: 13,
-                                      strokeWidth: 1.5,
-                                      color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
-                                    ),
-                                  ),
-                                ),
+                              AppDropdown<String>(
+                                value: selectedGender,
+                                items: genderOptions.map((g) => AppDropdownItem<String>(
+                                  value: g,
+                                  label: g.isEmpty
+                                      ? 'Not specified'
+                                      : (g[0].toUpperCase() + g.substring(1).replaceAll('_', ' ')),
+                                )).toList(),
+                                onChanged: (val) {
+                                  if (val != null) setDialogState(() => selectedGender = val);
+                                },
                               ),
                             ],
                           ),
@@ -442,6 +442,52 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    if (_user.archetype == 'student') ...[
+                      const SizedBox(height: 14),
+                      const Text('Academic Name (Class X / Matriculation)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: academicNameCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. As printed on Class X certificate',
+                          hintStyle: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                          ),
+                          prefixIcon: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                            child: AppSvgIcon(
+                              svgString: AppSvgIcon.academicCap,
+                              size: 13,
+                              strokeWidth: 1.5,
+                              color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    const Text('Emergency Contact Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: emergNameCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Parent / Guardian Name',
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                        ),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                          child: AppSvgIcon(
+                            svgString: AppSvgIcon.user,
+                            size: 13,
+                            strokeWidth: 1.5,
+                            color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     const Text('Emergency Contact Phone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -517,6 +563,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       emergencyContactPhone: emergPhoneCtrl.text.trim(),
                       bloodGroup: selectedBloodGroup,
                       address: addressCtrl.text.trim(),
+                      gender: selectedGender.isNotEmpty ? selectedGender : null,
+                      academicName: academicNameCtrl.text.trim().isNotEmpty ? academicNameCtrl.text.trim() : null,
                     );
                     if (mounted) {
                       setState(() {
@@ -970,6 +1018,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           _buildContactAndEmergencyCard(isDark),
                           const SizedBox(height: 24),
 
+                          // 4a. Academic Name & Class X Matriculation Verification
+                          if (_user.archetype == 'student') ...[
+                            _buildSectionHeader('Class X Matriculation & Degree Name Match', AppSvgIcon.academicCap),
+                            const SizedBox(height: 10),
+                            _buildAcademicNameVerificationCard(isDark),
+                            const SizedBox(height: 24),
+                          ],
+
                           // 4b. DigiLocker & Academic Bank of Credits (ABC) Vault
                           if (_user.archetype == 'student') ...[
                             _buildSectionHeader('DigiLocker & Academic Bank of Credits (ABC) Vault', AppSvgIcon.cloudCheck),
@@ -1416,10 +1472,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildContactAndEmergencyCard(bool isDark) {
+    String formattedGender = 'Not specified';
+    if (_user.gender != null && _user.gender!.isNotEmpty) {
+      final g = _user.gender!.replaceAll('_', ' ');
+      formattedGender = g[0].toUpperCase() + g.substring(1);
+    }
+
     final items = [
       (label: 'Institutional Email', value: _user.email, icon: AppSvgIcon.mail),
       (label: 'Personal Email', value: _user.personalEmail?.isNotEmpty == true ? _user.personalEmail! : 'Not registered', icon: AppSvgIcon.mail),
       (label: 'Phone Number', value: _user.phone?.isNotEmpty == true ? _user.phone! : 'Not registered', icon: AppSvgIcon.phone),
+      (label: 'Gender', value: formattedGender, icon: AppSvgIcon.user),
+      if (_user.archetype == 'student')
+        (
+          label: 'Academic Name (10th Record)',
+          value: _user.effectiveAcademicName?.isNotEmpty == true
+              ? _user.effectiveAcademicName!
+              : 'Pending verification (Upload 10th record)',
+          icon: AppSvgIcon.academicCap,
+        ),
       (label: 'Emergency Contact', value: _user.emergencyContactName?.isNotEmpty == true ? _user.emergencyContactName! : 'Not specified', icon: AppSvgIcon.user),
       (label: 'Emergency Phone', value: _user.emergencyContactPhone?.isNotEmpty == true ? _user.emergencyContactPhone! : 'Not registered', icon: AppSvgIcon.phone),
       (label: 'Blood Group', value: _user.bloodGroup?.isNotEmpty == true ? _user.bloodGroup! : 'Not specified', icon: AppSvgIcon.shield),
@@ -1519,6 +1590,487 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 }).toList(),
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditAcademicNameDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final nameCtrl = TextEditingController(text: _user.effectiveAcademicName ?? _user.fullName);
+    String? error;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                width: 1,
+              ),
+            ),
+            title: const Row(
+              children: [
+                AppSvgIcon(svgString: AppSvgIcon.academicCap, size: 18, color: AppColors.wineRed),
+                SizedBox(width: 10),
+                Text('Academic Record Name', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Enter your legal name exactly as printed on your Class X Matriculation marksheet / certificate. Degree certificates and academic transcripts will use this name.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Class X Legal Name *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    key: const Key('input-academic-name'),
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. HARISH KUMAR SHARMA',
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(error!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                key: const Key('btn-save-academic-name'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () async {
+                  final text = nameCtrl.text.trim();
+                  if (text.isEmpty) {
+                    setDialogState(() => error = 'Academic name cannot be empty.');
+                    return;
+                  }
+                  final messenger = ScaffoldMessenger.of(context);
+                  Navigator.of(dialogCtx).pop();
+                  setState(() => _isLoading = true);
+                  try {
+                    final updated = await widget.storage.updateUserProfile(
+                      userId: _user.id,
+                      academicName: text,
+                      academicNameSource: 'manual_self_declaration',
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _user = updated;
+                        _isLoading = false;
+                      });
+                      widget.onUserUpdated?.call();
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Academic record name updated successfully.'),
+                          backgroundColor: AppColors.githubGreen,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      setState(() => _isLoading = false);
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Failed to update academic name: $e'), backgroundColor: AppColors.statusRed),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Save Name'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleUploadClassXPdf(bool isDark) async {
+    final picked = await pickPdfFile();
+    if (picked == null || !mounted) return;
+
+    final defaultName = _user.effectiveAcademicName?.isNotEmpty == true
+        ? _user.effectiveAcademicName!
+        : _user.fullName;
+    final nameCtrl = TextEditingController(text: defaultName);
+    String? dialogError;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                width: 1,
+              ),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.upload_file, size: 20, color: AppColors.wineRed),
+                SizedBox(width: 10),
+                Text('Confirm Class X Marksheet (PDF)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1F242C) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.picture_as_pdf, size: 18, color: AppColors.wineRed),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                picked.name,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                picked.formattedSize,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Name on Marksheet / Certificate *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    key: const Key('input-pdf-academic-name'),
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. As printed on Class X certificate',
+                    ),
+                  ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(dialogError!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                key: const Key('btn-confirm-pdf-upload'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                onPressed: () {
+                  if (nameCtrl.text.trim().isEmpty) {
+                    setDialogState(() => dialogError = 'Name on marksheet is required.');
+                    return;
+                  }
+                  Navigator.pop(ctx, true);
+                },
+                child: const Text('Upload & Verify'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final messenger = ScaffoldMessenger.of(context);
+      setState(() => _isLoading = true);
+      try {
+        final updated = await widget.storage.verifyClassXWithPdf(
+          userId: _user.id,
+          academicName: nameCtrl.text.trim(),
+          fileName: picked.name,
+          fileBytes: picked.bytes,
+        );
+        if (mounted) {
+          setState(() {
+            _user = updated;
+            _isLoading = false;
+          });
+          widget.onUserUpdated?.call();
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Class X document uploaded and academic name verified successfully.'),
+              backgroundColor: AppColors.githubGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          messenger.showSnackBar(
+            SnackBar(content: Text('Document verification failed: $e'), backgroundColor: AppColors.statusRed),
+          );
+        }
+      }
+    }
+  }
+
+  Widget _buildAcademicNameVerificationCard(bool isDark) {
+    final isVerified = _user.isAcademicNameVerified;
+    final academicName = _user.effectiveAcademicName;
+    final source = _user.academicNameSource;
+    final docRef = _user.classXDocumentRef;
+
+    final badgeColor = isVerified ? AppColors.greenBadge(isDark) : AppColors.yellowBadge(isDark);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeColor.background,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: badgeColor.text.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isVerified ? Icons.verified : Icons.pending_outlined,
+                      size: 14,
+                      color: badgeColor.text,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        isVerified ? 'Class X Verified' : 'Verification Pending',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: badgeColor.text,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                source != null ? 'Source: $source' : 'Self-uploaded / DigiLocker sync',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                ),
+              ),
+              OutlinedButton.icon(
+                key: const Key('btn-edit-academic-name-card'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.wineRed,
+                  side: const BorderSide(color: AppColors.wineRed, width: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const AppSvgIcon(svgString: AppSvgIcon.save, size: 12, color: AppColors.wineRed),
+                label: const Text('Edit Name', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                onPressed: _showEditAcademicNameDialog,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Official degree certificates, grade cards, and convocation scrolls are issued strictly under the legal name from your Class X / Matriculation certificate.',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF181C24) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
+            ),
+            child: Column(
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 500;
+                    final colWidth = isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      children: [
+                        SizedBox(
+                          width: colWidth,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Portal / Application Name',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _user.fullName,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(
+                          width: colWidth,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Official Academic Name (10th Record)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                academicName?.isNotEmpty == true ? academicName! : 'Not yet linked',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: academicName?.isNotEmpty == true
+                                      ? (isVerified ? AppColors.githubGreen : AppColors.wineRed)
+                                      : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                if (docRef != null && docRef.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      const Icon(Icons.picture_as_pdf, size: 14, color: AppColors.wineRed),
+                      Text(
+                        'Class X Document Reference: ',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                        ),
+                      ),
+                      Text(
+                        docRef,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              ElevatedButton.icon(
+                key: const Key('btn-upload-class-x-pdf'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+                onPressed: () => _handleUploadClassXPdf(isDark),
+                icon: const Icon(Icons.upload_file, size: 14, color: Colors.white),
+                label: const Text('Upload 10th Marksheet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+              OutlinedButton.icon(
+                key: const Key('btn-sync-digilocker-class-x'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? Colors.white : AppColors.wineRed,
+                  side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.wineRed, width: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+                onPressed: () => _showDigiLockerConnectDialog(isDark),
+                icon: const AppSvgIcon(svgString: AppSvgIcon.cloudCheck, size: 14, color: AppColors.wineRed),
+                label: const Text('Fetch via DigiLocker', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
         ],
       ),

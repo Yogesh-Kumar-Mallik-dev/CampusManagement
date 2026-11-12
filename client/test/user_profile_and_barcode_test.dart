@@ -157,24 +157,94 @@ void main() {
         'admission_year': 2025,
         'entry_type': 'regular',
         'program': 'btech',
+        'gender': 'male',
+        'academic_name': 'DEV KUMAR PATEL',
       });
 
+      expect(createdStudent.gender, equals('male'));
+      expect(createdStudent.effectiveAcademicName, equals('DEV KUMAR PATEL'));
+      expect(createdStudent.isAcademicNameVerified, isFalse);
       expect(createdStudent.emergencyContactName, isNull);
       expect(createdStudent.emergencyContactPhone, isNull);
       expect(createdStudent.bloodGroup, isNull);
       expect(createdStudent.address, isNull);
 
+      final createdEmployee = await storage.createEmployee({
+        'first_name': 'Priya',
+        'last_name': 'Sharma',
+        'gender': 'female',
+        'is_academic': true,
+      });
+      expect(createdEmployee.gender, equals('female'));
+
       final createdContractor = await storage.createContractor({
         'first_name': 'Ramesh',
         'last_name': 'Kumar',
         'vendor_organization': 'Campus Foods',
+        'gender': 'prefer_not_to_say',
       });
 
+      expect(createdContractor.gender, equals('prefer_not_to_say'));
       expect(createdContractor.emergencyContactName, isNull);
       expect(createdContractor.emergencyContactPhone, isNull);
       expect(createdContractor.bloodGroup, isNull);
       expect(createdContractor.universityRollNo, isNull);
       expect(createdContractor.contractorProfile?['gate_pass_id'], isNull);
+    });
+
+    testWidgets('UserProfileScreen displays Gender and Academic Name verification card with PDF upload', (tester) async {
+      tester.view.physicalSize = const Size(1200, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final student = await storage.createStudent({
+        'first_name': 'Harish',
+        'last_name': 'Kumar',
+        'gender': 'male',
+        'academic_name': 'HARISH KUMAR SHARMA',
+        'admission_year': 2025,
+        'entry_type': 'regular',
+        'program': 'btech',
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.light(),
+          home: UserProfileScreen(
+            storage: storage,
+            userIdentifier: student.id,
+            initialUser: student,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify Gender and Academic Name in directory
+      expect(find.text('Male'), findsOneWidget);
+      expect(find.text('HARISH KUMAR SHARMA'), findsWidgets);
+      expect(find.text('Verification Pending'), findsOneWidget);
+      expect(find.text('Upload 10th Marksheet'), findsOneWidget);
+
+      // Tap Upload 10th Marksheet (PDF) button
+      final uploadBtn = find.byKey(const Key('btn-upload-class-x-pdf'));
+      expect(uploadBtn, findsOneWidget);
+      await tester.tap(uploadBtn);
+      await tester.pumpAndSettle();
+
+      // Verify the PDF confirmation dialog opened
+      expect(find.text('Confirm Class X Marksheet (PDF)'), findsOneWidget);
+      expect(find.byKey(const Key('input-pdf-academic-name')), findsOneWidget);
+
+      // Confirm upload
+      final confirmBtn = find.byKey(const Key('btn-confirm-pdf-upload'));
+      expect(confirmBtn, findsOneWidget);
+      await tester.tap(confirmBtn);
+      await tester.pumpAndSettle();
+
+      // Verification badge should now be "Class X Verified"
+      expect(find.text('Class X Verified'), findsOneWidget);
+      expect(find.textContaining('bbdit_curriculum_textbook.pdf'), findsWidgets);
     });
   });
 }

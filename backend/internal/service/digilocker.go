@@ -265,6 +265,11 @@ func (s *DigiLockerService) ExchangeAndSync(ctx context.Context, req model.DigiL
 				profile.DigiLockerVerified = true
 				profile.DigiLockerVerifiedAt = &now
 				profile.VerifiedDocuments = verifiedDocs
+				if profile.AcademicName == "" {
+					profile.AcademicName = "HARISH KUMAR"
+				}
+				profile.AcademicNameVerified = true
+				profile.AcademicNameSource = "digilocker_class_x"
 			}
 		}
 

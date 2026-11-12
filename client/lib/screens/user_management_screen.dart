@@ -860,6 +860,8 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   // Student Form Controllers
   final _stuFirst = TextEditingController();
   final _stuLast = TextEditingController();
+  final _stuAcademicName = TextEditingController();
+  String _stuGender = 'not_specified';
   final _stuEmail = TextEditingController();
   final _stuPersonalEmail = TextEditingController();
   final _stuPhone = TextEditingController();
@@ -875,6 +877,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   // Employee Form Controllers
   final _empFirst = TextEditingController();
   final _empLast = TextEditingController();
+  String _empGender = 'not_specified';
   final _empEmail = TextEditingController();
   final _empPersonalEmail = TextEditingController();
   final _empPhone = TextEditingController();
@@ -897,6 +900,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   // Contractor / External Form Controllers
   final _extFirst = TextEditingController();
   final _extLast = TextEditingController();
+  String _extGender = 'not_specified';
   final _extEmail = TextEditingController();
   final _extPersonalEmail = TextEditingController();
   final _extPhone = TextEditingController();
@@ -966,6 +970,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   void dispose() {
     _stuFirst.dispose();
     _stuLast.dispose();
+    _stuAcademicName.dispose();
     _stuEmail.dispose();
     _stuPersonalEmail.dispose();
     _stuPhone.dispose();
@@ -1053,6 +1058,8 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'email': email,
         'personal_email': _stuPersonalEmail.text.trim(),
         'phone': _stuPhone.text.trim(),
+        'gender': _stuGender != 'not_specified' ? _stuGender : null,
+        'academic_name': _stuAcademicName.text.trim().isNotEmpty ? _stuAcademicName.text.trim() : null,
         'admission_year': _stuAdmissionYear,
         'entry_type': _stuEntryType,
         'program': _stuProgram,
@@ -1106,6 +1113,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'email': email,
         'personal_email': _empPersonalEmail.text.trim(),
         'phone': _empPhone.text.trim(),
+        'gender': _empGender != 'not_specified' ? _empGender : null,
         'joining_year': _empJoiningYear,
         'employment_type': _empType,
         'employee_code': _empCode.text.trim(),
@@ -1167,6 +1175,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'email': email,
         'personal_email': _extPersonalEmail.text.trim(),
         'phone': _extPhone.text.trim(),
+        'gender': _extGender != 'not_specified' ? _extGender : null,
         'onboarding_year': _extOnboardingYear,
         'vendor_organization': vendor,
         'service_type': _extServiceType,
@@ -1439,6 +1448,36 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         Row(
           children: [
             Expanded(
+              child: _buildDropdown(
+                'Gender',
+                _stuGender,
+                ['not_specified', 'male', 'female', 'other', 'prefer_not_to_say'],
+                (val) => setState(() => _stuGender = val!),
+                isDark,
+                itemLabels: const {
+                  'not_specified': 'Select Gender (Optional)',
+                  'male': 'Male',
+                  'female': 'Female',
+                  'other': 'Other',
+                  'prefer_not_to_say': 'Prefer not to say',
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTextField(
+                'Academic Name (10th Record)',
+                _stuAcademicName,
+                'Official certificate name if different',
+                isDark,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
               child: _buildTextField('Institutional Email (Optional)', _stuEmail, 'Auto-generated if empty', isDark),
             ),
             const SizedBox(width: 12),
@@ -1593,6 +1632,27 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
               child: _buildTextField('Phone Number', _empPhone, '+91 XXXXX XXXXX', isDark),
             ),
             const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdown(
+                'Gender',
+                _empGender,
+                ['not_specified', 'male', 'female', 'other', 'prefer_not_to_say'],
+                (val) => setState(() => _empGender = val!),
+                isDark,
+                itemLabels: const {
+                  'not_specified': 'Select Gender (Optional)',
+                  'male': 'Male',
+                  'female': 'Female',
+                  'other': 'Other',
+                  'prefer_not_to_say': 'Prefer not to say',
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
             Expanded(
               child: _buildDropdown(
                 'Joining Year',
@@ -1825,6 +1885,21 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
               child: _buildTextField('Last Name *', _extLast, 'Enter last name', isDark),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        _buildDropdown(
+          'Gender',
+          _extGender,
+          ['not_specified', 'male', 'female', 'other', 'prefer_not_to_say'],
+          (val) => setState(() => _extGender = val!),
+          isDark,
+          itemLabels: const {
+            'not_specified': 'Select Gender (Optional)',
+            'male': 'Male',
+            'female': 'Female',
+            'other': 'Other',
+            'prefer_not_to_say': 'Prefer not to say',
+          },
         ),
         const SizedBox(height: 12),
         Row(

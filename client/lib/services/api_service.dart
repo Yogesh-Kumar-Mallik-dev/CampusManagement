@@ -269,6 +269,8 @@ class ApiService implements ICampusApi {
         email: userMap['email'] ?? '',
         personalEmail: userMap['personal_email'],
         phone: userMap['phone'],
+        gender: userMap['gender'],
+        academicName: userMap['academic_name'] ?? data['student_profile']?['academic_name'],
         emergencyContactName: userMap['emergency_contact_name'],
         emergencyContactPhone: userMap['emergency_contact_phone'],
         bloodGroup: userMap['blood_group'] ?? userMap['bloodGroup'],
@@ -304,6 +306,10 @@ class ApiService implements ICampusApi {
     String? emergencyContactPhone,
     String? bloodGroup,
     String? address,
+    String? gender,
+    String? academicName,
+    String? academicNameSource,
+    String? classXDocumentRef,
   }) async {
     final payload = <String, dynamic>{
       'user_id': userId,
@@ -314,6 +320,10 @@ class ApiService implements ICampusApi {
     if (emergencyContactPhone != null) payload['emergency_contact_phone'] = emergencyContactPhone;
     if (bloodGroup != null) payload['blood_group'] = bloodGroup;
     if (address != null) payload['address'] = address;
+    if (gender != null) payload['gender'] = gender;
+    if (academicName != null) payload['academic_name'] = academicName;
+    if (academicNameSource != null) payload['academic_name_source'] = academicNameSource;
+    if (classXDocumentRef != null) payload['class_x_document_ref'] = classXDocumentRef;
 
     final res = await http.post(
       Uri.parse('$baseUrl/api/v1/users/profile/update'),
@@ -325,6 +335,27 @@ class ApiService implements ICampusApi {
       return UserModel.fromJson(userMap);
     }
     throw Exception('Failed to update user profile (${res.statusCode})');
+  }
+
+  @override
+  Future<UserModel> verifyClassXWithPdf({
+    required String userId,
+    required String academicName,
+    required String fileName,
+    required List<int> fileBytes,
+  }) async {
+    final uploadRes = await uploadPdfDocument(
+      bytes: fileBytes,
+      filename: fileName,
+    );
+    final fileId = uploadRes['file_id']?.toString() ?? fileName;
+
+    return updateUserProfile(
+      userId: userId,
+      academicName: academicName,
+      academicNameSource: 'class_x_pdf:$fileName',
+      classXDocumentRef: fileId,
+    );
   }
 
   Future<UserModel> createStudent(Map<String, dynamic> req) async {

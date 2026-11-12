@@ -202,6 +202,8 @@ type CreateStudentRequest struct {
 	Email                  string `json:"email"`
 	PersonalEmail          string `json:"personal_email,omitempty"`
 	Phone                  string `json:"phone,omitempty"`
+	Gender                 string `json:"gender,omitempty"`
+	AcademicName           string `json:"academic_name,omitempty"`
 	AdmissionYear          int    `json:"admission_year"`
 	EntryType              string `json:"entry_type"` // 'regular', 'lateral', 'transfer'
 	Program                string `json:"program"`    // 'btech', 'mtech', 'phd'
@@ -248,6 +250,12 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC()
 	passHash := HashPassword(handle)
+	academicName := strings.TrimSpace(req.AcademicName)
+	academicNameSource := ""
+	if academicName != "" {
+		academicNameSource = "direct_entry"
+	}
+
 	user := model.User{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        "usr-" + handle,
@@ -260,6 +268,8 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		Email:                  req.Email,
 		PersonalEmail:          req.PersonalEmail,
 		Phone:                  req.Phone,
+		Gender:                 strings.TrimSpace(req.Gender),
+		AcademicName:           academicName,
 		EmergencyContactName:   req.EmergencyContactName,
 		EmergencyContactPhone:  req.EmergencyContactPhone,
 		Archetype:              model.ArchetypeStudent,
@@ -285,6 +295,9 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		RoomNumber:            req.RoomNumber,
 		EmergencyContactName:  req.EmergencyContactName,
 		EmergencyContactPhone: req.EmergencyContactPhone,
+		AcademicName:          academicName,
+		AcademicNameVerified:  false,
+		AcademicNameSource:    academicNameSource,
 	}
 
 	h.mu.Lock()
@@ -353,6 +366,7 @@ type CreateEmployeeRequest struct {
 	Email          string `json:"email"`
 	PersonalEmail  string `json:"personal_email,omitempty"`
 	Phone          string `json:"phone,omitempty"`
+	Gender         string `json:"gender,omitempty"`
 	JoiningYear    int    `json:"joining_year"`
 	EmployeeCode   string `json:"employee_code,omitempty"`
 	EmploymentType string `json:"employment_type"` // 'permanent', 'contract', 'visiting'
@@ -407,6 +421,7 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		Email:                 req.Email,
 		PersonalEmail:         req.PersonalEmail,
 		Phone:                 req.Phone,
+		Gender:                strings.TrimSpace(req.Gender),
 		EmergencyContactName:  req.EmergencyContactName,
 		EmergencyContactPhone: req.EmergencyContactPhone,
 		Archetype:             model.ArchetypeEmployee,
@@ -529,6 +544,7 @@ type CreateContractorRequest struct {
 	Email              string     `json:"email"`
 	PersonalEmail      string     `json:"personal_email,omitempty"`
 	Phone              string     `json:"phone,omitempty"`
+	Gender             string     `json:"gender,omitempty"`
 	OnboardingYear     int        `json:"onboarding_year"`
 	VendorOrganization string     `json:"vendor_organization"`
 	ServiceType        string     `json:"service_type"` // 'canteen', 'mess', 'cleaning', 'security', 'transport', 'maintenance'
@@ -577,6 +593,7 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 		Email:              req.Email,
 		PersonalEmail:      req.PersonalEmail,
 		Phone:              req.Phone,
+		Gender:             strings.TrimSpace(req.Gender),
 		Archetype:          model.ArchetypeExternal,
 		UniversityRollNo:   gatePassID,
 		IsActive:           true,
@@ -741,6 +758,10 @@ func (h *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if sp, exists := h.studentProfiles[user.ID]; exists {
+		if user.AcademicName == "" && sp.AcademicName != "" {
+			user.AcademicName = sp.AcademicName
+			profileResp.User = user
+		}
 		profileResp.StudentProfile = &sp
 	}
 	if er, exists := h.employeeRecords[user.ID]; exists {
@@ -815,6 +836,23 @@ func (h *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) 
 	}
 	if req.Address != "" {
 		user.Address = strings.TrimSpace(req.Address)
+	}
+	if req.Gender != "" {
+		user.Gender = strings.TrimSpace(req.Gender)
+	}
+	if req.AcademicName != "" {
+		user.AcademicName = strings.TrimSpace(req.AcademicName)
+		if sp, ok := h.studentProfiles[user.ID]; ok {
+			sp.AcademicName = user.AcademicName
+			if req.AcademicNameSource != "" {
+				sp.AcademicNameSource = req.AcademicNameSource
+				sp.AcademicNameVerified = (req.AcademicNameSource == "digilocker_class_x" || req.AcademicNameSource == "manual_pdf_upload")
+			}
+			if req.ClassXDocumentRef != "" {
+				sp.ClassXDocumentRef = req.ClassXDocumentRef
+			}
+			h.studentProfiles[user.ID] = sp
+		}
 	}
 	user.UpdatedAt = time.Now().UTC()
 
@@ -1142,5 +1180,9 @@ func (h *UserHandler) UpdateStudentProfile(sp model.StudentProfile) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.studentProfiles[sp.UserID] = sp
+	if u, exists := h.users[sp.UserID]; exists && sp.AcademicName != "" {
+		u.AcademicName = sp.AcademicName
+		h.users[sp.UserID] = u
+	}
 }
 
