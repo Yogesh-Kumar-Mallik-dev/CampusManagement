@@ -401,19 +401,31 @@ CREATE TABLE IF NOT EXISTS section_programs (
 
 -- 25. Section <-> Subject Many-to-Many (with optional program specialization)
 CREATE TABLE IF NOT EXISTS section_subjects (
-    section_id VARCHAR(64) REFERENCES sections(id) ON DELETE CASCADE,
-    subject_id VARCHAR(64) REFERENCES subjects(id) ON DELETE CASCADE,
+    id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    section_id VARCHAR(64) NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+    subject_id VARCHAR(64) NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
     program_id VARCHAR(64) REFERENCES programs(id) ON DELETE CASCADE, -- NULL = common core; non-NULL = program-specific
-    PRIMARY KEY (section_id, subject_id, program_id)
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sec_sub_core ON section_subjects(section_id, subject_id) WHERE program_id IS NULL AND is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sec_sub_prog ON section_subjects(section_id, subject_id, program_id) WHERE program_id IS NOT NULL AND is_deleted = FALSE;
 
 -- 26. Section <-> Teacher Many-to-Many
 CREATE TABLE IF NOT EXISTS section_teachers (
-    section_id VARCHAR(64) REFERENCES sections(id) ON DELETE CASCADE,
-    teacher_id VARCHAR(64) REFERENCES users(id) ON DELETE CASCADE,
+    id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    section_id VARCHAR(64) NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+    teacher_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     subject_id VARCHAR(64) REFERENCES subjects(id) ON DELETE SET NULL,
-    PRIMARY KEY (section_id, teacher_id)
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sec_teacher_general ON section_teachers(section_id, teacher_id) WHERE subject_id IS NULL AND is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sec_teacher_subject ON section_teachers(section_id, teacher_id, subject_id) WHERE subject_id IS NOT NULL AND is_deleted = FALSE;
 
 -- Note: Students belong to their Degree Program and active Section cohort
 ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS section_id VARCHAR(64) REFERENCES sections(id) ON DELETE SET NULL;
@@ -438,6 +450,7 @@ CREATE TABLE IF NOT EXISTS syllabus_versions (
 
 CREATE INDEX IF NOT EXISTS idx_syllabus_subject ON syllabus_versions(subject_id);
 CREATE INDEX IF NOT EXISTS idx_syllabus_active ON syllabus_versions(subject_id, is_active);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_syllabus_active_per_subject ON syllabus_versions(subject_id) WHERE is_active = TRUE AND is_deleted = FALSE;
 
 -- 29. Lab Batches (Sub-division of a section cohort for practical lab sessions e.g. Batch B1, Batch B2)
 CREATE TABLE IF NOT EXISTS lab_batches (
@@ -554,3 +567,208 @@ CREATE TABLE IF NOT EXISTS mess_ratings (
 CREATE INDEX IF NOT EXISTS idx_mess_ratings_meal ON mess_ratings(meal_id);
 CREATE INDEX IF NOT EXISTS idx_mess_ratings_rating ON mess_ratings(rating);
 CREATE INDEX IF NOT EXISTS idx_mess_ratings_created ON mess_ratings(created_at);
+
+-- ==============================================================================
+-- PHASE 1 AUDIT REMEDIATION: INTEGRITY CONSTRAINTS & SOFT DELETION INDEXES
+-- ==============================================================================
+
+-- 36. Idempotent Migration for Existing Schemas (Composite PKs & Soft Deletion Uniqueness)
+DO $$
+BEGIN
+    -- Fix section_subjects composite PK
+    IF EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'section_subjects' AND constraint_type = 'PRIMARY KEY' AND constraint_name = 'section_subjects_pkey'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'section_subjects' AND column_name = 'id'
+        ) THEN
+            ALTER TABLE section_subjects DROP CONSTRAINT section_subjects_pkey;
+            ALTER TABLE section_subjects ADD COLUMN id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text;
+            ALTER TABLE section_subjects ALTER COLUMN program_id DROP NOT NULL;
+            ALTER TABLE section_subjects ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+            ALTER TABLE section_subjects ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+            ALTER TABLE section_subjects ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;
+        END IF;
+    END IF;
+
+    -- Fix section_teachers composite PK
+    IF EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'section_teachers' AND constraint_type = 'PRIMARY KEY' AND constraint_name = 'section_teachers_pkey'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'section_teachers' AND column_name = 'id'
+        ) THEN
+            ALTER TABLE section_teachers DROP CONSTRAINT section_teachers_pkey;
+            ALTER TABLE section_teachers ADD COLUMN id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text;
+            ALTER TABLE section_teachers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+            ALTER TABLE section_teachers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+            ALTER TABLE section_teachers ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;
+        END IF;
+    END IF;
+
+    -- Drop unconditional unique constraints in favor of partial active unique indexes (DB-004)
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'programs_code_key') THEN
+        ALTER TABLE programs DROP CONSTRAINT programs_code_key;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'departments_code_key') THEN
+        ALTER TABLE departments DROP CONSTRAINT departments_code_key;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subjects_code_key') THEN
+        ALTER TABLE subjects DROP CONSTRAINT subjects_code_key;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'courses_code_key') THEN
+        ALTER TABLE courses DROP CONSTRAINT courses_code_key;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scopes_code_key') THEN
+        ALTER TABLE scopes DROP CONSTRAINT scopes_code_key;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hostel_rooms_room_number_block_name_key') THEN
+        ALTER TABLE hostel_rooms DROP CONSTRAINT hostel_rooms_room_number_block_name_key;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hostel_assets_serial_number_key') THEN
+        ALTER TABLE hostel_assets DROP CONSTRAINT hostel_assets_serial_number_key;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'hostel_occupants_room_number_user_id_key') THEN
+        ALTER TABLE hostel_occupants DROP CONSTRAINT hostel_occupants_room_number_user_id_key;
+    END IF;
+END $$;
+
+-- Active Partial Unique Indexes for Soft-Deletable Entities (DB-004)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_programs_code_active ON programs(code) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_departments_code_active ON departments(code) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subjects_code_active ON subjects(code) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_courses_code_active ON courses(code) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_scopes_code_active ON scopes(code) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_hostel_rooms_number_block_active ON hostel_rooms(room_number, block_name) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_hostel_assets_serial_active ON hostel_assets(serial_number) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_hostel_occupants_room_user_active ON hostel_occupants(room_number, user_id) WHERE is_deleted = FALSE;
+
+-- 37. Domain-Level Check Constraints (DB-010 & Integrity Rules)
+DO $$
+BEGIN
+    -- users constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_archetype') THEN
+        ALTER TABLE users ADD CONSTRAINT chk_users_archetype CHECK (archetype IN ('student', 'employee', 'external'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_status') THEN
+        ALTER TABLE users ADD CONSTRAINT chk_users_status CHECK (status IN ('active', 'graduated', 'discontinued', 'suspended', 'resigned', 'retired'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_gender') THEN
+        ALTER TABLE users ADD CONSTRAINT chk_users_gender CHECK (gender IS NULL OR gender IN ('male', 'female', 'other', 'prefer_not_to_say'));
+    END IF;
+
+    -- student_profiles constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_student_entry_type') THEN
+        ALTER TABLE student_profiles ADD CONSTRAINT chk_student_entry_type CHECK (entry_type IN ('regular', 'lateral', 'transfer'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_student_semester') THEN
+        ALTER TABLE student_profiles ADD CONSTRAINT chk_student_semester CHECK (current_semester >= 1);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_student_batch_year') THEN
+        ALTER TABLE student_profiles ADD CONSTRAINT chk_student_batch_year CHECK (batch_year >= admission_year);
+    END IF;
+
+    -- employee_records constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_employee_type') THEN
+        ALTER TABLE employee_records ADD CONSTRAINT chk_employee_type CHECK (employment_type IN ('permanent', 'contract', 'visiting'));
+    END IF;
+
+    -- programs constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_programs_degree_level') THEN
+        ALTER TABLE programs ADD CONSTRAINT chk_programs_degree_level CHECK (degree_level IN ('undergraduate', 'postgraduate', 'doctoral'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_programs_total_semesters') THEN
+        ALTER TABLE programs ADD CONSTRAINT chk_programs_total_semesters CHECK (total_semesters >= 1 AND total_semesters <= 16);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_programs_duration_years') THEN
+        ALTER TABLE programs ADD CONSTRAINT chk_programs_duration_years CHECK (duration_years >= 1 AND duration_years <= 8);
+    END IF;
+
+    -- semesters constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_semesters_number') THEN
+        ALTER TABLE semesters ADD CONSTRAINT chk_semesters_number CHECK (semester_number >= 1 AND semester_number <= 16);
+    END IF;
+
+    -- sections constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_sections_semester_number') THEN
+        ALTER TABLE sections ADD CONSTRAINT chk_sections_semester_number CHECK (semester_number >= 1 AND semester_number <= 16);
+    END IF;
+
+    -- courses constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_courses_credits') THEN
+        ALTER TABLE courses ADD CONSTRAINT chk_courses_credits CHECK (credits >= 0 AND credits <= 30);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_courses_semester') THEN
+        ALTER TABLE courses ADD CONSTRAINT chk_courses_semester CHECK (semester >= 1 AND semester <= 16);
+    END IF;
+
+    -- subjects constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_subjects_credits') THEN
+        ALTER TABLE subjects ADD CONSTRAINT chk_subjects_credits CHECK (credits >= 0 AND credits <= 30);
+    END IF;
+
+    -- timetable_slots constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_timetable_day') THEN
+        ALTER TABLE timetable_slots ADD CONSTRAINT chk_timetable_day CHECK (day_of_week BETWEEN 1 AND 7);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_timetable_slot_type') THEN
+        ALTER TABLE timetable_slots ADD CONSTRAINT chk_timetable_slot_type CHECK (slot_type IN ('lecture', 'lab', 'tutorial'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_timetable_times') THEN
+        ALTER TABLE timetable_slots ADD CONSTRAINT chk_timetable_times CHECK (start_time < end_time);
+    END IF;
+
+    -- attendance_records constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_attendance_status') THEN
+        ALTER TABLE attendance_records ADD CONSTRAINT chk_attendance_status CHECK (status IN ('present', 'absent', 'late', 'excused'));
+    END IF;
+
+    -- notices constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_notices_priority') THEN
+        ALTER TABLE notices ADD CONSTRAINT chk_notices_priority CHECK (priority IN ('normal', 'high', 'urgent'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_notices_category') THEN
+        ALTER TABLE notices ADD CONSTRAINT chk_notices_category CHECK (category IN ('academic', 'exam', 'urgent', 'event', 'hostel'));
+    END IF;
+
+    -- mess_meals constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_mess_meal_type') THEN
+        ALTER TABLE mess_meals ADD CONSTRAINT chk_mess_meal_type CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'brunch'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_mess_meal_day') THEN
+        ALTER TABLE mess_meals ADD CONSTRAINT chk_mess_meal_day CHECK (day_of_week IN ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_mess_meal_times') THEN
+        ALTER TABLE mess_meals ADD CONSTRAINT chk_mess_meal_times CHECK (start_time < end_time);
+    END IF;
+
+    -- mess_ratings constraints (Mandatory feedback on poor ratings)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_mess_rating_value') THEN
+        ALTER TABLE mess_ratings ADD CONSTRAINT chk_mess_rating_value CHECK (rating IN ('very_poor', 'poor', 'average', 'good', 'very_good', 'abstained'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_mess_rating_feedback') THEN
+        ALTER TABLE mess_ratings ADD CONSTRAINT chk_mess_rating_feedback CHECK (
+            rating NOT IN ('very_poor', 'poor', 'average') OR (message IS NOT NULL AND length(trim(message)) > 0)
+        );
+    END IF;
+
+    -- hostel_rooms constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_hostel_room_number') THEN
+        ALTER TABLE hostel_rooms ADD CONSTRAINT chk_hostel_room_number CHECK (room_number >= 100 AND room_number <= 999);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_hostel_floor') THEN
+        ALTER TABLE hostel_rooms ADD CONSTRAINT chk_hostel_floor CHECK (floor >= 0 AND floor <= 20);
+    END IF;
+
+    -- hostel_assets constraints
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_hostel_asset_type') THEN
+        ALTER TABLE hostel_assets ADD CONSTRAINT chk_hostel_asset_type CHECK (asset_type IN ('bed', 'table', 'chair', 'tubelight', 'fan', 'locker'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_hostel_asset_condition') THEN
+        ALTER TABLE hostel_assets ADD CONSTRAINT chk_hostel_asset_condition CHECK (condition IN ('operational', 'damaged', 'under_repair', 'decommissioned'));
+    END IF;
+END $$;
