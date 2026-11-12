@@ -38,6 +38,7 @@ class CourseModel {
 class TimetableSlotModel {
   final String id;
   final String courseId;
+  final String? subjectId;
   final String courseCode;
   final String courseName;
   final String scopeCode;
@@ -51,6 +52,7 @@ class TimetableSlotModel {
   TimetableSlotModel({
     required this.id,
     required this.courseId,
+    this.subjectId,
     required this.courseCode,
     required this.courseName,
     required this.scopeCode,
@@ -70,6 +72,7 @@ class TimetableSlotModel {
   TimetableSlotModel copyWith({
     String? id,
     String? courseId,
+    String? subjectId,
     String? courseCode,
     String? courseName,
     String? scopeCode,
@@ -83,6 +86,7 @@ class TimetableSlotModel {
     return TimetableSlotModel(
       id: id ?? this.id,
       courseId: courseId ?? this.courseId,
+      subjectId: subjectId ?? this.subjectId,
       courseCode: courseCode ?? this.courseCode,
       courseName: courseName ?? this.courseName,
       scopeCode: scopeCode ?? this.scopeCode,
@@ -120,6 +124,7 @@ class TimetableSlotModel {
     return TimetableSlotModel(
       id: json['id'] ?? '',
       courseId: json['course_id'] ?? '',
+      subjectId: json['subject_id'] as String?,
       courseCode: json['course_code'] ?? '',
       courseName: json['course_name'] ?? '',
       scopeCode: json['scope_code'] ?? '',
@@ -135,6 +140,7 @@ class TimetableSlotModel {
   Map<String, dynamic> toJson() => {
         'id': id,
         'course_id': courseId,
+        if (subjectId != null) 'subject_id': subjectId,
         'course_code': courseCode,
         'course_name': courseName,
         'scope_code': scopeCode,
@@ -521,6 +527,7 @@ class DepartmentModel {
   final String description;
   final String? hodId;
   final String? hodName;
+  final String? scopeId;
   final List<String> subjectIds;
   final List<String> teacherIds;
   final List<String> semesterIds;
@@ -535,6 +542,7 @@ class DepartmentModel {
     required this.description,
     this.hodId,
     this.hodName,
+    this.scopeId,
     this.subjectIds = const [],
     this.teacherIds = const [],
     this.semesterIds = const [],
@@ -551,6 +559,7 @@ class DepartmentModel {
       description: json['description'] ?? '',
       hodId: json['hod_id'],
       hodName: json['hod_name'],
+      scopeId: json['scope_id'],
       subjectIds: (json['subject_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
       teacherIds: (json['teacher_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
       semesterIds: (json['semester_ids'] as List?)?.map((e) => e.toString()).toList() ?? [],
@@ -567,6 +576,7 @@ class DepartmentModel {
         'description': description,
         if (hodId != null) 'hod_id': hodId,
         if (hodName != null) 'hod_name': hodName,
+        if (scopeId != null) 'scope_id': scopeId,
         'subject_ids': subjectIds,
         'teacher_ids': teacherIds,
         'semester_ids': semesterIds,

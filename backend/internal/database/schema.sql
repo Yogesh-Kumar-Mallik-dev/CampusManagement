@@ -200,6 +200,7 @@ CREATE INDEX IF NOT EXISTS idx_courses_updated ON courses(updated_at);
 CREATE TABLE IF NOT EXISTS timetable_slots (
     id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     course_id VARCHAR(64) REFERENCES courses(id) ON DELETE CASCADE,
+    subject_id VARCHAR(64) REFERENCES subjects(id) ON DELETE CASCADE,
     scope_id VARCHAR(64) REFERENCES scopes(id) ON DELETE CASCADE, -- Target cohort/section (e.g. sec:cse-3a)
     instructor_id VARCHAR(64) REFERENCES users(id) ON DELETE SET NULL,
     day_of_week INT NOT NULL,              -- 1 = Monday ... 7 = Sunday
@@ -212,8 +213,10 @@ CREATE TABLE IF NOT EXISTS timetable_slots (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
+ALTER TABLE timetable_slots ADD COLUMN IF NOT EXISTS subject_id VARCHAR(64) REFERENCES subjects(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_timetable_scope ON timetable_slots(scope_id, day_of_week);
 CREATE INDEX IF NOT EXISTS idx_timetable_instructor ON timetable_slots(instructor_id, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_timetable_subject ON timetable_slots(subject_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_updated ON timetable_slots(updated_at);
 
 -- 11. Attendance Sessions (A marked class instance)
@@ -221,6 +224,7 @@ CREATE TABLE IF NOT EXISTS attendance_sessions (
     id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     timetable_slot_id VARCHAR(64) REFERENCES timetable_slots(id) ON DELETE SET NULL,
     course_id VARCHAR(64) REFERENCES courses(id) ON DELETE CASCADE,
+    subject_id VARCHAR(64) REFERENCES subjects(id) ON DELETE CASCADE,
     scope_id VARCHAR(64) REFERENCES scopes(id) ON DELETE CASCADE,
     marked_by_user_id VARCHAR(64) REFERENCES users(id) ON DELETE SET NULL,
     session_date DATE NOT NULL,
@@ -231,7 +235,9 @@ CREATE TABLE IF NOT EXISTS attendance_sessions (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
+ALTER TABLE attendance_sessions ADD COLUMN IF NOT EXISTS subject_id VARCHAR(64) REFERENCES subjects(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_attendance_sessions_scope_date ON attendance_sessions(scope_id, session_date);
+CREATE INDEX IF NOT EXISTS idx_attendance_subject ON attendance_sessions(subject_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_sessions_updated ON attendance_sessions(updated_at);
 
 -- 12. Attendance Student Records
@@ -283,11 +289,14 @@ CREATE TABLE IF NOT EXISTS departments (
     name VARCHAR(255) NOT NULL,            -- e.g. 'Computer Science & Engineering'
     description TEXT,
     hod_id VARCHAR(64) REFERENCES users(id) ON DELETE SET NULL,
+    scope_id VARCHAR(64) REFERENCES scopes(id) ON DELETE SET NULL, -- Canonical organizational scope anchor
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
+ALTER TABLE departments ADD COLUMN IF NOT EXISTS scope_id VARCHAR(64) REFERENCES scopes(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_departments_scope_active ON departments(scope_id) WHERE scope_id IS NOT NULL AND is_deleted = FALSE;
 CREATE INDEX IF NOT EXISTS idx_departments_code ON departments(code);
 
 -- 15. Degree Programs (Overarching degree courses)
@@ -431,6 +440,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sec_teacher_subject ON section_teachers(sec
 ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS section_id VARCHAR(64) REFERENCES sections(id) ON DELETE SET NULL;
 ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS program_id VARCHAR(64) REFERENCES programs(id) ON DELETE SET NULL;
 
+-- 27. Student Term Enrollments (Historical academic ledger tracking semester progression and section assignments)
+CREATE TABLE IF NOT EXISTS student_term_enrollments (
+    id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    student_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    program_id VARCHAR(64) REFERENCES programs(id) ON DELETE SET NULL,
+    semester_id VARCHAR(64) REFERENCES semesters(id) ON DELETE SET NULL,
+    section_id VARCHAR(64) REFERENCES sections(id) ON DELETE SET NULL,
+    academic_year VARCHAR(32) NOT NULL,    -- '2024-2025'
+    semester_number INT NOT NULL CHECK (semester_number >= 1),
+    status VARCHAR(32) NOT NULL DEFAULT 'enrolled' CHECK (status IN ('enrolled', 'promoted', 'completed', 'detained', 'withdrawn', 'dropped')),
+    enrolled_at TIMESTAMPTZ DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    UNIQUE (student_id, academic_year, semester_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_enrollments_student ON student_term_enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_section ON student_term_enrollments(section_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_term ON student_term_enrollments(academic_year, semester_number);
+
 -- 28. Syllabus Versions (Immutable audit trail of past and active curricula)
 CREATE TABLE IF NOT EXISTS syllabus_versions (
     id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -464,6 +495,20 @@ CREATE TABLE IF NOT EXISTS lab_batches (
 );
 
 CREATE INDEX IF NOT EXISTS idx_lab_batches_section ON lab_batches(section_id);
+
+-- 29b. Lab Batch Students (Normalized junction table replacing unconstrained TEXT[] array)
+CREATE TABLE IF NOT EXISTS lab_batch_students (
+    id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    batch_id VARCHAR(64) NOT NULL REFERENCES lab_batches(id) ON DELETE CASCADE,
+    student_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    UNIQUE (batch_id, student_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lab_batch_students_batch ON lab_batch_students(batch_id);
+CREATE INDEX IF NOT EXISTS idx_lab_batch_students_student ON lab_batch_students(student_id);
 
 -- 30. Faculty Subject Allocations (Instructor assignment to Theory, Practical/Lab Batches, Tutorials with Weekly Contact Hours)
 CREATE TABLE IF NOT EXISTS faculty_subject_allocations (
@@ -514,23 +559,32 @@ CREATE TABLE IF NOT EXISTS hostel_assets (
 CREATE INDEX IF NOT EXISTS idx_hostel_assets_room ON hostel_assets(room_number);
 CREATE INDEX IF NOT EXISTS idx_hostel_assets_serial ON hostel_assets(serial_number);
 
--- 33. Hostel Occupants (Students allocated to a room, up to 3 residents max)
+-- 33. Hostel Occupants (Students allocated to a room, up to 3 residents max with discrete bed tracking)
 CREATE TABLE IF NOT EXISTS hostel_occupants (
     id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    room_id VARCHAR(64) REFERENCES hostel_rooms(id) ON DELETE CASCADE,
+    room_id VARCHAR(64) NOT NULL REFERENCES hostel_rooms(id) ON DELETE CASCADE,
     room_number INT NOT NULL,
-    user_id VARCHAR(64) REFERENCES users(id) ON DELETE CASCADE,
+    bed_number INT CHECK (bed_number IS NULL OR (bed_number >= 1 AND bed_number <= 3)),
+    user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     campus_handle VARCHAR(128) NOT NULL,
     name VARCHAR(128) NOT NULL,
     allotted_at TIMESTAMPTZ DEFAULT NOW(),
+    vacated_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    is_deleted BOOLEAN DEFAULT FALSE,
-    UNIQUE (room_number, user_id)
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
+ALTER TABLE hostel_occupants ADD COLUMN IF NOT EXISTS bed_number INT;
+ALTER TABLE hostel_occupants ADD COLUMN IF NOT EXISTS vacated_at TIMESTAMPTZ;
+
 CREATE INDEX IF NOT EXISTS idx_hostel_occupants_room ON hostel_occupants(room_number);
+CREATE INDEX IF NOT EXISTS idx_hostel_occupants_room_id ON hostel_occupants(room_id);
 CREATE INDEX IF NOT EXISTS idx_hostel_occupants_user ON hostel_occupants(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_hostel_occupant_active_bed ON hostel_occupants(room_id, bed_number) 
+    WHERE is_deleted = FALSE AND vacated_at IS NULL AND bed_number IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_hostel_occupant_active_user ON hostel_occupants(user_id) 
+    WHERE is_deleted = FALSE AND vacated_at IS NULL;
 
 -- 34. Mess Meal Schedule (3 meals/day Mon-Sat, Sunday Brunch replaces Breakfast & Lunch)
 CREATE TABLE IF NOT EXISTS mess_meals (
@@ -772,3 +826,41 @@ BEGIN
         ALTER TABLE hostel_assets ADD CONSTRAINT chk_hostel_asset_condition CHECK (condition IN ('operational', 'damaged', 'under_repair', 'decommissioned'));
     END IF;
 END $$;
+
+-- 38. Cross-Table Archetype Validation Triggers (Section 3 Integrity Enforcement)
+
+-- Trigger: Ensure attendance records are only logged for users with archetype = 'student'
+CREATE OR REPLACE FUNCTION check_attendance_student_archetype()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM users WHERE id = NEW.student_id AND archetype = 'student'
+    ) THEN
+        RAISE EXCEPTION 'attendance can only be recorded for users with archetype student (user_id: %)', NEW.student_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_check_attendance_student ON attendance_records;
+CREATE TRIGGER trg_check_attendance_student
+    BEFORE INSERT OR UPDATE OF student_id ON attendance_records
+    FOR EACH ROW EXECUTE FUNCTION check_attendance_student_archetype();
+
+-- Trigger: Ensure faculty subject allocations are assigned to employees
+CREATE OR REPLACE FUNCTION check_faculty_allocation_academic()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM users WHERE id = NEW.teacher_id AND archetype = 'employee'
+    ) THEN
+        RAISE EXCEPTION 'faculty subject allocation requires an employee (teacher_id: %)', NEW.teacher_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_check_faculty_allocation_academic ON faculty_subject_allocations;
+CREATE TRIGGER trg_check_faculty_allocation_academic
+    BEFORE INSERT OR UPDATE OF teacher_id ON faculty_subject_allocations
+    FOR EACH ROW EXECUTE FUNCTION check_faculty_allocation_academic();

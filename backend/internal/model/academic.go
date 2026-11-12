@@ -1,6 +1,9 @@
 package model
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Department represents an academic department (e.g. Computer Science, Electronics, Mathematics)
 type Department struct {
@@ -10,6 +13,7 @@ type Department struct {
 	Description string   `json:"description"` // Department overview/mission
 	HODID       *string  `json:"hod_id,omitempty"`
 	HODName     string   `json:"hod_name,omitempty"`
+	ScopeID     *string  `json:"scope_id,omitempty"` // Canonical organizational scope anchor
 
 	// Many-to-Many relationship IDs
 	SubjectIDs  []string `json:"subject_ids,omitempty"`  // Many-to-many subjects
@@ -209,6 +213,28 @@ type LabBatch struct {
 	Name         string   `json:"name"`                   // e.g. 'Batch B1'
 	StudentIDs   []string `json:"student_ids,omitempty"`
 	StudentCount int      `json:"student_count"`
+}
+
+// LabBatchStudent represents a relational student assignment to a practical lab batch
+type LabBatchStudent struct {
+	BaseSyncModel
+	BatchID    string    `json:"batch_id"`
+	StudentID  string    `json:"student_id"`
+	AssignedAt time.Time `json:"assigned_at"`
+}
+
+// StudentTermEnrollment represents an immutable historical record of a student's term enrollment
+type StudentTermEnrollment struct {
+	BaseSyncModel
+	StudentID      string     `json:"student_id"`
+	ProgramID      *string    `json:"program_id,omitempty"`
+	SemesterID     *string    `json:"semester_id,omitempty"`
+	SectionID      *string    `json:"section_id,omitempty"`
+	AcademicYear   string     `json:"academic_year"`   // e.g. '2024-2025'
+	SemesterNumber int        `json:"semester_number"` // 1, 2, ...
+	Status         string     `json:"status"`          // 'enrolled', 'promoted', 'completed', 'detained', 'withdrawn', 'dropped'
+	EnrolledAt     time.Time  `json:"enrolled_at"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
 }
 
 // FacultyAllocation represents an instructor assignment to teach a specific subject component

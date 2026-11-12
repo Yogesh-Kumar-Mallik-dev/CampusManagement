@@ -108,10 +108,14 @@ type HostelAsset struct {
 
 // HostelOccupant represents a student resident occupying a room
 type HostelOccupant struct {
-	UserID       string    `json:"user_id"`
-	CampusHandle string    `json:"campus_handle"`
-	Name         string    `json:"name"`
-	AllottedAt   time.Time `json:"allotted_at"`
+	UserID       string     `json:"user_id"`
+	RoomID       string     `json:"room_id,omitempty"`
+	RoomNumber   int        `json:"room_number,omitempty"`
+	BedNumber    int        `json:"bed_number,omitempty"` // 1, 2, or 3
+	CampusHandle string     `json:"campus_handle"`
+	Name         string     `json:"name"`
+	AllottedAt   time.Time  `json:"allotted_at"`
+	VacatedAt    *time.Time `json:"vacated_at,omitempty"`
 }
 
 // HostelRoom represents a hostel room with bounded asset fixtures and student occupants

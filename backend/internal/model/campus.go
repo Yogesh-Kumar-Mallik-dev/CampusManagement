@@ -25,6 +25,7 @@ type Course struct {
 type TimetableSlot struct {
 	BaseSyncModel
 	CourseID       string  `json:"course_id"`
+	SubjectID      *string `json:"subject_id,omitempty"`
 	CourseCode     string  `json:"course_code,omitempty"`
 	CourseName     string  `json:"course_name,omitempty"`
 	ScopeID        string  `json:"scope_id"` // Target cohort (e.g. sec:cse-3a)
@@ -91,6 +92,7 @@ type AttendanceSession struct {
 	BaseSyncModel
 	TimetableSlotID *string            `json:"timetable_slot_id,omitempty"`
 	CourseID        string             `json:"course_id"`
+	SubjectID       *string            `json:"subject_id,omitempty"`
 	CourseCode      string             `json:"course_code,omitempty"`
 	CourseName      string             `json:"course_name,omitempty"`
 	ScopeID         string             `json:"scope_id"`

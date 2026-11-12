@@ -63,12 +63,16 @@ class HostelOccupantModel {
   final String campusHandle;
   final String name;
   final DateTime allottedAt;
+  final int? bedNumber;
+  final DateTime? vacatedAt;
 
   const HostelOccupantModel({
     required this.userId,
     required this.campusHandle,
     required this.name,
     required this.allottedAt,
+    this.bedNumber,
+    this.vacatedAt,
   });
 
   factory HostelOccupantModel.fromJson(Map<String, dynamic> json) {
@@ -79,6 +83,10 @@ class HostelOccupantModel {
       allottedAt: json['allotted_at'] != null
           ? DateTime.tryParse(json['allotted_at'] as String) ?? DateTime.now()
           : DateTime.now(),
+      bedNumber: json['bed_number'] as int?,
+      vacatedAt: json['vacated_at'] != null
+          ? DateTime.tryParse(json['vacated_at'] as String)
+          : null,
     );
   }
 
@@ -88,6 +96,8 @@ class HostelOccupantModel {
       'campus_handle': campusHandle,
       'name': name,
       'allotted_at': allottedAt.toIso8601String(),
+      if (bedNumber != null) 'bed_number': bedNumber,
+      if (vacatedAt != null) 'vacated_at': vacatedAt!.toIso8601String(),
     };
   }
 }
