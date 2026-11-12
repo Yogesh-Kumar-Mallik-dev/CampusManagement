@@ -89,7 +89,7 @@ services:
       POSTGRES_PASSWORD: campus_password
       POSTGRES_DB: campus_db
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${POSTGRES_PORT:-5435}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./backend/internal/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
@@ -104,7 +104,7 @@ services:
     container_name: campus_redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -126,15 +126,19 @@ Default environment variables are declared in `.env` (derived from `.env.example
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| `SERVER_PORT` | `8080` | Port for the Go HTTP REST API server |
-| `DB_HOST` | `localhost` | PostgreSQL host |
-| `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_USER` | `campus_admin` | PostgreSQL admin username |
-| `DB_PASSWORD` | `campus_secret_password` | PostgreSQL password |
-| `DB_NAME` | `campus_db` | Primary PostgreSQL database name |
-| `REDIS_HOST` | `localhost` | Redis host |
-| `REDIS_PORT` | `6379` | Redis port |
-| `JWT_SECRET` | `change_me_super_secret` | Cryptographic secret for signing tokens |
+| `PORT` | `8080` | Port for the Go HTTP REST API server |
+| `ENV` | `development` | Runtime environment (`development`, `production`, `test`) |
+| `POSTGRES_HOST` | `localhost` | PostgreSQL host |
+| `POSTGRES_PORT` | `5435` | PostgreSQL host port (mapped to container port 5432) |
+| `POSTGRES_USER` | `campus_user` | PostgreSQL username |
+| `POSTGRES_PASSWORD` | `campus_password` | PostgreSQL password |
+| `POSTGRES_DB` | `campus_db` | Primary PostgreSQL database name |
+| `DATABASE_URL` | `postgres://campus_user:campus_password@localhost:5435/campus_db?sslmode=disable` | Full PostgreSQL connection string |
+| `REDIS_PORT` | `6380` | Redis host port (mapped to container port 6379) |
+| `REDIS_ADDR` | `localhost:6380` | Redis address |
+| `STORAGE_DRIVER` | `local` | Document/PDF storage driver (`local`, `s3`) |
+| `PAYMENT_GATEWAY_PROVIDER` | `sandbox` | Payment gateway provider (`sandbox`, `razorpay`) |
+| `API_BASE_URL` | `http://localhost:8080` | Client API endpoint target |
 
 ---
 
