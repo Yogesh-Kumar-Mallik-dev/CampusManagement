@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +42,34 @@ func DefaultDigiLockerConfig() DigiLockerConfig {
 		TokenURL:     "https://digilocker.meripehchan.gov.in/public/oauth2/1/token",
 		APIBaseURL:   "https://api.digitallocker.gov.in/public/oauth2/2",
 	}
+}
+
+// DigiLockerConfigFromEnv loads DigiLocker OAuth & MeriPehchan settings from environment variables,
+// falling back to DefaultDigiLockerConfig defaults.
+func DigiLockerConfigFromEnv() DigiLockerConfig {
+	cfg := DefaultDigiLockerConfig()
+	if env := strings.TrimSpace(os.Getenv("DIGILOCKER_ENV")); env != "" {
+		cfg.Environment = env
+	}
+	if clientID := strings.TrimSpace(os.Getenv("DIGILOCKER_CLIENT_ID")); clientID != "" {
+		cfg.ClientID = clientID
+	}
+	if clientSecret := strings.TrimSpace(os.Getenv("DIGILOCKER_CLIENT_SECRET")); clientSecret != "" {
+		cfg.ClientSecret = clientSecret
+	}
+	if redirectURI := strings.TrimSpace(os.Getenv("DIGILOCKER_REDIRECT_URI")); redirectURI != "" {
+		cfg.RedirectURI = redirectURI
+	}
+	if authURL := strings.TrimSpace(os.Getenv("DIGILOCKER_AUTH_URL")); authURL != "" {
+		cfg.AuthURL = authURL
+	}
+	if tokenURL := strings.TrimSpace(os.Getenv("DIGILOCKER_TOKEN_URL")); tokenURL != "" {
+		cfg.TokenURL = tokenURL
+	}
+	if apiBaseURL := strings.TrimSpace(os.Getenv("DIGILOCKER_API_BASE_URL")); apiBaseURL != "" {
+		cfg.APIBaseURL = apiBaseURL
+	}
+	return cfg
 }
 
 type pkceSession struct {

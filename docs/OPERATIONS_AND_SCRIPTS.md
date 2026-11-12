@@ -138,6 +138,13 @@ Default environment variables are declared in `.env` (derived from `.env.example
 | `REDIS_ADDR` | `localhost:6380` | Redis address |
 | `STORAGE_DRIVER` | `local` | Document/PDF storage driver (`local`, `s3`) |
 | `PAYMENT_GATEWAY_PROVIDER` | `sandbox` | Payment gateway provider (`sandbox`, `razorpay`) |
+| `DIGILOCKER_ENV` | `sandbox` | DigiLocker integration mode (`sandbox`, `production`) |
+| `DIGILOCKER_CLIENT_ID` | `campus_erp_demo_client` | DigiLocker / MeriPehchan OAuth client ID |
+| `DIGILOCKER_CLIENT_SECRET` | `campus_demo_secret` | DigiLocker / MeriPehchan OAuth client secret |
+| `DIGILOCKER_REDIRECT_URI` | `https://erp.campus.edu/api/v1/digilocker/callback` | OAuth 2.0 PKCE redirect callback URI |
+| `DIGILOCKER_AUTH_URL` | `https://digilocker.meripehchan.gov.in/public/oauth2/1/authorize` | MeriPehchan OAuth 2.0 authorization endpoint |
+| `DIGILOCKER_TOKEN_URL` | `https://digilocker.meripehchan.gov.in/public/oauth2/1/token` | MeriPehchan OAuth 2.0 token endpoint |
+| `DIGILOCKER_API_BASE_URL` | `https://api.digitallocker.gov.in/public/oauth2/2` | DigiLocker document pull REST API base URL |
 | `API_BASE_URL` | `http://localhost:8080` | Client API endpoint target |
 
 ---

@@ -283,7 +283,7 @@ func NewContainer(cfg ContainerConfig, opts ...Option) (*Container, error) {
 
 	if c.DigiLockerService == nil {
 		c.DigiLockerService = service.NewDigiLockerService(
-			service.DefaultDigiLockerConfig(),
+			service.DigiLockerConfigFromEnv(),
 			func(id string) (*model.StudentProfile, bool) {
 				if c.UserHandler != nil {
 					return c.UserHandler.GetStudentProfile(id)

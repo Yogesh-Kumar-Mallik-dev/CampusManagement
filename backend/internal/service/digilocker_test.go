@@ -118,3 +118,44 @@ func TestDigiLockerServiceValidations(t *testing.T) {
 		t.Errorf("expected error on empty student_id")
 	}
 }
+
+func TestDigiLockerConfigFromEnv(t *testing.T) {
+	// Test defaults
+	defaultCfg := DefaultDigiLockerConfig()
+	envCfg := DigiLockerConfigFromEnv()
+	if envCfg.ClientID != defaultCfg.ClientID {
+		t.Errorf("expected default client id %s, got %s", defaultCfg.ClientID, envCfg.ClientID)
+	}
+
+	// Test overridden env variables
+	t.Setenv("DIGILOCKER_ENV", "production")
+	t.Setenv("DIGILOCKER_CLIENT_ID", "custom_client_123")
+	t.Setenv("DIGILOCKER_CLIENT_SECRET", "custom_secret_456")
+	t.Setenv("DIGILOCKER_REDIRECT_URI", "https://custom.campus.edu/callback")
+	t.Setenv("DIGILOCKER_AUTH_URL", "https://custom.oauth.in/authorize")
+	t.Setenv("DIGILOCKER_TOKEN_URL", "https://custom.oauth.in/token")
+	t.Setenv("DIGILOCKER_API_BASE_URL", "https://custom.api.in/v2")
+
+	customCfg := DigiLockerConfigFromEnv()
+	if customCfg.Environment != "production" {
+		t.Errorf("expected production, got %s", customCfg.Environment)
+	}
+	if customCfg.ClientID != "custom_client_123" {
+		t.Errorf("expected custom_client_123, got %s", customCfg.ClientID)
+	}
+	if customCfg.ClientSecret != "custom_secret_456" {
+		t.Errorf("expected custom_secret_456, got %s", customCfg.ClientSecret)
+	}
+	if customCfg.RedirectURI != "https://custom.campus.edu/callback" {
+		t.Errorf("expected custom redirect uri, got %s", customCfg.RedirectURI)
+	}
+	if customCfg.AuthURL != "https://custom.oauth.in/authorize" {
+		t.Errorf("expected custom auth url, got %s", customCfg.AuthURL)
+	}
+	if customCfg.TokenURL != "https://custom.oauth.in/token" {
+		t.Errorf("expected custom token url, got %s", customCfg.TokenURL)
+	}
+	if customCfg.APIBaseURL != "https://custom.api.in/v2" {
+		t.Errorf("expected custom api base url, got %s", customCfg.APIBaseURL)
+	}
+}
