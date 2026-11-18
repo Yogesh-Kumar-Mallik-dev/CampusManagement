@@ -17,7 +17,7 @@ import (
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8085"
 	}
 
 	container, err := di.NewDefaultContainer()
@@ -119,7 +119,7 @@ func setupAppHandler(container *di.Container, webDist string) http.Handler {
 </head>
 <body>
   <h1>CampusOS API Backend</h1>
-  <p><span class="badge">Status: Online</span> Port: 8080</p>
+  <p><span class="badge">Status: Online</span> Port: 8085</p>
   <p>Available endpoints:</p>
   <ul>
     <li><a href="/api/health">/api/health</a> - System Health & Cache Readiness</li>

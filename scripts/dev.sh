@@ -49,7 +49,7 @@ if [ -f "$ROOT_DIR/.env" ]; then
 fi
 
 # 2. Deterministic Port Cleanup
-APP_PORT="${PORT:-8080}"
+APP_PORT="${PORT:-8085}"
 PID=$(lsof -ti :"$APP_PORT" 2>/dev/null || true)
 if [ -n "$PID" ]; then
   echo "==> [dev] Port $APP_PORT in use by PID $PID. Freeing port..."
@@ -91,9 +91,9 @@ for arg in "$@"; do
 done
 
 if [ "$LAUNCH_APP" = true ]; then
-  echo "==> [dev] Launching Flutter client (target: $CLIENT_DEVICE)..."
+  echo "==> [dev] Launching Flutter client (target: $CLIENT_DEVICE, API: http://localhost:$APP_PORT)..."
   cd "$ROOT_DIR/client"
-  flutter run -d "$CLIENT_DEVICE"
+  flutter run -d "$CLIENT_DEVICE" --dart-define=API_BASE_URL="http://localhost:$APP_PORT"
 else
   wait "$BACKEND_PID"
 fi

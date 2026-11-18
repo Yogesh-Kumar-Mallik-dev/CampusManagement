@@ -16,7 +16,7 @@ class ApiService implements ICampusApi {
   @override
   final String baseUrl;
 
-  ApiService({this.baseUrl = 'http://localhost:8080'});
+  ApiService({this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8085')});
 
   Future<UserModel> login(String identifier, String password) async {
     final res = await http
@@ -43,12 +43,22 @@ class ApiService implements ICampusApi {
           [];
       final assignedRoles = data['assigned_roles'] ?? [];
 
-      return UserModel.fromJson({
+      final Map<String, dynamic> merged = {
         ...userMap,
         'active_scopes': scopes,
         'assigned_roles': assignedRoles,
         'permissions': permissions,
-      });
+      };
+      if (data['administrative_profile'] != null) {
+        merged['administrative_profile'] = data['administrative_profile'];
+      }
+      if (data['employee_record'] != null) {
+        merged['employee_record'] = data['employee_record'];
+      }
+      if (data['student_profile'] != null) {
+        merged['student_profile'] = data['student_profile'];
+      }
+      return UserModel.fromJson(merged);
     }
     throw Exception('Authentication failed (${res.statusCode})');
   }
@@ -73,7 +83,24 @@ class ApiService implements ICampusApi {
     if (res.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(res.body);
       final userMap = data['user'] as Map<String, dynamic>;
-      return UserModel.fromJson(userMap);
+      final scopes = (data['scopes'] as List?)?.map((e) => e.toString()).toList();
+      final permissions = (data['permissions'] as List?)?.map((e) => e.toString()).toList();
+      final assignedRoles = data['assigned_roles'];
+
+      final Map<String, dynamic> merged = {...userMap};
+      if (scopes != null) merged['active_scopes'] = scopes;
+      if (assignedRoles != null) merged['assigned_roles'] = assignedRoles;
+      if (permissions != null) merged['permissions'] = permissions;
+      if (data['administrative_profile'] != null) {
+        merged['administrative_profile'] = data['administrative_profile'];
+      }
+      if (data['employee_record'] != null) {
+        merged['employee_record'] = data['employee_record'];
+      }
+      if (data['student_profile'] != null) {
+        merged['student_profile'] = data['student_profile'];
+      }
+      return UserModel.fromJson(merged);
     }
     try {
       final err = jsonDecode(res.body);
@@ -89,7 +116,7 @@ class ApiService implements ICampusApi {
     try {
       final res = await http
           .get(Uri.parse('$baseUrl/api/health'))
-          .timeout(const Duration(milliseconds: 150));
+          .timeout(const Duration(milliseconds: 1500));
       return res.statusCode == 200;
     } catch (_) {
       return false;

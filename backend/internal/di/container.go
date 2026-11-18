@@ -507,7 +507,26 @@ func (c *Container) Close() {
 }
 
 func seedDefaultRoles(s *service.PermissionService) {
-	s.AddMemoryRole(model.Role{ID: "role-admin", Code: "admin", Name: "Campus Administrator", IsSystemRole: true})
+	s.AddMemoryRole(model.Role{
+		ID:           "role-admin",
+		Code:         "admin",
+		Name:         "Campus Administrator",
+		Description:  "Full institutional and system administrative privileges",
+		IsSystemRole: true,
+		Permissions: []model.Permission{
+			{Code: "*", Description: "Wildcard institutional administrative power", Module: "system"},
+		},
+	})
+	s.AddMemoryRole(model.Role{
+		ID:           "role-campus_director",
+		Code:         "campus_director",
+		Name:         "Campus Director",
+		Description:  "Campus-wide executive director and oversight authority",
+		IsSystemRole: true,
+		Permissions: []model.Permission{
+			{Code: "*", Description: "Campus-wide authority", Module: "executive"},
+		},
+	})
 	s.AddMemoryRole(model.Role{ID: "role-hod", Code: "hod", Name: "Head of Department"})
 	s.AddMemoryRole(model.Role{ID: "role-faculty", Code: "faculty", Name: "Faculty"})
 	s.AddMemoryRole(model.Role{ID: "role-warden", Code: "warden", Name: "Hostel Warden"})

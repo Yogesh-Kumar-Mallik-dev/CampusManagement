@@ -652,3 +652,53 @@ DROP TRIGGER IF EXISTS trg_check_faculty_allocation_academic ON faculty_subject_
 CREATE TRIGGER trg_check_faculty_allocation_academic
     BEFORE INSERT OR UPDATE OF teacher_id ON faculty_subject_allocations
     FOR EACH ROW EXECUTE FUNCTION check_faculty_allocation_academic();
+
+-- ------------------------------------------------------------------------------
+-- 16. CANONICAL DAY-1 SYSTEM SEED (Institutional Root Administrator & Hierarchy)
+-- ------------------------------------------------------------------------------
+INSERT INTO scopes (id, code, name, scope_type)
+VALUES ('scope-global', 'global', 'Global Institutional Scope', 'global')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO roles (id, code, name, description, is_system_role)
+VALUES 
+    ('role-admin', 'admin', 'Campus Administrator', 'Campus Administrator', true),
+    ('role-campus_director', 'campus_director', 'Campus Director', 'Campus Director', true),
+    ('role-hod', 'hod', 'Head of Department', 'Head of Department', true),
+    ('role-faculty', 'faculty', 'Faculty Member', 'Faculty Member', true),
+    ('role-warden', 'warden', 'Hostel Warden', 'Hostel Warden', true),
+    ('role-canteen_manager', 'canteen_manager', 'Canteen Manager', 'Canteen Manager', true),
+    ('role-staff', 'staff', 'Campus Staff', 'Campus Staff', true),
+    ('role-student', 'student', 'Student', 'Student', true),
+    ('role-contractor', 'contractor', 'External Contractor', 'External Contractor', true)
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO users (
+    id, campus_handle, first_name, last_name, email, personal_email, phone, archetype,
+    university_roll_no, password_hash, must_change_password, is_active, status, created_at, updated_at, is_deleted
+) VALUES (
+    'usr-campus_admin', 'campus_admin', 'Campus', 'Administrator', 'admin@campus.edu',
+    'director@campus-governance.org', '+91 98000 00001', 'employee',
+    'ADM-2023-0001', '8cae61c5f37e55fa392d1a1f17fc68df67707901e51ed637d1890e134cd6c8f5', false, true, 'active', NOW() - INTERVAL '1 year', NOW(), false
+) ON CONFLICT (id) DO UPDATE SET
+    password_hash = EXCLUDED.password_hash,
+    must_change_password = false,
+    is_active = true,
+    status = 'active';
+
+INSERT INTO employee_records (user_id, joining_date, employee_code, employment_type, is_academic, is_administrative)
+VALUES ('usr-campus_admin', CURRENT_DATE - INTERVAL '1 year', 'ADM-DIR-001', 'permanent', false, true)
+ON CONFLICT (user_id) DO UPDATE SET is_administrative = true;
+
+INSERT INTO administrative_profiles (user_id, primary_unit, designation, office_location)
+VALUES ('usr-campus_admin', 'unit:administration', 'Campus Administrator', 'Central Admin Tower 501')
+ON CONFLICT (user_id) DO UPDATE SET
+    primary_unit = EXCLUDED.primary_unit,
+    designation = EXCLUDED.designation,
+    office_location = EXCLUDED.office_location;
+
+INSERT INTO user_role_assignments (id, user_id, role_id, scope_id, is_active)
+VALUES 
+    ('assign-admin-1', 'usr-campus_admin', 'role-admin', 'scope-global', true),
+    ('assign-admin-2', 'usr-campus_admin', 'role-campus_director', 'scope-global', true)
+ON CONFLICT (id) DO NOTHING;

@@ -58,9 +58,10 @@ func (s *PermissionService) AssignRole(ctx context.Context, userID, roleCode, sc
 		roleName = r.Name
 	}
 
+	assignID := fmt.Sprintf("assign-%d", time.Now().UnixNano())
 	assign := model.UserRoleAssignment{
 		BaseSyncModel: model.BaseSyncModel{
-			ID:        fmt.Sprintf("assign-%d", time.Now().UnixNano()),
+			ID:        assignID,
 			CreatedAt: time.Now().UTC(),
 			UpdatedAt: time.Now().UTC(),
 		},
@@ -74,6 +75,28 @@ func (s *PermissionService) AssignRole(ctx context.Context, userID, roleCode, sc
 	}
 
 	s.memAssigns[userID] = append(s.memAssigns[userID], assign)
+
+	if s.db != nil {
+		go func(uid, rCode, rName, sCode, aid string, vUntil *time.Time) {
+			dbCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = s.db.Exec(dbCtx, `
+				INSERT INTO roles (id, code, name, is_system_role)
+				VALUES ('role-' || $1, $1, $2, false)
+				ON CONFLICT (code) DO NOTHING
+			`, rCode, rName)
+			_, _ = s.db.Exec(dbCtx, `
+				INSERT INTO scopes (id, code, name, scope_type)
+				VALUES ('scope-' || $1, $1, $1, 'global')
+				ON CONFLICT (code) DO NOTHING
+			`, sCode)
+			_, _ = s.db.Exec(dbCtx, `
+				INSERT INTO user_role_assignments (id, user_id, role_id, scope_id, valid_from, valid_until, is_active)
+				VALUES ($1, $2, (SELECT id FROM roles WHERE code = $3 LIMIT 1), (SELECT id FROM scopes WHERE code = $4 LIMIT 1), NOW(), $5, true)
+				ON CONFLICT DO NOTHING
+			`, aid, uid, rCode, sCode, vUntil)
+		}(userID, roleCode, roleName, scopeCode, assignID, validUntil)
+	}
 
 	// Invalidate cache for this user
 	if s.cache != nil {
@@ -111,15 +134,46 @@ func (s *PermissionService) RevokeAllUserRoles(ctx context.Context, userID strin
 // GetUserRoles returns all role assignments for a given user
 func (s *PermissionService) GetUserRoles(userID string) []model.UserRoleAssignment {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	assignments, exists := s.memAssigns[userID]
-	if !exists {
-		return []model.UserRoleAssignment{}
+	s.mu.RUnlock()
+
+	if exists && len(assignments) > 0 {
+		res := make([]model.UserRoleAssignment, len(assignments))
+		copy(res, assignments)
+		return res
 	}
-	res := make([]model.UserRoleAssignment, len(assignments))
-	copy(res, assignments)
-	return res
+
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		rows, err := s.db.Query(ctx, `
+			SELECT ura.id, ura.user_id, r.code, r.name, COALESCE(s.code, 'global'), ura.valid_from, ura.valid_until, ura.is_active, ura.created_at, ura.updated_at
+			FROM user_role_assignments ura
+			JOIN roles r ON ura.role_id = r.id
+			LEFT JOIN scopes s ON ura.scope_id = s.id
+			WHERE ura.user_id = $1 AND ura.is_deleted = false AND ura.is_active = true
+		`, userID)
+		if err == nil {
+			defer rows.Close()
+			var dbAssigns []model.UserRoleAssignment
+			for rows.Next() {
+				var ura model.UserRoleAssignment
+				var vUntil *time.Time
+				if err := rows.Scan(&ura.ID, &ura.UserID, &ura.RoleCode, &ura.RoleName, &ura.ScopeCode, &ura.ValidFrom, &vUntil, &ura.IsActive, &ura.CreatedAt, &ura.UpdatedAt); err == nil {
+					ura.ValidUntil = vUntil
+					dbAssigns = append(dbAssigns, ura)
+				}
+			}
+			if len(dbAssigns) > 0 {
+				s.mu.Lock()
+				s.memAssigns[userID] = dbAssigns
+				s.mu.Unlock()
+				return dbAssigns
+			}
+		}
+	}
+
+	return []model.UserRoleAssignment{}
 }
 
 // GetUserPermissions returns all deduplicated permission codes granted to the user across their active roles

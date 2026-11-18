@@ -63,9 +63,7 @@ func NewUserHandler(idGen idgen.IDServiceInterface, permService service.Permissi
 	}
 
 	h.loadUsersFromDB()
-	if len(h.users) == 0 {
-		h.seedDefaultUsers()
-	}
+	h.seedDefaultUsers()
 	return h
 }
 
@@ -89,8 +87,13 @@ func (h *UserHandler) loadUsersFromDB() {
 				u.UniversityRollNo = roll
 				u.UniversityRegNo = reg
 				if passHash == "" {
-					u.PasswordHash = HashPassword(u.CampusHandle)
-					u.MustChangePassword = true
+					if u.ID == "usr-campus_admin" || u.CampusHandle == "campus_admin" {
+						u.PasswordHash = HashPassword("campus2026!")
+						u.MustChangePassword = false
+					} else {
+						u.PasswordHash = HashPassword(u.CampusHandle)
+						u.MustChangePassword = true
+					}
 				} else {
 					u.PasswordHash = passHash
 				}
@@ -107,6 +110,17 @@ func (h *UserHandler) loadUsersFromDB() {
 			var rec model.EmployeeRecord
 			if err := empRows.Scan(&rec.UserID, &rec.JoiningDate, &rec.EmployeeCode, &rec.EmploymentType, &rec.IsAcademic, &rec.IsAdministrative); err == nil {
 				h.employeeRecords[rec.UserID] = rec
+			}
+		}
+	}
+
+	adminRows, err := h.db.Query(ctx, `SELECT user_id, primary_unit, designation, COALESCE(office_location, '') FROM administrative_profiles`)
+	if err == nil {
+		defer adminRows.Close()
+		for adminRows.Next() {
+			var ap model.AdministrativeProfile
+			if err := adminRows.Scan(&ap.UserID, &ap.PrimaryUnit, &ap.Designation, &ap.OfficeLocation); err == nil {
+				h.adminProfiles[ap.UserID] = ap
 			}
 		}
 	}
@@ -140,22 +154,27 @@ func (h *UserHandler) seedDefaultUsers() {
 	// Campus Administrator - The only pre-seeded institutional account
 	adminHandle := "campus_admin"
 	adminID := "usr-" + adminHandle
+	adminPassHash := HashPassword("campus2026!")
+
+	h.mu.Lock()
 	h.users[adminID] = model.User{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        adminID,
 			CreatedAt: now.Add(-365 * 24 * time.Hour),
 			UpdatedAt: now,
 		},
-		CampusHandle:     adminHandle,
-		FirstName:        "Campus",
-		LastName:         "Administrator",
-		Email:            "admin@campus.edu",
-		PersonalEmail:    "director@campus-governance.org",
-		Phone:            "+91 98000 00001",
-		Archetype:        model.ArchetypeEmployee,
-		UniversityRollNo: "ADM-2023-0001",
-		IsActive:         true,
-		Status:           "active",
+		CampusHandle:       adminHandle,
+		FirstName:          "Campus",
+		LastName:           "Administrator",
+		Email:              "admin@campus.edu",
+		PersonalEmail:      "director@campus-governance.org",
+		Phone:              "+91 98000 00001",
+		Archetype:          model.ArchetypeEmployee,
+		UniversityRollNo:   "ADM-2023-0001",
+		PasswordHash:       adminPassHash,
+		MustChangePassword: false,
+		IsActive:           true,
+		Status:             "active",
 	}
 	h.handleToID[adminHandle] = adminID
 	adminJoining := now.Add(-365 * 24 * time.Hour)
@@ -173,6 +192,7 @@ func (h *UserHandler) seedDefaultUsers() {
 		PrimaryUnit:    "unit:administration",
 		OfficeLocation: "Central Admin Tower 501",
 	}
+	h.mu.Unlock()
 
 	// Seed default roles into permission service if available
 	if h.permService != nil {
@@ -184,15 +204,46 @@ func (h *UserHandler) seedDefaultUsers() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_, _ = h.db.Exec(ctx, `
-			INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, is_active, status, created_at, updated_at, is_deleted)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false)
+			INSERT INTO scopes (id, code, name, scope_type)
+			VALUES ('scope-global', 'global', 'Global Institutional Scope', 'global')
 			ON CONFLICT (id) DO NOTHING
-		`, adminID, adminHandle, "Campus", "Administrator", "admin@campus.edu", "director@campus-governance.org", "+91 98000 00001", model.ArchetypeEmployee, "ADM-2023-0001", true, "active", now.Add(-365*24*time.Hour), now)
+		`)
+		_, _ = h.db.Exec(ctx, `
+			INSERT INTO roles (id, code, name, description, is_system_role)
+			VALUES 
+				('role-admin', 'admin', 'Campus Administrator', 'Campus Administrator', true),
+				('role-campus_director', 'campus_director', 'Campus Director', 'Campus Director', true)
+			ON CONFLICT (code) DO NOTHING
+		`)
+		_, _ = h.db.Exec(ctx, `
+			INSERT INTO users (id, campus_handle, first_name, last_name, email, personal_email, phone, archetype, university_roll_no, password_hash, must_change_password, is_active, status, created_at, updated_at, is_deleted)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, true, 'active', $11, $12, false)
+			ON CONFLICT (id) DO UPDATE SET
+				password_hash = EXCLUDED.password_hash,
+				must_change_password = false,
+				is_active = true,
+				status = 'active'
+		`, adminID, adminHandle, "Campus", "Administrator", "admin@campus.edu", "director@campus-governance.org", "+91 98000 00001", model.ArchetypeEmployee, "ADM-2023-0001", adminPassHash, now.Add(-365*24*time.Hour), now)
 		_, _ = h.db.Exec(ctx, `
 			INSERT INTO employee_records (user_id, joining_date, employee_code, employment_type, is_academic, is_administrative)
 			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (user_id) DO NOTHING
+			ON CONFLICT (user_id) DO UPDATE SET is_administrative = true
 		`, adminID, adminJoining, "ADM-DIR-001", "permanent", false, true)
+		_, _ = h.db.Exec(ctx, `
+			INSERT INTO administrative_profiles (user_id, primary_unit, designation, office_location)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (user_id) DO UPDATE SET
+				primary_unit = EXCLUDED.primary_unit,
+				designation = EXCLUDED.designation,
+				office_location = EXCLUDED.office_location
+		`, adminID, "unit:administration", "Campus Administrator", "Central Admin Tower 501")
+		_, _ = h.db.Exec(ctx, `
+			INSERT INTO user_role_assignments (id, user_id, role_id, scope_id, is_active)
+			VALUES 
+				('assign-admin-1', $1, (SELECT id FROM roles WHERE code = 'admin'), 'scope-global', true),
+				('assign-admin-2', $1, (SELECT id FROM roles WHERE code = 'campus_director'), 'scope-global', true)
+			ON CONFLICT (id) DO NOTHING
+		`, adminID)
 	}
 }
 
@@ -1184,5 +1235,21 @@ func (h *UserHandler) UpdateStudentProfile(sp model.StudentProfile) {
 		u.AcademicName = sp.AcademicName
 		h.users[sp.UserID] = u
 	}
+}
+
+// GetEmployeeRecord resolves an employee record by user ID
+func (h *UserHandler) GetEmployeeRecord(userID string) (model.EmployeeRecord, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	rec, ok := h.employeeRecords[userID]
+	return rec, ok
+}
+
+// GetAdministrativeProfile resolves an administrative profile by user ID
+func (h *UserHandler) GetAdministrativeProfile(userID string) (model.AdministrativeProfile, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	prof, ok := h.adminProfiles[userID]
+	return prof, ok
 }
 

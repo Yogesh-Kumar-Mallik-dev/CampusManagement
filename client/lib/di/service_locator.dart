@@ -61,7 +61,7 @@ class CampusDI {
     ICampusStorage? storage,
     ICampusFacade? facade,
     AppCache? cache,
-    String defaultBaseUrl = 'http://localhost:8080',
+    String defaultBaseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8085'),
     bool? seedTestData,
   }) {
     final di = CampusDI.instance;

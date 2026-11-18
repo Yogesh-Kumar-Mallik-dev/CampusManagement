@@ -75,8 +75,8 @@ class OfflineStorageService implements ICampusStorage {
     bool? enableMockSeeding,
   }) : enableMockSeeding = enableMockSeeding ?? isFlutterTestEnvironment {
     _lastHealthCheckTime = DateTime.now();
+    _seedDefaultUsersIfEmpty();
     if (this.enableMockSeeding) {
-      _seedDefaultUsersIfEmpty();
       _seedDefaultAcademicHierarchyIfEmpty();
       _seedDefaultTimetableIfEmpty();
       _seedDefaultNoticesIfEmpty();
@@ -118,10 +118,11 @@ class OfflineStorageService implements ICampusStorage {
 
   @override
   Future<UserModel> authenticate(String identifier, String password) async {
+    final clean = identifier.trim().toLowerCase();
     try {
       await checkConnectivity(force: true);
       if (isOnline) {
-        final user = await api.login(identifier, password);
+        final user = await api.login(clean, password);
         _currentUser = user;
         final idx = _cachedUsers.indexWhere((u) => u.id == user.id || u.campusHandle == user.campusHandle);
         if (idx >= 0) {
@@ -133,7 +134,6 @@ class OfflineStorageService implements ICampusStorage {
       }
     } catch (_) {}
 
-    final clean = identifier.trim().toLowerCase();
     final cached = _cachedUsers.cast<UserModel?>().firstWhere(
       (u) => u != null && (u.campusHandle.toLowerCase() == clean || u.email.toLowerCase() == clean || u.id.toLowerCase() == clean),
       orElse: () => null,

@@ -21,7 +21,7 @@ void main() {
 
   // Initialize unified IoC container and decoupled dependencies
   final di = CampusDI.setup(
-    defaultBaseUrl: 'http://localhost:8080',
+    defaultBaseUrl: const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8085'),
     seedTestData: false,
   );
   final storage = di.get<OfflineStorageService>();
