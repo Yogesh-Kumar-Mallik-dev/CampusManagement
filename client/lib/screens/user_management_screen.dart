@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/academic.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
@@ -130,15 +131,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         storage: widget.storage,
         onUserCreated: (newUser) {
           _loadUsers();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Onboarded ${newUser.fullName} (${newUser.campusHandle}). Initial password is set to username (${newUser.campusHandle}), with mandatory password change on first login.'),
-              backgroundColor: AppColors.githubGreen,
-              duration: const Duration(seconds: 5),
-            ),
-          );
+          _showCredentialsDialog(newUser);
         },
       ),
+    );
+  }
+
+  void _showCredentialsDialog(UserModel user) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _UserCredentialsDialog(user: user),
     );
   }
 
@@ -912,9 +915,23 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   final _extSupervisorPhone = TextEditingController();
   final _extScopes = TextEditingController();
 
+  // Credential setup options
+  final _initialPasswordController = TextEditingController();
+  bool _autoGeneratePassword = true;
+  bool _obscureInitialPassword = true;
+  late String _generatedPassword;
+
+  String _makeSecureTempPassword() {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    final rand = DateTime.now().microsecondsSinceEpoch;
+    final suffix = List.generate(4, (i) => chars[(rand >> (i * 5)) % chars.length]).join();
+    return 'Campus#${DateTime.now().year}$suffix';
+  }
+
   @override
   void initState() {
     super.initState();
+    _generatedPassword = _makeSecureTempPassword();
     _loadAcademicOptions();
   }
 
@@ -1000,6 +1017,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
     _extSupervisorName.dispose();
     _extSupervisorPhone.dispose();
     _extScopes.dispose();
+    _initialPasswordController.dispose();
     super.dispose();
   }
 
@@ -1042,6 +1060,14 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
       return;
     }
 
+    final initialPass = _autoGeneratePassword
+        ? _generatedPassword
+        : _initialPasswordController.text.trim();
+    if (!_autoGeneratePassword && initialPass.length < 6) {
+      setState(() => _errorMessage = 'Initial password must be at least 6 characters.');
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -1069,6 +1095,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'university_reg_no': _stuRegNo.text.trim(),
         'section_scope': _stuSection.text.trim(),
         'advisor_name': _stuAdvisor.text.trim(),
+        'initial_password': initialPass,
       });
       if (mounted) {
         Navigator.of(context).pop();
@@ -1094,6 +1121,14 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
 
     if (!_empIsAcademic && !_empIsAdmin) {
       setState(() => _errorMessage = 'Employee must be affiliated with Academic track, Administrative track, or both.');
+      return;
+    }
+
+    final initialPass = _autoGeneratePassword
+        ? _generatedPassword
+        : _initialPasswordController.text.trim();
+    if (!_autoGeneratePassword && initialPass.length < 6) {
+      setState(() => _errorMessage = 'Initial password must be at least 6 characters.');
       return;
     }
 
@@ -1125,6 +1160,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'primary_unit': _empAdminUnit,
         'designation': _empDesignation.text.trim().isNotEmpty ? _empDesignation.text.trim() : '',
         'office_location': _empOffice.text.trim(),
+        'initial_password': initialPass,
       });
       if (mounted) {
         Navigator.of(context).pop();
@@ -1150,6 +1186,14 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
     final vendor = _extVendorOrg.text.trim();
     if (vendor.isEmpty) {
       setState(() => _errorMessage = 'Vendor organization is required.');
+      return;
+    }
+
+    final initialPass = _autoGeneratePassword
+        ? _generatedPassword
+        : _initialPasswordController.text.trim();
+    if (!_autoGeneratePassword && initialPass.length < 6) {
+      setState(() => _errorMessage = 'Initial password must be at least 6 characters.');
       return;
     }
 
@@ -1183,6 +1227,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'supervisor_name': _extSupervisorName.text.trim(),
         'supervisor_phone': _extSupervisorPhone.text.trim(),
         'permitted_scopes': scopes,
+        'initial_password': initialPass,
       });
       if (mounted) {
         Navigator.of(context).pop();
@@ -1375,9 +1420,16 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
               // Form fields
               Expanded(
                 child: SingleChildScrollView(
-                  child: _selectedTab == 0
-                      ? _buildStudentForm(isDark)
-                      : (_selectedTab == 1 ? _buildEmployeeForm(isDark) : _buildContractorForm(isDark)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _selectedTab == 0
+                          ? _buildStudentForm(isDark)
+                          : (_selectedTab == 1 ? _buildEmployeeForm(isDark) : _buildContractorForm(isDark)),
+                      const SizedBox(height: 16),
+                      _buildCredentialSetupSection(isDark),
+                    ],
+                  ),
                 ),
               ),
 
@@ -2018,6 +2070,516 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
           onChanged: onChanged,
         ),
       ],
+    );
+  }
+
+  Widget _buildCredentialSetupSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF161B22) : const Color(0xFFF6F8FA),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppSvgIcon(
+                    svgString: AppSvgIcon.shield,
+                    size: 14,
+                    color: AppColors.wineRed,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Initial Account Credentials',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.wineRedDarkSubtle : AppColors.wineRedSubtle,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
+                  ),
+                ),
+                child: const Text(
+                  'Password Change Mandatory',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.wineRed,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                height: 24,
+                width: 24,
+                child: Checkbox(
+                  value: _autoGeneratePassword,
+                  activeColor: AppColors.wineRed,
+                  onChanged: (val) {
+                    setState(() {
+                      _autoGeneratePassword = val ?? true;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _autoGeneratePassword = !_autoGeneratePassword;
+                    });
+                  },
+                  child: const Text(
+                    'Auto-generate secure temporary password',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_autoGeneratePassword) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0D1117) : Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _generatedPassword,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: isDark ? Colors.white : AppColors.lightTextPrimary,
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _generatedPassword = _makeSecureTempPassword();
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppSvgIcon(
+                            svgString: AppSvgIcon.refresh,
+                            size: 12,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Regenerate',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Custom Initial Password *',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 38,
+                  child: TextField(
+                    controller: _initialPasswordController,
+                    obscureText: _obscureInitialPassword,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Enter temporary password (min 6 chars)',
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.darkTextPlaceholder : AppColors.lightTextPlaceholder,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                        ),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: AppSvgIcon(
+                          svgString: _obscureInitialPassword ? AppSvgIcon.eye : AppSvgIcon.eyeOff,
+                          size: 14,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscureInitialPassword = !_obscureInitialPassword;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 6),
+          Text(
+            'The created user will use this temporary password to log in once, and will be required to choose a new password immediately.',
+            style: TextStyle(
+              fontSize: 10.5,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserCredentialsDialog extends StatefulWidget {
+  final UserModel user;
+
+  const _UserCredentialsDialog({
+    required this.user,
+  });
+
+  @override
+  State<_UserCredentialsDialog> createState() => _UserCredentialsDialogState();
+}
+
+class _UserCredentialsDialogState extends State<_UserCredentialsDialog> {
+  bool _obscurePassword = true;
+
+  String get _effectivePassword =>
+      widget.user.initialPassword ?? widget.user.campusHandle;
+
+  void _copyToClipboard(BuildContext context, String label, String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label copied to clipboard'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.githubGreen,
+      ),
+    );
+  }
+
+  void _copyAllCredentials(BuildContext context) {
+    final buffer = StringBuffer()
+      ..writeln('Institutional Campus Management Credentials')
+      ..writeln('===========================================')
+      ..writeln('Full Name: ${widget.user.fullName}')
+      ..writeln('Archetype: ${widget.user.archetype.toUpperCase()}')
+      ..writeln('Username (Campus Handle): ${widget.user.campusHandle}')
+      ..writeln('Institutional Email: ${widget.user.email}')
+      ..writeln('Temporary Password: $_effectivePassword')
+      ..writeln('===========================================')
+      ..writeln('Note: Password change is strictly required upon first login.');
+
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('All credentials copied to clipboard'),
+        duration: Duration(seconds: 2),
+        backgroundColor: AppColors.githubGreen,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
+        ),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppColors.githubGreen.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const AppSvgIcon(
+                      svgString: AppSvgIcon.check,
+                      size: 18,
+                      color: AppColors.githubGreen,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Account Created Successfully',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Credentials have been generated for ${widget.user.fullName}.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // Mandatory Password Notice Banner
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.wineRedDarkSubtle : AppColors.wineRedSubtle,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const AppSvgIcon(
+                      svgString: AppSvgIcon.shield,
+                      size: 16,
+                      color: AppColors.wineRed,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Mandatory First-Login Password Change',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.wineRed,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'The user will be required to establish their own permanent, secure password immediately upon first sign-in before accessing institutional tools.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Credentials Table
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _buildCredentialRow(
+                      context,
+                      label: 'Campus Handle (Username)',
+                      value: widget.user.campusHandle,
+                      isMonospace: true,
+                      isDark: isDark,
+                      onCopy: () => _copyToClipboard(context, 'Campus Handle', widget.user.campusHandle),
+                    ),
+                    Divider(height: 1, thickness: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    _buildCredentialRow(
+                      context,
+                      label: 'Institutional Email',
+                      value: widget.user.email,
+                      isDark: isDark,
+                      onCopy: () => _copyToClipboard(context, 'Email', widget.user.email),
+                    ),
+                    Divider(height: 1, thickness: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    _buildCredentialRow(
+                      context,
+                      label: 'Temporary Password',
+                      value: _effectivePassword,
+                      isMonospace: true,
+                      isPassword: true,
+                      obscured: _obscurePassword,
+                      onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                      isDark: isDark,
+                      onCopy: () => _copyToClipboard(context, 'Temporary Password', _effectivePassword),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Actions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark ? Colors.white : AppColors.lightTextPrimary,
+                      side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    icon: const AppSvgIcon(svgString: AppSvgIcon.copy, size: 13),
+                    label: const Text('Copy All Credentials', style: TextStyle(fontSize: 12)),
+                    onPressed: () => _copyAllCredentials(context),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.wineRed,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Done'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCredentialRow(
+    BuildContext context, {
+    required String label,
+    required String value,
+    bool isMonospace = false,
+    bool isPassword = false,
+    bool obscured = false,
+    VoidCallback? onToggleObscure,
+    required bool isDark,
+    required VoidCallback onCopy,
+  }) {
+    final displayValue = isPassword && obscured ? '••••••••••••' : value;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: Text(
+              displayValue,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                fontFamily: isMonospace ? 'monospace' : null,
+                color: isDark ? Colors.white : AppColors.lightTextPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (isPassword && onToggleObscure != null) ...[
+            IconButton(
+              tooltip: obscured ? 'Show password' : 'Hide password',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: AppSvgIcon(
+                svgString: obscured ? AppSvgIcon.eye : AppSvgIcon.eyeOff,
+                size: 14,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+              onPressed: onToggleObscure,
+            ),
+            const SizedBox(width: 8),
+          ],
+          IconButton(
+            tooltip: 'Copy $label',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: AppSvgIcon(
+              svgString: AppSvgIcon.copy,
+              size: 14,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+            onPressed: onCopy,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -69,6 +69,7 @@ class UserModel {
   final String? discontinuedAt;
   final String? discontinuedBy;
   final bool mustChangePassword;
+  final String? initialPassword;
   final List<String> activeScopes;
   final List<UserRoleAssignmentModel> assignedRoles;
   final List<String> permissions;
@@ -103,6 +104,7 @@ class UserModel {
     this.discontinuedAt,
     this.discontinuedBy,
     this.mustChangePassword = false,
+    this.initialPassword,
     this.activeScopes = const [],
     this.assignedRoles = const [],
     this.permissions = const [],
@@ -419,6 +421,7 @@ class UserModel {
       discontinuedAt: json['discontinued_at']?.toString(),
       discontinuedBy: json['discontinued_by'],
       mustChangePassword: json['must_change_password'] as bool? ?? false,
+      initialPassword: json['initial_password'] as String? ?? json['temporary_password'] as String?,
       activeScopes: json['active_scopes'] != null
           ? List<String>.from(json['active_scopes'])
           : [],
@@ -456,6 +459,7 @@ class UserModel {
       'discontinued_at': discontinuedAt,
       'discontinued_by': discontinuedBy,
       'must_change_password': mustChangePassword,
+      if (initialPassword != null) 'initial_password': initialPassword,
       'active_scopes': activeScopes,
       'assigned_roles': assignedRoles.map((r) => r.toJson()).toList(),
       'permissions': permissions,
@@ -490,6 +494,7 @@ class UserModel {
     String? discontinuedAt,
     String? discontinuedBy,
     bool? mustChangePassword,
+    String? initialPassword,
     List<String>? activeScopes,
     List<UserRoleAssignmentModel>? assignedRoles,
     List<String>? permissions,
@@ -522,6 +527,7 @@ class UserModel {
       discontinuedAt: discontinuedAt ?? this.discontinuedAt,
       discontinuedBy: discontinuedBy ?? this.discontinuedBy,
       mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+      initialPassword: initialPassword ?? this.initialPassword,
       activeScopes: activeScopes ?? this.activeScopes,
       assignedRoles: assignedRoles ?? this.assignedRoles,
       permissions: permissions ?? this.permissions,

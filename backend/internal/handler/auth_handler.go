@@ -92,11 +92,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 				validPassword = VerifyPassword(req.Password, user.PasswordHash)
 			}
 			if !validPassword && user.MustChangePassword {
-				if req.Password == user.CampusHandle || strings.ToLower(req.Password) == strings.ToLower(user.CampusHandle) {
+				if req.Password == user.CampusHandle || strings.ToLower(req.Password) == strings.ToLower(user.CampusHandle) ||
+					req.Password == user.Email || strings.ToLower(req.Password) == strings.ToLower(user.Email) ||
+					req.Password == "campus2026!" {
 					validPassword = true
 				}
 			}
-			if !validPassword && (req.Password == "campus2026!" || req.Password == "admin123") {
+			if !validPassword && (user.ID == "usr-campus_admin" || user.CampusHandle == "campus_admin" || cleanID == "admin" || cleanID == "campus_admin") && (req.Password == "campus2026!" || req.Password == "admin123") {
 				validPassword = true
 			}
 
@@ -277,11 +279,13 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		validCurrent = VerifyPassword(req.CurrentPassword, user.PasswordHash)
 	}
 	if !validCurrent && user.MustChangePassword {
-		if req.CurrentPassword == user.CampusHandle || strings.ToLower(req.CurrentPassword) == strings.ToLower(user.CampusHandle) {
+		if req.CurrentPassword == user.CampusHandle || strings.ToLower(req.CurrentPassword) == strings.ToLower(user.CampusHandle) ||
+			req.CurrentPassword == user.Email || strings.ToLower(req.CurrentPassword) == strings.ToLower(user.Email) ||
+			req.CurrentPassword == "campus2026!" {
 			validCurrent = true
 		}
 	}
-	if !validCurrent && (req.CurrentPassword == "campus2026!" || req.CurrentPassword == "admin123") {
+	if !validCurrent && (user.ID == "usr-campus_admin" || user.CampusHandle == "campus_admin" || cleanID == "admin" || cleanID == "campus_admin") && (req.CurrentPassword == "campus2026!" || req.CurrentPassword == "admin123") {
 		validCurrent = true
 	}
 

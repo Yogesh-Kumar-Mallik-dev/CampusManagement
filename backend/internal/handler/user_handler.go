@@ -269,6 +269,7 @@ type CreateStudentRequest struct {
 	RoomNumber             string `json:"room_number,omitempty"`
 	EmergencyContactName   string `json:"emergency_contact_name,omitempty"`
 	EmergencyContactPhone  string `json:"emergency_contact_phone,omitempty"`
+	InitialPassword        string `json:"initial_password,omitempty"`
 }
 
 func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
@@ -299,8 +300,13 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 	sectionScope := req.SectionScope
 
+	initialPassword := strings.TrimSpace(req.InitialPassword)
+	if initialPassword == "" {
+		initialPassword = handle
+	}
+	passHash := HashPassword(initialPassword)
+
 	now := time.Now().UTC()
-	passHash := HashPassword(handle)
 	academicName := strings.TrimSpace(req.AcademicName)
 	academicNameSource := ""
 	if academicName != "" {
@@ -354,6 +360,7 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.users[user.ID] = user
 	h.handleToID[handle] = user.ID
+	h.handleToID[strings.ToLower(handle)] = user.ID
 	h.studentProfiles[user.ID] = profile
 	h.mu.Unlock()
 
@@ -402,8 +409,9 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]interface{}{
-		"user":    user,
-		"profile": profile,
+		"user":             user,
+		"profile":          profile,
+		"initial_password": initialPassword,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -438,6 +446,7 @@ type CreateEmployeeRequest struct {
 
 	EmergencyContactName  string `json:"emergency_contact_name,omitempty"`
 	EmergencyContactPhone string `json:"emergency_contact_phone,omitempty"`
+	InitialPassword       string `json:"initial_password,omitempty"`
 }
 
 func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
@@ -458,8 +467,13 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	initialPassword := strings.TrimSpace(req.InitialPassword)
+	if initialPassword == "" {
+		initialPassword = handle
+	}
+	passHash := HashPassword(initialPassword)
+
 	now := time.Now().UTC()
-	passHash := HashPassword(handle)
 	user := model.User{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        "usr-" + handle,
@@ -497,6 +511,7 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.users[user.ID] = user
 	h.handleToID[handle] = user.ID
+	h.handleToID[strings.ToLower(handle)] = user.ID
 	h.employeeRecords[user.ID] = empRecord
 
 	var acadProfile *model.AcademicProfile
@@ -582,6 +597,7 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		"employee_record":        empRecord,
 		"academic_profile":       acadProfile,
 		"administrative_profile": adminProfile,
+		"initial_password":       initialPassword,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -604,6 +620,7 @@ type CreateContractorRequest struct {
 	SupervisorName     string     `json:"supervisor_name,omitempty"`
 	SupervisorPhone    string     `json:"supervisor_phone,omitempty"`
 	PermittedScopes    []string   `json:"permitted_scopes,omitempty"`
+	InitialPassword    string     `json:"initial_password,omitempty"`
 }
 
 func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
@@ -630,8 +647,13 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 
 	gatePassID := req.GatePassID
 
+	initialPassword := strings.TrimSpace(req.InitialPassword)
+	if initialPassword == "" {
+		initialPassword = handle
+	}
+	passHash := HashPassword(initialPassword)
+
 	now := time.Now().UTC()
-	passHash := HashPassword(handle)
 	user := model.User{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        "usr-" + handle,
@@ -668,6 +690,7 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.users[user.ID] = user
 	h.handleToID[handle] = user.ID
+	h.handleToID[strings.ToLower(handle)] = user.ID
 	h.contractorProfiles[user.ID] = contractorProfile
 	h.mu.Unlock()
 
@@ -715,6 +738,7 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"user":               user,
 		"contractor_profile": contractorProfile,
+		"initial_password":   initialPassword,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1130,63 +1154,105 @@ func (h *UserHandler) CheckPermission(w http.ResponseWriter, r *http.Request) {
 
 // FindUser resolves a user by ID, campus handle, or email
 func (h *UserHandler) FindUser(identifier string) (model.User, bool) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
 	clean := strings.TrimSpace(strings.ToLower(identifier))
+	if clean == "" {
+		return model.User{}, false
+	}
+
+	h.mu.RLock()
 	if u, ok := h.users[clean]; ok {
+		h.mu.RUnlock()
 		return u, true
 	}
 	if id, ok := h.handleToID[clean]; ok {
 		if u, ok := h.users[id]; ok {
+			h.mu.RUnlock()
 			return u, true
 		}
 	}
 	for _, u := range h.users {
 		if strings.ToLower(u.CampusHandle) == clean || strings.ToLower(u.Email) == clean || strings.ToLower(u.ID) == clean {
+			h.mu.RUnlock()
 			return u, true
 		}
 	}
+	h.mu.RUnlock()
+
+	// PostgreSQL fallback if not in memory
+	if h.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		var u model.User
+		var personal, phone, gender, academicName, appNo, roll, reg, passHash string
+		err := h.db.QueryRow(ctx, `
+			SELECT id, campus_handle, first_name, last_name, email,
+			       COALESCE(personal_email, ''), COALESCE(phone, ''), COALESCE(gender, ''),
+			       COALESCE(academic_name, ''), archetype,
+			       COALESCE(admission_application_no, ''), COALESCE(university_roll_no, ''),
+			       COALESCE(university_reg_no, ''), is_active, status,
+			       COALESCE(password_hash, ''), COALESCE(must_change_password, true),
+			       created_at, updated_at
+			FROM users
+			WHERE (LOWER(campus_handle) = $1 OR LOWER(email) = $1 OR id = $1) AND is_deleted = false
+			LIMIT 1
+		`, clean).Scan(
+			&u.ID, &u.CampusHandle, &u.FirstName, &u.LastName, &u.Email,
+			&personal, &phone, &gender, &academicName, &u.Archetype,
+			&appNo, &roll, &reg, &u.IsActive, &u.Status,
+			&passHash, &u.MustChangePassword,
+			&u.CreatedAt, &u.UpdatedAt,
+		)
+		if err == nil {
+			u.PersonalEmail = personal
+			u.Phone = phone
+			u.Gender = gender
+			u.AcademicName = academicName
+			u.AdmissionApplicationNo = appNo
+			u.UniversityRollNo = roll
+			u.UniversityRegNo = reg
+			u.PasswordHash = passHash
+
+			h.mu.Lock()
+			h.users[u.ID] = u
+			h.handleToID[strings.ToLower(u.CampusHandle)] = u.ID
+			h.handleToID[u.CampusHandle] = u.ID
+			h.mu.Unlock()
+
+			return u, true
+		}
+	}
+
 	return model.User{}, false
 }
 
 // UpdateUserPassword updates a user's password, sets must_change_password to false, and persists to DB
 func (h *UserHandler) UpdateUserPassword(identifier, newPassword string) (model.User, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	clean := strings.TrimSpace(strings.ToLower(identifier))
-	var targetID string
-
-	if u, ok := h.users[clean]; ok {
-		targetID = u.ID
-	} else if id, ok := h.handleToID[clean]; ok {
-		targetID = id
-	} else {
-		for _, u := range h.users {
-			if strings.ToLower(u.CampusHandle) == clean || strings.ToLower(u.Email) == clean || strings.ToLower(u.ID) == clean {
-				targetID = u.ID
-				break
-			}
-		}
+	if clean == "" {
+		return model.User{}, fmt.Errorf("identifier is required")
 	}
 
-	if targetID == "" {
+	// First ensure user is in memory
+	u, ok := h.FindUser(clean)
+	if !ok {
 		return model.User{}, fmt.Errorf("user not found")
 	}
 
-	u := h.users[targetID]
+	h.mu.Lock()
+	targetID := u.ID
 	u.PasswordHash = HashPassword(newPassword)
 	u.MustChangePassword = false
 	u.UpdatedAt = time.Now().UTC()
 	h.users[targetID] = u
+	h.handleToID[strings.ToLower(u.CampusHandle)] = targetID
+	h.handleToID[u.CampusHandle] = targetID
+	h.mu.Unlock()
 
 	if h.db != nil {
-		go func(uid, hash string, updated time.Time) {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			_, _ = h.db.Exec(ctx, `UPDATE users SET password_hash = $1, must_change_password = false, updated_at = $2 WHERE id = $3`, hash, updated, uid)
-		}(targetID, u.PasswordHash, u.UpdatedAt)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = h.db.Exec(ctx, `UPDATE users SET password_hash = $1, must_change_password = false, updated_at = $2 WHERE id = $3`, u.PasswordHash, u.UpdatedAt, targetID)
 	}
 
 	return u, nil

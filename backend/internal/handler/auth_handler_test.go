@@ -222,3 +222,113 @@ func TestInitialCreationUsernamePasswordSameAndForcedChange(t *testing.T) {
 		t.Errorf("Expected MustChangePassword to remain false on subsequent logins")
 	}
 }
+
+func TestUserCreationWithCustomInitialPassword(t *testing.T) {
+	idGen := idgen.NewIDService(nil)
+	userH := NewUserHandler(idGen, nil)
+	authH := NewAuthHandler(nil, userH)
+
+	// 1. Create student with an explicit initial password
+	customPass := "TempSecret#2026"
+	createStuPayload := CreateStudentRequest{
+		FirstName:       "Priya",
+		LastName:        "Sharma",
+		Email:           "priya.sharma@campus.edu",
+		AdmissionYear:   2026,
+		EntryType:       "regular",
+		Program:         "btech",
+		InitialPassword: customPass,
+	}
+	stuBody, _ := json.Marshal(createStuPayload)
+	stuReq := httptest.NewRequest(http.MethodPost, "/api/v1/users/students", bytes.NewReader(stuBody))
+	stuRec := httptest.NewRecorder()
+	userH.CreateStudent(stuRec, stuReq)
+
+	if stuRec.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created, got %d", stuRec.Code)
+	}
+
+	var stuResp struct {
+		User            model.User `json:"user"`
+		InitialPassword string     `json:"initial_password"`
+	}
+	if err := json.NewDecoder(stuRec.Body).Decode(&stuResp); err != nil {
+		t.Fatalf("Failed to decode student response: %v", err)
+	}
+
+	if stuResp.InitialPassword != customPass {
+		t.Errorf("Expected initial_password %q, got %q", customPass, stuResp.InitialPassword)
+	}
+	if !stuResp.User.MustChangePassword {
+		t.Errorf("Expected MustChangePassword to be true on creation")
+	}
+
+	// 2. Login using the explicit initial password and institutional email
+	loginPayload := LoginRequest{
+		Identifier: "priya.sharma@campus.edu",
+		Password:   customPass,
+	}
+	loginBody, _ := json.Marshal(loginPayload)
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(loginBody))
+	loginRec := httptest.NewRecorder()
+	authH.Login(loginRec, loginReq)
+
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for login with custom initial password, got %d", loginRec.Code)
+	}
+
+	var loginResp LoginResponse
+	_ = json.NewDecoder(loginRec.Body).Decode(&loginResp)
+	if !loginResp.User.MustChangePassword {
+		t.Errorf("Expected MustChangePassword to be true on first login")
+	}
+
+	// 3. User forces change password to permanent password
+	permanentPass := "MyPermanentPass2026!"
+	changePayload := ChangePasswordRequest{
+		Identifier:      stuResp.User.CampusHandle,
+		CurrentPassword: customPass,
+		NewPassword:     permanentPass,
+	}
+	cpBody, _ := json.Marshal(changePayload)
+	cpReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password", bytes.NewReader(cpBody))
+	cpRec := httptest.NewRecorder()
+	authH.ChangePassword(cpRec, cpReq)
+
+	if cpRec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for changing password, got %d", cpRec.Code)
+	}
+
+	// 4. Temporary initial password must fail now
+	oldLoginPayload := LoginRequest{
+		Identifier: stuResp.User.CampusHandle,
+		Password:   customPass,
+	}
+	oldLoginBody, _ := json.Marshal(oldLoginPayload)
+	oldLoginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(oldLoginBody))
+	oldLoginRec := httptest.NewRecorder()
+	authH.Login(oldLoginRec, oldLoginReq)
+
+	if oldLoginRec.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 Unauthorized for old temporary password, got %d", oldLoginRec.Code)
+	}
+
+	// 5. Subsequent login with permanent password succeeds with MustChangePassword = false
+	permLoginPayload := LoginRequest{
+		Identifier: stuResp.User.CampusHandle,
+		Password:   permanentPass,
+	}
+	permLoginBody, _ := json.Marshal(permLoginPayload)
+	permLoginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(permLoginBody))
+	permLoginRec := httptest.NewRecorder()
+	authH.Login(permLoginRec, permLoginReq)
+
+	if permLoginRec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for login with permanent password, got %d", permLoginRec.Code)
+	}
+	var permResp LoginResponse
+	_ = json.NewDecoder(permLoginRec.Body).Decode(&permResp)
+	if permResp.User.MustChangePassword {
+		t.Errorf("Expected MustChangePassword to be false on subsequent login")
+	}
+}

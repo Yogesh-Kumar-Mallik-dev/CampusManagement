@@ -393,7 +393,11 @@ class ApiService implements ICampusApi {
     );
     if (res.statusCode == 201) {
       final data = jsonDecode(res.body);
-      return UserModel.fromJson(data['user']);
+      final userMap = Map<String, dynamic>.from(data['user'] as Map);
+      if (data['initial_password'] != null) {
+        userMap['initial_password'] = data['initial_password'];
+      }
+      return UserModel.fromJson(userMap);
     }
     throw Exception('Failed to create student: ${res.body}');
   }
@@ -406,7 +410,11 @@ class ApiService implements ICampusApi {
     );
     if (res.statusCode == 201) {
       final data = jsonDecode(res.body);
-      return UserModel.fromJson(data['user']);
+      final userMap = Map<String, dynamic>.from(data['user'] as Map);
+      if (data['initial_password'] != null) {
+        userMap['initial_password'] = data['initial_password'];
+      }
+      return UserModel.fromJson(userMap);
     }
     throw Exception('Failed to create employee: ${res.body}');
   }
@@ -419,7 +427,11 @@ class ApiService implements ICampusApi {
     );
     if (res.statusCode == 201) {
       final data = jsonDecode(res.body);
-      return UserModel.fromJson(data['user']);
+      final userMap = Map<String, dynamic>.from(data['user'] as Map);
+      if (data['initial_password'] != null) {
+        userMap['initial_password'] = data['initial_password'];
+      }
+      return UserModel.fromJson(userMap);
     }
     throw Exception('Failed to create contractor: ${res.body}');
   }

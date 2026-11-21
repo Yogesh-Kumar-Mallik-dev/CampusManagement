@@ -533,7 +533,9 @@ func seedDefaultRoles(s *service.PermissionService) {
 	s.AddMemoryRole(model.Role{ID: "role-canteen", Code: "canteen_manager", Name: "Canteen Manager"})
 	s.AddMemoryRole(model.Role{ID: "role-staff", Code: "staff", Name: "Campus Staff"})
 	s.AddMemoryRole(model.Role{ID: "role-student", Code: "student", Name: "Student"})
+	s.AddMemoryRole(model.Role{ID: "role-student_base", Code: "student_base", Name: "Student Base"})
 	s.AddMemoryRole(model.Role{ID: "role-contractor", Code: "contractor", Name: "External Contractor"})
+	s.AddMemoryRole(model.Role{ID: "role-vendor_staff", Code: "vendor_staff", Name: "Vendor Staff"})
 
 	s.AddMemoryScope(model.Scope{Code: "global", Name: "Global", ScopeType: "global"})
 	s.AddMemoryScope(model.Scope{Code: "dept:cse", Name: "Computer Science", ScopeType: "department"})
