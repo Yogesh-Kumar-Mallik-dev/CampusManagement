@@ -14,6 +14,7 @@ import '../utils/file_downloader.dart';
 import '../utils/env_detector.dart';
 import '../utils/app_error_catalog.dart';
 import '../widgets/app_dropdown.dart';
+import 'pdf_reader_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   final OfflineStorageService storage;
@@ -2135,6 +2136,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
+                        key: const Key('btn-reader-start-fullscreen'),
                         icon: const Icon(Icons.chrome_reader_mode_outlined, size: 18),
                         label: const Text('Start Fullscreen Reader'),
                         style: ElevatedButton.styleFrom(
@@ -2143,10 +2145,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         onPressed: () {
                           Navigator.of(ctx).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("Opening '${ebook.title}' in campus digital reader..."),
-                              backgroundColor: AppColors.githubGreen,
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => PdfReaderScreen(ebook: ebook),
                             ),
                           );
                         },

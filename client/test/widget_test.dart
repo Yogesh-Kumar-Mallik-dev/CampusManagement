@@ -271,6 +271,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
+    final launchBtn = find.byKey(const Key('btn-confirm-start-broadcast'));
+    if (launchBtn.evaluate().isNotEmpty) {
+      await tester.tap(launchBtn);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
     // Verify Broadcast screen with QrImageView, countdown ring, sequence frame
     expect(find.text('Optical QR Broadcast • Live Session'), findsOneWidget);
     expect(find.byType(QrImageView), findsOneWidget);
