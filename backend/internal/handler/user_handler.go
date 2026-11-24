@@ -76,22 +76,28 @@ func (h *UserHandler) loadUsersFromDB() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := h.db.Query(ctx, `SELECT id, campus_handle, first_name, last_name, email, COALESCE(personal_email, ''), COALESCE(phone, ''), archetype, COALESCE(admission_application_no, ''), COALESCE(university_roll_no, ''), COALESCE(university_reg_no, ''), is_active, status, COALESCE(password_hash, ''), COALESCE(must_change_password, true), created_at, updated_at, is_deleted FROM users WHERE is_deleted = false`)
+	rows, err := h.db.Query(ctx, `SELECT id, campus_handle, first_name, last_name, email, COALESCE(personal_email, ''), COALESCE(phone, ''), archetype, COALESCE(admission_application_no, ''), COALESCE(university_roll_no, ''), COALESCE(university_reg_no, ''), is_active, status, COALESCE(password_hash, ''), COALESCE(must_change_password, true), COALESCE(is_first_login, true), COALESCE(security_question, ''), COALESCE(security_answer_hash, ''), COALESCE(whatsapp_phone, ''), created_at, updated_at, is_deleted FROM users WHERE is_deleted = false`)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
 			var u model.User
-			var personal, phone, appNo, roll, reg, passHash string
-			if err := rows.Scan(&u.ID, &u.CampusHandle, &u.FirstName, &u.LastName, &u.Email, &personal, &phone, &u.Archetype, &appNo, &roll, &reg, &u.IsActive, &u.Status, &passHash, &u.MustChangePassword, &u.CreatedAt, &u.UpdatedAt, &u.IsDeleted); err == nil {
+			var personal, phone, appNo, roll, reg, passHash, secQ, secA, waPhone string
+			var isFirstLogin bool
+			if err := rows.Scan(&u.ID, &u.CampusHandle, &u.FirstName, &u.LastName, &u.Email, &personal, &phone, &u.Archetype, &appNo, &roll, &reg, &u.IsActive, &u.Status, &passHash, &u.MustChangePassword, &isFirstLogin, &secQ, &secA, &waPhone, &u.CreatedAt, &u.UpdatedAt, &u.IsDeleted); err == nil {
 				u.PersonalEmail = personal
 				u.Phone = phone
 				u.AdmissionApplicationNo = appNo
 				u.UniversityRollNo = roll
 				u.UniversityRegNo = reg
+				u.IsFirstLogin = isFirstLogin
+				u.SecurityQuestion = secQ
+				u.SecurityAnswerHash = secA
+				u.WhatsAppPhone = waPhone
 				if passHash == "" {
 					if u.ID == "usr-campus_admin" || u.CampusHandle == "campus_admin" {
 						u.PasswordHash = HashPassword("campus2026!")
 						u.MustChangePassword = false
+						u.IsFirstLogin = false
 					} else {
 						u.PasswordHash = HashPassword(u.CampusHandle)
 						u.MustChangePassword = true
@@ -1311,6 +1317,23 @@ func (h *UserHandler) SaveResetEscalation(ticket model.ResetEscalationTicket) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.resetEscalations[ticket.TicketNumber] = ticket
+	if h.db != nil {
+		go func(t model.ResetEscalationTicket) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			tID := t.ID
+			if tID == "" {
+				tID = "esc-" + t.TicketNumber
+			}
+			_, _ = h.db.Exec(ctx, `
+				INSERT INTO password_reset_escalations (id, user_id, phone, ticket_number, status, escalation_reason, created_at, updated_at, is_deleted)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
+				ON CONFLICT (ticket_number) DO UPDATE SET
+					status = EXCLUDED.status,
+					updated_at = EXCLUDED.updated_at
+			`, tID, t.UserID, t.WhatsAppPhone, t.TicketNumber, t.Status, t.EscalationReason, t.CreatedAt, t.UpdatedAt)
+		}(ticket)
+	}
 }
 
 func (h *UserHandler) ListResetEscalations() []model.ResetEscalationTicket {
@@ -1355,6 +1378,19 @@ func (h *UserHandler) ResolveResetEscalation(ticketNum string, action string, ad
 	ticket.UpdatedAt = now
 
 	h.resetEscalations[ticketNum] = ticket
+
+	if h.db != nil {
+		go func(t model.ResetEscalationTicket) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = h.db.Exec(ctx, `
+				UPDATE password_reset_escalations
+				SET status = $1, admin_token_hash = $2, admin_token_expires_at = $3, resolved_by = $4, resolved_at = $5, updated_at = $6
+				WHERE ticket_number = $7
+			`, t.Status, t.AdminTokenHash, t.AdminTokenExpires, t.ResolvedBy, t.ResolvedAt, t.UpdatedAt, t.TicketNumber)
+		}(ticket)
+	}
+
 	return ticket, nil
 }
 
