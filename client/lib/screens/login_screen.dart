@@ -5,6 +5,8 @@ import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/force_password_change_dialog.dart';
+import '../widgets/first_login_otp_dialog.dart';
+import '../widgets/password_reset_dialog.dart';
 import '../widgets/smooth_theme_toggle.dart';
 import '../utils/app_error_catalog.dart';
 
@@ -357,7 +359,67 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                             ),
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 12),
+
+                          // First-Time WhatsApp Activation & Password Reset Links
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            runSpacing: 4,
+                            children: [
+                              TextButton(
+                                key: const Key('btn-first-login-otp'),
+                                onPressed: () {
+                                  FirstLoginOtpDialog.show(
+                                    context,
+                                    storage: widget.storage,
+                                    initialIdentifier: _identifierController.text.trim(),
+                                  ).then((user) {
+                                    if (user != null && mounted) {
+                                      widget.onLoginSuccess(user);
+                                    }
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(50, 30),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'First Time Login? (WhatsApp OTP)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.wineRed,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                key: const Key('btn-forgot-password-otp'),
+                                onPressed: () {
+                                  PasswordResetDialog.show(
+                                    context,
+                                    storage: widget.storage,
+                                    initialIdentifier: _identifierController.text.trim(),
+                                  );
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(50, 30),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  'Forgot Password?',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
 
                           // Quick Access Personas (1-Click Fill)
                           Divider(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),

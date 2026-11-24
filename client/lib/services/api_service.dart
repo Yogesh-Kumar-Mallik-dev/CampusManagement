@@ -112,6 +112,198 @@ class ApiService implements ICampusApi {
     }
   }
 
+  Future<Map<String, dynamic>> requestFirstLoginOtp(String identifier) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/first-login/request-otp'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'identifier': identifier, 'purpose': 'first_login'}),
+        )
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    }
+    throw Exception(res.body.isNotEmpty ? res.body : 'Failed to request WhatsApp OTP');
+  }
+
+  Future<UserModel> verifyFirstLoginAndSetPassword({
+    required String identifier,
+    required String otpCode,
+    required String newPassword,
+    required String securityQuestion,
+    required String securityAnswer,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/first-login/verify-and-set-password'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'identifier': identifier,
+            'otp_code': otpCode,
+            'new_password': newPassword,
+            'security_question': securityQuestion,
+            'security_answer': securityAnswer,
+          }),
+        )
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      final userMap = data['user'] as Map<String, dynamic>;
+      final scopes = (data['scopes'] as List?)?.map((e) => e.toString()).toList();
+      final permissions = (data['permissions'] as List?)?.map((e) => e.toString()).toList();
+      final assignedRoles = data['assigned_roles'];
+      final Map<String, dynamic> merged = {...userMap};
+      if (scopes != null) merged['active_scopes'] = scopes;
+      if (assignedRoles != null) merged['assigned_roles'] = assignedRoles;
+      if (permissions != null) merged['permissions'] = permissions;
+      return UserModel.fromJson(merged);
+    }
+    throw Exception(res.body.isNotEmpty ? res.body : 'Failed to complete first-time activation');
+  }
+
+  Future<Map<String, dynamic>> requestResetPasswordOtp(String identifier) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/reset-password/request-otp'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'identifier': identifier, 'purpose': 'password_reset'}),
+        )
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    }
+    throw Exception(res.body.isNotEmpty ? res.body : 'Failed to request reset OTP');
+  }
+
+  Future<Map<String, dynamic>> getSecurityQuestionPrompt(String identifier) async {
+    final res = await http
+        .get(Uri.parse('$baseUrl/api/v1/auth/reset-password/security-question?identifier=$identifier'))
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    }
+    throw Exception(res.body.isNotEmpty ? res.body : 'Failed to fetch security question');
+  }
+
+  Future<UserModel> resetPasswordWithSecurityQuestion({
+    required String identifier,
+    required String otpCode,
+    required String securityAnswer,
+    required String newPassword,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/reset-password/verify-otp-and-question'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'identifier': identifier,
+            'otp_code': otpCode,
+            'security_answer': securityAnswer,
+            'new_password': newPassword,
+          }),
+        )
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      return UserModel.fromJson(data['user']);
+    }
+    throw Exception(res.body.isNotEmpty ? res.body : 'Failed to reset password via security question');
+  }
+
+  Future<ResetEscalationModel> createResetAdminEscalation({
+    required String identifier,
+    required String otpCode,
+    String? reason,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/reset-password/escalate-to-admin'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'identifier': identifier,
+            'otp_code': otpCode,
+            'reason': reason ?? '',
+          }),
+        )
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      return ResetEscalationModel.fromJson(data['ticket']);
+    }
+    throw Exception(res.body.isNotEmpty ? res.body : 'Failed to create admin escalation ticket');
+  }
+
+  Future<List<ResetEscalationModel>> listResetEscalations() async {
+    final res = await http
+        .get(Uri.parse('$baseUrl/api/v1/auth/reset-password/escalations'))
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      final List list = data['tickets'] ?? [];
+      return list.map((e) => ResetEscalationModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to list escalation tickets');
+  }
+
+  Future<ResetEscalationModel> adminResolveResetEscalation({
+    required String ticketNumber,
+    required String action,
+    required String adminUserId,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/reset-password/admin-resolve-escalation'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'ticket_number': ticketNumber,
+            'action': action,
+            'admin_user_id': adminUserId,
+          }),
+        )
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      return ResetEscalationModel(
+        id: 'esc-$ticketNumber',
+        ticketNumber: ticketNumber,
+        userId: '',
+        campusHandle: '',
+        fullName: '',
+        whatsAppPhone: '',
+        status: data['status'] ?? 'approved',
+        adminToken: data['admin_token'],
+        createdAt: DateTime.now(),
+        resolvedBy: adminUserId,
+      );
+    }
+    throw Exception(res.body.isNotEmpty ? res.body : 'Failed to resolve escalation ticket');
+  }
+
+  Future<UserModel> resetPasswordWithAdminToken({
+    required String identifier,
+    required String otpCode,
+    required String adminToken,
+    required String newPassword,
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/reset-password/verify-otp-and-admin-token'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'identifier': identifier,
+            'otp_code': otpCode,
+            'admin_token': adminToken,
+            'new_password': newPassword,
+          }),
+        )
+        .timeout(const Duration(seconds: 4));
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(res.body);
+      return UserModel.fromJson(data['user']);
+    }
+    throw Exception(res.body.isNotEmpty ? res.body : 'Failed to reset password with Admin Token');
+  }
+
   Future<bool> checkHealth() async {
     try {
       final res = await http

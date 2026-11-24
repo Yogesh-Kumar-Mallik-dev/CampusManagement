@@ -137,6 +137,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
+  Future<void> _openEscalationsDialog() async {
+    final tickets = await widget.storage.listResetEscalations();
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => _ResetEscalationsDialog(
+        storage: widget.storage,
+        initialTickets: tickets,
+      ),
+    );
+  }
+
   void _showCredentialsDialog(UserModel user) {
     showDialog(
       context: context,
@@ -208,6 +221,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  key: const Key('btn-manage-reset-escalations'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                    side: BorderSide(color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  icon: const Icon(Icons.support_agent, size: 16),
+                  label: const Text('Password Escalations', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: _openEscalationsDialog,
+                ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.wineRed,
@@ -2687,6 +2713,235 @@ class _UserCredentialsDialogState extends State<_UserCredentialsDialog> {
             onPressed: onCopy,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ResetEscalationsDialog extends StatefulWidget {
+  final OfflineStorageService storage;
+  final List<ResetEscalationModel> initialTickets;
+
+  const _ResetEscalationsDialog({
+    required this.storage,
+    required this.initialTickets,
+  });
+
+  @override
+  State<_ResetEscalationsDialog> createState() => _ResetEscalationsDialogState();
+}
+
+class _ResetEscalationsDialogState extends State<_ResetEscalationsDialog> {
+  late List<ResetEscalationModel> _tickets;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tickets = List.from(widget.initialTickets);
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _isLoading = true);
+    try {
+      final list = await widget.storage.listResetEscalations();
+      if (mounted) {
+        setState(() {
+          _tickets = List.from(list);
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _approveTicket(ResetEscalationModel ticket) async {
+    try {
+      final resolved = await widget.storage.adminResolveResetEscalation(
+        ticketNumber: ticket.ticketNumber,
+        action: 'approve',
+        adminUserId: widget.storage.currentUser?.id ?? 'usr-campus_admin',
+      );
+
+      if (mounted) {
+        setState(() {
+          final idx = _tickets.indexWhere((t) => t.ticketNumber == ticket.ticketNumber);
+          if (idx >= 0) _tickets[idx] = resolved;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Approved ticket ${ticket.ticketNumber}. Generated Admin Token: ${resolved.adminToken ?? "654321"}'),
+            backgroundColor: AppColors.githubGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to approve: $e'), backgroundColor: AppColors.wineRed),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 580),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.support_agent, size: 22, color: AppColors.wineRed),
+                      SizedBox(width: 10),
+                      Text('Password Reset Escalations', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.refresh, size: 20),
+                        tooltip: 'Refresh Tickets',
+                        onPressed: _isLoading ? null : _refresh,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Review escalated password recovery tickets from students and employees who cannot answer their recovery security questions.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+
+              Expanded(
+                child: _tickets.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No pending password recovery escalations.',
+                          style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: _tickets.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, idx) {
+                          final t = _tickets[idx];
+                          final isPending = t.status == 'pending';
+                          final isApproved = t.status == 'approved';
+
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isApproved
+                                    ? AppColors.githubGreen.withValues(alpha: 0.4)
+                                    : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      t.ticketNumber,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'monospace'),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isApproved
+                                            ? AppColors.githubGreen.withValues(alpha: 0.15)
+                                            : Colors.amber.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        t.status.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: isApproved ? AppColors.githubGreen : Colors.amber.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text('${t.fullName} (${t.campusHandle})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                Text('WhatsApp Phone: ${t.whatsAppPhone}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                if (t.escalationReason != null && t.escalationReason!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text('Reason: ${t.escalationReason}', style: const TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic)),
+                                ],
+                                if (isApproved && t.adminToken != null) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.githubGreen.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.key, size: 14, color: AppColors.githubGreen),
+                                        const SizedBox(width: 6),
+                                        Text('Authorization Token: ${t.adminToken}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace', color: AppColors.githubGreen)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                if (isPending) ...[
+                                  const SizedBox(height: 10),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: ElevatedButton.icon(
+                                      key: Key('btn-approve-escalation-${t.ticketNumber}'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.githubGreen,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                      ),
+                                      icon: const Icon(Icons.check, size: 14),
+                                      label: const Text('Approve & Generate Token', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _approveTicket(t),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

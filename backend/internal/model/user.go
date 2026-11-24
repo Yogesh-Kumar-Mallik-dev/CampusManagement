@@ -32,6 +32,10 @@ type User struct {
 	IsActive               bool       `json:"is_active"`
 	Status                 string     `json:"status"` // 'active', 'graduated', 'discontinued', 'suspended', 'resigned', 'retired'
 	MustChangePassword     bool       `json:"must_change_password"`
+	IsFirstLogin           bool       `json:"is_first_login"`
+	SecurityQuestion       string     `json:"security_question,omitempty"`
+	SecurityAnswerHash     string     `json:"-"`
+	WhatsAppPhone          string     `json:"whatsapp_phone,omitempty"`
 	PasswordHash           string     `json:"-"`
 	DiscontinuationReason  string     `json:"discontinuation_reason,omitempty"`
 	DiscontinuedAt         *time.Time `json:"discontinued_at,omitempty"`
@@ -160,3 +164,82 @@ type ContractorProfile struct {
 	SupervisorPhone    string     `json:"supervisor_phone,omitempty"`
 	PermittedScopes    []string   `json:"permitted_scopes,omitempty"`
 }
+
+// RequestOTPRequest triggers WhatsApp OTP delivery
+type RequestOTPRequest struct {
+	Identifier string `json:"identifier"` // Campus handle, email, or phone
+	Purpose    string `json:"purpose"`    // "first_login" or "password_reset"
+}
+
+// RequestOTPResponse returns delivery status
+type RequestOTPResponse struct {
+	Status        string `json:"status"`
+	Message       string `json:"message"`
+	TargetPhone   string `json:"target_phone_masked"`
+	ExpiresInSecs int    `json:"expires_in_seconds"`
+	ResendCooldownSecs int `json:"resend_cooldown_seconds"`
+}
+
+// FirstLoginSetPasswordRequest verifies OTP, sets permanent password and configures security question
+type FirstLoginSetPasswordRequest struct {
+	Identifier       string `json:"identifier"`
+	OTPCode          string `json:"otp_code"`
+	NewPassword      string `json:"new_password"`
+	SecurityQuestion string `json:"security_question"`
+	SecurityAnswer   string `json:"security_answer"`
+}
+
+// ResetPasswordWithQuestionRequest uses WhatsApp OTP + Security Question to set new password
+type ResetPasswordWithQuestionRequest struct {
+	Identifier     string `json:"identifier"`
+	OTPCode        string `json:"otp_code"`
+	SecurityAnswer string `json:"security_answer"`
+	NewPassword    string `json:"new_password"`
+}
+
+// ResetEscalationTicket models a pending or resolved IT helpdesk escalation
+type ResetEscalationTicket struct {
+	BaseSyncModel
+	TicketNumber      string     `json:"ticket_number"`
+	UserID            string     `json:"user_id"`
+	CampusHandle      string     `json:"campus_handle"`
+	FullName          string     `json:"full_name"`
+	WhatsAppPhone     string     `json:"whatsapp_phone"`
+	Status            string     `json:"status"` // "pending", "approved", "rejected", "resolved"
+	EscalationReason  string     `json:"escalation_reason"`
+	AdminTokenHash    string     `json:"-"`
+	AdminTokenExpires *time.Time `json:"admin_token_expires,omitempty"`
+	ResolvedBy        string     `json:"resolved_by,omitempty"`
+	ResolvedAt        *time.Time `json:"resolved_at,omitempty"`
+}
+
+// CreateResetEscalationRequest creates an escalation ticket after WhatsApp OTP verification
+type CreateResetEscalationRequest struct {
+	Identifier string `json:"identifier"`
+	OTPCode    string `json:"otp_code"`
+	Reason     string `json:"reason,omitempty"`
+}
+
+// AdminResolveEscalationRequest allows campus admin to approve escalation and generate a token
+type AdminResolveEscalationRequest struct {
+	TicketNumber string `json:"ticket_number"`
+	Action       string `json:"action"` // "approve" or "reject"
+	AdminUserID  string `json:"admin_user_id"`
+}
+
+// AdminResolveEscalationResponse returns the generated admin token on approval
+type AdminResolveEscalationResponse struct {
+	Status       string `json:"status"`
+	TicketNumber string `json:"ticket_number"`
+	AdminToken   string `json:"admin_token,omitempty"`
+	Message      string `json:"message"`
+}
+
+// ResetPasswordWithAdminTokenRequest completes password reset using WhatsApp OTP + Admin Token
+type ResetPasswordWithAdminTokenRequest struct {
+	Identifier  string `json:"identifier"`
+	OTPCode     string `json:"otp_code"`
+	AdminToken  string `json:"admin_token"`
+	NewPassword string `json:"new_password"`
+}
+

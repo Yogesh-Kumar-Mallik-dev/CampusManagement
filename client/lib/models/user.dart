@@ -69,6 +69,9 @@ class UserModel {
   final String? discontinuedAt;
   final String? discontinuedBy;
   final bool mustChangePassword;
+  final bool isFirstLogin;
+  final String? securityQuestion;
+  final String? whatsAppPhone;
   final String? initialPassword;
   final List<String> activeScopes;
   final List<UserRoleAssignmentModel> assignedRoles;
@@ -104,6 +107,9 @@ class UserModel {
     this.discontinuedAt,
     this.discontinuedBy,
     this.mustChangePassword = false,
+    this.isFirstLogin = false,
+    this.securityQuestion,
+    this.whatsAppPhone,
     this.initialPassword,
     this.activeScopes = const [],
     this.assignedRoles = const [],
@@ -438,6 +444,9 @@ class UserModel {
       discontinuedAt: json['discontinued_at']?.toString(),
       discontinuedBy: json['discontinued_by'],
       mustChangePassword: json['must_change_password'] as bool? ?? false,
+      isFirstLogin: json['is_first_login'] as bool? ?? false,
+      securityQuestion: json['security_question'] as String?,
+      whatsAppPhone: json['whatsapp_phone'] as String?,
       initialPassword: json['initial_password'] as String? ?? json['temporary_password'] as String?,
       activeScopes: json['active_scopes'] != null
           ? List<String>.from(json['active_scopes'])
@@ -476,6 +485,9 @@ class UserModel {
       'discontinued_at': discontinuedAt,
       'discontinued_by': discontinuedBy,
       'must_change_password': mustChangePassword,
+      'is_first_login': isFirstLogin,
+      'security_question': securityQuestion,
+      'whatsapp_phone': whatsAppPhone,
       if (initialPassword != null) 'initial_password': initialPassword,
       'active_scopes': activeScopes,
       'assigned_roles': assignedRoles.map((r) => r.toJson()).toList(),
@@ -511,6 +523,9 @@ class UserModel {
     String? discontinuedAt,
     String? discontinuedBy,
     bool? mustChangePassword,
+    bool? isFirstLogin,
+    String? securityQuestion,
+    String? whatsAppPhone,
     String? initialPassword,
     List<String>? activeScopes,
     List<UserRoleAssignmentModel>? assignedRoles,
@@ -544,6 +559,9 @@ class UserModel {
       discontinuedAt: discontinuedAt ?? this.discontinuedAt,
       discontinuedBy: discontinuedBy ?? this.discontinuedBy,
       mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+      isFirstLogin: isFirstLogin ?? this.isFirstLogin,
+      securityQuestion: securityQuestion ?? this.securityQuestion,
+      whatsAppPhone: whatsAppPhone ?? this.whatsAppPhone,
       initialPassword: initialPassword ?? this.initialPassword,
       activeScopes: activeScopes ?? this.activeScopes,
       assignedRoles: assignedRoles ?? this.assignedRoles,
@@ -555,6 +573,9 @@ class UserModel {
       contractorProfile: contractorProfile ?? this.contractorProfile,
     );
   }
+
+  bool get hasSecurityQuestion => securityQuestion != null && securityQuestion!.trim().isNotEmpty;
+  String get effectiveWhatsAppPhone => (whatsAppPhone != null && whatsAppPhone!.isNotEmpty) ? whatsAppPhone! : (phone ?? '');
 
   @override
   bool operator ==(Object other) =>
@@ -617,6 +638,68 @@ class VerifiedDocumentModel {
       'verification_hash': verificationHash,
       'verified_at': verifiedAt,
       'status': status,
+    };
+  }
+}
+
+class ResetEscalationModel {
+  final String id;
+  final String ticketNumber;
+  final String userId;
+  final String campusHandle;
+  final String fullName;
+  final String whatsAppPhone;
+  final String status;
+  final String? escalationReason;
+  final String? adminToken;
+  final DateTime createdAt;
+  final String? resolvedBy;
+
+  ResetEscalationModel({
+    required this.id,
+    required this.ticketNumber,
+    required this.userId,
+    required this.campusHandle,
+    required this.fullName,
+    required this.whatsAppPhone,
+    required this.status,
+    this.escalationReason,
+    this.adminToken,
+    required this.createdAt,
+    this.resolvedBy,
+  });
+
+  factory ResetEscalationModel.fromJson(Map<String, dynamic> json) {
+    return ResetEscalationModel(
+      id: json['id'] ?? '',
+      ticketNumber: json['ticket_number'] ?? '',
+      userId: json['user_id'] ?? '',
+      campusHandle: json['campus_handle'] ?? '',
+      fullName: json['full_name'] ?? '',
+      whatsAppPhone: json['whatsapp_phone'] ?? '',
+      status: json['status'] ?? 'pending',
+      escalationReason: json['escalation_reason'],
+      adminToken: json['admin_token'],
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      resolvedBy: json['resolved_by'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'ticket_number': ticketNumber,
+      'user_id': userId,
+      'campus_handle': campusHandle,
+      'full_name': fullName,
+      'whatsapp_phone': whatsAppPhone,
+      'status': status,
+      'escalation_reason': escalationReason,
+      'admin_token': adminToken,
+      'created_at': createdAt.toIso8601String(),
+      'resolved_by': resolvedBy,
     };
   }
 }

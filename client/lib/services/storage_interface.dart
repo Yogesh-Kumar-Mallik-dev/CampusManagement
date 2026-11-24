@@ -19,6 +19,39 @@ abstract class ICampusApi {
     required String currentPassword,
     required String newPassword,
   });
+  Future<Map<String, dynamic>> requestFirstLoginOtp(String identifier);
+  Future<UserModel> verifyFirstLoginAndSetPassword({
+    required String identifier,
+    required String otpCode,
+    required String newPassword,
+    required String securityQuestion,
+    required String securityAnswer,
+  });
+  Future<Map<String, dynamic>> requestResetPasswordOtp(String identifier);
+  Future<Map<String, dynamic>> getSecurityQuestionPrompt(String identifier);
+  Future<UserModel> resetPasswordWithSecurityQuestion({
+    required String identifier,
+    required String otpCode,
+    required String securityAnswer,
+    required String newPassword,
+  });
+  Future<ResetEscalationModel> createResetAdminEscalation({
+    required String identifier,
+    required String otpCode,
+    String? reason,
+  });
+  Future<List<ResetEscalationModel>> listResetEscalations();
+  Future<ResetEscalationModel> adminResolveResetEscalation({
+    required String ticketNumber,
+    required String action,
+    required String adminUserId,
+  });
+  Future<UserModel> resetPasswordWithAdminToken({
+    required String identifier,
+    required String otpCode,
+    required String adminToken,
+    required String newPassword,
+  });
   Future<bool> checkHealth();
 
   // Academics, Timetable, Notices & Attendance
@@ -392,6 +425,39 @@ abstract class ICampusStorage {
   Future<UserModel> changePassword({
     required String identifier,
     required String currentPassword,
+    required String newPassword,
+  });
+  Future<Map<String, dynamic>> requestFirstLoginOtp(String identifier);
+  Future<UserModel> verifyFirstLoginAndSetPassword({
+    required String identifier,
+    required String otpCode,
+    required String newPassword,
+    required String securityQuestion,
+    required String securityAnswer,
+  });
+  Future<Map<String, dynamic>> requestResetPasswordOtp(String identifier);
+  Future<Map<String, dynamic>> getSecurityQuestionPrompt(String identifier);
+  Future<UserModel> resetPasswordWithSecurityQuestion({
+    required String identifier,
+    required String otpCode,
+    required String securityAnswer,
+    required String newPassword,
+  });
+  Future<ResetEscalationModel> createResetAdminEscalation({
+    required String identifier,
+    required String otpCode,
+    String? reason,
+  });
+  Future<List<ResetEscalationModel>> listResetEscalations();
+  Future<ResetEscalationModel> adminResolveResetEscalation({
+    required String ticketNumber,
+    required String action,
+    required String adminUserId,
+  });
+  Future<UserModel> resetPasswordWithAdminToken({
+    required String identifier,
+    required String otpCode,
+    required String adminToken,
     required String newPassword,
   });
   void logout();

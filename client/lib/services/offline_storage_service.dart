@@ -55,6 +55,11 @@ class OfflineStorageService implements ICampusStorage {
   final Map<String, List<FacultyAllocationModel>> _cachedSectionAllocations = {};
   final Map<String, String> _studentBatchMap = {};
   final Map<String, double> _sectionAttendanceThresholds = {};
+  final List<ResetEscalationModel> _cachedResetEscalations = [];
+  final Map<String, String> _securityQuestions = {};
+  final Map<String, String> _securityAnswers = {};
+  final Map<String, String> _adminResetTokens = {};
+  final Map<String, String> _sentOtps = {};
 
   // Optical Attendance active session & live verified roster
   OpticalSessionModel? _activeOpticalSession;
@@ -235,6 +240,426 @@ class OfflineStorageService implements ICampusStorage {
       return updated;
     }
     throw Exception('User not found in local directory');
+  }
+
+  static String _maskPhone(String phone) {
+    final clean = phone.trim();
+    if (clean.length < 4) return '****';
+    final last4 = clean.substring(clean.length - 4);
+    final prefix = clean.substring(0, clean.length - 4);
+    final masked = prefix.split('').map((c) => c == '+' ? '+' : '*').join('');
+    return '$masked$last4';
+  }
+
+  @override
+  Future<Map<String, dynamic>> requestFirstLoginOtp(String identifier) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.requestFirstLoginOtp(identifier);
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final clean = identifier.trim().toLowerCase();
+    var u = _cachedUsers.cast<UserModel?>().firstWhere(
+      (user) => user != null &&
+          (user.campusHandle.toLowerCase() == clean ||
+           user.email.toLowerCase() == clean ||
+           user.id.toLowerCase() == clean ||
+           user.effectiveWhatsAppPhone.replaceAll(' ', '').endsWith(clean.replaceAll(' ', ''))),
+      orElse: () => null,
+    );
+    if (u == null && enableMockSeeding) {
+      u = getMockUserForHandle(clean);
+      _cachedUsers.add(u);
+    }
+    if (u == null) {
+      throw Exception('User not found in directory');
+    }
+    final targetPhone = u.effectiveWhatsAppPhone.isNotEmpty ? u.effectiveWhatsAppPhone : '+91 98765 43210';
+    _sentOtps[u.campusHandle.toLowerCase()] = '123456';
+
+    return {
+      'status': 'success',
+      'message': 'WhatsApp OTP sent to registered mobile number',
+      'target_phone_masked': _maskPhone(targetPhone),
+      'expires_in_seconds': 300,
+      'resend_cooldown_seconds': 60,
+    };
+  }
+
+  @override
+  Future<UserModel> verifyFirstLoginAndSetPassword({
+    required String identifier,
+    required String otpCode,
+    required String newPassword,
+    required String securityQuestion,
+    required String securityAnswer,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final updated = await api.verifyFirstLoginAndSetPassword(
+          identifier: identifier,
+          otpCode: otpCode,
+          newPassword: newPassword,
+          securityQuestion: securityQuestion,
+          securityAnswer: securityAnswer,
+        );
+        _currentUser = updated;
+        _userPasswords[updated.campusHandle.toLowerCase()] = newPassword;
+        return updated;
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final clean = identifier.trim().toLowerCase();
+    var idx = _cachedUsers.indexWhere((u) =>
+        u.campusHandle.toLowerCase() == clean ||
+        u.email.toLowerCase() == clean ||
+        u.id.toLowerCase() == clean ||
+        u.effectiveWhatsAppPhone.replaceAll(' ', '').endsWith(clean.replaceAll(' ', '')));
+    if (idx < 0 && enableMockSeeding) {
+      final mock = getMockUserForHandle(clean);
+      _cachedUsers.add(mock);
+      idx = _cachedUsers.length - 1;
+    }
+    if (idx < 0) {
+      throw Exception('User not found in local directory');
+    }
+
+    final user = _cachedUsers[idx];
+    final storedOtp = _sentOtps[user.campusHandle.toLowerCase()] ?? '123456';
+    if (otpCode.trim() != storedOtp && otpCode.trim() != '123456') {
+      throw Exception('Invalid WhatsApp OTP verification code');
+    }
+
+    _userPasswords[user.campusHandle.toLowerCase()] = newPassword;
+    _userPasswords[user.email.toLowerCase()] = newPassword;
+    _userPasswords[user.id.toLowerCase()] = newPassword;
+    _securityQuestions[user.campusHandle.toLowerCase()] = securityQuestion;
+    _securityAnswers[user.campusHandle.toLowerCase()] = securityAnswer.trim().toLowerCase();
+
+    final updated = user.copyWith(
+      mustChangePassword: false,
+      isFirstLogin: false,
+      securityQuestion: securityQuestion,
+      initialPassword: null,
+    );
+    _cachedUsers[idx] = updated;
+    _currentUser = updated;
+    return updated;
+  }
+
+  @override
+  Future<Map<String, dynamic>> requestResetPasswordOtp(String identifier) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.requestResetPasswordOtp(identifier);
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final clean = identifier.trim().toLowerCase();
+    var u = _cachedUsers.cast<UserModel?>().firstWhere(
+      (user) => user != null &&
+          (user.campusHandle.toLowerCase() == clean ||
+           user.email.toLowerCase() == clean ||
+           user.id.toLowerCase() == clean ||
+           user.effectiveWhatsAppPhone.replaceAll(' ', '').endsWith(clean.replaceAll(' ', ''))),
+      orElse: () => null,
+    );
+    if (u == null && enableMockSeeding) {
+      u = getMockUserForHandle(clean);
+      _cachedUsers.add(u);
+    }
+    if (u == null) {
+      throw Exception('User not found in directory');
+    }
+    final targetPhone = u.effectiveWhatsAppPhone.isNotEmpty ? u.effectiveWhatsAppPhone : '+91 98765 43210';
+    _sentOtps[u.campusHandle.toLowerCase()] = '123456';
+
+    return {
+      'status': 'success',
+      'message': 'WhatsApp OTP sent to registered mobile number',
+      'target_phone_masked': _maskPhone(targetPhone),
+      'expires_in_seconds': 300,
+      'resend_cooldown_seconds': 60,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> getSecurityQuestionPrompt(String identifier) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        return await api.getSecurityQuestionPrompt(identifier);
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final clean = identifier.trim().toLowerCase();
+    final u = _cachedUsers.cast<UserModel?>().firstWhere(
+      (user) => user != null &&
+          (user.campusHandle.toLowerCase() == clean ||
+           user.email.toLowerCase() == clean ||
+           user.id.toLowerCase() == clean),
+      orElse: () => null,
+    );
+    final sq = u?.securityQuestion ?? _securityQuestions[clean] ?? 'What was your high school name?';
+    return {
+      'campus_handle': u?.campusHandle ?? clean,
+      'security_question': sq,
+      'has_security_question': true,
+    };
+  }
+
+  @override
+  Future<UserModel> resetPasswordWithSecurityQuestion({
+    required String identifier,
+    required String otpCode,
+    required String securityAnswer,
+    required String newPassword,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final updated = await api.resetPasswordWithSecurityQuestion(
+          identifier: identifier,
+          otpCode: otpCode,
+          securityAnswer: securityAnswer,
+          newPassword: newPassword,
+        );
+        _userPasswords[updated.campusHandle.toLowerCase()] = newPassword;
+        return updated;
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final clean = identifier.trim().toLowerCase();
+    var idx = _cachedUsers.indexWhere((u) =>
+        u.campusHandle.toLowerCase() == clean ||
+        u.email.toLowerCase() == clean ||
+        u.id.toLowerCase() == clean);
+    if (idx < 0 && enableMockSeeding) {
+      final mock = getMockUserForHandle(clean);
+      _cachedUsers.add(mock);
+      idx = _cachedUsers.length - 1;
+    }
+    if (idx < 0) {
+      throw Exception('User not found in local directory');
+    }
+
+    final user = _cachedUsers[idx];
+    final storedOtp = _sentOtps[user.campusHandle.toLowerCase()] ?? '123456';
+    if (otpCode.trim() != storedOtp && otpCode.trim() != '123456') {
+      throw Exception('Invalid WhatsApp OTP verification code');
+    }
+
+    final expectedAnswer = _securityAnswers[user.campusHandle.toLowerCase()];
+    if (expectedAnswer != null && expectedAnswer != securityAnswer.trim().toLowerCase()) {
+      throw Exception('Incorrect security answer provided');
+    }
+
+    _userPasswords[user.campusHandle.toLowerCase()] = newPassword;
+    _userPasswords[user.email.toLowerCase()] = newPassword;
+    _userPasswords[user.id.toLowerCase()] = newPassword;
+
+    final updated = user.copyWith(mustChangePassword: false, initialPassword: null);
+    _cachedUsers[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<ResetEscalationModel> createResetAdminEscalation({
+    required String identifier,
+    required String otpCode,
+    String? reason,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final ticket = await api.createResetAdminEscalation(
+          identifier: identifier,
+          otpCode: otpCode,
+          reason: reason,
+        );
+        _cachedResetEscalations.removeWhere((t) => t.ticketNumber == ticket.ticketNumber);
+        _cachedResetEscalations.insert(0, ticket);
+        return ticket;
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final clean = identifier.trim().toLowerCase();
+    var u = _cachedUsers.cast<UserModel?>().firstWhere(
+      (user) => user != null &&
+          (user.campusHandle.toLowerCase() == clean ||
+           user.email.toLowerCase() == clean ||
+           user.id.toLowerCase() == clean),
+      orElse: () => null,
+    );
+    if (u == null && enableMockSeeding) {
+      u = getMockUserForHandle(clean);
+      _cachedUsers.add(u);
+    }
+    if (u == null) {
+      throw Exception('User not found in local directory');
+    }
+
+    final ticketNumber = 'ESC-RESET-${1000 + _cachedResetEscalations.length + 1}';
+    final ticket = ResetEscalationModel(
+      id: 'esc-$ticketNumber',
+      ticketNumber: ticketNumber,
+      userId: u.id,
+      campusHandle: u.campusHandle,
+      fullName: u.fullName,
+      whatsAppPhone: u.effectiveWhatsAppPhone.isNotEmpty ? u.effectiveWhatsAppPhone : '+91 98765 43210',
+      status: 'pending',
+      escalationReason: reason ?? 'Forgot security question answer',
+      createdAt: DateTime.now(),
+    );
+
+    _cachedResetEscalations.removeWhere((t) => t.ticketNumber == ticketNumber);
+    _cachedResetEscalations.insert(0, ticket);
+    return ticket;
+  }
+
+  @override
+  Future<List<ResetEscalationModel>> listResetEscalations() async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.listResetEscalations();
+        _cachedResetEscalations.clear();
+        _cachedResetEscalations.addAll(list);
+        return list;
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+    return List.unmodifiable(_cachedResetEscalations);
+  }
+
+  @override
+  Future<ResetEscalationModel> adminResolveResetEscalation({
+    required String ticketNumber,
+    required String action,
+    required String adminUserId,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final ticket = await api.adminResolveResetEscalation(
+          ticketNumber: ticketNumber,
+          action: action,
+          adminUserId: adminUserId,
+        );
+        final idx = _cachedResetEscalations.indexWhere((t) => t.ticketNumber == ticketNumber);
+        if (idx >= 0) _cachedResetEscalations[idx] = ticket;
+        return ticket;
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final idx = _cachedResetEscalations.indexWhere((t) => t.ticketNumber == ticketNumber);
+    if (idx < 0) {
+      throw Exception('Escalation ticket $ticketNumber not found');
+    }
+
+    final ticket = _cachedResetEscalations[idx];
+    final token = action == 'approve' ? '654321' : null;
+    if (token != null) {
+      _adminResetTokens[ticketNumber] = token;
+    }
+
+    final updated = ResetEscalationModel(
+      id: ticket.id,
+      ticketNumber: ticket.ticketNumber,
+      userId: ticket.userId,
+      campusHandle: ticket.campusHandle,
+      fullName: ticket.fullName,
+      whatsAppPhone: ticket.whatsAppPhone,
+      status: action == 'approve' ? 'approved' : 'rejected',
+      escalationReason: ticket.escalationReason,
+      adminToken: token,
+      createdAt: ticket.createdAt,
+      resolvedBy: adminUserId,
+    );
+
+    _cachedResetEscalations[idx] = updated;
+    return updated;
+  }
+
+  @override
+  Future<UserModel> resetPasswordWithAdminToken({
+    required String identifier,
+    required String otpCode,
+    required String adminToken,
+    required String newPassword,
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final updated = await api.resetPasswordWithAdminToken(
+          identifier: identifier,
+          otpCode: otpCode,
+          adminToken: adminToken,
+          newPassword: newPassword,
+        );
+        _userPasswords[updated.campusHandle.toLowerCase()] = newPassword;
+        return updated;
+      } catch (e) {
+        if (isOnline) rethrow;
+      }
+    }
+
+    final clean = identifier.trim().toLowerCase();
+    var idx = _cachedUsers.indexWhere((u) =>
+        u.campusHandle.toLowerCase() == clean ||
+        u.email.toLowerCase() == clean ||
+        u.id.toLowerCase() == clean);
+    if (idx < 0 && enableMockSeeding) {
+      final mock = getMockUserForHandle(clean);
+      _cachedUsers.add(mock);
+      idx = _cachedUsers.length - 1;
+    }
+    if (idx < 0) {
+      throw Exception('User not found in local directory');
+    }
+
+    final user = _cachedUsers[idx];
+    final storedOtp = _sentOtps[user.campusHandle.toLowerCase()] ?? '123456';
+    if (otpCode.trim() != storedOtp && otpCode.trim() != '123456') {
+      throw Exception('Invalid WhatsApp OTP verification code');
+    }
+
+    final matchingTicket = _cachedResetEscalations.firstWhere(
+      (t) => t.userId == user.id && t.status == 'approved',
+      orElse: () => throw Exception('No approved escalation ticket found for this account'),
+    );
+
+    final expectedToken = _adminResetTokens[matchingTicket.ticketNumber] ?? matchingTicket.adminToken ?? '654321';
+    if (adminToken.trim() != expectedToken && adminToken.trim() != '654321') {
+      throw Exception('Invalid Admin Authorization Token');
+    }
+
+    _userPasswords[user.campusHandle.toLowerCase()] = newPassword;
+    _userPasswords[user.email.toLowerCase()] = newPassword;
+    _userPasswords[user.id.toLowerCase()] = newPassword;
+
+    final updated = user.copyWith(mustChangePassword: false, initialPassword: null);
+    _cachedUsers[idx] = updated;
+    return updated;
   }
 
   void logout() {

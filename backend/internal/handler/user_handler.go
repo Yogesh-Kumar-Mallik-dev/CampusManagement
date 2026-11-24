@@ -42,6 +42,7 @@ type UserHandler struct {
 	academicProfiles   map[string]model.AcademicProfile
 	adminProfiles      map[string]model.AdministrativeProfile
 	contractorProfiles map[string]model.ContractorProfile
+	resetEscalations   map[string]model.ResetEscalationTicket
 }
 
 func NewUserHandler(idGen idgen.IDServiceInterface, permService service.PermissionServiceInterface, dbPool ...*pgxpool.Pool) *UserHandler {
@@ -60,6 +61,7 @@ func NewUserHandler(idGen idgen.IDServiceInterface, permService service.Permissi
 		academicProfiles:   make(map[string]model.AcademicProfile),
 		adminProfiles:      make(map[string]model.AdministrativeProfile),
 		contractorProfiles: make(map[string]model.ContractorProfile),
+		resetEscalations:   make(map[string]model.ResetEscalationTicket),
 	}
 
 	h.loadUsersFromDB()
@@ -336,6 +338,8 @@ func (h *UserHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 		IsActive:               true,
 		Status:                 "active",
 		MustChangePassword:     true,
+		IsFirstLogin:           true,
+		WhatsAppPhone:          req.Phone,
 		PasswordHash:           passHash,
 	}
 
@@ -494,6 +498,8 @@ func (h *UserHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 		IsActive:              true,
 		Status:                "active",
 		MustChangePassword:    true,
+		IsFirstLogin:          true,
+		WhatsAppPhone:         req.Phone,
 		PasswordHash:          passHash,
 	}
 
@@ -672,6 +678,8 @@ func (h *UserHandler) CreateContractor(w http.ResponseWriter, r *http.Request) {
 		IsActive:           true,
 		Status:             "active",
 		MustChangePassword: true,
+		IsFirstLogin:       true,
+		WhatsAppPhone:      req.Phone,
 		PasswordHash:       passHash,
 	}
 
@@ -1171,7 +1179,10 @@ func (h *UserHandler) FindUser(identifier string) (model.User, bool) {
 		}
 	}
 	for _, u := range h.users {
-		if strings.ToLower(u.CampusHandle) == clean || strings.ToLower(u.Email) == clean || strings.ToLower(u.ID) == clean {
+		cleanPhone := strings.TrimPrefix(strings.ReplaceAll(clean, " ", ""), "+91")
+		uPhone := strings.TrimPrefix(strings.ReplaceAll(u.Phone, " ", ""), "+91")
+		uWhatsApp := strings.TrimPrefix(strings.ReplaceAll(u.WhatsAppPhone, " ", ""), "+91")
+		if strings.ToLower(u.CampusHandle) == clean || strings.ToLower(u.Email) == clean || strings.ToLower(u.ID) == clean || (cleanPhone != "" && (uPhone == cleanPhone || uWhatsApp == cleanPhone)) {
 			h.mu.RUnlock()
 			return u, true
 		}
@@ -1256,6 +1267,95 @@ func (h *UserHandler) UpdateUserPassword(identifier, newPassword string) (model.
 	}
 
 	return u, nil
+}
+
+// UpdateUserPasswordAndSecurity sets new password, security question & answer hash, clears must_change_password and is_first_login
+func (h *UserHandler) UpdateUserPasswordAndSecurity(identifier, newPassword, securityQuestion, securityAnswer string) (model.User, error) {
+	clean := strings.TrimSpace(strings.ToLower(identifier))
+	if clean == "" {
+		return model.User{}, fmt.Errorf("identifier is required")
+	}
+
+	u, ok := h.FindUser(clean)
+	if !ok {
+		return model.User{}, fmt.Errorf("user not found")
+	}
+
+	h.mu.Lock()
+	targetID := u.ID
+	u.PasswordHash = HashPassword(newPassword)
+	u.MustChangePassword = false
+	u.IsFirstLogin = false
+	if securityQuestion != "" {
+		u.SecurityQuestion = securityQuestion
+	}
+	if securityAnswer != "" {
+		u.SecurityAnswerHash = service.HashSecurityAnswer(securityAnswer)
+	}
+	u.UpdatedAt = time.Now().UTC()
+	h.users[targetID] = u
+	h.handleToID[strings.ToLower(u.CampusHandle)] = targetID
+	h.handleToID[u.CampusHandle] = targetID
+	h.mu.Unlock()
+
+	if h.db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = h.db.Exec(ctx, `UPDATE users SET password_hash = $1, must_change_password = false, is_first_login = false, security_question = $2, security_answer_hash = $3, updated_at = $4 WHERE id = $5`, u.PasswordHash, u.SecurityQuestion, u.SecurityAnswerHash, u.UpdatedAt, targetID)
+	}
+
+	return u, nil
+}
+
+func (h *UserHandler) SaveResetEscalation(ticket model.ResetEscalationTicket) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.resetEscalations[ticket.TicketNumber] = ticket
+}
+
+func (h *UserHandler) ListResetEscalations() []model.ResetEscalationTicket {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	list := make([]model.ResetEscalationTicket, 0, len(h.resetEscalations))
+	for _, t := range h.resetEscalations {
+		list = append(list, t)
+	}
+	return list
+}
+
+func (h *UserHandler) GetResetEscalation(ticketNum string) (model.ResetEscalationTicket, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	t, ok := h.resetEscalations[ticketNum]
+	return t, ok
+}
+
+func (h *UserHandler) ResolveResetEscalation(ticketNum string, action string, adminToken string, adminUserID string) (model.ResetEscalationTicket, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	ticket, ok := h.resetEscalations[ticketNum]
+	if !ok {
+		return model.ResetEscalationTicket{}, fmt.Errorf("ticket not found")
+	}
+
+	now := time.Now().UTC()
+	if action == "approve" {
+		ticket.Status = "approved"
+		ticket.AdminTokenHash = HashPassword(adminToken)
+		exp := now.Add(24 * time.Hour)
+		ticket.AdminTokenExpires = &exp
+	} else if action == "reject" {
+		ticket.Status = "rejected"
+	} else if action == "resolved" {
+		ticket.Status = "resolved"
+	}
+	ticket.ResolvedBy = adminUserID
+	ticket.ResolvedAt = &now
+	ticket.UpdatedAt = now
+
+	h.resetEscalations[ticketNum] = ticket
+	return ticket, nil
 }
 
 // ListTeachers returns all academic employee users for department assignment

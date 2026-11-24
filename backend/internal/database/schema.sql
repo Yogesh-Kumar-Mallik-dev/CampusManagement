@@ -50,6 +50,10 @@ CREATE TABLE IF NOT EXISTS users (
     -- Authentication & Account State
     password_hash VARCHAR(255),
     must_change_password BOOLEAN DEFAULT TRUE,
+    is_first_login BOOLEAN DEFAULT TRUE,
+    security_question VARCHAR(255),
+    security_answer_hash VARCHAR(255),
+    whatsapp_phone VARCHAR(32),
     is_active BOOLEAN DEFAULT TRUE,
     status VARCHAR(32) DEFAULT 'active' CHECK (status IN ('active', 'graduated', 'discontinued', 'suspended', 'resigned', 'retired')),
     discontinuation_reason TEXT,
@@ -66,6 +70,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_users_roll_no ON users(university_roll_no) 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_reg_no ON users(university_reg_no) WHERE university_reg_no IS NOT NULL AND is_deleted = FALSE;
 CREATE INDEX IF NOT EXISTS idx_users_archetype ON users(archetype);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+
+CREATE TABLE IF NOT EXISTS password_reset_escalations (
+    id VARCHAR(64) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id VARCHAR(64) REFERENCES users(id) ON DELETE CASCADE,
+    phone VARCHAR(32) NOT NULL,
+    ticket_number VARCHAR(64) UNIQUE NOT NULL,
+    status VARCHAR(32) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'resolved')),
+    admin_token_hash VARCHAR(255),
+    admin_token_expires_at TIMESTAMPTZ,
+    escalation_reason TEXT,
+    resolved_by VARCHAR(64),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_reset_escalations_status ON password_reset_escalations(status);
+CREATE INDEX IF NOT EXISTS idx_reset_escalations_user_id ON password_reset_escalations(user_id);
 
 -- ------------------------------------------------------------------------------
 -- 3. SCOPE HIERARCHY (Institutions, Departments, Hostels, Clubs, Facilities)

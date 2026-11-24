@@ -315,6 +315,15 @@ func (c *Container) BuildMux() *http.ServeMux {
 	if c.AuthHandler != nil {
 		mux.HandleFunc("/api/v1/auth/login", c.AuthHandler.Login)
 		mux.HandleFunc("/api/v1/auth/change-password", c.AuthHandler.ChangePassword)
+		mux.HandleFunc("/api/v1/auth/first-login/request-otp", c.AuthHandler.RequestFirstLoginOTP)
+		mux.HandleFunc("/api/v1/auth/first-login/verify-and-set-password", c.AuthHandler.FirstLoginSetPassword)
+		mux.HandleFunc("/api/v1/auth/reset-password/request-otp", c.AuthHandler.RequestResetPasswordOTP)
+		mux.HandleFunc("/api/v1/auth/reset-password/security-question", c.AuthHandler.GetSecurityQuestionPrompt)
+		mux.HandleFunc("/api/v1/auth/reset-password/verify-otp-and-question", c.AuthHandler.ResetPasswordWithSecurityQuestion)
+		mux.HandleFunc("/api/v1/auth/reset-password/escalate-to-admin", c.AuthHandler.CreateResetEscalation)
+		mux.HandleFunc("/api/v1/auth/reset-password/escalations", c.AuthHandler.ListResetEscalations)
+		mux.HandleFunc("/api/v1/auth/reset-password/admin-resolve-escalation", c.AuthHandler.AdminResolveEscalation)
+		mux.HandleFunc("/api/v1/auth/reset-password/verify-otp-and-admin-token", c.AuthHandler.ResetPasswordWithAdminToken)
 	}
 
 	// Health check endpoints
