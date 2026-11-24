@@ -327,6 +327,68 @@ func (h *AcademicHandler) EndOpticalSession(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+func (h *AcademicHandler) HandleManualOpticalRecord(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodPost:
+		var req struct {
+			SessionID   string `json:"session_id"`
+			StudentID   string `json:"student_id"`
+			StudentName string `json:"student_name"`
+			Handle      string `json:"campus_handle"`
+			Remarks     string `json:"remarks"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.SessionID == "" || req.StudentID == "" {
+			http.Error(w, "session_id and student_id are required", http.StatusBadRequest)
+			return
+		}
+		rec, err := h.academicService.AddManualOpticalRecord(r.Context(), req.SessionID, req.StudentID, req.StudentName, req.Handle, req.Remarks)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(rec)
+
+	case http.MethodDelete:
+		sessionID := r.URL.Query().Get("session_id")
+		recordID := r.URL.Query().Get("record_id")
+		if sessionID == "" || recordID == "" {
+			var bodyReq struct {
+				SessionID string `json:"session_id"`
+				RecordID  string `json:"record_id"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&bodyReq)
+			if sessionID == "" {
+				sessionID = bodyReq.SessionID
+			}
+			if recordID == "" {
+				recordID = bodyReq.RecordID
+			}
+		}
+		if sessionID == "" || recordID == "" {
+			http.Error(w, "session_id and record_id are required", http.StatusBadRequest)
+			return
+		}
+		err := h.academicService.RemoveManualOpticalRecord(r.Context(), sessionID, recordID)
+		if err != nil {
+			if strings.Contains(err.Error(), "cannot manually remove") {
+				http.Error(w, err.Error(), http.StatusForbidden)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":    "removed",
+			"record_id": recordID,
+		})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 // ----------------------------------------------------
 // NOTICES
 // ----------------------------------------------------

@@ -2725,7 +2725,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final p = _user.studentProfile ?? {};
       final admissionYear = p['admission_year'] ?? 2025;
       final entryType = p['entry_type'] ?? 'regular';
-      final program = p['program'] ?? 'btech';
+      final program = p['program'] ?? 'Not assigned';
       final semester = p['current_semester'] ?? 1;
       final batchYear = p['batch_year'] ?? (admissionYear + 4);
       final section = (_user.sectionScope?.isNotEmpty == true ? _user.sectionScope : p['section_scope']) ?? 'Not assigned';

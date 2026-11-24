@@ -3495,10 +3495,41 @@ class _AddSectionDialogState extends State<_AddSectionDialog> {
                           style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
                         ),
                         const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: widget.programs.map((p) {
+                        if (widget.programs.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF261E14) : const Color(0xFFFFF8E6),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF7D5A1E) : const Color(0xFFF1D592),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                AppSvgIcon(
+                                  svgString: AppSvgIcon.alertTriangle,
+                                  size: 16,
+                                  color: isDark ? const Color(0xFFE3B341) : const Color(0xFF9E6A03),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'No degree programs configured yet. Create a degree program before defining sections.',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: isDark ? const Color(0xFFE3B341) : const Color(0xFF9E6A03),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: widget.programs.map((p) {
                             final isSelected = _selectedProgramIds.contains(p.id);
                             return FilterChip(
                               label: Text('${p.code} - ${p.name}', style: const TextStyle(fontSize: 11)),

@@ -665,3 +665,95 @@ func (h *DepartmentHandler) HandleFacultyWorkload(w http.ResponseWriter, r *http
 	_ = json.NewEncoder(w).Encode(summaries)
 }
 
+// HandleAssignments handles GET and POST /api/v1/academics/assignments
+func (h *DepartmentHandler) HandleAssignments(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		secID := r.URL.Query().Get("section_id")
+		subID := r.URL.Query().Get("subject_id")
+		list, err := h.academicService.ListAssignments(r.Context(), secID, subID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(list)
+	case http.MethodPost:
+		var req model.Assignment
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		created, err := h.academicService.CreateAssignment(r.Context(), req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(created)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// HandleSubmissions handles GET and POST /api/v1/academics/assignments/submissions
+func (h *DepartmentHandler) HandleSubmissions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		assignID := r.URL.Query().Get("assignment_id")
+		list, err := h.academicService.ListSubmissions(r.Context(), assignID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(list)
+	case http.MethodPost:
+		var sub model.AssignmentSubmission
+		if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		created, err := h.academicService.SubmitAssignment(r.Context(), sub)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(created)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// HandleGradeSubmission handles POST /api/v1/academics/assignments/grade
+func (h *DepartmentHandler) HandleGradeSubmission(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+
+	var req struct {
+		SubmissionID string `json:"submission_id"`
+		Marks        int    `json:"marks"`
+		Feedback     string `json:"feedback"`
+		GradedBy     string `json:"graded_by"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+	if req.SubmissionID == "" {
+		http.Error(w, "submission_id is required", http.StatusBadRequest)
+		return
+	}
+
+	graded, err := h.academicService.GradeSubmission(r.Context(), req.SubmissionID, req.Marks, req.Feedback, req.GradedBy)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(graded)
+}
+

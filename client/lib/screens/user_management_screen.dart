@@ -875,7 +875,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   final _stuAdvisor = TextEditingController();
   int _stuAdmissionYear = DateTime.now().year;
   String _stuEntryType = 'regular'; // 'regular', 'lateral', 'transfer'
-  String _stuProgram = 'btech'; // code or id
+  String? _stuProgram; // dynamic code or id
 
   // Employee Form Controllers
   final _empFirst = TextEditingController();
@@ -892,7 +892,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
   bool _empIsAcademic = true;
   String _empAcademicRank = 'Assistant Professor';
   final _empCabin = TextEditingController();
-  String _empDept = 'dept:cse';
+  String? _empDept; // dynamic code or id
 
   // Administrative track options
   bool _empIsAdmin = false;
@@ -952,10 +952,15 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
             } else {
               _stuBranch = null;
             }
+          } else {
+            _stuProgram = null;
+            _stuBranch = null;
           }
           if (_availableDepartments.isNotEmpty) {
             final firstDept = _availableDepartments.first;
             _empDept = firstDept.code.isNotEmpty ? 'dept:${firstDept.code.toLowerCase()}' : firstDept.id;
+          } else {
+            _empDept = null;
           }
         });
       }
@@ -1026,9 +1031,10 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
     final cleanName = name.replaceAll(RegExp(r'[^a-z0-9]'), '');
     final prefixName = cleanName.isEmpty ? 'name' : cleanName;
     final entryCode = _stuEntryType == 'regular' ? 'r' : (_stuEntryType == 'lateral' ? 'l' : 't');
+    final progVal = (_stuProgram != null && _stuProgram!.isNotEmpty) ? _stuProgram! : 'prog';
     final progPart = (_stuBranch != null && _stuBranch!.isNotEmpty)
-        ? '${_stuProgram}_${_stuBranch!}'.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')
-        : _stuProgram.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+        ? '${progVal}_${_stuBranch!}'.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')
+        : progVal.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     return '${prefixName}_${_stuAdmissionYear}_${entryCode}_${progPart}_#';
   }
 
@@ -1060,6 +1066,11 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
       return;
     }
 
+    if (_availablePrograms.isEmpty || _stuProgram == null || _stuProgram!.isEmpty) {
+      setState(() => _errorMessage = 'Cannot admit student: No degree programs configured. Please configure at least one degree program in Academic Management first.');
+      return;
+    }
+
     final initialPass = _autoGeneratePassword
         ? _generatedPassword
         : _initialPasswordController.text.trim();
@@ -1088,7 +1099,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'academic_name': _stuAcademicName.text.trim().isNotEmpty ? _stuAcademicName.text.trim() : null,
         'admission_year': _stuAdmissionYear,
         'entry_type': _stuEntryType,
-        'program': _stuProgram,
+        'program': _stuProgram!,
         if (_stuBranch != null && _stuBranch!.isNotEmpty) 'branch': _stuBranch,
         'admission_application_no': _stuAppNo.text.trim(),
         'university_roll_no': _stuRollNo.text.trim(),
@@ -1124,6 +1135,11 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
       return;
     }
 
+    if (_empIsAcademic && (_availableDepartments.isEmpty || _empDept == null || _empDept!.isEmpty)) {
+      setState(() => _errorMessage = 'Cannot affiliate academic employee: No academic departments configured. Please configure departments in Academic Management first.');
+      return;
+    }
+
     final initialPass = _autoGeneratePassword
         ? _generatedPassword
         : _initialPasswordController.text.trim();
@@ -1155,7 +1171,7 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
         'is_academic': _empIsAcademic,
         'academic_rank': _empAcademicRank,
         'cabin_location': _empCabin.text.trim(),
-        'department_affiliations': _empDept.isNotEmpty ? [_empDept] : <String>[],
+        'department_affiliations': (_empDept != null && _empDept!.isNotEmpty) ? [_empDept!] : <String>[],
         'is_administrative': _empIsAdmin,
         'primary_unit': _empAdminUnit,
         'designation': _empDesignation.text.trim().isNotEmpty ? _empDesignation.text.trim() : '',
@@ -1572,19 +1588,17 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                 isDark,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildDropdown(
-                'Degree Program',
-                _stuProgram,
-                _availablePrograms.isNotEmpty
-                    ? _availablePrograms.map((p) => p.code.isNotEmpty ? p.code : p.id).toList()
-                    : ['btech', 'mtech', 'phd', 'bba', 'mba', 'bca', 'mca'],
-                (val) {
-                  if (val == null) return;
-                  setState(() {
-                    _stuProgram = val;
-                    if (_availablePrograms.isNotEmpty) {
+            if (_availablePrograms.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDropdown(
+                  'Degree Program',
+                  _stuProgram ?? (_availablePrograms.first.code.isNotEmpty ? _availablePrograms.first.code : _availablePrograms.first.id),
+                  _availablePrograms.map((p) => p.code.isNotEmpty ? p.code : p.id).toList(),
+                  (val) {
+                    if (val == null) return;
+                    setState(() {
+                      _stuProgram = val;
                       final pMatch = _availablePrograms.cast<ProgramModel?>().firstWhere(
                         (p) => p != null && (p.code.toLowerCase() == val.toLowerCase() || p.id.toLowerCase() == val.toLowerCase()),
                         orElse: () => null,
@@ -1595,35 +1609,72 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                       } else {
                         _stuBranch = null;
                       }
-                    }
-                  });
-                },
-                isDark,
-                itemLabels: _availablePrograms.isNotEmpty
-                    ? {
-                        for (final p in _availablePrograms)
-                          (p.code.isNotEmpty ? p.code : p.id): '${p.name} (${p.code})',
-                      }
-                    : const {
-                        'btech': 'B.Tech (Bachelor of Technology)',
-                        'mtech': 'M.Tech (Master of Technology)',
-                        'phd': 'Ph.D (Doctor of Philosophy)',
-                        'bba': 'BBA (Bachelor of Business Administration)',
-                        'mba': 'MBA (Master of Business Administration)',
-                        'bca': 'BCA (Bachelor of Computer Applications)',
-                        'mca': 'MCA (Master of Computer Applications)',
-                      },
+                    });
+                  },
+                  isDark,
+                  itemLabels: {
+                    for (final p in _availablePrograms)
+                      (p.code.isNotEmpty ? p.code : p.id): '${p.name} (${p.code})',
+                  },
+                ),
               ),
-            ),
+            ],
           ],
         ),
-        if (_availablePrograms.isNotEmpty) ...[
+        if (_availablePrograms.isEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF261E14) : const Color(0xFFFFF8E6),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark ? const Color(0xFF7D5A1E) : const Color(0xFFF1D592),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppSvgIcon(
+                  svgString: AppSvgIcon.alertTriangle,
+                  size: 20,
+                  color: isDark ? const Color(0xFFE3B341) : const Color(0xFF9E6A03),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No Degree Programs Configured',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFFE3B341) : const Color(0xFF9E6A03),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'No degree programs have been created yet. You must configure at least one degree program in Academic Management before admitting students.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (_availablePrograms.isNotEmpty && _stuProgram != null) ...[
           () {
             final pMatch = _availablePrograms.cast<ProgramModel?>().firstWhere(
-              (p) => p != null && (p.code.toLowerCase() == _stuProgram.toLowerCase() || p.id.toLowerCase() == _stuProgram.toLowerCase()),
+              (p) => p != null && (p.code.toLowerCase() == _stuProgram!.toLowerCase() || p.id.toLowerCase() == _stuProgram!.toLowerCase()),
               orElse: () => null,
             );
-            if (pMatch != null && pMatch.hasBranches && pMatch.branches.isNotEmpty) {
+            if (pMatch != null && pMatch.hasBranches) {
               final act = pMatch.branches.where((b) => !b.isRetired).toList();
               if (act.isNotEmpty) {
                 final currentBranch = _stuBranch ?? (act.first.code.isNotEmpty ? act.first.code : act.first.name);
@@ -1639,6 +1690,18 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
                       for (final b in act)
                         (b.code.isNotEmpty ? b.code : b.name): '${b.name} (${b.code})',
                     },
+                  ),
+                );
+              } else {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'No branches configured for this program. Student will be enrolled in core track.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
                   ),
                 );
               }
@@ -1783,27 +1846,72 @@ class _UserCreationDialogState extends State<_UserCreationDialog> {
           Padding(
             padding: const EdgeInsets.only(left: 20),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildDropdown(
-                        'Department Affiliation',
-                        _empDept,
-                        _availableDepartments.isNotEmpty
-                            ? _availableDepartments.map((d) => d.code.isNotEmpty ? 'dept:${d.code.toLowerCase()}' : d.id).toList()
-                            : ['dept:cse', 'dept:ece', 'dept:me', 'dept:mgmt'],
-                        (val) => setState(() => _empDept = val!),
-                        isDark,
-                        itemLabels: _availableDepartments.isNotEmpty
-                            ? {
-                                for (final d in _availableDepartments)
-                                  (d.code.isNotEmpty ? 'dept:${d.code.toLowerCase()}' : d.id): '${d.name} (${d.code})',
-                              }
-                            : null,
+                if (_availableDepartments.isEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF261E14) : const Color(0xFFFFF8E6),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF7D5A1E) : const Color(0xFFF1D592),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppSvgIcon(
+                          svgString: AppSvgIcon.alertTriangle,
+                          size: 20,
+                          color: isDark ? const Color(0xFFE3B341) : const Color(0xFF9E6A03),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No Academic Departments Configured',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? const Color(0xFFE3B341) : const Color(0xFF9E6A03),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'No academic departments have been created yet. Please create a department in Academic Management before affiliating faculty members.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Row(
+                  children: [
+                    if (_availableDepartments.isNotEmpty) ...[
+                      Expanded(
+                        child: _buildDropdown(
+                          'Department Affiliation',
+                          _empDept ?? (_availableDepartments.first.code.isNotEmpty ? 'dept:${_availableDepartments.first.code.toLowerCase()}' : _availableDepartments.first.id),
+                          _availableDepartments.map((d) => d.code.isNotEmpty ? 'dept:${d.code.toLowerCase()}' : d.id).toList(),
+                          (val) => setState(() => _empDept = val!),
+                          isDark,
+                          itemLabels: {
+                            for (final d in _availableDepartments)
+                              (d.code.isNotEmpty ? 'dept:${d.code.toLowerCase()}' : d.id): '${d.name} (${d.code})',
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(
                       child: _buildDropdown(
                         'Academic Rank',

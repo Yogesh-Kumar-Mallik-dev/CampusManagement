@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_client/models/academic.dart';
 import 'package:campus_client/models/user.dart';
 import 'package:campus_client/screens/login_screen.dart';
 import 'package:campus_client/screens/user_management_screen.dart';
@@ -209,6 +210,16 @@ void main() {
         archetype: 'employee',
         permissions: const ['*'],
       );
+
+      // Seed an active program so the student form has a valid degree program
+      await storage.createProgram(ProgramModel(
+        id: 'prog-btech-cse',
+        code: 'BTECH-CSE',
+        name: 'B.Tech Computer Science',
+        degreeLevel: 'undergraduate',
+        totalSemesters: 8,
+        durationYears: 4,
+      ));
 
       await tester.pumpWidget(MaterialApp(
         home: UserManagementScreen(

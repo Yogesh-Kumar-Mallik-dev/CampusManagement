@@ -300,3 +300,33 @@ type CreateSectionRequest struct {
 	TeacherIDs     []string `json:"teacher_ids,omitempty"`
 }
 
+// Assignment represents coursework assigned by a teacher to a section
+type Assignment struct {
+	ID          string    `json:"id"`
+	SectionID   string    `json:"section_id"`
+	SubjectID   string    `json:"subject_id"`
+	SubjectName string    `json:"subject_name,omitempty"`
+	TeacherID   string    `json:"teacher_id"`
+	TeacherName string    `json:"teacher_name,omitempty"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	MaxMarks    int       `json:"max_marks"`
+	DueDate     string    `json:"due_date"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// AssignmentSubmission represents a student submission and teacher's evaluation
+type AssignmentSubmission struct {
+	ID           string     `json:"id"`
+	AssignmentID string     `json:"assignment_id"`
+	StudentID    string     `json:"student_id"`
+	StudentName  string     `json:"student_name"`
+	StudentRoll  string     `json:"student_roll,omitempty"`
+	Content      string     `json:"content"`
+	SubmittedAt  time.Time  `json:"submitted_at"`
+	MarksAwarded *int       `json:"marks_awarded,omitempty"`
+	Feedback     string     `json:"feedback,omitempty"`
+	GradedBy     string     `json:"graded_by,omitempty"`
+	GradedAt     *time.Time `json:"graded_at,omitempty"`
+}
+

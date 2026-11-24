@@ -483,6 +483,250 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
     );
   }
 
+  void _showAddMealDialog() {
+    String selectedDay = _selectedDay;
+    String selectedMealType = selectedDay == 'sunday' ? 'brunch' : 'breakfast';
+    final titleCtrl = TextEditingController(text: selectedMealType == 'brunch' ? 'Sunday Grand Brunch' : 'Special Meal Session');
+    final startCtrl = TextEditingController(text: selectedDay == 'sunday' ? '10:00' : '07:30');
+    final endCtrl = TextEditingController(text: selectedDay == 'sunday' ? '13:00' : '09:30');
+    final summaryCtrl = TextEditingController(text: 'Special chef meal and beverage items');
+    final itemsCtrl = TextEditingController(text: 'Chef Special, Seasonal Beverage, Sweet Delight');
+    String? validationError;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final isSunday = selectedDay == 'sunday';
+
+          return AlertDialog(
+            key: const Key('dialog-add-mess-meal'),
+            title: const Row(
+              children: [
+                Icon(Icons.restaurant_menu, size: 20, color: AppColors.wineRed),
+                SizedBox(width: 8),
+                Text('Add Mess Menu Slot', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Configure a scheduled meal or custom feast menu for residential hostel students.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Day of Week
+                    const Text('Day of Week', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    AppDropdown<String>(
+                      key: const Key('dropdown-add-meal-day'),
+                      value: selectedDay,
+                      items: _daysOfWeek.map((d) => AppDropdownItem(value: d, label: d.toUpperCase())).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedDay = val;
+                            if (val == 'sunday') {
+                              selectedMealType = 'brunch';
+                              startCtrl.text = '10:00';
+                              endCtrl.text = '13:00';
+                            } else if (selectedMealType == 'brunch') {
+                              selectedMealType = 'breakfast';
+                              startCtrl.text = '07:30';
+                              endCtrl.text = '09:30';
+                            }
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Meal Type
+                    const Text('Meal Type', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    AppDropdown<String>(
+                      key: const Key('dropdown-add-meal-type'),
+                      value: selectedMealType,
+                      items: isSunday
+                          ? const [
+                              AppDropdownItem(value: 'brunch', label: 'Brunch (10:00 - 13:00)'),
+                              AppDropdownItem(value: 'dinner', label: 'Dinner (19:30 - 21:30)'),
+                            ]
+                          : const [
+                              AppDropdownItem(value: 'breakfast', label: 'Breakfast'),
+                              AppDropdownItem(value: 'lunch', label: 'Lunch'),
+                              AppDropdownItem(value: 'snacks', label: 'Evening Snacks / High Tea'),
+                              AppDropdownItem(value: 'dinner', label: 'Dinner'),
+                            ],
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedMealType = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Meal Title
+                    TextField(
+                      key: const Key('input-add-meal-title'),
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Meal Title',
+                        hintText: 'e.g. Executive South Indian Breakfast',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Timings (Start - End)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const Key('input-add-meal-start-time'),
+                            controller: startCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Start Time',
+                              hintText: 'HH:MM',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            key: const Key('input-add-meal-end-time'),
+                            controller: endCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'End Time',
+                              hintText: 'HH:MM',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Menu Summary
+                    TextField(
+                      key: const Key('input-add-meal-summary'),
+                      controller: summaryCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Menu Summary',
+                        hintText: 'e.g. Masala Dosa, Sambar, Coconut Chutney, Tea / Coffee',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Dishes / Items List
+                    TextField(
+                      key: const Key('input-add-meal-items'),
+                      controller: itemsCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Dishes (Comma-separated)',
+                        hintText: 'e.g. Masala Dosa, Sambar, Coconut Chutney, Bread Butter',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+
+                    if (validationError != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        validationError!,
+                        style: const TextStyle(color: AppColors.statusRed, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                key: const Key('btn-save-new-meal'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final title = titleCtrl.text.trim();
+                  final startTime = startCtrl.text.trim();
+                  final endTime = endCtrl.text.trim();
+                  final summary = summaryCtrl.text.trim();
+                  final rawItems = itemsCtrl.text.trim();
+
+                  if (title.isEmpty) {
+                    setDialogState(() => validationError = 'Title is required');
+                    return;
+                  }
+                  if (startTime.isEmpty || endTime.isEmpty) {
+                    setDialogState(() => validationError = 'Start and end time are required');
+                    return;
+                  }
+                  if (summary.isEmpty) {
+                    setDialogState(() => validationError = 'Menu summary is required');
+                    return;
+                  }
+
+                  final items = rawItems
+                      .split(',')
+                      .map((e) => e.trim())
+                      .where((e) => e.isNotEmpty)
+                      .toList();
+
+                  final newMeal = MessMealModel(
+                    id: 'meal-$selectedDay-$selectedMealType',
+                    dayOfWeek: selectedDay,
+                    mealType: selectedMealType,
+                    title: title,
+                    startTime: startTime,
+                    endTime: endTime,
+                    menuSummary: summary,
+                    items: items.isNotEmpty ? items : [title],
+                  );
+
+                  try {
+                    await widget.storage.updateMessMeal(newMeal);
+                    await _loadData();
+                    if (ctx.mounted) Navigator.of(ctx).pop();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Meal slot for $title successfully added to menu.')),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => validationError = e.toString().replaceAll('Exception: ', ''));
+                  }
+                },
+                child: const Text('Add Meal Slot'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Color _colorForRating(String rating, bool isDark) {
     switch (rating.toLowerCase()) {
       case 'very_good':
@@ -634,53 +878,74 @@ class _MessScreenState extends State<MessScreen> with SingleTickerProviderStateM
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Day Selector Row
+        // Day Selector Row & Contractor Menu Action
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _daysOfWeek.map((day) {
-            final isSelected = _selectedDay == day;
-            final dayTitle = '${day[0].toUpperCase()}${day.substring(1)}';
-            final isSunday = day == 'sunday';
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _daysOfWeek.map((day) {
+                final isSelected = _selectedDay == day;
+                final dayTitle = '${day[0].toUpperCase()}${day.substring(1)}';
+                final isSunday = day == 'sunday';
 
-            return ChoiceChip(
-              key: Key('chip-day-$day'),
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    dayTitle,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? Colors.white : null,
-                    ),
-                  ),
-                  if (isSunday) ...[
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.white.withValues(alpha: 0.3) : const Color(0xFFD97706).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Brunch',
+                return ChoiceChip(
+                  key: Key('chip-day-$day'),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        dayTitle,
                         style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.white : const Color(0xFFD97706),
+                          fontSize: 11.5,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? Colors.white : null,
                         ),
                       ),
-                    ),
-                  ],
-                ],
+                      if (isSunday) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.white.withValues(alpha: 0.3) : const Color(0xFFD97706).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Brunch',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? Colors.white : const Color(0xFFD97706),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  selected: isSelected,
+                  selectedColor: isSunday ? const Color(0xFFD97706) : AppColors.wineRed,
+                  onSelected: (_) => setState(() => _selectedDay = day),
+                );
+              }).toList(),
+            ),
+            if (widget.currentUser?.canEditMessMenu ?? false)
+              ElevatedButton.icon(
+                key: const Key('btn-add-mess-meal'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.wineRed,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text('Add Meal Slot', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                onPressed: _showAddMealDialog,
               ),
-              selected: isSelected,
-              selectedColor: isSunday ? const Color(0xFFD97706) : AppColors.wineRed,
-              onSelected: (_) => setState(() => _selectedDay = day),
-            );
-          }).toList(),
+          ],
         ),
         const SizedBox(height: 18),
 

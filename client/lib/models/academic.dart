@@ -189,6 +189,12 @@ class AttendanceRecordModel {
   final String campusHandle;
   String status; // 'present', 'absent', 'late', 'excused'
   final String remarks;
+  final String origin; // 'optical' or 'manual'
+  final String fingerprintCode;
+  final int attendanceUnits;
+
+  bool get isOpticalVerified => origin == 'optical';
+  bool get canBeRemovedByTeacher => origin == 'manual';
 
   AttendanceRecordModel({
     required this.id,
@@ -198,6 +204,9 @@ class AttendanceRecordModel {
     required this.campusHandle,
     required this.status,
     this.remarks = '',
+    this.origin = 'optical',
+    this.fingerprintCode = '',
+    this.attendanceUnits = 1,
   });
 
   factory AttendanceRecordModel.fromJson(Map<String, dynamic> json) {
@@ -209,6 +218,9 @@ class AttendanceRecordModel {
       campusHandle: json['campus_handle'] ?? '',
       status: json['status'] ?? 'present',
       remarks: json['remarks'] ?? '',
+      origin: json['origin'] ?? 'optical',
+      fingerprintCode: json['fingerprint_code'] ?? '',
+      attendanceUnits: json['attendance_units'] ?? 1,
     );
   }
 
@@ -220,6 +232,9 @@ class AttendanceRecordModel {
         'campus_handle': campusHandle,
         'status': status,
         'remarks': remarks,
+        'origin': origin,
+        'fingerprint_code': fingerprintCode,
+        'attendance_units': attendanceUnits,
       };
 }
 
@@ -346,12 +361,23 @@ class OpticalSessionModel {
   final String courseId;
   final String courseCode;
   final String courseName;
+  final String subjectCode;
+  final String subjectName;
+  final String teacherId;
+  final String teacherName;
+  final bool isSubstitute;
+  final String substituteForName;
+  final String programName;
+  final int academicYear;
   final String scopeCode;
+  final String sectionScope;
   final String roomNumber;
   final String markedByUserId;
   final String markedByName;
   final String sessionSecret;
   final int refreshIntervalMs;
+  final int durationHours;
+  final int attendanceUnits;
   final DateTime startedAt;
   final DateTime expiresAt;
   final bool isActive;
@@ -362,12 +388,23 @@ class OpticalSessionModel {
     required this.courseId,
     required this.courseCode,
     required this.courseName,
+    this.subjectCode = '',
+    this.subjectName = '',
+    this.teacherId = '',
+    this.teacherName = '',
+    this.isSubstitute = false,
+    this.substituteForName = '',
+    this.programName = '',
+    this.academicYear = 1,
     required this.scopeCode,
+    this.sectionScope = '',
     required this.roomNumber,
     required this.markedByUserId,
     required this.markedByName,
     required this.sessionSecret,
     this.refreshIntervalMs = 1500,
+    this.durationHours = 1,
+    this.attendanceUnits = 1,
     required this.startedAt,
     required this.expiresAt,
     this.isActive = true,
@@ -381,12 +418,23 @@ class OpticalSessionModel {
       courseId: json['course_id'] ?? '',
       courseCode: json['course_code'] ?? '',
       courseName: json['course_name'] ?? '',
+      subjectCode: json['subject_code'] ?? json['course_code'] ?? '',
+      subjectName: json['subject_name'] ?? json['course_name'] ?? '',
+      teacherId: json['teacher_id'] ?? json['marked_by_user_id'] ?? '',
+      teacherName: json['teacher_name'] ?? json['marked_by_name'] ?? '',
+      isSubstitute: json['is_substitute'] ?? false,
+      substituteForName: json['substitute_for_name'] ?? '',
+      programName: json['program_name'] ?? '',
+      academicYear: json['academic_year'] ?? 1,
       scopeCode: json['scope_code'] ?? '',
+      sectionScope: json['section_scope'] ?? json['scope_code'] ?? '',
       roomNumber: json['room_number'] ?? '',
       markedByUserId: json['marked_by_user_id'] ?? '',
       markedByName: json['marked_by_name'] ?? '',
       sessionSecret: json['session_secret'] ?? '',
       refreshIntervalMs: json['refresh_interval_ms'] ?? 1500,
+      durationHours: json['duration_hours'] ?? 1,
+      attendanceUnits: json['attendance_units'] ?? (json['duration_hours'] == 2 ? 2 : 1),
       startedAt: DateTime.tryParse(json['started_at'] ?? '') ?? DateTime.now(),
       expiresAt: DateTime.tryParse(json['expires_at'] ?? '') ?? DateTime.now().add(const Duration(hours: 2)),
       isActive: json['is_active'] ?? true,
@@ -399,12 +447,23 @@ class OpticalSessionModel {
         'course_id': courseId,
         'course_code': courseCode,
         'course_name': courseName,
+        'subject_code': subjectCode,
+        'subject_name': subjectName,
+        'teacher_id': teacherId,
+        'teacher_name': teacherName,
+        'is_substitute': isSubstitute,
+        'substitute_for_name': substituteForName,
+        'program_name': programName,
+        'academic_year': academicYear,
         'scope_code': scopeCode,
+        'section_scope': sectionScope,
         'room_number': roomNumber,
         'marked_by_user_id': markedByUserId,
         'marked_by_name': markedByName,
         'session_secret': sessionSecret,
         'refresh_interval_ms': refreshIntervalMs,
+        'duration_hours': durationHours,
+        'attendance_units': attendanceUnits,
         'started_at': startedAt.toIso8601String(),
         'expires_at': expiresAt.toIso8601String(),
         'is_active': isActive,
@@ -416,20 +475,44 @@ class OpticalFramePacket {
   final String sessionId;
   final String courseCode;
   final String courseName;
+  final String subjectCode;
+  final String subjectName;
+  final String teacherId;
+  final String teacherName;
+  final bool isSubstitute;
+  final String substituteForName;
+  final String programName;
+  final int academicYear;
+  final String sectionScope;
   final String room;
   final int sequence;
   final int timestamp;
   final String nonce;
+  final String fingerprintCode;
+  final int durationHours;
+  final int attendanceUnits;
   final String signature;
 
   OpticalFramePacket({
     required this.sessionId,
     required this.courseCode,
     required this.courseName,
+    this.subjectCode = '',
+    this.subjectName = '',
+    this.teacherId = '',
+    this.teacherName = '',
+    this.isSubstitute = false,
+    this.substituteForName = '',
+    this.programName = '',
+    this.academicYear = 1,
+    this.sectionScope = '',
     required this.room,
     required this.sequence,
     required this.timestamp,
     required this.nonce,
+    this.fingerprintCode = '',
+    this.durationHours = 1,
+    this.attendanceUnits = 1,
     required this.signature,
   });
 
@@ -439,10 +522,22 @@ class OpticalFramePacket {
       'sid': sessionId,
       'cc': courseCode,
       'cn': courseName,
+      'sc': subjectCode.isNotEmpty ? subjectCode : courseCode,
+      'sn': subjectName.isNotEmpty ? subjectName : courseName,
+      'tid': teacherId,
+      'tnm': teacherName,
+      'sub': isSubstitute ? 1 : 0,
+      'sfn': substituteForName,
+      'prg': programName,
+      'yr': academicYear,
+      'sec': sectionScope,
       'rm': room,
       'seq': sequence,
       'ts': timestamp,
       'nc': nonce,
+      'fp': fingerprintCode,
+      'dh': durationHours,
+      'au': attendanceUnits,
       'sig': signature.length > 16 ? signature.substring(0, 16) : signature,
     };
     final jsonStr = jsonEncode(payload);
@@ -459,10 +554,22 @@ class OpticalFramePacket {
         sessionId: map['sid'] ?? '',
         courseCode: map['cc'] ?? '',
         courseName: map['cn'] ?? '',
+        subjectCode: map['sc'] ?? map['cc'] ?? '',
+        subjectName: map['sn'] ?? map['cn'] ?? '',
+        teacherId: map['tid'] ?? '',
+        teacherName: map['tnm'] ?? '',
+        isSubstitute: map['sub'] == 1 || map['sub'] == true,
+        substituteForName: map['sfn'] ?? '',
+        programName: map['prg'] ?? '',
+        academicYear: map['yr'] ?? 1,
+        sectionScope: map['sec'] ?? '',
         room: map['rm'] ?? '',
         sequence: map['seq'] ?? 0,
         timestamp: map['ts'] ?? 0,
         nonce: map['nc'] ?? '',
+        fingerprintCode: map['fp'] ?? '',
+        durationHours: map['dh'] ?? 1,
+        attendanceUnits: map['au'] ?? 1,
         signature: map['sig'] ?? '',
       );
     } catch (_) {
@@ -483,9 +590,13 @@ class OpticalVerificationResult {
   final String sessionId;
   final String courseCode;
   final String courseName;
+  final String teacherName;
+  final bool isSubstitute;
   final String studentName;
   final String handle;
   final int sequence;
+  final int attendanceUnits;
+  final String origin;
   final DateTime recordedAt;
 
   OpticalVerificationResult({
@@ -494,9 +605,13 @@ class OpticalVerificationResult {
     required this.sessionId,
     required this.courseCode,
     required this.courseName,
+    this.teacherName = '',
+    this.isSubstitute = false,
     required this.studentName,
     required this.handle,
     required this.sequence,
+    this.attendanceUnits = 1,
+    this.origin = 'optical',
     required this.recordedAt,
   });
 
@@ -507,9 +622,13 @@ class OpticalVerificationResult {
       sessionId: json['session_id'] ?? '',
       courseCode: json['course_code'] ?? '',
       courseName: json['course_name'] ?? '',
+      teacherName: json['teacher_name'] ?? '',
+      isSubstitute: json['is_substitute'] ?? false,
       studentName: json['student_name'] ?? '',
       handle: json['campus_handle'] ?? '',
       sequence: json['sequence'] ?? 0,
+      attendanceUnits: json['attendance_units'] ?? 1,
+      origin: json['origin'] ?? 'optical',
       recordedAt: DateTime.tryParse(json['recorded_at'] ?? '') ?? DateTime.now(),
     );
   }
@@ -1256,6 +1375,130 @@ class FacultyWorkloadSummaryModel {
         'max_recommended_hours': maxRecommendedHours,
         'is_overloaded': isOverloaded,
         'allocations': allocations.map((e) => e.toJson()).toList(),
+      };
+}
+
+class AssignmentModel {
+  final String id;
+  final String sectionId;
+  final String subjectId;
+  final String subjectName;
+  final String teacherId;
+  final String teacherName;
+  final String title;
+  final String description;
+  final int maxMarks;
+  final String dueDate;
+  final DateTime createdAt;
+
+  AssignmentModel({
+    required this.id,
+    required this.sectionId,
+    required this.subjectId,
+    this.subjectName = '',
+    this.teacherId = '',
+    this.teacherName = '',
+    required this.title,
+    this.description = '',
+    this.maxMarks = 100,
+    required this.dueDate,
+    required this.createdAt,
+  });
+
+  factory AssignmentModel.fromJson(Map<String, dynamic> json) {
+    return AssignmentModel(
+      id: json['id'] ?? '',
+      sectionId: json['section_id'] ?? json['section_scope'] ?? '',
+      subjectId: json['subject_id'] ?? json['course_id'] ?? '',
+      subjectName: json['subject_name'] ?? '',
+      teacherId: json['teacher_id'] ?? '',
+      teacherName: json['teacher_name'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      maxMarks: json['max_marks'] ?? 100,
+      dueDate: json['due_date'] ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'section_id': sectionId,
+        'subject_id': subjectId,
+        'subject_name': subjectName,
+        'teacher_id': teacherId,
+        'teacher_name': teacherName,
+        'title': title,
+        'description': description,
+        'max_marks': maxMarks,
+        'due_date': dueDate,
+        'created_at': createdAt.toIso8601String(),
+      };
+}
+
+class AssignmentSubmissionModel {
+  final String id;
+  final String assignmentId;
+  final String studentId;
+  final String studentName;
+  final String studentRoll;
+  final String content;
+  final DateTime submittedAt;
+  final int? marksAwarded;
+  final String feedback;
+  final String gradedBy;
+  final DateTime? gradedAt;
+
+  AssignmentSubmissionModel({
+    required this.id,
+    required this.assignmentId,
+    required this.studentId,
+    required this.studentName,
+    this.studentRoll = '',
+    required this.content,
+    required this.submittedAt,
+    this.marksAwarded,
+    this.feedback = '',
+    this.gradedBy = '',
+    this.gradedAt,
+  });
+
+  bool get isGraded => marksAwarded != null;
+
+  factory AssignmentSubmissionModel.fromJson(Map<String, dynamic> json) {
+    return AssignmentSubmissionModel(
+      id: json['id'] ?? '',
+      assignmentId: json['assignment_id'] ?? '',
+      studentId: json['student_id'] ?? '',
+      studentName: json['student_name'] ?? '',
+      studentRoll: json['student_roll'] ?? '',
+      content: json['content'] ?? '',
+      submittedAt: json['submitted_at'] != null
+          ? DateTime.tryParse(json['submitted_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      marksAwarded: json['marks_awarded'] as int?,
+      feedback: json['feedback'] ?? '',
+      gradedBy: json['graded_by'] ?? '',
+      gradedAt: json['graded_at'] != null
+          ? DateTime.tryParse(json['graded_at'].toString())
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'assignment_id': assignmentId,
+        'student_id': studentId,
+        'student_name': studentName,
+        'student_roll': studentRoll,
+        'content': content,
+        'submitted_at': submittedAt.toIso8601String(),
+        if (marksAwarded != null) 'marks_awarded': marksAwarded,
+        'feedback': feedback,
+        'graded_by': gradedBy,
+        if (gradedAt != null) 'graded_at': gradedAt!.toIso8601String(),
       };
 }
 

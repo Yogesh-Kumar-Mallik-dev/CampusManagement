@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../di/service_locator.dart';
 import '../facade/campus_facade.dart';
+import '../models/academic.dart';
 import '../models/complaint.dart';
 import '../models/sessional.dart';
 import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_dropdown.dart';
 import 'complaints_screen.dart';
 
 class SessionalExamScreen extends StatefulWidget {
@@ -38,6 +40,12 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
   List<DeskSeatingModel> _seating = [];
   AKTUInternalAwardListModel? _awardList;
 
+  // Coursework Assignments & Submissions
+  List<AssignmentModel> _assignments = [];
+  AssignmentModel? _selectedAssignment;
+  List<AssignmentSubmissionModel> _currentSubmissions = [];
+  bool _isLoadingSubmissions = false;
+
   String _selectedSubjectCode = 'CS301';
   String _selectedScheduleExamType = 'All';
   final String _selectedHallNumber = 'LT-101';
@@ -63,6 +71,12 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
     final u = widget.currentUser;
     if (u == null) return false;
     return u.isAdmin || u.isHOD;
+  }
+
+  bool get _canManageAssignments {
+    final u = widget.currentUser;
+    if (u == null) return true;
+    return u.isAdmin || u.isTeacher || u.isHOD || u.hasRole('faculty') || u.permissions.contains('*');
   }
 
   String get _currentStudentId {
@@ -91,7 +105,7 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadAllData();
   }
 
@@ -148,12 +162,27 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
         );
       } catch (_) {}
 
+      List<AssignmentModel> assigns = [];
+      List<AssignmentSubmissionModel> subs = [];
+      try {
+        assigns = await _facade.getAssignments();
+        if (assigns.isNotEmpty) {
+          _selectedAssignment = assigns.firstWhere(
+            (a) => a.id == _selectedAssignment?.id,
+            orElse: () => assigns.first,
+          );
+          subs = await _facade.getSubmissions(_selectedAssignment!.id);
+        }
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _records = recs;
           _schedules = scheds;
           _seating = seat;
           _awardList = award;
+          _assignments = assigns;
+          _currentSubmissions = subs;
           _initControllers();
           _isLoading = false;
         });
@@ -452,6 +481,7 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
           tabs: const [
             Tab(text: 'Student Scorecard'),
             Tab(text: 'Faculty Mark Entry'),
+            Tab(text: 'Coursework & Assignments'),
             Tab(text: 'Datesheet & Seating'),
             Tab(text: 'AKTU Award List & HOD'),
           ],
@@ -494,6 +524,7 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
                   children: [
                     _buildStudentScorecardTab(isDark),
                     _buildFacultyMarkEntryTab(isDark),
+                    _buildCourseworkAndAssignmentsTab(isDark),
                     _buildDatesheetAndSeatingTab(isDark),
                     _buildAKTUReportsAndHODTab(isDark),
                   ],
@@ -1565,6 +1596,664 @@ class _SessionalExamScreenState extends State<SessionalExamScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // TAB 3: COURSEWORK ASSIGNMENTS & CONTINUOUS EVALUATION
+  // =========================================================================
+
+  Future<void> _loadSubmissionsForAssignment(String assignmentId) async {
+    setState(() => _isLoadingSubmissions = true);
+    try {
+      final subs = await _facade.getSubmissions(assignmentId);
+      if (mounted) {
+        setState(() {
+          _currentSubmissions = subs;
+          _isLoadingSubmissions = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingSubmissions = false);
+    }
+  }
+
+  Widget _buildCourseworkAndAssignmentsTab(bool isDark) {
+    final assignments = _assignments;
+    final selected = _selectedAssignment;
+    final isStudent = widget.currentUser?.isStudent ?? false;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header & Create Button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Coursework Assignments & Continuous Evaluation',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Assignments, student project submissions, rubric grading, and TA internal points',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_canManageAssignments)
+                ElevatedButton.icon(
+                  key: const Key('btn-create-assignment'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.wineRed,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  icon: const Icon(Icons.add, size: 14),
+                  label: const Text('New Assignment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _openCreateAssignmentDialog(isDark),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (assignments.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(32),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.assignment_outlined, size: 36, color: AppColors.lightTextMuted),
+                  const SizedBox(height: 10),
+                  const Text('No coursework assignments published yet.', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                    _canManageAssignments
+                        ? 'Create an assignment to distribute problem sets and collect student submissions.'
+                        : 'Your faculty will publish problem sets and assignment deadlines here.',
+                    style: TextStyle(fontSize: 11.5, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            // Horizontal Assignment Selector Chips
+            SizedBox(
+              height: 42,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: assignments.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (ctx, idx) {
+                  final a = assignments[idx];
+                  final isSelected = a.id == selected?.id;
+                  return ChoiceChip(
+                    key: Key('chip-assignment-${a.id}'),
+                    selected: isSelected,
+                    selectedColor: AppColors.wineRed,
+                    label: Text(
+                      '${a.subjectName.isNotEmpty ? a.subjectName : a.title} (Max: ${a.maxMarks})',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? Colors.white : null,
+                      ),
+                    ),
+                    onSelected: (val) {
+                      if (val) {
+                        setState(() {
+                          _selectedAssignment = a;
+                        });
+                        _loadSubmissionsForAssignment(a.id);
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            if (selected != null) ...[
+              // Assignment Detail Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            selected.title,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.wineRed.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Due: ${selected.dueDate}',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.wineRed),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      selected.description.isNotEmpty ? selected.description : 'No additional guidelines provided.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Max Marks: ${selected.maxMarks} • Teacher: ${selected.teacherName.isNotEmpty ? selected.teacherName : "Course Instructor"}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ),
+                        if (isStudent)
+                          ElevatedButton.icon(
+                            key: const Key('btn-submit-work'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.wineRed,
+                              foregroundColor: Colors.white,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: const Icon(Icons.upload_file, size: 14),
+                            label: const Text('Submit Work', style: TextStyle(fontSize: 11)),
+                            onPressed: () => _openSubmitWorkDialog(selected, isDark),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Submissions Section Header
+              Text(
+                'Student Submissions (${_currentSubmissions.length})',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+
+              if (_isLoadingSubmissions)
+                const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.wineRed)))
+              else if (_currentSubmissions.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                  ),
+                  child: const Text('No submissions recorded for this assignment yet.', style: TextStyle(fontSize: 12)),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _currentSubmissions.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (ctx, idx) {
+                    final sub = _currentSubmissions[idx];
+                    final isGraded = sub.isGraded;
+
+                    return Container(
+                      key: Key('card-submission-${sub.id}'),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isGraded ? AppColors.githubGreen : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${sub.studentName} ${sub.studentRoll.isNotEmpty ? "(${sub.studentRoll})" : ""}',
+                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                              ),
+                              if (isGraded)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.githubGreen.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: AppColors.githubGreen),
+                                  ),
+                                  child: Text(
+                                    '${sub.marksAwarded} / ${selected.maxMarks}',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.githubGreen),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.orange),
+                                  ),
+                                  child: const Text(
+                                    'Pending Review',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            sub.content,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            ),
+                          ),
+                          if (sub.feedback.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF161B22) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.comment_outlined, size: 12, color: AppColors.wineRed),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Feedback: ${sub.feedback}',
+                                      style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (_canManageAssignments) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: OutlinedButton.icon(
+                                key: Key('btn-grade-sub-${sub.id}'),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  foregroundColor: AppColors.wineRed,
+                                  side: const BorderSide(color: AppColors.wineRed),
+                                ),
+                                icon: const Icon(Icons.grading, size: 14),
+                                label: Text(isGraded ? 'Edit Grade' : 'Grade Submission', style: const TextStyle(fontSize: 11)),
+                                onPressed: () => _openGradeSubmissionDialog(sub, selected.maxMarks, isDark),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _openCreateAssignmentDialog(bool isDark) {
+    final titleCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final maxMarksCtrl = TextEditingController(text: '20');
+    final dueDateCtrl = TextEditingController(text: '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, "0")}-30');
+    String selectedSubject = _selectedSubjectCode;
+    String? validationError;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            key: const Key('dialog-create-assignment'),
+            title: const Text('Create Coursework Assignment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: 440,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Subject *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    AppDropdown<String>(
+                      key: const Key('dropdown-assignment-subject'),
+                      value: selectedSubject,
+                      items: _availableSubjectCodes.map((c) => AppDropdownItem(value: c, label: c)).toList(),
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedSubject = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('input-assignment-title'),
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Assignment Title *',
+                        hintText: 'e.g. Lab Exercise 3: Dynamic Programming',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const Key('input-assignment-max-marks'),
+                            controller: maxMarksCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Max Marks',
+                              hintText: '20',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            key: const Key('input-assignment-due-date'),
+                            controller: dueDateCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Due Date',
+                              hintText: 'YYYY-MM-DD',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('input-assignment-desc'),
+                      controller: descCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Instructions & Problem Statement',
+                        hintText: 'Specify questions, rubric, submission format, and deliverables...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    if (validationError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(validationError!, style: const TextStyle(color: AppColors.statusRed, fontSize: 12)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                key: const Key('btn-save-assignment'),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.wineRed, foregroundColor: Colors.white),
+                onPressed: () async {
+                  final title = titleCtrl.text.trim();
+                  if (title.isEmpty) {
+                    setDialogState(() => validationError = 'Assignment title is required.');
+                    return;
+                  }
+                  final maxMarks = int.tryParse(maxMarksCtrl.text.trim()) ?? 20;
+
+                  try {
+                    final created = await _facade.createAssignment({
+                      'title': title,
+                      'subject_id': selectedSubject,
+                      'subject_name': selectedSubject,
+                      'section_id': 'sec-cse-3a',
+                      'teacher_id': widget.currentUser?.id ?? 'faculty',
+                      'teacher_name': widget.currentUser?.fullName ?? 'Course Instructor',
+                      'max_marks': maxMarks,
+                      'due_date': dueDateCtrl.text.trim(),
+                      'description': descCtrl.text.trim(),
+                    });
+
+                    if (mounted) {
+                      setState(() {
+                        _assignments.insert(0, created);
+                        _selectedAssignment = created;
+                        _currentSubmissions = [];
+                      });
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  } catch (e) {
+                    setDialogState(() => validationError = e.toString());
+                  }
+                },
+                child: const Text('Publish Assignment'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _openSubmitWorkDialog(AssignmentModel assignment, bool isDark) {
+    final contentCtrl = TextEditingController();
+    String? validationError;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            key: const Key('dialog-submit-assignment'),
+            title: Text('Submit Work: ${assignment.title}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Enter submission content (text summary, solution link, or code repository):', style: TextStyle(fontSize: 11.5)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    key: const Key('input-submit-work-content'),
+                    controller: contentCtrl,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Solution code uploaded to https://github.com/campus/lab-assignment-3...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (validationError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(validationError!, style: const TextStyle(color: AppColors.statusRed, fontSize: 12)),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                key: const Key('btn-confirm-submit-work'),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.wineRed, foregroundColor: Colors.white),
+                onPressed: () async {
+                  final text = contentCtrl.text.trim();
+                  if (text.isEmpty) {
+                    setDialogState(() => validationError = 'Submission content cannot be empty.');
+                    return;
+                  }
+
+                  try {
+                    final student = widget.currentUser;
+                    final sub = await _facade.submitAssignment({
+                      'assignment_id': assignment.id,
+                      'student_id': student?.id ?? 'usr-student',
+                      'student_name': student?.fullName ?? 'Student Submitter',
+                      'student_roll': student?.universityRollNo ?? student?.campusHandle ?? '',
+                      'content': text,
+                    });
+
+                    if (mounted) {
+                      setState(() {
+                        _currentSubmissions.removeWhere((s) => s.id == sub.id || s.studentId == sub.studentId);
+                        _currentSubmissions.insert(0, sub);
+                      });
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Assignment submitted successfully for review.')),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => validationError = e.toString());
+                  }
+                },
+                child: const Text('Submit Assignment'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _openGradeSubmissionDialog(AssignmentSubmissionModel sub, int maxMarks, bool isDark) {
+    final marksCtrl = TextEditingController(text: sub.marksAwarded?.toString() ?? '');
+    final feedbackCtrl = TextEditingController(text: sub.feedback);
+    String? validationError;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            key: const Key('dialog-grade-submission'),
+            title: Text('Grade Submission • ${sub.studentName}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Student submission: "${sub.content}"', style: const TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('input-grade-marks'),
+                    controller: marksCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Marks Awarded (Max: $maxMarks) *',
+                      hintText: 'e.g. 18',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('input-grade-feedback'),
+                    controller: feedbackCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Instructor Feedback & Notes',
+                      hintText: 'e.g. Good implementation, add unit tests next time.',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  if (validationError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(validationError!, style: const TextStyle(color: AppColors.statusRed, fontSize: 12)),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                key: const Key('btn-save-grade'),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.wineRed, foregroundColor: Colors.white),
+                onPressed: () async {
+                  final marks = int.tryParse(marksCtrl.text.trim());
+                  if (marks == null || marks < 0 || marks > maxMarks) {
+                    setDialogState(() => validationError = 'Enter valid marks between 0 and $maxMarks.');
+                    return;
+                  }
+
+                  try {
+                    final updated = await _facade.gradeSubmission(
+                      submissionId: sub.id,
+                      marks: marks,
+                      feedback: feedbackCtrl.text.trim(),
+                      gradedBy: widget.currentUser?.fullName ?? 'Course Instructor',
+                    );
+
+                    if (mounted) {
+                      setState(() {
+                        final idx = _currentSubmissions.indexWhere((s) => s.id == updated.id);
+                        if (idx != -1) _currentSubmissions[idx] = updated;
+                      });
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Grade of $marks / $maxMarks saved for ${sub.studentName}.')),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => validationError = e.toString());
+                  }
+                },
+                child: const Text('Save Grade'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

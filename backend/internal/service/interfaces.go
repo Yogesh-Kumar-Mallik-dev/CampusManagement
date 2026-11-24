@@ -37,6 +37,8 @@ type AcademicServiceInterface interface {
 	StartOpticalSession(ctx context.Context, session model.OpticalAttendanceSession) (*model.OpticalAttendanceSession, error)
 	VerifyOpticalAttendance(ctx context.Context, req model.OpticalVerificationRequest) (*model.OpticalVerificationResponse, error)
 	GetOpticalSessionRoster(ctx context.Context, sessionID string) ([]model.AttendanceRecord, error)
+	AddManualOpticalRecord(ctx context.Context, sessionID, studentID, studentName, handle, remarks string) (*model.AttendanceRecord, error)
+	RemoveManualOpticalRecord(ctx context.Context, sessionID, recordID string) error
 	EndOpticalSession(ctx context.Context, sessionID string) (*model.AttendanceSession, error)
 	CreateDepartment(ctx context.Context, req model.CreateDepartmentRequest) (model.Department, error)
 	ListDepartments(ctx context.Context) ([]model.Department, error)
@@ -68,6 +70,11 @@ type AcademicServiceInterface interface {
 	GetSectionFacultyAllocations(ctx context.Context, sectionID string) ([]model.FacultyAllocation, error)
 	GetFacultyWorkloadSummary(ctx context.Context, teacherID string, userResolver func(id string) (model.User, bool)) (model.FacultyWorkloadSummary, error)
 	GetAllFacultyWorkloadSummaries(ctx context.Context, userResolver func(id string) (model.User, bool), teacherProvider func() []model.User) ([]model.FacultyWorkloadSummary, error)
+	CreateAssignment(ctx context.Context, a model.Assignment) (model.Assignment, error)
+	ListAssignments(ctx context.Context, sectionID, subjectID string) ([]model.Assignment, error)
+	SubmitAssignment(ctx context.Context, s model.AssignmentSubmission) (model.AssignmentSubmission, error)
+	ListSubmissions(ctx context.Context, assignmentID string) ([]model.AssignmentSubmission, error)
+	GradeSubmission(ctx context.Context, submissionID string, marks int, feedback, gradedBy string) (model.AssignmentSubmission, error)
 }
 
 // HostelServiceInterface abstracts hostel rooms, fixtures, and occupants

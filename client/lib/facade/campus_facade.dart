@@ -82,6 +82,7 @@ abstract class ICampusFacade {
   });
   Future<List<TimetableConflictModel>> checkTimetableConflicts(TimetableSlotModel candidate);
   Future<List<NoticeModel>> getNotices(List<String> scopes);
+  Future<NoticeModel> publishNotice(Map<String, dynamic> payload);
   Future<List<AttendanceSummaryModel>> getAttendanceSummary(String studentId);
   double getAttendanceThreshold({String? sectionScope});
   Future<void> setAttendanceThreshold({
@@ -94,17 +95,41 @@ abstract class ICampusFacade {
     required String courseId,
     required String courseCode,
     required String courseName,
+    String? subjectCode,
+    String? subjectName,
     required String roomNumber,
     required String scopeCode,
+    String? sectionScope,
     required String markedByUserId,
     required String markedByName,
-    int refreshIntervalMs = 5000,
+    String? teacherId,
+    String? teacherName,
+    bool isSubstitute = false,
+    String substituteForName = '',
+    String programName = '',
+    int academicYear = 1,
+    int durationHours = 1,
+    int attendanceUnits = 1,
+    int refreshIntervalMs = 1500,
   });
   Future<OpticalVerificationResult> verifyOpticalAttendance({
     required OpticalFramePacket packet,
     required UserModel student,
+    String? fingerprintCode,
+    String? studentSignature,
   });
   Future<List<AttendanceRecordModel>> getOpticalRoster(String sessionId);
+  Future<AttendanceRecordModel> addManualOpticalRecord({
+    required String sessionId,
+    required String studentId,
+    required String studentName,
+    required String campusHandle,
+    String remarks = '',
+  });
+  Future<bool> removeManualOpticalRecord({
+    required String sessionId,
+    required String recordId,
+  });
   Future<void> endOpticalSession(String sessionId);
 
   // Departments, Programs, Subjects & Sections
@@ -377,6 +402,18 @@ abstract class ICampusFacade {
   });
   Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId});
   Future<UserModel> disconnectDigiLocker({required String studentId});
+
+  // Coursework Assignments & Grading
+  Future<List<AssignmentModel>> getAssignments({String? sectionId, String? subjectId});
+  Future<AssignmentModel> createAssignment(Map<String, dynamic> payload);
+  Future<List<AssignmentSubmissionModel>> getSubmissions(String assignmentId);
+  Future<AssignmentSubmissionModel> submitAssignment(Map<String, dynamic> payload);
+  Future<AssignmentSubmissionModel> gradeSubmission({
+    required String submissionId,
+    required int marks,
+    required String feedback,
+    required String gradedBy,
+  });
 }
 
 /// CampusFacade is the production implementation of ICampusFacade.
@@ -561,6 +598,10 @@ class CampusFacade implements ICampusFacade {
       storage.getNotices(scopes);
 
   @override
+  Future<NoticeModel> publishNotice(Map<String, dynamic> payload) =>
+      storage.publishNotice(payload);
+
+  @override
   Future<List<AttendanceSummaryModel>> getAttendanceSummary(String studentId) =>
       storage.getAttendanceSummary(studentId);
 
@@ -583,20 +624,42 @@ class CampusFacade implements ICampusFacade {
     required String courseId,
     required String courseCode,
     required String courseName,
+    String? subjectCode,
+    String? subjectName,
     required String roomNumber,
     required String scopeCode,
+    String? sectionScope,
     required String markedByUserId,
     required String markedByName,
-    int refreshIntervalMs = 5000,
+    String? teacherId,
+    String? teacherName,
+    bool isSubstitute = false,
+    String substituteForName = '',
+    String programName = '',
+    int academicYear = 1,
+    int durationHours = 1,
+    int attendanceUnits = 1,
+    int refreshIntervalMs = 1500,
   }) =>
       storage.startOpticalSession(
         courseId: courseId,
         courseCode: courseCode,
         courseName: courseName,
+        subjectCode: subjectCode,
+        subjectName: subjectName,
         roomNumber: roomNumber,
         scopeCode: scopeCode,
+        sectionScope: sectionScope,
         markedByUserId: markedByUserId,
         markedByName: markedByName,
+        teacherId: teacherId,
+        teacherName: teacherName,
+        isSubstitute: isSubstitute,
+        substituteForName: substituteForName,
+        programName: programName,
+        academicYear: academicYear,
+        durationHours: durationHours,
+        attendanceUnits: attendanceUnits,
         refreshIntervalMs: refreshIntervalMs,
       );
 
@@ -604,8 +667,41 @@ class CampusFacade implements ICampusFacade {
   Future<OpticalVerificationResult> verifyOpticalAttendance({
     required OpticalFramePacket packet,
     required UserModel student,
+    String? fingerprintCode,
+    String? studentSignature,
   }) =>
-      storage.verifyOpticalAttendance(packet: packet, student: student);
+      storage.verifyOpticalAttendance(
+        packet: packet,
+        student: student,
+        fingerprintCode: fingerprintCode,
+        studentSignature: studentSignature,
+      );
+
+  @override
+  Future<AttendanceRecordModel> addManualOpticalRecord({
+    required String sessionId,
+    required String studentId,
+    required String studentName,
+    required String campusHandle,
+    String remarks = '',
+  }) =>
+      storage.addManualOpticalRecord(
+        sessionId: sessionId,
+        studentId: studentId,
+        studentName: studentName,
+        campusHandle: campusHandle,
+        remarks: remarks,
+      );
+
+  @override
+  Future<bool> removeManualOpticalRecord({
+    required String sessionId,
+    required String recordId,
+  }) =>
+      storage.removeManualOpticalRecord(
+        sessionId: sessionId,
+        recordId: recordId,
+      );
 
   @override
   Future<List<AttendanceRecordModel>> getOpticalRoster(String sessionId) =>
@@ -1309,4 +1405,34 @@ class CampusFacade implements ICampusFacade {
   @override
   Future<UserModel> disconnectDigiLocker({required String studentId}) =>
       storage.disconnectDigiLocker(studentId: studentId);
+
+  @override
+  Future<List<AssignmentModel>> getAssignments({String? sectionId, String? subjectId}) =>
+      storage.getAssignments(sectionId: sectionId, subjectId: subjectId);
+
+  @override
+  Future<AssignmentModel> createAssignment(Map<String, dynamic> payload) =>
+      storage.createAssignment(payload);
+
+  @override
+  Future<List<AssignmentSubmissionModel>> getSubmissions(String assignmentId) =>
+      storage.getSubmissions(assignmentId);
+
+  @override
+  Future<AssignmentSubmissionModel> submitAssignment(Map<String, dynamic> payload) =>
+      storage.submitAssignment(payload);
+
+  @override
+  Future<AssignmentSubmissionModel> gradeSubmission({
+    required String submissionId,
+    required int marks,
+    required String feedback,
+    required String gradedBy,
+  }) =>
+      storage.gradeSubmission(
+        submissionId: submissionId,
+        marks: marks,
+        feedback: feedback,
+        gradedBy: gradedBy,
+      );
 }

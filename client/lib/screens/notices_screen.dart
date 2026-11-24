@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/academic.dart';
+import '../models/user.dart';
 import '../services/offline_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/svg_icons.dart';
+import '../widgets/app_dropdown.dart';
 import '../widgets/app_skeleton.dart';
 
 class NoticesScreen extends StatefulWidget {
   final OfflineStorageService storage;
   final List<String> userScopes;
+  final UserModel? currentUser;
 
   const NoticesScreen({
     super.key,
     required this.storage,
     required this.userScopes,
+    this.currentUser,
   });
 
   @override
@@ -81,15 +85,251 @@ class _NoticesScreenState extends State<NoticesScreen> {
     }
   }
 
+  Future<void> _openPublishNoticeDialog(BuildContext context, bool isDark) async {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    final scopeCtrl = TextEditingController(text: 'global');
+    String selectedCategory = 'general';
+    String selectedPriority = 'normal';
+    String? dialogError;
+    bool isPublishing = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              key: const Key('dialog-publish-notice'),
+              backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              ),
+              title: const Row(
+                children: [
+                  AppSvgIcon(svgString: AppSvgIcon.bell, size: 18, color: AppColors.wineRed),
+                  SizedBox(width: 8),
+                  Text('Issue Institutional Notice', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (dialogError != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.statusRedSubtle,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.statusRed),
+                          ),
+                          child: Text(dialogError!, style: const TextStyle(fontSize: 12, color: AppColors.statusRed)),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      const Text('Notice Title *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      TextField(
+                        key: const Key('input-notice-title'),
+                        controller: titleCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'e.g. Schedule for Mid-Term Examination 2026',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Category', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 4),
+                                AppDropdown<String>(
+                                  key: const Key('dropdown-notice-category'),
+                                  value: selectedCategory,
+                                  items: const [
+                                    AppDropdownItem(value: 'academic', label: 'Academic'),
+                                    AppDropdownItem(value: 'exam', label: 'Examination'),
+                                    AppDropdownItem(value: 'urgent', label: 'Urgent Advisory'),
+                                    AppDropdownItem(value: 'hostel', label: 'Hostel & Housing'),
+                                    AppDropdownItem(value: 'general', label: 'General Circular'),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setDialogState(() => selectedCategory = val);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Priority', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 4),
+                                AppDropdown<String>(
+                                  key: const Key('dropdown-notice-priority'),
+                                  value: selectedPriority,
+                                  items: const [
+                                    AppDropdownItem(value: 'normal', label: 'Normal'),
+                                    AppDropdownItem(value: 'high', label: 'High Priority'),
+                                    AppDropdownItem(value: 'urgent', label: 'Urgent / Flash'),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setDialogState(() => selectedPriority = val);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('Target Scope Code', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      TextField(
+                        key: const Key('input-notice-scope'),
+                        controller: scopeCtrl,
+                        decoration: const InputDecoration(
+                          hintText: 'e.g. global, dept:cse, or sec:cse-3a',
+                          helperText: 'Use "global" for campus-wide bulletins',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('Circular Content / Body *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      TextField(
+                        key: const Key('input-notice-content'),
+                        controller: contentCtrl,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter official circular details, instructions, and dates...',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isPublishing ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  key: const Key('btn-submit-notice'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.wineRed,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: isPublishing
+                      ? null
+                      : () async {
+                          final title = titleCtrl.text.trim();
+                          final content = contentCtrl.text.trim();
+                          final scope = scopeCtrl.text.trim().isEmpty ? 'global' : scopeCtrl.text.trim();
+
+                          if (title.isEmpty) {
+                            setDialogState(() => dialogError = 'Notice title is required.');
+                            return;
+                          }
+                          if (content.isEmpty) {
+                            setDialogState(() => dialogError = 'Circular content cannot be empty.');
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isPublishing = true;
+                            dialogError = null;
+                          });
+
+                          try {
+                            final payload = {
+                              'title': title,
+                              'content': content,
+                              'category': selectedCategory,
+                              'priority': selectedPriority,
+                              'target_scope_code': scope,
+                              'publisher_id': widget.currentUser?.id,
+                              'publisher_name': widget.currentUser?.fullName ?? 'Campus Administration',
+                            };
+
+                            final created = await widget.storage.publishNotice(payload);
+                            if (mounted) {
+                              setState(() {
+                                _notices.removeWhere((n) => n.id == created.id);
+                                _notices.insert(0, created);
+                                _recomputeFilteredNotices();
+                              });
+                            }
+                            if (dialogCtx.mounted) {
+                              Navigator.of(dialogCtx).pop();
+                            }
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Notice "$title" published successfully.'),
+                                  backgroundColor: AppColors.githubGreen,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isPublishing = false;
+                              dialogError = e.toString().replaceFirst('Exception: ', '');
+                            });
+                          }
+                        },
+                  child: isPublishing
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Publish Bulletin'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final filtered = _filteredNotices;
+    final canPublish = widget.currentUser?.canPublishNotice ?? true;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Targeted Notice Board'),
         actions: [
+          if (canPublish) ...[
+            ElevatedButton.icon(
+              key: const Key('btn-issue-notice'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.wineRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 14, color: Colors.white),
+              label: const Text('Issue Notice', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: () => _openPublishNoticeDialog(context, isDark),
+            ),
+            const SizedBox(width: 8),
+          ],
           IconButton(
             icon: const AppSvgIcon(svgString: AppSvgIcon.refresh, size: 18),
             onPressed: _loadNotices,

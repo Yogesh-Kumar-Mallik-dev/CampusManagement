@@ -359,6 +359,7 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/attendance/optical/start", c.AcademicHandler.StartOpticalSession)
 		mux.HandleFunc("/api/v1/attendance/optical/verify", c.AcademicHandler.VerifyOpticalAttendance)
 		mux.HandleFunc("/api/v1/attendance/optical/roster", c.AcademicHandler.GetOpticalSessionRoster)
+		mux.HandleFunc("/api/v1/attendance/optical/manual-record", c.AcademicHandler.HandleManualOpticalRecord)
 		mux.HandleFunc("/api/v1/attendance/optical/end", c.AcademicHandler.EndOpticalSession)
 		mux.HandleFunc("/api/v1/notices", c.AcademicHandler.HandleNotices)
 		mux.HandleFunc("/api/v1/sync", c.AcademicHandler.DeltaSync)
@@ -381,6 +382,9 @@ func (c *Container) BuildMux() *http.ServeMux {
 		mux.HandleFunc("/api/v1/academics/allocations", c.DepartmentHandler.HandleFacultyAllocations)
 		mux.HandleFunc("/api/v1/academics/faculty/workload", c.DepartmentHandler.HandleFacultyWorkload)
 		mux.HandleFunc("/api/v1/academics/teachers", c.DepartmentHandler.HandleTeachers)
+		mux.HandleFunc("/api/v1/academics/assignments", c.DepartmentHandler.HandleAssignments)
+		mux.HandleFunc("/api/v1/academics/assignments/submissions", c.DepartmentHandler.HandleSubmissions)
+		mux.HandleFunc("/api/v1/academics/assignments/grade", c.DepartmentHandler.HandleGradeSubmission)
 	}
 
 	// Residential & Hostel

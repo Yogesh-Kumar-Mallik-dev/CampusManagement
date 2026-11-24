@@ -228,6 +228,18 @@ class ApiService implements ICampusApi {
     throw Exception('Failed to load notices (${res.statusCode})');
   }
 
+  Future<NoticeModel> publishNotice(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/notices'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return NoticeModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to publish notice: ${res.body}');
+  }
+
   Future<List<AttendanceSummaryModel>> fetchAttendanceSummary(
       String studentId) async {
     final res = await http.get(
@@ -532,6 +544,28 @@ class ApiService implements ICampusApi {
       return list.map((e) => AttendanceRecordModel.fromJson(e)).toList();
     }
     throw Exception('Failed to load optical roster (${res.statusCode})');
+  }
+
+  Future<AttendanceRecordModel> addManualOpticalRecord(Map<String, dynamic> req) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/attendance/optical/manual-record'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(req),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return AttendanceRecordModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to add manual optical record: ${res.body}');
+  }
+
+  Future<bool> removeManualOpticalRecord(String sessionId, String recordId) async {
+    final res = await http.delete(
+      Uri.parse('$baseUrl/api/v1/attendance/optical/manual-record?session_id=$sessionId&record_id=$recordId'),
+    );
+    if (res.statusCode == 200) {
+      return true;
+    }
+    throw Exception('Failed to remove manual record: ${res.body}');
   }
 
   Future<void> endOpticalSession(String sessionId) async {
@@ -1994,5 +2028,80 @@ class ApiService implements ICampusApi {
       return fetchUserProfile(studentId);
     }
     throw Exception('Failed to disconnect DigiLocker: ${res.body}');
+  }
+
+  @override
+  Future<List<AssignmentModel>> getAssignments({String? sectionId, String? subjectId}) async {
+    final queryParams = <String, String>{};
+    if (sectionId != null && sectionId.isNotEmpty) queryParams['section_id'] = sectionId;
+    if (subjectId != null && subjectId.isNotEmpty) queryParams['subject_id'] = subjectId;
+    final uri = Uri.parse('$baseUrl/api/v1/academics/assignments')
+        .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => AssignmentModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to load assignments: ${res.body}');
+  }
+
+  @override
+  Future<AssignmentModel> createAssignment(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/assignments'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return AssignmentModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to create assignment: ${res.body}');
+  }
+
+  @override
+  Future<List<AssignmentSubmissionModel>> getSubmissions(String assignmentId) async {
+    final uri = Uri.parse('$baseUrl/api/v1/academics/assignments/submissions?assignment_id=$assignmentId');
+    final res = await http.get(uri);
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((e) => AssignmentSubmissionModel.fromJson(e)).toList();
+    }
+    throw Exception('Failed to load submissions: ${res.body}');
+  }
+
+  @override
+  Future<AssignmentSubmissionModel> submitAssignment(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/assignments/submissions'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return AssignmentSubmissionModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to submit assignment: ${res.body}');
+  }
+
+  @override
+  Future<AssignmentSubmissionModel> gradeSubmission({
+    required String submissionId,
+    required int marks,
+    required String feedback,
+    required String gradedBy,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/v1/academics/assignments/grade'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'submission_id': submissionId,
+        'marks': marks,
+        'feedback': feedback,
+        'graded_by': gradedBy,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return AssignmentSubmissionModel.fromJson(jsonDecode(res.body));
+    }
+    throw Exception('Failed to grade submission: ${res.body}');
   }
 }

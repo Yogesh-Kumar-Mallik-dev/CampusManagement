@@ -700,3 +700,96 @@ func TestFacultySubjectAllocationAndLabBatches(t *testing.T) {
 	}
 }
 
+func TestCourseworkAssignmentsAndGradingWorkflow(t *testing.T) {
+	_, _, deptHandler := setupTestAcademicEnv(t)
+
+	// 1. Create Assignment
+	assignPayload := map[string]interface{}{
+		"course_id":     "cs301",
+		"section_scope": "sec:cse-3a",
+		"title":         "Distributed Consensus Lab",
+		"description":   "Implement Raft leader election algorithm in Go or Python.",
+		"due_date":      time.Now().Add(7 * 24 * time.Hour).Format(time.RFC3339),
+		"max_score":     25.0,
+		"weightage":     10.0,
+		"created_by":    "teacher-amit",
+	}
+	assignBytes, _ := json.Marshal(assignPayload)
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/assignments", bytes.NewReader(assignBytes))
+	createW := httptest.NewRecorder()
+	deptHandler.HandleAssignments(createW, createReq)
+	if createW.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for assignment creation, got %d: %s", createW.Code, createW.Body.String())
+	}
+	var createdAssign model.Assignment
+	_ = json.Unmarshal(createW.Body.Bytes(), &createdAssign)
+	if createdAssign.ID == "" || createdAssign.Title != "Distributed Consensus Lab" {
+		t.Fatalf("unexpected created assignment: %+v", createdAssign)
+	}
+
+	// 2. List Assignments
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/academics/assignments?course_id=cs301&section_scope=sec:cse-3a", nil)
+	listW := httptest.NewRecorder()
+	deptHandler.HandleAssignments(listW, listReq)
+	if listW.Code != http.StatusOK {
+		t.Fatalf("expected 200 for listing assignments, got %d", listW.Code)
+	}
+	var assigns []model.Assignment
+	_ = json.Unmarshal(listW.Body.Bytes(), &assigns)
+	if len(assigns) == 0 {
+		t.Fatalf("expected at least 1 assignment in listing")
+	}
+
+	// 3. Submit Assignment
+	subPayload := map[string]interface{}{
+		"assignment_id":  createdAssign.ID,
+		"student_id":     "student-rahul",
+		"content":        "Submitted Git repository with Raft leader election implementation and unit tests.",
+	}
+	subBytes, _ := json.Marshal(subPayload)
+	subReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/assignments/submissions", bytes.NewReader(subBytes))
+	subW := httptest.NewRecorder()
+	deptHandler.HandleSubmissions(subW, subReq)
+	if subW.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for submission, got %d: %s", subW.Code, subW.Body.String())
+	}
+	var createdSub model.AssignmentSubmission
+	_ = json.Unmarshal(subW.Body.Bytes(), &createdSub)
+	if createdSub.ID == "" || createdSub.StudentID != "student-rahul" || createdSub.MarksAwarded != nil {
+		t.Fatalf("unexpected submission: %+v", createdSub)
+	}
+
+	// 4. List Submissions
+	subListReq := httptest.NewRequest(http.MethodGet, "/api/v1/academics/assignments/submissions?assignment_id="+createdAssign.ID, nil)
+	subListW := httptest.NewRecorder()
+	deptHandler.HandleSubmissions(subListW, subListReq)
+	if subListW.Code != http.StatusOK {
+		t.Fatalf("expected 200 for listing submissions, got %d", subListW.Code)
+	}
+	var subs []model.AssignmentSubmission
+	_ = json.Unmarshal(subListW.Body.Bytes(), &subs)
+	if len(subs) != 1 {
+		t.Fatalf("expected 1 submission, got %d", len(subs))
+	}
+
+	// 5. Grade Submission
+	gradePayload := map[string]interface{}{
+		"submission_id": createdSub.ID,
+		"marks":         24,
+		"feedback":      "Excellent election timeout implementation and safety proofs.",
+		"graded_by":     "teacher-amit",
+	}
+	gradeBytes, _ := json.Marshal(gradePayload)
+	gradeReq := httptest.NewRequest(http.MethodPost, "/api/v1/academics/assignments/grade", bytes.NewReader(gradeBytes))
+	gradeW := httptest.NewRecorder()
+	deptHandler.HandleGradeSubmission(gradeW, gradeReq)
+	if gradeW.Code != http.StatusOK {
+		t.Fatalf("expected 200 for grading submission, got %d: %s", gradeW.Code, gradeW.Body.String())
+	}
+	var gradedSub model.AssignmentSubmission
+	_ = json.Unmarshal(gradeW.Body.Bytes(), &gradedSub)
+	if gradedSub.MarksAwarded == nil || *gradedSub.MarksAwarded != 24 || gradedSub.Feedback != "Excellent election timeout implementation and safety proofs." {
+		t.Fatalf("unexpected graded submission payload: %+v", gradedSub)
+	}
+}
+

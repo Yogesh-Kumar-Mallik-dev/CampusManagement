@@ -915,7 +915,7 @@ class OfflineStorageService implements ICampusStorage {
     final firstName = (req['first_name'] ?? 'student').toString().toLowerCase();
     final year = req['admission_year'] ?? DateTime.now().year;
     final entry = (req['entry_type'] ?? 'regular').toString().toLowerCase().substring(0, 1);
-    final prog = (req['program'] ?? 'btech').toString().toLowerCase();
+    final prog = (req['program'] ?? 'prog').toString().toLowerCase();
     final branch = (req['branch'] ?? '').toString().toLowerCase();
     final progPart = branch.isNotEmpty ? '${prog}_$branch' : prog;
     final handle = '${firstName}_${year}_${entry}_${progPart}_${_cachedUsers.length + 1}';
@@ -1623,6 +1623,34 @@ class OfflineStorageService implements ICampusStorage {
       } catch (_) {}
     }
     return _cachedNotices;
+  }
+
+  Future<NoticeModel> publishNotice(Map<String, dynamic> payload) async {
+    _seedDefaultNoticesIfEmpty();
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final created = await api.publishNotice(payload);
+        _cachedNotices.removeWhere((n) => n.id == created.id);
+        _cachedNotices.insert(0, created);
+        return created;
+      } catch (_) {}
+    }
+
+    final effectiveId = payload['id']?.toString().isNotEmpty == true
+        ? payload['id'].toString()
+        : 'notice-${DateTime.now().millisecondsSinceEpoch}';
+    final newNotice = NoticeModel(
+      id: effectiveId,
+      title: payload['title']?.toString() ?? '',
+      content: payload['content']?.toString() ?? '',
+      category: payload['category']?.toString() ?? 'general',
+      targetScopeCode: payload['target_scope_code']?.toString() ?? 'global',
+      priority: payload['priority']?.toString() ?? 'normal',
+      publishedAt: DateTime.now(),
+    );
+    _cachedNotices.insert(0, newNotice);
+    return newNotice;
   }
 
   void _seedDefaultTimetableIfEmpty() {
@@ -2416,12 +2444,26 @@ class OfflineStorageService implements ICampusStorage {
     required String courseId,
     required String courseCode,
     required String courseName,
-    required String scopeCode,
+    String? subjectCode,
+    String? subjectName,
     required String roomNumber,
+    required String scopeCode,
+    String? sectionScope,
     required String markedByUserId,
     required String markedByName,
+    String? teacherId,
+    String? teacherName,
+    bool isSubstitute = false,
+    String substituteForName = '',
+    String programName = '',
+    int academicYear = 1,
+    int durationHours = 1,
+    int attendanceUnits = 1,
     int refreshIntervalMs = 1500,
   }) async {
+    final effectiveUnits = attendanceUnits > 0 ? attendanceUnits : (durationHours == 2 ? 2 : 1);
+    final effectiveSec = sectionScope ?? scopeCode;
+
     await checkConnectivity();
     if (isOnline) {
       try {
@@ -2429,10 +2471,21 @@ class OfflineStorageService implements ICampusStorage {
           'course_id': courseId,
           'course_code': courseCode,
           'course_name': courseName,
+          'subject_code': subjectCode ?? courseCode,
+          'subject_name': subjectName ?? courseName,
           'scope_code': scopeCode,
+          'section_scope': effectiveSec,
           'room_number': roomNumber,
           'marked_by_user_id': markedByUserId,
           'marked_by_name': markedByName,
+          'teacher_id': teacherId ?? markedByUserId,
+          'teacher_name': teacherName ?? markedByName,
+          'is_substitute': isSubstitute,
+          'substitute_for_name': substituteForName,
+          'program_name': programName,
+          'academic_year': academicYear,
+          'duration_hours': durationHours,
+          'attendance_units': effectiveUnits,
           'refresh_interval_ms': refreshIntervalMs,
         });
         _activeOpticalSession = sess;
@@ -2451,10 +2504,21 @@ class OfflineStorageService implements ICampusStorage {
       courseId: courseId,
       courseCode: courseCode,
       courseName: courseName,
+      subjectCode: subjectCode ?? courseCode,
+      subjectName: subjectName ?? courseName,
       scopeCode: scopeCode,
+      sectionScope: effectiveSec,
       roomNumber: roomNumber,
       markedByUserId: markedByUserId,
       markedByName: markedByName,
+      teacherId: teacherId ?? markedByUserId,
+      teacherName: teacherName ?? markedByName,
+      isSubstitute: isSubstitute,
+      substituteForName: substituteForName,
+      programName: programName,
+      academicYear: academicYear,
+      durationHours: durationHours,
+      attendanceUnits: effectiveUnits,
       sessionSecret: localSecret,
       refreshIntervalMs: refreshIntervalMs,
       startedAt: now,
@@ -2471,7 +2535,18 @@ class OfflineStorageService implements ICampusStorage {
   Future<OpticalVerificationResult> verifyOpticalAttendance({
     required OpticalFramePacket packet,
     required UserModel student,
+    String? fingerprintCode,
+    String? studentSignature,
   }) async {
+    // Authorization pre-flight check
+    if (packet.sectionScope.isNotEmpty && student.sectionScope != null && student.sectionScope!.isNotEmpty) {
+      if (student.sectionScope != packet.sectionScope && !student.activeScopes.contains(packet.sectionScope)) {
+        throw Exception('Unauthorized: You are registered in ${student.sectionScope}, but this session is for ${packet.sectionScope}. Attendance cannot be claimed.');
+      }
+    }
+
+    final effectiveFp = fingerprintCode ?? packet.fingerprintCode;
+
     await checkConnectivity();
     if (isOnline) {
       try {
@@ -2480,9 +2555,12 @@ class OfflineStorageService implements ICampusStorage {
           'student_id': student.id,
           'student_name': student.fullName,
           'campus_handle': student.campusHandle,
+          'section_scope': student.sectionScope ?? packet.sectionScope,
           'sequence': packet.sequence,
           'timestamp': packet.timestamp,
           'nonce': packet.nonce,
+          'fingerprint_code': effectiveFp,
+          'student_signature': studentSignature ?? '',
           'signature': packet.signature,
         });
 
@@ -2494,6 +2572,9 @@ class OfflineStorageService implements ICampusStorage {
           studentName: student.fullName,
           campusHandle: student.campusHandle,
           status: 'present',
+          origin: 'optical',
+          fingerprintCode: effectiveFp,
+          attendanceUnits: packet.attendanceUnits,
         );
         if (!_opticalRoster.any((r) => r.studentId == student.id)) {
           _opticalRoster.insert(0, rec);
@@ -2501,7 +2582,6 @@ class OfflineStorageService implements ICampusStorage {
 
         return res;
       } catch (e) {
-        // Re-throw specific errors (e.g., expired or duplicate)
         rethrow;
       }
     }
@@ -2511,7 +2591,6 @@ class OfflineStorageService implements ICampusStorage {
       throw Exception('Expired optical frame (#${packet.sequence}). Scan live broadcast.');
     }
 
-    // If local active session matches secret, verify HMAC
     if (_activeOpticalSession != null && _activeOpticalSession!.id == packet.sessionId) {
       final key = utf8.encode(_activeOpticalSession!.sessionSecret);
       final bytes = utf8.encode('${packet.sessionId}:${packet.sequence}:${packet.timestamp}:${packet.nonce}');
@@ -2536,22 +2615,11 @@ class OfflineStorageService implements ICampusStorage {
       studentName: student.fullName,
       campusHandle: student.campusHandle,
       status: 'present',
+      origin: 'optical',
+      fingerprintCode: effectiveFp,
+      attendanceUnits: packet.attendanceUnits,
     );
     _opticalRoster.insert(0, rec);
-
-    // Queue session to attendance outbox for delta sync
-    final localSession = AttendanceSessionModel(
-      id: packet.sessionId,
-      courseId: packet.courseCode,
-      courseCode: packet.courseCode,
-      courseName: packet.courseName,
-      scopeCode: 'sec:cse-3a',
-      sessionDate: '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
-      topic: 'Lecture in ${packet.room} (Optical Stream)',
-      records: List.from(_opticalRoster),
-    );
-    _attendanceOutbox.removeWhere((s) => s.id == packet.sessionId);
-    _attendanceOutbox.add(localSession);
 
     return OpticalVerificationResult(
       verified: true,
@@ -2559,11 +2627,82 @@ class OfflineStorageService implements ICampusStorage {
       sessionId: packet.sessionId,
       courseCode: packet.courseCode,
       courseName: packet.courseName,
+      teacherName: packet.teacherName,
+      isSubstitute: packet.isSubstitute,
       studentName: student.fullName,
       handle: student.campusHandle,
       sequence: packet.sequence,
+      attendanceUnits: packet.attendanceUnits,
+      origin: 'optical',
       recordedAt: now,
     );
+  }
+
+  Future<AttendanceRecordModel> addManualOpticalRecord({
+    required String sessionId,
+    required String studentId,
+    required String studentName,
+    required String campusHandle,
+    String remarks = '',
+  }) async {
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final rec = await api.addManualOpticalRecord({
+          'session_id': sessionId,
+          'student_id': studentId,
+          'student_name': studentName,
+          'campus_handle': campusHandle,
+          'remarks': remarks,
+        });
+        _opticalRoster.removeWhere((r) => r.studentId == studentId);
+        _opticalRoster.insert(0, rec);
+        return rec;
+      } catch (_) {}
+    }
+
+    final units = _activeOpticalSession?.attendanceUnits ?? 1;
+    final rec = AttendanceRecordModel(
+      id: 'rec-manual-$sessionId-$studentId',
+      sessionId: sessionId,
+      studentId: studentId,
+      studentName: studentName,
+      campusHandle: campusHandle,
+      status: 'present',
+      origin: 'manual',
+      attendanceUnits: units,
+      remarks: remarks.isNotEmpty ? 'Manual: $remarks' : 'Manual Instructor Addition',
+    );
+    _opticalRoster.removeWhere((r) => r.studentId == studentId);
+    _opticalRoster.insert(0, rec);
+    return rec;
+  }
+
+  Future<bool> removeManualOpticalRecord({
+    required String sessionId,
+    required String recordId,
+  }) async {
+    final existing = _opticalRoster.firstWhere(
+      (r) => r.id == recordId,
+      orElse: () => AttendanceRecordModel(id: '', sessionId: '', studentId: '', studentName: '', campusHandle: '', status: ''),
+    );
+    if (existing.id.isNotEmpty && existing.origin == 'optical') {
+      throw Exception('Cannot manually remove student attendance verified via dynamic optical QR code');
+    }
+
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        await api.removeManualOpticalRecord(sessionId, recordId);
+        _opticalRoster.removeWhere((r) => r.id == recordId);
+        return true;
+      } catch (e) {
+        rethrow;
+      }
+    }
+
+    _opticalRoster.removeWhere((r) => r.id == recordId);
+    return true;
   }
 
   Future<List<AttendanceRecordModel>> getOpticalRoster(String sessionId) async {
@@ -4547,20 +4686,25 @@ class OfflineStorageService implements ICampusStorage {
     final idx = _cachedMessMeals.indexWhere(
       (m) => m.id == updatedMeal.id || (m.dayOfWeek.toLowerCase() == day && m.mealType.toLowerCase() == type),
     );
-    if (idx == -1) {
-      throw Exception('Mess meal ${updatedMeal.id} not found');
-    }
 
     await checkConnectivity();
     if (isOnline) {
       try {
         final res = await api.updateMessMeal(updatedMeal);
-        _cachedMessMeals[idx] = res;
+        if (idx != -1) {
+          _cachedMessMeals[idx] = res;
+        } else {
+          _cachedMessMeals.add(res);
+        }
         return res;
       } catch (_) {}
     }
 
-    _cachedMessMeals[idx] = updatedMeal;
+    if (idx != -1) {
+      _cachedMessMeals[idx] = updatedMeal;
+    } else {
+      _cachedMessMeals.add(updatedMeal);
+    }
     return updatedMeal;
   }
 
@@ -8027,5 +8171,209 @@ class OfflineStorageService implements ICampusStorage {
     }
 
     return updated;
+  }
+
+  final List<AssignmentModel> _cachedAssignments = [];
+  final List<AssignmentSubmissionModel> _cachedSubmissions = [];
+
+  List<AssignmentModel> get cachedAssignments => List.unmodifiable(_cachedAssignments);
+  List<AssignmentSubmissionModel> get cachedSubmissions => List.unmodifiable(_cachedSubmissions);
+
+  void _seedDefaultAssignmentsIfEmpty() {
+    if (!enableMockSeeding || _cachedAssignments.isNotEmpty) return;
+    final now = DateTime.now();
+    _cachedAssignments.addAll([
+      AssignmentModel(
+        id: 'assign-cs301-1',
+        sectionId: 'sec-cse-3a',
+        subjectId: 'subj-cs301',
+        subjectName: 'Data Structures & Algorithms',
+        teacherId: 'usr-priya_2024_emp_1',
+        teacherName: 'Dr. Priya Sharma',
+        title: 'Problem Set 1: Graph Traversal & Dynamic Programming',
+        description: 'Implement BFS, DFS, and Bellman-Ford algorithm with complexity analysis.',
+        maxMarks: 20,
+        dueDate: '${now.year}-${now.month.toString().padLeft(2, '0')}-30',
+        createdAt: now.subtract(const Duration(days: 3)),
+      ),
+      AssignmentModel(
+        id: 'assign-cs302-1',
+        sectionId: 'sec-cse-3a',
+        subjectId: 'subj-cs302',
+        subjectName: 'Database Management Systems',
+        teacherId: 'usr-arun_2024_emp_2',
+        teacherName: 'Prof. Arun Verma',
+        title: 'Mini-Project: B-Tree Index Engine & Relational Algebra',
+        description: 'Design schema with 3NF normalization, foreign keys, and index scan tests.',
+        maxMarks: 25,
+        dueDate: '${now.year}-${now.month.toString().padLeft(2, '0')}-28',
+        createdAt: now.subtract(const Duration(days: 5)),
+      ),
+    ]);
+
+    _cachedSubmissions.addAll([
+      AssignmentSubmissionModel(
+        id: 'sub-harish-1',
+        assignmentId: 'assign-cs301-1',
+        studentId: 'usr-harish_2025_l_btech_1',
+        studentName: 'Harish Kumar',
+        studentRoll: '2100970100045',
+        content: 'https://github.com/campus/cs301-assignment-1.git with completed BFS/DFS and documentation.',
+        submittedAt: now.subtract(const Duration(days: 1)),
+        marksAwarded: 19,
+        feedback: 'Excellent complexity analysis and modular code structure.',
+        gradedBy: 'Dr. Priya Sharma',
+        gradedAt: now.subtract(const Duration(hours: 12)),
+      ),
+    ]);
+  }
+
+  @override
+  Future<List<AssignmentModel>> getAssignments({String? sectionId, String? subjectId}) async {
+    _seedDefaultAssignmentsIfEmpty();
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.getAssignments(sectionId: sectionId, subjectId: subjectId);
+        if (list.isNotEmpty) {
+          _cachedAssignments
+            ..clear()
+            ..addAll(list);
+        }
+      } catch (_) {}
+    }
+
+    var result = List<AssignmentModel>.from(_cachedAssignments);
+    if (sectionId != null && sectionId.isNotEmpty) {
+      result = result.where((a) => a.sectionId == sectionId).toList();
+    }
+    if (subjectId != null && subjectId.isNotEmpty) {
+      result = result.where((a) => a.subjectId == subjectId).toList();
+    }
+    return result;
+  }
+
+  @override
+  Future<AssignmentModel> createAssignment(Map<String, dynamic> payload) async {
+    _seedDefaultAssignmentsIfEmpty();
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final created = await api.createAssignment(payload);
+        _cachedAssignments.removeWhere((a) => a.id == created.id);
+        _cachedAssignments.insert(0, created);
+        return created;
+      } catch (_) {}
+    }
+
+    final id = payload['id']?.toString().isNotEmpty == true
+        ? payload['id'].toString()
+        : 'assign-${DateTime.now().millisecondsSinceEpoch}';
+    final model = AssignmentModel(
+      id: id,
+      sectionId: payload['section_id']?.toString() ?? payload['section_scope']?.toString() ?? '',
+      subjectId: payload['subject_id']?.toString() ?? payload['course_id']?.toString() ?? '',
+      subjectName: payload['subject_name']?.toString() ?? '',
+      teacherId: payload['teacher_id']?.toString() ?? '',
+      teacherName: payload['teacher_name']?.toString() ?? '',
+      title: payload['title']?.toString() ?? '',
+      description: payload['description']?.toString() ?? '',
+      maxMarks: int.tryParse(payload['max_marks']?.toString() ?? '100') ?? 100,
+      dueDate: payload['due_date']?.toString() ?? '',
+      createdAt: DateTime.now(),
+    );
+    _cachedAssignments.insert(0, model);
+    return model;
+  }
+
+  @override
+  Future<List<AssignmentSubmissionModel>> getSubmissions(String assignmentId) async {
+    _seedDefaultAssignmentsIfEmpty();
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final list = await api.getSubmissions(assignmentId);
+        if (list.isNotEmpty) {
+          _cachedSubmissions.removeWhere((s) => s.assignmentId == assignmentId);
+          _cachedSubmissions.addAll(list);
+        }
+      } catch (_) {}
+    }
+    return _cachedSubmissions.where((s) => s.assignmentId == assignmentId).toList();
+  }
+
+  @override
+  Future<AssignmentSubmissionModel> submitAssignment(Map<String, dynamic> payload) async {
+    _seedDefaultAssignmentsIfEmpty();
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final created = await api.submitAssignment(payload);
+        _cachedSubmissions.removeWhere((s) => s.id == created.id);
+        _cachedSubmissions.insert(0, created);
+        return created;
+      } catch (_) {}
+    }
+
+    final id = payload['id']?.toString().isNotEmpty == true
+        ? payload['id'].toString()
+        : 'sub-${DateTime.now().millisecondsSinceEpoch}';
+    final sub = AssignmentSubmissionModel(
+      id: id,
+      assignmentId: payload['assignment_id']?.toString() ?? '',
+      studentId: payload['student_id']?.toString() ?? '',
+      studentName: payload['student_name']?.toString() ?? '',
+      studentRoll: payload['student_roll']?.toString() ?? '',
+      content: payload['content']?.toString() ?? '',
+      submittedAt: DateTime.now(),
+    );
+    _cachedSubmissions.removeWhere((s) => s.id == sub.id || (s.assignmentId == sub.assignmentId && s.studentId == sub.studentId));
+    _cachedSubmissions.insert(0, sub);
+    return sub;
+  }
+
+  @override
+  Future<AssignmentSubmissionModel> gradeSubmission({
+    required String submissionId,
+    required int marks,
+    required String feedback,
+    required String gradedBy,
+  }) async {
+    _seedDefaultAssignmentsIfEmpty();
+    await checkConnectivity();
+    if (isOnline) {
+      try {
+        final res = await api.gradeSubmission(
+          submissionId: submissionId,
+          marks: marks,
+          feedback: feedback,
+          gradedBy: gradedBy,
+        );
+        final idx = _cachedSubmissions.indexWhere((s) => s.id == res.id);
+        if (idx != -1) _cachedSubmissions[idx] = res;
+        return res;
+      } catch (_) {}
+    }
+
+    final idx = _cachedSubmissions.indexWhere((s) => s.id == submissionId);
+    if (idx != -1) {
+      final existing = _cachedSubmissions[idx];
+      final graded = AssignmentSubmissionModel(
+        id: existing.id,
+        assignmentId: existing.assignmentId,
+        studentId: existing.studentId,
+        studentName: existing.studentName,
+        studentRoll: existing.studentRoll,
+        content: existing.content,
+        submittedAt: existing.submittedAt,
+        marksAwarded: marks,
+        feedback: feedback,
+        gradedBy: gradedBy,
+        gradedAt: DateTime.now(),
+      );
+      _cachedSubmissions[idx] = graded;
+      return graded;
+    }
+    throw Exception('Submission $submissionId not found');
   }
 }

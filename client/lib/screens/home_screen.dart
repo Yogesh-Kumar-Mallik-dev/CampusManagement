@@ -1854,6 +1854,356 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showDigitalGatePassModal(BuildContext context, bool isDark) {
+    final gatePassId = _currentUser.gatePassId ?? 'GP-SEC-2026-091';
+    final org = _currentUser.vendorOrganization ?? 'Campus Facilities & Services';
+    final scopes = _currentUser.permittedScopes.isNotEmpty
+        ? _currentUser.permittedScopes.join(', ')
+        : 'Main Campus Facilities, Canteen & Entry Turnstiles';
+
+    String selectedGate = 'Gate 1 (Main Turnstile)';
+    final vehicleCtrl = TextEditingController();
+    String? lastLogMessage;
+    bool isCheckIn = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return Material(
+              key: const Key('dialog-contractor-gate-pass'),
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                side: BorderSide(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                  width: 1,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(modalCtx).size.height * 0.9,
+                  maxWidth: 620,
+                ),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 12,
+                    bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.githubGreen.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.verified_user_outlined,
+                                    size: 20,
+                                    color: AppColors.githubGreen,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Digital Contractor Gate Pass',
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        'Institutional Security & Access Control',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.githubGreen.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.githubGreen),
+                            ),
+                            child: const Text(
+                              'ACTIVE • VERIFIED',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.githubGreen,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF161B22) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _currentUser.name,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        org,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            'PASS ID: ',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                          ),
+                                          Text(
+                                            gatePassId,
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.bold,
+                                              fontFamily: 'monospace',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF0D1117) : Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.qr_code_2,
+                                    size: 44,
+                                    color: AppColors.githubGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20),
+                            Text(
+                              'Authorized Scopes: $scopes',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Validity: Current Academic Term • 24/7 Security Logged Access',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Security Checkpoint Logging',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Select checkpoint and log vehicle or pedestrian movement at gate turnstiles.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedGate,
+                        decoration: InputDecoration(
+                          labelText: 'Checkpoint Gate',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'Gate 1 (Main Turnstile)', child: Text('Gate 1 (Main Turnstile)')),
+                          DropdownMenuItem(value: 'Gate 2 (Academic Quad)', child: Text('Gate 2 (Academic Quad)')),
+                          DropdownMenuItem(value: 'Gate 3 (Service & Loading Bay)', child: Text('Gate 3 (Service & Loading Bay)')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() {
+                              selectedGate = val;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        key: const Key('input-gate-vehicle-reg'),
+                        controller: vehicleCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Vehicle Registration No. (Optional)',
+                          hintText: 'e.g. DL-01-AB-1234 (leave blank for pedestrian entry)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              key: const Key('btn-log-gate-checkin'),
+                              icon: const Icon(Icons.login, size: 16),
+                              label: const Text('Log Check-In'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.githubGreen,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: () {
+                                final now = DateTime.now();
+                                final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+                                final vehicle = vehicleCtrl.text.trim();
+                                final vMsg = vehicle.isNotEmpty ? ' with vehicle $vehicle' : ' (pedestrian)';
+                                setModalState(() {
+                                  isCheckIn = true;
+                                  lastLogMessage = 'Check-In recorded at $selectedGate at $timeStr$vMsg. Biometric & pass token logged in gate ledger.';
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              key: const Key('btn-log-gate-checkout'),
+                              icon: const Icon(Icons.logout, size: 16),
+                              label: const Text('Log Check-Out'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDark ? Colors.white : Colors.black87,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              onPressed: () {
+                                final now = DateTime.now();
+                                final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+                                setModalState(() {
+                                  isCheckIn = false;
+                                  lastLogMessage = 'Check-Out recorded at $selectedGate at $timeStr. Access session closed successfully.';
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (lastLogMessage != null) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isCheckIn
+                                ? AppColors.githubGreen.withValues(alpha: 0.12)
+                                : const Color(0xFF0969DA).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isCheckIn ? AppColors.githubGreen : const Color(0xFF0969DA),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isCheckIn ? Icons.check_circle_outline : Icons.info_outline,
+                                size: 18,
+                                color: isCheckIn ? AppColors.githubGreen : const Color(0xFF0969DA),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  lastLogMessage!,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: isCheckIn
+                                        ? (isDark ? const Color(0xFF7EE787) : const Color(0xFF1A7F37))
+                                        : (isDark ? const Color(0xFF79C0FF) : const Color(0xFF0969DA)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   String _getTimeGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning';
@@ -2582,18 +2932,18 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Gate Pass Verification & Facility Access',
           badgeText: 'AUTHORIZED VENDOR',
           badgeColor: AppColors.githubGreen,
-          actionLabel: 'View Profile',
-          onAction: () => _onDestinationSelected(9),
+          actionLabel: 'Digital Gate Pass',
+          onAction: () => _showDigitalGatePassModal(context, isDark),
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Active Biometric Gate Pass • Main Gate & Gate 1 Authorization',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              Text(
+                'Gate Pass ID: ${_currentUser.gatePassId ?? "GP-SEC-2026-091"} • Main Gate & Turnstile Pass',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
-                'Authorized Building Scopes: Campus Facilities & Main Gate Turnstiles.',
+                'Authorized Building Scopes: ${_currentUser.permittedScopes.isNotEmpty ? _currentUser.permittedScopes.join(", ") : "Campus Facilities & Main Gate Turnstiles"}.',
                 style: TextStyle(
                   fontSize: 11.5,
                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -2973,7 +3323,7 @@ class _HomeScreenState extends State<HomeScreen> {
             subtitle: 'Gate 1 & Main Gate Authorized',
             iconSvg: AppSvgIcon.shield,
             color: AppColors.githubGreen,
-            onTap: () => _onDestinationSelected(9),
+            onTap: () => _showDigitalGatePassModal(context, isDark),
           ),
           _DashboardMetricCard(
             title: 'Facility Scopes',
@@ -3373,6 +3723,14 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'contractor':
         personaLabel = 'Vendor Operations & Facility Access';
         cards = [
+          _buildOperationCard(
+            key: const Key('card-contractor-gate-pass'),
+            title: 'Digital Gate Pass',
+            subtitle: 'Security checkpoint QR code & access logger',
+            iconSvg: AppSvgIcon.shield,
+            color: AppColors.githubGreen,
+            onTap: () => _showDigitalGatePassModal(context, isDark),
+          ),
           _buildOperationCard(
             title: 'Hostel Mess & Feedback',
             subtitle: 'Dining timetable & catering operations',

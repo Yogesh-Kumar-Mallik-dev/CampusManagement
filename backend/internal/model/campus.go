@@ -78,13 +78,16 @@ const (
 // AttendanceRecord represents a single student's status for a session
 type AttendanceRecord struct {
 	BaseSyncModel
-	SessionID   string           `json:"session_id"`
-	StudentID   string           `json:"student_id"`
-	StudentName string           `json:"student_name,omitempty"`
-	StudentRoll string           `json:"student_roll,omitempty"`
-	Handle      string           `json:"campus_handle,omitempty"`
-	Status      AttendanceStatus `json:"status"`
-	Remarks     string           `json:"remarks,omitempty"`
+	SessionID       string           `json:"session_id"`
+	StudentID       string           `json:"student_id"`
+	StudentName     string           `json:"student_name,omitempty"`
+	StudentRoll     string           `json:"student_roll,omitempty"`
+	Handle          string           `json:"campus_handle,omitempty"`
+	Status          AttendanceStatus `json:"status"`
+	Remarks         string           `json:"remarks,omitempty"`
+	Origin          string           `json:"origin,omitempty"`           // "optical" or "manual"
+	FingerprintCode string           `json:"fingerprint_code,omitempty"`
+	AttendanceUnits int              `json:"attendance_units,omitempty"` // 1 or 2
 }
 
 // AttendanceSession represents a class instance on a specific date
@@ -99,8 +102,13 @@ type AttendanceSession struct {
 	ScopeCode       string             `json:"scope_code,omitempty"`
 	MarkedByUserID  string             `json:"marked_by_user_id"`
 	MarkedByName    string             `json:"marked_by_name,omitempty"`
+	TeacherID       string             `json:"teacher_id,omitempty"`
+	TeacherName     string             `json:"teacher_name,omitempty"`
+	IsSubstitute    bool               `json:"is_substitute,omitempty"`
 	SessionDate     string             `json:"session_date"` // YYYY-MM-DD
 	Topic           string             `json:"topic,omitempty"`
+	DurationHours   int                `json:"duration_hours,omitempty"`   // 1 or 2
+	AttendanceUnits int                `json:"attendance_units,omitempty"` // 1 or 2
 	IsFinalized     bool               `json:"is_finalized"`
 	Records         []AttendanceRecord `json:"records,omitempty"`
 }
@@ -137,46 +145,65 @@ type OfflineAttendanceBatch struct {
 
 // OpticalAttendanceSession represents an active rolling QR optical broadcast session
 type OpticalAttendanceSession struct {
-	ID              string             `json:"id"`
-	CourseID        string             `json:"course_id"`
-	CourseCode      string             `json:"course_code"`
-	CourseName      string             `json:"course_name"`
-	ScopeCode       string             `json:"scope_code"`
-	RoomNumber      string             `json:"room_number"`
-	MarkedByUserID  string             `json:"marked_by_user_id"`
-	MarkedByName    string             `json:"marked_by_name"`
-	SessionSecret   string             `json:"session_secret"`
-	RefreshInterval int                `json:"refresh_interval_ms"` // e.g. 1500
-	StartedAt       time.Time          `json:"started_at"`
-	ExpiresAt       time.Time          `json:"expires_at"`
-	IsActive        bool               `json:"is_active"`
-	VerifiedRecords []AttendanceRecord `json:"verified_records"`
+	ID                string             `json:"id"`
+	CourseID          string             `json:"course_id"`
+	CourseCode        string             `json:"course_code"`
+	CourseName        string             `json:"course_name"`
+	SubjectCode       string             `json:"subject_code,omitempty"`
+	SubjectName       string             `json:"subject_name,omitempty"`
+	ProgramName       string             `json:"program_name,omitempty"`
+	AcademicYear      int                `json:"academic_year,omitempty"`
+	ScopeCode         string             `json:"scope_code"`
+	SectionScope      string             `json:"section_scope,omitempty"`
+	RoomNumber        string             `json:"room_number"`
+	MarkedByUserID    string             `json:"marked_by_user_id"`
+	MarkedByName      string             `json:"marked_by_name"`
+	TeacherID         string             `json:"teacher_id,omitempty"`
+	TeacherName       string             `json:"teacher_name,omitempty"`
+	IsSubstitute      bool               `json:"is_substitute,omitempty"`
+	SubstituteForName string             `json:"substitute_for_name,omitempty"`
+	DurationHours     int                `json:"duration_hours,omitempty"`   // 1 or 2
+	AttendanceUnits   int                `json:"attendance_units,omitempty"` // 1 or 2
+	SessionSecret     string             `json:"session_secret"`
+	RefreshInterval   int                `json:"refresh_interval_ms"` // e.g. 1500
+	StartedAt         time.Time          `json:"started_at"`
+	ExpiresAt         time.Time          `json:"expires_at"`
+	IsActive          bool               `json:"is_active"`
+	VerifiedRecords   []AttendanceRecord `json:"verified_records"`
 }
 
 // OpticalVerificationRequest is submitted when a student scans a rolling frame
 type OpticalVerificationRequest struct {
-	SessionID   string `json:"session_id"`
-	StudentID   string `json:"student_id"`
-	StudentName string `json:"student_name"`
-	Handle      string `json:"campus_handle"`
-	Sequence    int    `json:"sequence"`
-	Timestamp   int64  `json:"timestamp"`
-	Nonce       string `json:"nonce"`
-	Signature   string `json:"signature"`
+	SessionID        string `json:"session_id"`
+	StudentID        string `json:"student_id"`
+	StudentName      string `json:"student_name"`
+	Handle           string `json:"campus_handle"`
+	TeacherID        string `json:"teacher_id,omitempty"`
+	SectionScope     string `json:"section_scope,omitempty"`
+	Sequence         int    `json:"sequence"`
+	Timestamp        int64  `json:"timestamp"`
+	Nonce            string `json:"nonce"`
+	FingerprintCode  string `json:"fingerprint_code,omitempty"`
+	StudentSignature string `json:"student_signature,omitempty"`
+	Signature        string `json:"signature"`
 }
 
 // OpticalVerificationResponse reports the result of the optical verification
 type OpticalVerificationResponse struct {
-	Verified     bool      `json:"verified"`
-	Message      string    `json:"message"`
-	SessionID    string    `json:"session_id"`
-	CourseCode   string    `json:"course_code"`
-	CourseName   string    `json:"course_name"`
-	StudentName  string    `json:"student_name"`
-	Handle       string    `json:"campus_handle"`
-	Sequence     int       `json:"sequence"`
-	RecordedAt   time.Time `json:"recorded_at"`
-	AttendanceID string    `json:"attendance_id"`
+	Verified        bool      `json:"verified"`
+	Message         string    `json:"message"`
+	SessionID       string    `json:"session_id"`
+	CourseCode      string    `json:"course_code"`
+	CourseName      string    `json:"course_name"`
+	TeacherName     string    `json:"teacher_name,omitempty"`
+	IsSubstitute    bool      `json:"is_substitute,omitempty"`
+	StudentName     string    `json:"student_name"`
+	Handle          string    `json:"campus_handle"`
+	AttendanceUnits int       `json:"attendance_units,omitempty"`
+	Sequence        int       `json:"sequence"`
+	RecordedAt      time.Time `json:"recorded_at"`
+	AttendanceID    string    `json:"attendance_id"`
+	Origin          string    `json:"origin,omitempty"`
 }
 
 // DeltaSyncResponse returns all delta updates for a client since a given timestamp

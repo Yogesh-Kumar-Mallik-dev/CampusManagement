@@ -246,7 +246,14 @@ func (s *MessService) UpdateMeal(meal model.MessMeal) (*model.MessMeal, error) {
 
 	existing, exists := s.meals[meal.ID]
 	if !exists {
-		return nil, fmt.Errorf("mess meal '%s' not found", meal.ID)
+		if err := model.ValidateMealForDay(meal.DayOfWeek, meal.MealType); err != nil {
+			return nil, err
+		}
+		if meal.ID == "" {
+			meal.ID = fmt.Sprintf("meal-%s-%s", strings.ToLower(meal.DayOfWeek), strings.ToLower(string(meal.MealType)))
+		}
+		s.meals[meal.ID] = &meal
+		return &meal, nil
 	}
 
 	if err := model.ValidateMealForDay(meal.DayOfWeek, meal.MealType); err != nil {

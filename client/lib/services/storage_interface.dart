@@ -37,6 +37,7 @@ abstract class ICampusApi {
     required String scopeCode,
   });
   Future<List<NoticeModel>> fetchNotices(List<String> scopes);
+  Future<NoticeModel> publishNotice(Map<String, dynamic> payload);
   Future<List<AttendanceSummaryModel>> fetchAttendanceSummary(String studentId);
   Future<bool> pushAttendanceBatch(
     String markedByUserId,
@@ -47,6 +48,8 @@ abstract class ICampusApi {
   Future<OpticalSessionModel> startOpticalSession(Map<String, dynamic> data);
   Future<OpticalVerificationResult> verifyOpticalAttendance(Map<String, dynamic> req);
   Future<List<AttendanceRecordModel>> fetchOpticalSessionRoster(String sessionId);
+  Future<AttendanceRecordModel> addManualOpticalRecord(Map<String, dynamic> req);
+  Future<bool> removeManualOpticalRecord(String sessionId, String recordId);
   Future<void> endOpticalSession(String sessionId);
 
   // User Management
@@ -363,6 +366,18 @@ abstract class ICampusApi {
   });
   Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId});
   Future<UserModel> disconnectDigiLocker({required String studentId});
+
+  // Coursework Assignments & Grading
+  Future<List<AssignmentModel>> getAssignments({String? sectionId, String? subjectId});
+  Future<AssignmentModel> createAssignment(Map<String, dynamic> payload);
+  Future<List<AssignmentSubmissionModel>> getSubmissions(String assignmentId);
+  Future<AssignmentSubmissionModel> submitAssignment(Map<String, dynamic> payload);
+  Future<AssignmentSubmissionModel> gradeSubmission({
+    required String submissionId,
+    required int marks,
+    required String feedback,
+    required String gradedBy,
+  });
 }
 
 /// ICampusStorage abstracts local persistence, offline caching, and outbox synchronization.
@@ -447,6 +462,7 @@ abstract class ICampusStorage {
   });
   Future<List<TimetableConflictModel>> checkTimetableConflicts(TimetableSlotModel candidate);
   Future<List<NoticeModel>> getNotices(List<String> scopes);
+  Future<NoticeModel> publishNotice(Map<String, dynamic> payload);
   Future<List<AttendanceSummaryModel>> getAttendanceSummary(String studentId);
   double getAttendanceThreshold({String? sectionScope});
   Future<void> setAttendanceThreshold({
@@ -459,17 +475,41 @@ abstract class ICampusStorage {
     required String courseId,
     required String courseCode,
     required String courseName,
+    String? subjectCode,
+    String? subjectName,
     required String roomNumber,
     required String scopeCode,
+    String? sectionScope,
     required String markedByUserId,
     required String markedByName,
-    int refreshIntervalMs = 5000,
+    String? teacherId,
+    String? teacherName,
+    bool isSubstitute = false,
+    String substituteForName = '',
+    String programName = '',
+    int academicYear = 1,
+    int durationHours = 1,
+    int attendanceUnits = 1,
+    int refreshIntervalMs = 1500,
   });
   Future<OpticalVerificationResult> verifyOpticalAttendance({
     required OpticalFramePacket packet,
     required UserModel student,
+    String? fingerprintCode,
+    String? studentSignature,
   });
   Future<List<AttendanceRecordModel>> getOpticalRoster(String sessionId);
+  Future<AttendanceRecordModel> addManualOpticalRecord({
+    required String sessionId,
+    required String studentId,
+    required String studentName,
+    required String campusHandle,
+    String remarks = '',
+  });
+  Future<bool> removeManualOpticalRecord({
+    required String sessionId,
+    required String recordId,
+  });
   Future<void> endOpticalSession(String sessionId);
 
   // Academic Hierarchy & Department Management
@@ -742,4 +782,16 @@ abstract class ICampusStorage {
   });
   Future<DigiLockerStatusModel> getDigiLockerStatus({required String studentId});
   Future<UserModel> disconnectDigiLocker({required String studentId});
+
+  // Coursework Assignments & Grading
+  Future<List<AssignmentModel>> getAssignments({String? sectionId, String? subjectId});
+  Future<AssignmentModel> createAssignment(Map<String, dynamic> payload);
+  Future<List<AssignmentSubmissionModel>> getSubmissions(String assignmentId);
+  Future<AssignmentSubmissionModel> submitAssignment(Map<String, dynamic> payload);
+  Future<AssignmentSubmissionModel> gradeSubmission({
+    required String submissionId,
+    required int marks,
+    required String feedback,
+    required String gradedBy,
+  });
 }

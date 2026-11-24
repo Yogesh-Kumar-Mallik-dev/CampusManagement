@@ -116,6 +116,7 @@ class UserModel {
   });
 
   String get fullName => '$firstName $lastName';
+  String get name => fullName;
   bool get isActive => status.toLowerCase() == 'active';
 
   String? get effectiveAcademicName =>
@@ -190,11 +191,25 @@ class UserModel {
       hasRole('hod') ||
       (isEmployee && isAcademic);
 
+  bool get isTeacher => isFaculty;
+
   bool get isHOD => hasRole('hod') || isAdmin;
 
   bool get canManageUsers => isAdmin;
 
   bool get canManageDepartments => isAdmin || isHOD;
+
+  bool get canPublishNotice =>
+      isAdmin ||
+      isTeacher ||
+      isWarden ||
+      isMessManager ||
+      hasRole('dean') ||
+      hasRole('registrar') ||
+      hasRole('hod') ||
+      hasPermission('notice:publish') ||
+      hasPermission('notice:create') ||
+      permissions.contains('*');
 
   bool get canManageHostel =>
       isAdmin ||
@@ -357,7 +372,9 @@ class UserModel {
   int? get admissionYear => studentProfile?['admission_year'];
   int? get batchYear => studentProfile?['batch_year'];
   int? get currentSemester => studentProfile?['current_semester'];
-  String? get sectionScope => studentProfile?['section_scope'];
+  String? get sectionScope =>
+      studentProfile?['section_scope'] ??
+      activeScopes.where((s) => s.startsWith('sec:')).firstOrNull;
   String? get advisorName => studentProfile?['advisor_name'];
   String? get abcId => studentProfile?['abc_id']?.toString();
   bool get isDigiLockerVerified => studentProfile?['digilocker_verified'] == true;

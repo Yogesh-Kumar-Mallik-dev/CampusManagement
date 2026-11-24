@@ -473,5 +473,88 @@ void main() {
       // Verify Department Affiliation dropdown exists dynamically under Academic Track
       expect(find.text('Department Affiliation'), findsOneWidget);
     });
+
+    testWidgets('User onboarding dialog shows clean empty state when no programs exist and blocks student admission', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      // Empty storage with zero programs
+      final emptyStorage = OfflineStorageService(api: api, enableMockSeeding: false);
+
+      await tester.pumpWidget(MaterialApp(
+        home: UserManagementScreen(
+          storage: emptyStorage,
+          currentUser: testAdmin,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Open creation dialog
+      await tester.tap(find.text('Onboard User'));
+      await tester.pumpAndSettle();
+
+      // Verify empty state warning banner is shown for student onboarding
+      expect(find.text('No Degree Programs Configured'), findsOneWidget);
+      expect(find.textContaining('You must configure at least one degree program in Academic Management'), findsOneWidget);
+
+      // Verify hardcoded fake programs are NOT present
+      expect(find.text('B.Tech (Bachelor of Technology)'), findsNothing);
+
+      // Fill name fields and attempt to submit
+      final firstNameField = find.widgetWithText(TextField, 'Enter first name');
+      final lastNameField = find.widgetWithText(TextField, 'Enter last name');
+      await tester.enterText(firstNameField, 'Praveen');
+      await tester.enterText(lastNameField, 'Yadav');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Admit Student'));
+      await tester.pumpAndSettle();
+
+      // Verify submission is blocked with descriptive error message
+      expect(find.textContaining('Cannot admit student: No degree programs configured'), findsOneWidget);
+    });
+
+    testWidgets('Employee onboarding shows clean empty state when no academic departments exist and blocks submission', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      // Empty storage with zero departments
+      final emptyStorage = OfflineStorageService(api: api, enableMockSeeding: false);
+
+      await tester.pumpWidget(MaterialApp(
+        home: UserManagementScreen(
+          storage: emptyStorage,
+          currentUser: testAdmin,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // Open creation dialog
+      await tester.tap(find.text('Onboard User'));
+      await tester.pumpAndSettle();
+
+      // Switch to Employee Onboarding tab
+      await tester.tap(find.text('Employee Onboarding'));
+      await tester.pumpAndSettle();
+
+      // Verify empty state warning banner is shown for academic departments
+      expect(find.text('No Academic Departments Configured'), findsOneWidget);
+      expect(find.textContaining('No academic departments have been created yet'), findsOneWidget);
+
+      // Fill name fields and attempt to submit
+      final firstNameField = find.widgetWithText(TextField, 'Enter first name');
+      final lastNameField = find.widgetWithText(TextField, 'Enter last name');
+      await tester.enterText(firstNameField, 'Suresh');
+      await tester.enterText(lastNameField, 'Menon');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Onboard Employee'));
+      await tester.pumpAndSettle();
+
+      // Verify submission is blocked with descriptive error message
+      expect(find.textContaining('Cannot affiliate academic employee: No academic departments configured'), findsOneWidget);
+    });
   });
 }

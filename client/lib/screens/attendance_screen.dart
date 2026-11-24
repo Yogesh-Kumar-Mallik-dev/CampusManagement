@@ -66,6 +66,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   String _currentPayload = '';
   String _currentNonce = '';
   String _currentSig = '';
+  String _currentFingerprintCode = '';
+  int _selectedDurationHours = 1;
+  bool _isSubstitute = false;
+  String _substituteForName = '';
   bool _isStreamPaused = false;
   List<AttendanceRecordModel> _opticalRoster = [];
 
@@ -270,10 +274,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         courseId: _selectedCourseId,
         courseCode: _selectedCourseCode,
         courseName: _selectedCourseName,
+        subjectCode: _selectedCourseCode,
+        subjectName: _selectedCourseName,
         scopeCode: _selectedScope,
+        sectionScope: _selectedScope,
         roomNumber: _selectedRoom,
         markedByUserId: widget.currentUser.id,
         markedByName: widget.currentUser.fullName,
+        teacherId: widget.currentUser.id,
+        teacherName: widget.currentUser.fullName,
+        isSubstitute: _isSubstitute,
+        substituteForName: _substituteForName,
+        programName: 'B.Tech CSE',
+        academicYear: 3,
+        durationHours: _selectedDurationHours,
+        attendanceUnits: _selectedDurationHours == 2 ? 2 : 1,
         refreshIntervalMs: _refreshIntervalMs,
       );
 
@@ -337,14 +352,30 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     final fullSig = hmacSha256.convert(utf8.encode(data)).toString();
     final truncatedSig = fullSig.length > 16 ? fullSig.substring(0, 16) : fullSig;
 
+    // Per-frame rotating cryptographic fingerprint code
+    final fpData = '${_opticalSession!.id}:$_sequence:$nowSeconds:$nonce:${widget.currentUser.id}';
+    final fpCode = sha256.convert(utf8.encode(fpData)).toString().substring(0, 16);
+
     final packet = OpticalFramePacket(
       sessionId: _opticalSession!.id,
       courseCode: _selectedCourseCode,
       courseName: _selectedCourseName,
+      subjectCode: _selectedCourseCode,
+      subjectName: _selectedCourseName,
+      teacherId: widget.currentUser.id,
+      teacherName: widget.currentUser.fullName,
+      isSubstitute: _isSubstitute,
+      substituteForName: _substituteForName,
+      programName: 'B.Tech CSE',
+      academicYear: 3,
+      sectionScope: _selectedScope,
       room: _selectedRoom,
       sequence: _sequence,
       timestamp: nowSeconds,
       nonce: nonce,
+      fingerprintCode: fpCode,
+      durationHours: _selectedDurationHours,
+      attendanceUnits: _selectedDurationHours == 2 ? 2 : 1,
       signature: truncatedSig,
     );
 
@@ -352,6 +383,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       _currentPayload = packet.encode();
       _currentNonce = nonce;
       _currentSig = truncatedSig;
+      _currentFingerprintCode = fpCode;
       _sequence++;
     });
   }
@@ -424,15 +456,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       return;
     }
 
+    // Section Authorization Pre-Flight Gate
+    final studentSec = widget.currentUser.sectionScope;
+    if (widget.currentUser.isStudent && packet.sectionScope.isNotEmpty && studentSec != null && studentSec.isNotEmpty) {
+      if (studentSec != packet.sectionScope && !widget.currentUser.activeScopes.contains(packet.sectionScope)) {
+        setState(() {
+          _scanError = 'Unauthorized Section: You are enrolled in $studentSec, but this session is for ${packet.sectionScope} (${packet.courseCode}). Attendance cannot be claimed.';
+          _isVerifying = false;
+        });
+        return;
+      }
+    }
+
     setState(() {
       _isVerifying = true;
       _scanError = null;
     });
 
     try {
+      final studentSig = sha256
+          .convert(utf8.encode('${packet.fingerprintCode}:${widget.currentUser.id}:${widget.currentUser.campusHandle}'))
+          .toString();
+
       final result = await widget.storage.verifyOpticalAttendance(
         packet: packet,
         student: widget.currentUser,
+        fingerprintCode: packet.fingerprintCode,
+        studentSignature: studentSig,
       );
 
       if (mounted) {
@@ -462,8 +512,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     // If no stream in same app instance, create a fresh live frame from active session or fallback
     final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final nonce = (DateTime.now().microsecondsSinceEpoch % 1000000).toString().padLeft(6, '0');
-    final activeSessId = widget.storage.activeOpticalSession?.id ?? 'opt-sess-${nowSeconds - 1}';
-    final secret = widget.storage.activeOpticalSession?.sessionSecret ?? 'loc_secret';
+    final activeSess = widget.storage.activeOpticalSession;
+    final activeSessId = activeSess?.id ?? 'opt-sess-${nowSeconds - 1}';
+    final secret = activeSess?.sessionSecret ?? 'loc_secret';
 
     final key = utf8.encode(secret);
     final data = '$activeSessId:$_sequence:$nowSeconds:$nonce';
@@ -471,19 +522,365 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     final fullSig = hmacSha256.convert(utf8.encode(data)).toString();
     final truncatedSig = fullSig.length > 16 ? fullSig.substring(0, 16) : fullSig;
 
+    final fpData = '$activeSessId:$_sequence:$nowSeconds:$nonce:${widget.currentUser.id}';
+    final fpCode = sha256.convert(utf8.encode(fpData)).toString().substring(0, 16);
+
     final simulatedPacket = OpticalFramePacket(
       sessionId: activeSessId,
-      courseCode: _selectedCourseCode,
-      courseName: _selectedCourseName,
+      courseCode: (activeSess?.subjectCode.isNotEmpty ?? false) ? activeSess!.subjectCode : _selectedCourseCode,
+      courseName: (activeSess?.subjectName.isNotEmpty ?? false) ? activeSess!.subjectName : _selectedCourseName,
+      subjectCode: (activeSess?.subjectCode.isNotEmpty ?? false) ? activeSess!.subjectCode : _selectedCourseCode,
+      subjectName: (activeSess?.subjectName.isNotEmpty ?? false) ? activeSess!.subjectName : _selectedCourseName,
+      teacherId: (activeSess?.teacherId.isNotEmpty ?? false) ? activeSess!.teacherId : widget.currentUser.id,
+      teacherName: (activeSess?.teacherName.isNotEmpty ?? false) ? activeSess!.teacherName : widget.currentUser.fullName,
+      isSubstitute: activeSess?.isSubstitute ?? _isSubstitute,
+      substituteForName: activeSess?.substituteForName ?? _substituteForName,
+      programName: activeSess?.programName ?? 'B.Tech CSE',
+      academicYear: activeSess?.academicYear ?? 3,
+      sectionScope: (activeSess?.sectionScope.isNotEmpty ?? false) ? activeSess!.sectionScope : _selectedScope,
       room: _selectedRoom,
       sequence: _sequence,
       timestamp: nowSeconds,
       nonce: nonce,
+      fingerprintCode: fpCode,
+      durationHours: activeSess?.durationHours ?? _selectedDurationHours,
+      attendanceUnits: activeSess?.attendanceUnits ?? (_selectedDurationHours == 2 ? 2 : 1),
       signature: truncatedSig,
     );
 
     final encoded = simulatedPacket.encode();
     _processOpticalPayload(encoded);
+  }
+
+  Future<void> _showStartBroadcastDialog(bool isDark) async {
+    int tempDuration = _selectedDurationHours;
+    bool tempIsSubstitute = _isSubstitute;
+    final substituteController = TextEditingController(text: _substituteForName);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: const Text(
+                'Configure Optical Broadcast',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$_selectedCourseCode — $_selectedCourseName',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Section: $_selectedScope | Room: $_selectedRoom',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Period Duration & Attendance Count:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      key: const Key('radio-duration-1hr'),
+                      onTap: () => setDialogState(() => tempDuration = 1),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: tempDuration == 1 ? AppColors.wineRed.withValues(alpha: 0.08) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: tempDuration == 1 ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              tempDuration == 1 ? Icons.radio_button_checked : Icons.radio_button_off,
+                              size: 18,
+                              color: tempDuration == 1 ? AppColors.wineRed : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('1 Hour Period (Counts as 1 Attendance)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                  Text('Single 1-hour lecture slice', style: TextStyle(fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      key: const Key('radio-duration-2hr'),
+                      onTap: () => setDialogState(() => tempDuration = 2),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: tempDuration == 2 ? AppColors.wineRed.withValues(alpha: 0.08) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: tempDuration == 2 ? AppColors.wineRed : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              tempDuration == 2 ? Icons.radio_button_checked : Icons.radio_button_off,
+                              size: 18,
+                              color: tempDuration == 2 ? AppColors.wineRed : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('2 Hours Block (Counts as 2 Attendances)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                  Text('Double lab or combined period: awards 2 units to student attendance', style: TextStyle(fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    CheckboxListTile(
+                      key: const Key('checkbox-is-substitute'),
+                      value: tempIsSubstitute,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Substitute Faculty Assignment', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Check if teaching on behalf of another instructor', style: TextStyle(fontSize: 11)),
+                      onChanged: (val) {
+                        setDialogState(() => tempIsSubstitute = val ?? false);
+                      },
+                    ),
+                    if (tempIsSubstitute) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        key: const Key('input-substitute-name'),
+                        controller: substituteController,
+                        decoration: InputDecoration(
+                          labelText: 'Assigned Instructor Name',
+                          hintText: 'e.g. Prof. Alan Turing',
+                          isDense: true,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  key: const Key('btn-confirm-start-broadcast'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.wineRed,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.pop(dialogCtx, true),
+                  child: const Text('Launch Stream'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() {
+        _selectedDurationHours = tempDuration;
+        _isSubstitute = tempIsSubstitute;
+        _substituteForName = substituteController.text.trim();
+      });
+      _startOpticalBroadcast();
+    }
+  }
+
+  Future<void> _openManualAddStudentDialog(bool isDark) async {
+    if (_opticalSession == null) return;
+    final studentIdCtrl = TextEditingController();
+    final studentNameCtrl = TextEditingController();
+    final campusHandleCtrl = TextEditingController();
+
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text('Add Student Manually', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Teacher manual addition for this active optical session. Manually added students will be tagged with origin: manual.',
+                  style: TextStyle(fontSize: 12, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('input-manual-student-id'),
+                  controller: studentIdCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Student ID / Roll No *',
+                    hintText: 'e.g. STU-2026-099',
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('input-manual-student-name'),
+                  controller: studentNameCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Student Full Name *',
+                    hintText: 'e.g. John Doe',
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('input-manual-student-handle'),
+                  controller: campusHandleCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Campus Handle (optional)',
+                    hintText: '@johndoe',
+                    isDense: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              key: const Key('btn-submit-manual-student'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.wineRed,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                if (studentIdCtrl.text.trim().isEmpty || studentNameCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                    const SnackBar(content: Text('Please enter Student ID and Name')),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogCtx, true);
+              },
+              child: const Text('Add Student'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (added == true && mounted) {
+      final sId = studentIdCtrl.text.trim();
+      final sName = studentNameCtrl.text.trim();
+      final handle = campusHandleCtrl.text.trim().isNotEmpty
+          ? campusHandleCtrl.text.trim()
+          : '@${sName.toLowerCase().replaceAll(' ', '')}';
+
+      try {
+        final rec = await widget.storage.addManualOpticalRecord(
+          sessionId: _opticalSession!.id,
+          studentId: sId,
+          studentName: sName,
+          campusHandle: handle,
+          remarks: 'Manual Teacher Addition (${_opticalSession!.attendanceUnits} units)',
+        );
+        if (mounted) {
+          setState(() {
+            _opticalRoster.removeWhere((r) => r.studentId == sId);
+            _opticalRoster.insert(0, rec);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added $sName manually (${_opticalSession!.attendanceUnits} units)'),
+              backgroundColor: AppColors.githubGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to add student manually: $e'), backgroundColor: AppColors.statusRed),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _removeManualStudent(AttendanceRecordModel record) async {
+    if (_opticalSession == null) return;
+    if (record.origin == 'optical' || !record.canBeRemovedByTeacher) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot remove student attendance verified via dynamic optical QR code'),
+            backgroundColor: AppColors.statusRed,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await widget.storage.removeManualOpticalRecord(
+        sessionId: _opticalSession!.id,
+        recordId: record.id,
+      );
+      if (mounted) {
+        setState(() {
+          _opticalRoster.removeWhere((r) => r.id == record.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Removed manual record for ${record.studentName}'),
+            backgroundColor: AppColors.githubGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to remove student: $e'), backgroundColor: AppColors.statusRed),
+        );
+      }
+    }
   }
 
   // ----------------------------------------------------
@@ -739,7 +1136,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         ),
                         icon: const AppSvgIcon(svgString: AppSvgIcon.qrCode, size: 16, color: Colors.white),
                         label: const Text('Broadcast Optical QR', style: TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: _startOpticalBroadcast,
+                        onPressed: () => _showStartBroadcastDialog(isDark),
                       ),
                     )
                   else
@@ -2700,9 +3097,52 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '$_selectedCourseCode — $_selectedCourseName',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '$_selectedCourseCode — $_selectedCourseName',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.wineRed.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppColors.wineRed.withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  _selectedDurationHours == 2 ? '2 Hours (2 Units)' : '1 Hour (1 Unit)',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.wineRed,
+                                  ),
+                                ),
+                              ),
+                              if (_isSubstitute) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.statusYellow.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: AppColors.statusYellow.withValues(alpha: 0.4)),
+                                  ),
+                                  child: Text(
+                                    _substituteForName.isNotEmpty ? 'SUB: $_substituteForName' : 'SUBSTITUTE',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? AppColors.statusYellowDarkText : AppColors.statusYellow,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -2811,36 +3251,35 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder, width: 1),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
                           children: [
-                            ValueListenableBuilder<double>(
-                              valueListenable: _frameProgressNotifier,
-                              builder: (context, progress, _) {
-                                return Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        value: progress,
-                                        strokeWidth: 2.5,
-                                        backgroundColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                                        color: AppColors.wineRed,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      'Next Frame in ${(progress * (_refreshIntervalMs / 1000)).toStringAsFixed(1)}s',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                ValueListenableBuilder<double>(
+                                  valueListenable: _frameProgressNotifier,
+                                  builder: (context, progress, _) {
+                                    return Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            value: progress,
+                                            strokeWidth: 2.5,
+                                            backgroundColor: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                            color: AppColors.wineRed,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Next in ${(progress * (_refreshIntervalMs / 1000)).toStringAsFixed(1)}s',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
@@ -2861,20 +3300,35 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                     ),
                                   ),
                                 ),
-                                if (_currentSig.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      'SIG: ${_currentSig.length > 8 ? _currentSig.substring(0, 8) : _currentSig}... [$_currentNonce]',
+                              ],
+                            ),
+                            if (_currentSig.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                spacing: 8,
+                                runSpacing: 2,
+                                children: [
+                                  Text(
+                                    'SIG: ${_currentSig.length > 8 ? _currentSig.substring(0, 8) : _currentSig} [$_currentNonce]',
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 9,
+                                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                    ),
+                                  ),
+                                  if (_currentFingerprintCode.isNotEmpty)
+                                    Text(
+                                      'FP: ${_currentFingerprintCode.length > 8 ? _currentFingerprintCode.substring(0, 8) : _currentFingerprintCode}',
                                       style: TextStyle(
                                         fontFamily: 'monospace',
                                         fontSize: 9,
                                         color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
                                       ),
                                     ),
-                                  ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -2926,38 +3380,61 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Live Verified Attendance Roster',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Real-time optical packet reconciliation',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text(
-                                  'Live Verified Attendance Roster',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                ElevatedButton.icon(
+                                  key: const Key('btn-open-manual-add-dialog'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+                                    foregroundColor: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    side: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                  icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 12),
+                                  label: const Text('Add Manually', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  onPressed: () => _openManualAddStudentDialog(isDark),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Real-time optical packet reconciliation',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.githubGreenDarkSubtle,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: AppColors.githubGreenDarkBorder, width: 1),
+                                  ),
+                                  child: Text(
+                                    '${_opticalRoster.length} Present',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.githubGreenDarkText,
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppColors.githubGreenDarkSubtle,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: AppColors.githubGreenDarkBorder, width: 1),
-                              ),
-                              child: Text(
-                                '${_opticalRoster.length} Present',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.githubGreenDarkText,
-                                ),
-                              ),
                             ),
                           ],
                         ),
@@ -2988,7 +3465,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                 separatorBuilder: (context, index) => const Divider(height: 8),
                                 itemBuilder: (context, idx) {
                                   final r = _opticalRoster[idx];
+                                  final isOptical = r.origin == 'optical' || r.isOpticalVerified;
                                   return ListTile(
+                                    key: Key('roster-record-${r.id}'),
                                     dense: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                                     leading: Container(
@@ -2996,18 +3475,65 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                       height: 28,
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
-                                        color: AppColors.githubGreen.withValues(alpha: 0.15),
+                                        color: isOptical
+                                            ? AppColors.githubGreen.withValues(alpha: 0.15)
+                                            : AppColors.statusYellow.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: const AppSvgIcon(
-                                        svgString: AppSvgIcon.check,
+                                      child: AppSvgIcon(
+                                        svgString: isOptical ? AppSvgIcon.check : AppSvgIcon.attendance,
                                         size: 14,
-                                        color: AppColors.githubGreen,
+                                        color: isOptical ? AppColors.githubGreen : AppColors.statusYellow,
                                       ),
                                     ),
-                                    title: Text(
-                                      r.studentName.isNotEmpty ? r.studentName : r.studentId,
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    title: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            r.studentName.isNotEmpty ? r.studentName : r.studentId,
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: isOptical
+                                                ? AppColors.githubGreenDarkSubtle
+                                                : AppColors.statusYellow.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            isOptical ? 'QR VERIFIED' : 'MANUAL',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                              color: isOptical
+                                                  ? AppColors.githubGreenDarkText
+                                                  : (isDark ? AppColors.statusYellowDarkText : AppColors.statusYellow),
+                                            ),
+                                          ),
+                                        ),
+                                        if (r.attendanceUnits > 1) ...[
+                                          const SizedBox(width: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.wineRed.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '${r.attendanceUnits}x',
+                                              style: const TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.wineRed,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                     subtitle: Text(
                                       r.campusHandle.isNotEmpty ? r.campusHandle : r.studentId,
@@ -3017,21 +3543,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                         color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                                       ),
                                     ),
-                                    trailing: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: isDark ? AppColors.darkBg : AppColors.lightBg,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                                      ),
-                                      child: Text(
-                                        r.remarks.isNotEmpty ? r.remarks : 'VERIFIED',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontFamily: 'monospace',
-                                          color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                                        ),
-                                      ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (!isOptical && r.canBeRemovedByTeacher)
+                                          IconButton(
+                                            key: Key('btn-remove-manual-${r.id}'),
+                                            tooltip: 'Remove manual attendance record',
+                                            icon: const AppSvgIcon(
+                                              svgString: AppSvgIcon.close,
+                                              size: 14,
+                                              color: AppColors.statusRed,
+                                            ),
+                                            onPressed: () => _removeManualStudent(r),
+                                          )
+                                        else
+                                          Tooltip(
+                                            message: 'Verified via optical QR (Immutable)',
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(8.0),
+                                              child: AppSvgIcon(
+                                                svgString: AppSvgIcon.shield,
+                                                size: 14,
+                                                color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   );
                                 },
@@ -3146,6 +3684,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         elevation: 0,
                       ),
+                      key: const Key('btn-simulate-camera-feed'),
                       icon: _isVerifying
                           ? const SizedBox(
                               width: 16,
@@ -3247,19 +3786,52 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Attendance Recorded • Present',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? AppColors.githubGreenDarkText : AppColors.githubGreenText,
-                                  ),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Attendance Recorded • Present',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? AppColors.githubGreenDarkText : AppColors.githubGreenText,
+                                      ),
+                                    ),
+                                    if (_lastVerifiedResult!.attendanceUnits > 1)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.wineRed.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '${_lastVerifiedResult!.attendanceUnits}x Units',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.wineRed,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${_lastVerifiedResult!.courseCode} — ${_lastVerifiedResult!.courseName}',
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                 ),
+                                if (_lastVerifiedResult!.teacherName.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Instructor: ${_lastVerifiedResult!.teacherName}${_lastVerifiedResult!.isSubstitute ? " (Substitute)" : ""}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),

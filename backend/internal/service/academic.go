@@ -68,6 +68,11 @@ type AcademicService struct {
 	// Faculty Subject Allocations
 	facultyAllocations map[string]model.FacultyAllocation // allocID -> FacultyAllocation
 	secAllocations     map[string][]string                // sectionID -> []allocID
+
+	// Coursework Assignments & Submissions
+	assignments    map[string]model.Assignment
+	submissions    map[string]model.AssignmentSubmission
+	secAssignments map[string][]string
 }
 
 func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permService *PermissionService) *AcademicService {
@@ -105,6 +110,9 @@ func NewAcademicService(db *pgxpool.Pool, cache *cache.ResilientManager, permSer
 		studentBatches:     make(map[string]string),
 		facultyAllocations: make(map[string]model.FacultyAllocation),
 		secAllocations:     make(map[string][]string),
+		assignments:        make(map[string]model.Assignment),
+		submissions:        make(map[string]model.AssignmentSubmission),
+		secAssignments:     make(map[string][]string),
 	}
 	if db != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -636,9 +644,17 @@ func (s *AcademicService) GetStudentAttendanceSummary(ctx context.Context, stude
 			summaryMap[sess.CourseID] = &stats{}
 		}
 
-		summaryMap[sess.CourseID].total++
+		units := sess.AttendanceUnits
+		if units <= 0 {
+			units = rec.AttendanceUnits
+		}
+		if units <= 0 {
+			units = 1
+		}
+
+		summaryMap[sess.CourseID].total += units
 		if rec.Status == model.StatusPresent || rec.Status == model.StatusLate {
-			summaryMap[sess.CourseID].attended++
+			summaryMap[sess.CourseID].attended += units
 		}
 	}
 
@@ -807,6 +823,17 @@ func (s *AcademicService) StartOpticalSession(ctx context.Context, session model
 		session.RefreshInterval = 1500 // 1.5 seconds default
 	}
 
+	if session.DurationHours <= 0 {
+		session.DurationHours = 1
+	}
+	if session.AttendanceUnits <= 0 {
+		if session.DurationHours >= 2 {
+			session.AttendanceUnits = 2
+		} else {
+			session.AttendanceUnits = 1
+		}
+	}
+
 	session.StartedAt = now
 	session.ExpiresAt = now.Add(90 * time.Minute)
 	session.IsActive = true
@@ -816,6 +843,16 @@ func (s *AcademicService) StartOpticalSession(ctx context.Context, session model
 	if c, ok := s.courses[session.CourseID]; ok {
 		session.CourseCode = c.Code
 		session.CourseName = c.Name
+		if session.SubjectCode == "" {
+			session.SubjectCode = c.Code
+		}
+		if session.SubjectName == "" {
+			session.SubjectName = c.Name
+		}
+	}
+
+	if session.SectionScope == "" {
+		session.SectionScope = session.ScopeCode
 	}
 
 	// Create backing AttendanceSession
@@ -825,16 +862,21 @@ func (s *AcademicService) StartOpticalSession(ctx context.Context, session model
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		CourseID:       session.CourseID,
-		CourseCode:     session.CourseCode,
-		CourseName:     session.CourseName,
-		ScopeCode:      session.ScopeCode,
-		MarkedByUserID: session.MarkedByUserID,
-		MarkedByName:   session.MarkedByName,
-		SessionDate:    now.Format("2006-01-02"),
-		Topic:          fmt.Sprintf("Lecture in %s (Optical Stream)", session.RoomNumber),
-		IsFinalized:    false,
-		Records:        []model.AttendanceRecord{},
+		CourseID:        session.CourseID,
+		CourseCode:      session.CourseCode,
+		CourseName:      session.CourseName,
+		ScopeCode:       session.ScopeCode,
+		MarkedByUserID:  session.MarkedByUserID,
+		MarkedByName:    session.MarkedByName,
+		TeacherID:       session.TeacherID,
+		TeacherName:     session.TeacherName,
+		IsSubstitute:    session.IsSubstitute,
+		DurationHours:   session.DurationHours,
+		AttendanceUnits: session.AttendanceUnits,
+		SessionDate:     now.Format("2006-01-02"),
+		Topic:           fmt.Sprintf("Lecture in %s (Optical Stream)", session.RoomNumber),
+		IsFinalized:     false,
+		Records:         []model.AttendanceRecord{},
 	}
 	s.sessions[session.ID] = baseSess
 
@@ -851,6 +893,13 @@ func (s *AcademicService) VerifyOpticalAttendance(ctx context.Context, req model
 	session, ok := s.opticalSessions[req.SessionID]
 	if !ok || !session.IsActive {
 		return nil, fmt.Errorf("active optical session not found or has concluded")
+	}
+
+	// Authorization Gate: Verify student is enrolled in the session's section scope
+	if req.SectionScope != "" && session.ScopeCode != "" {
+		if req.SectionScope != session.ScopeCode && (session.SectionScope == "" || req.SectionScope != session.SectionScope) {
+			return nil, fmt.Errorf("unauthorized: student is enrolled in %s, but optical session is for %s", req.SectionScope, session.ScopeCode)
+		}
 	}
 
 	nowUnix := time.Now().Unix()
@@ -884,18 +933,26 @@ func (s *AcademicService) VerifyOpticalAttendance(ctx context.Context, req model
 	now := time.Now().UTC()
 	recID := fmt.Sprintf("rec-%s-%s", req.SessionID, req.StudentID)
 
+	units := session.AttendanceUnits
+	if units <= 0 {
+		units = 1
+	}
+
 	record := model.AttendanceRecord{
 		BaseSyncModel: model.BaseSyncModel{
 			ID:        recID,
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		SessionID:   req.SessionID,
-		StudentID:   req.StudentID,
-		StudentName: req.StudentName,
-		Handle:      req.Handle,
-		Status:      model.StatusPresent,
-		Remarks:     fmt.Sprintf("Optical Verified [Frame #%d, Latency %ds]", req.Sequence, drift),
+		SessionID:       req.SessionID,
+		StudentID:       req.StudentID,
+		StudentName:     req.StudentName,
+		Handle:          req.Handle,
+		Status:          model.StatusPresent,
+		Origin:          "optical",
+		FingerprintCode: req.FingerprintCode,
+		AttendanceUnits: units,
+		Remarks:         fmt.Sprintf("Optical QR Verified [Frame #%d, Units: %d]", req.Sequence, units),
 	}
 
 	session.VerifiedRecords = append(session.VerifiedRecords, record)
@@ -909,17 +966,121 @@ func (s *AcademicService) VerifyOpticalAttendance(ctx context.Context, req model
 	}
 
 	return &model.OpticalVerificationResponse{
-		Verified:     true,
-		Message:      "Optical packet verified. Attendance recorded.",
-		SessionID:    req.SessionID,
-		CourseCode:   session.CourseCode,
-		CourseName:   session.CourseName,
-		StudentName:  req.StudentName,
-		Handle:       req.Handle,
-		Sequence:     req.Sequence,
-		RecordedAt:   now,
-		AttendanceID: recID,
+		Verified:        true,
+		Message:         "Optical packet verified. Attendance recorded.",
+		SessionID:       req.SessionID,
+		CourseCode:      session.CourseCode,
+		CourseName:      session.CourseName,
+		TeacherName:     session.TeacherName,
+		IsSubstitute:    session.IsSubstitute,
+		StudentName:     req.StudentName,
+		Handle:          req.Handle,
+		AttendanceUnits: units,
+		Sequence:        req.Sequence,
+		RecordedAt:      now,
+		AttendanceID:    recID,
+		Origin:          "optical",
 	}, nil
+}
+
+func (s *AcademicService) AddManualOpticalRecord(ctx context.Context, sessionID, studentID, studentName, handle, remarks string) (*model.AttendanceRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, ok := s.opticalSessions[sessionID]
+	if !ok {
+		return nil, fmt.Errorf("active optical session not found")
+	}
+
+	if s.verifiedBySession[sessionID][studentID] {
+		return nil, fmt.Errorf("attendance already recorded for %s in this session", studentName)
+	}
+
+	s.verifiedBySession[sessionID][studentID] = true
+	now := time.Now().UTC()
+	recID := fmt.Sprintf("rec-manual-%s-%s", sessionID, studentID)
+
+	units := session.AttendanceUnits
+	if units <= 0 {
+		units = 1
+	}
+
+	rem := "Manual Instructor Addition"
+	if remarks != "" {
+		rem += ": " + remarks
+	}
+
+	record := model.AttendanceRecord{
+		BaseSyncModel: model.BaseSyncModel{
+			ID:        recID,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		SessionID:       sessionID,
+		StudentID:       studentID,
+		StudentName:     studentName,
+		Handle:          handle,
+		Status:          model.StatusPresent,
+		Origin:          "manual",
+		AttendanceUnits: units,
+		Remarks:         rem,
+	}
+
+	session.VerifiedRecords = append(session.VerifiedRecords, record)
+	s.records[recID] = record
+
+	if baseSess, exists := s.sessions[sessionID]; exists {
+		baseSess.Records = append(baseSess.Records, record)
+		baseSess.UpdatedAt = now
+		s.sessions[sessionID] = baseSess
+	}
+
+	return &record, nil
+}
+
+func (s *AcademicService) RemoveManualOpticalRecord(ctx context.Context, sessionID, recordID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	session, ok := s.opticalSessions[sessionID]
+	if !ok {
+		return fmt.Errorf("active optical session not found")
+	}
+
+	var targetIdx = -1
+	for i, r := range session.VerifiedRecords {
+		if r.ID == recordID {
+			targetIdx = i
+			break
+		}
+	}
+	if targetIdx == -1 {
+		return fmt.Errorf("record not found in session")
+	}
+
+	target := session.VerifiedRecords[targetIdx]
+	// IMMUTABILITY RULE: Students who scanned dynamic optical QR cannot be manually removed!
+	if target.Origin == "optical" {
+		return fmt.Errorf("cannot manually remove student attendance verified via dynamic optical QR code")
+	}
+
+	// Remove from slice
+	session.VerifiedRecords = append(session.VerifiedRecords[:targetIdx], session.VerifiedRecords[targetIdx+1:]...)
+	delete(s.records, recordID)
+	delete(s.verifiedBySession[sessionID], target.StudentID)
+
+	if baseSess, exists := s.sessions[sessionID]; exists {
+		for i, r := range baseSess.Records {
+			if r.ID == recordID {
+				baseSess.Records = append(baseSess.Records[:i], baseSess.Records[i+1:]...)
+				baseSess.UpdatedAt = time.Now().UTC()
+				s.sessions[sessionID] = baseSess
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *AcademicService) GetOpticalSessionRoster(ctx context.Context, sessionID string) ([]model.AttendanceRecord, error) {
@@ -2294,5 +2455,105 @@ func (s *AcademicService) GetAllFacultyWorkloadSummaries(ctx context.Context, us
 
 	sort.Slice(summaries, func(i, j int) bool { return summaries[i].TotalWeeklyHours > summaries[j].TotalWeeklyHours })
 	return summaries, nil
+}
+
+func (s *AcademicService) CreateAssignment(ctx context.Context, a model.Assignment) (model.Assignment, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if strings.TrimSpace(a.Title) == "" {
+		return model.Assignment{}, fmt.Errorf("assignment title is required")
+	}
+	if a.ID == "" {
+		a.ID = fmt.Sprintf("assign-%d", time.Now().UnixNano())
+	}
+	if a.MaxMarks <= 0 {
+		a.MaxMarks = 100
+	}
+	if a.CreatedAt.IsZero() {
+		a.CreatedAt = time.Now()
+	}
+
+	s.assignments[a.ID] = a
+	if a.SectionID != "" {
+		s.secAssignments[a.SectionID] = append(s.secAssignments[a.SectionID], a.ID)
+	}
+	return a, nil
+}
+
+func (s *AcademicService) ListAssignments(ctx context.Context, sectionID, subjectID string) ([]model.Assignment, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []model.Assignment
+	for _, a := range s.assignments {
+		if sectionID != "" && a.SectionID != sectionID {
+			continue
+		}
+		if subjectID != "" && a.SubjectID != subjectID {
+			continue
+		}
+		result = append(result, a)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+	return result, nil
+}
+
+func (s *AcademicService) SubmitAssignment(ctx context.Context, sub model.AssignmentSubmission) (model.AssignmentSubmission, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if sub.AssignmentID == "" {
+		return model.AssignmentSubmission{}, fmt.Errorf("assignment ID is required")
+	}
+	if sub.StudentID == "" {
+		return model.AssignmentSubmission{}, fmt.Errorf("student ID is required")
+	}
+	if sub.ID == "" {
+		sub.ID = fmt.Sprintf("sub-%s-%d", sub.StudentID, time.Now().UnixNano())
+	}
+	if sub.SubmittedAt.IsZero() {
+		sub.SubmittedAt = time.Now()
+	}
+
+	s.submissions[sub.ID] = sub
+	return sub, nil
+}
+
+func (s *AcademicService) ListSubmissions(ctx context.Context, assignmentID string) ([]model.AssignmentSubmission, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []model.AssignmentSubmission
+	for _, sub := range s.submissions {
+		if assignmentID != "" && sub.AssignmentID != assignmentID {
+			continue
+		}
+		result = append(result, sub)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].SubmittedAt.After(result[j].SubmittedAt)
+	})
+	return result, nil
+}
+
+func (s *AcademicService) GradeSubmission(ctx context.Context, submissionID string, marks int, feedback, gradedBy string) (model.AssignmentSubmission, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	sub, exists := s.submissions[submissionID]
+	if !exists {
+		return model.AssignmentSubmission{}, fmt.Errorf("submission '%s' not found", submissionID)
+	}
+
+	now := time.Now()
+	sub.MarksAwarded = &marks
+	sub.Feedback = feedback
+	sub.GradedBy = gradedBy
+	sub.GradedAt = &now
+	s.submissions[submissionID] = sub
+	return sub, nil
 }
 

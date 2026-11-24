@@ -263,3 +263,139 @@ func TestTimetableConflictAndDayOffEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 OK for restore day, got %d", recRestore.Code)
 	}
 }
+
+func TestEnhancedOpticalAttendanceWorkflow(t *testing.T) {
+	permService := service.NewPermissionService(nil, nil)
+	acadService := service.NewAcademicService(nil, nil, permService)
+	h := NewAcademicHandler(acadService)
+
+	// 1. Start a 2-hour Optical Session with Substitute Teacher for section sec:cse-3a
+	optStartJSON := `{
+		"course_id": "c-os",
+		"course_code": "CS301",
+		"course_name": "Operating Systems",
+		"subject_code": "CS301",
+		"subject_name": "Operating Systems",
+		"scope_code": "sec:cse-3a",
+		"section_scope": "sec:cse-3a",
+		"room_number": "LH-301",
+		"teacher_id": "tch-sub-1",
+		"teacher_name": "Dr. Sunita Rao",
+		"is_substitute": true,
+		"substitute_for_name": "Dr. Amit Sharma",
+		"duration_hours": 2,
+		"attendance_units": 2
+	}`
+	recOptStart := httptest.NewRecorder()
+	reqOptStart := httptest.NewRequest(http.MethodPost, "/api/v1/attendance/optical/start", bytes.NewBufferString(optStartJSON))
+	h.StartOpticalSession(recOptStart, reqOptStart)
+	if recOptStart.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for optical session, got %d: %s", recOptStart.Code, recOptStart.Body.String())
+	}
+	var optSess model.OpticalAttendanceSession
+	_ = json.Unmarshal(recOptStart.Body.Bytes(), &optSess)
+	if !optSess.IsSubstitute || optSess.AttendanceUnits != 2 || optSess.TeacherName != "Dr. Sunita Rao" {
+		t.Fatalf("unexpected optical session state: %+v", optSess)
+	}
+
+	// 2. Authorization Failure: Student from another section (sec:cse-3b) attempts to scan
+	nowUnix := time.Now().Unix()
+	nonce := "123456"
+	mac := hmac.New(sha256.New, []byte(optSess.SessionSecret))
+	dataPayload := fmt.Sprintf("%s:1:%d:%s", optSess.ID, nowUnix, nonce)
+	mac.Write([]byte(dataPayload))
+	sig := hex.EncodeToString(mac.Sum(nil))
+
+	unauthVerifyJSON := fmt.Sprintf(`{
+		"session_id": "%s",
+		"student_id": "stud-unauth",
+		"student_name": "Unauthorized Student",
+		"campus_handle": "unauth_student",
+		"section_scope": "sec:cse-3b",
+		"sequence": 1,
+		"timestamp": %d,
+		"nonce": "%s",
+		"signature": "%s"
+	}`, optSess.ID, nowUnix, nonce, sig)
+	recUnauth := httptest.NewRecorder()
+	reqUnauth := httptest.NewRequest(http.MethodPost, "/api/v1/attendance/optical/verify", bytes.NewBufferString(unauthVerifyJSON))
+	h.VerifyOpticalAttendance(recUnauth, reqUnauth)
+	if recUnauth.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request for section mismatch, got %d", recUnauth.Code)
+	}
+
+	// 3. Authorization Success: Authorized student (sec:cse-3a) scans frame
+	authVerifyJSON := fmt.Sprintf(`{
+		"session_id": "%s",
+		"student_id": "stud-auth-1",
+		"student_name": "Aman Verma",
+		"campus_handle": "aman_verma",
+		"section_scope": "sec:cse-3a",
+		"sequence": 1,
+		"timestamp": %d,
+		"nonce": "%s",
+		"fingerprint_code": "fp-token-999",
+		"student_signature": "sig-aman-999",
+		"signature": "%s"
+	}`, optSess.ID, nowUnix, nonce, sig)
+	recAuth := httptest.NewRecorder()
+	reqAuth := httptest.NewRequest(http.MethodPost, "/api/v1/attendance/optical/verify", bytes.NewBufferString(authVerifyJSON))
+	h.VerifyOpticalAttendance(recAuth, reqAuth)
+	if recAuth.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for authorized optical verify, got %d: %s", recAuth.Code, recAuth.Body.String())
+	}
+	var verifyResp model.OpticalVerificationResponse
+	_ = json.Unmarshal(recAuth.Body.Bytes(), &verifyResp)
+	if !verifyResp.Verified || verifyResp.AttendanceUnits != 2 || verifyResp.Origin != "optical" {
+		t.Fatalf("unexpected verify response: %+v", verifyResp)
+	}
+
+	// 4. Immutability Rule: Instructor attempts to delete QR-verified record -> 403 Forbidden!
+	delQRRec := httptest.NewRecorder()
+	delQRReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/attendance/optical/manual-record?session_id=%s&record_id=%s", optSess.ID, verifyResp.AttendanceID), nil)
+	h.HandleManualOpticalRecord(delQRRec, delQRReq)
+	if delQRRec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden when attempting to remove optical record, got %d: %s", delQRRec.Code, delQRRec.Body.String())
+	}
+
+	// 5. Instructor manually adds a missing student -> 201 Created with Origin == "manual"
+	manualAddJSON := fmt.Sprintf(`{
+		"session_id": "%s",
+		"student_id": "stud-manual-2",
+		"student_name": "Neha Gupta",
+		"campus_handle": "neha_gupta",
+		"remarks": "Camera malfunction reported"
+	}`, optSess.ID)
+	recManual := httptest.NewRecorder()
+	reqManual := httptest.NewRequest(http.MethodPost, "/api/v1/attendance/optical/manual-record", bytes.NewBufferString(manualAddJSON))
+	h.HandleManualOpticalRecord(recManual, reqManual)
+	if recManual.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for manual add, got %d: %s", recManual.Code, recManual.Body.String())
+	}
+	var manualRecord model.AttendanceRecord
+	_ = json.Unmarshal(recManual.Body.Bytes(), &manualRecord)
+	if manualRecord.Origin != "manual" || manualRecord.AttendanceUnits != 2 {
+		t.Fatalf("unexpected manual record: %+v", manualRecord)
+	}
+
+	// 6. Instructor deletes manually added record -> succeeds with 200 OK
+	delManualRec := httptest.NewRecorder()
+	delManualReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/attendance/optical/manual-record?session_id=%s&record_id=%s", optSess.ID, manualRecord.ID), nil)
+	h.HandleManualOpticalRecord(delManualRec, delManualReq)
+	if delManualRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK when removing manual record, got %d: %s", delManualRec.Code, delManualRec.Body.String())
+	}
+
+	// 7. Check Student Attendance Summary: Verify 2-hour session counts as 2 units!
+	sumRec := httptest.NewRecorder()
+	sumReq := httptest.NewRequest(http.MethodGet, "/api/v1/attendance/summary?student_id=stud-auth-1", nil)
+	h.GetAttendanceSummary(sumRec, sumReq)
+	if sumRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for summary, got %d", sumRec.Code)
+	}
+	var summaries []model.AttendanceSummary
+	_ = json.Unmarshal(sumRec.Body.Bytes(), &summaries)
+	if len(summaries) != 1 || summaries[0].Attended != 2 || summaries[0].TotalSessions != 2 {
+		t.Fatalf("expected 2 attended out of 2 total sessions for 2-hr block, got %+v", summaries)
+	}
+}
