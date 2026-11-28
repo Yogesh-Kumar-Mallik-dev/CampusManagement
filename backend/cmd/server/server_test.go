@@ -20,6 +20,12 @@ func TestServerContainerInitializationAndRouting(t *testing.T) {
 	if concretePerm, ok := container.PermissionService.(*service.PermissionService); ok {
 		seedDefaultRolesAndScopes(concretePerm)
 	}
+	if concreteAcad, ok := container.AcademicService.(*service.AcademicService); ok {
+		seedDefaultAcademics(concreteAcad)
+	}
+	if p := stringPtr("hello"); p == nil || *p != "hello" {
+		t.Fatal("stringPtr failed")
+	}
 
 	mux := container.BuildMux()
 

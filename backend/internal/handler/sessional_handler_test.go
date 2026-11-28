@@ -115,4 +115,33 @@ func TestSessionalHandler_ScheduleAndSeating(t *testing.T) {
 	if w2.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK from seating, got %d", w2.Code)
 	}
+
+	// 3. Error & Method Not Allowed branches
+	for _, tc := range []struct {
+		method string
+		url    string
+		body   string
+		fn     func(http.ResponseWriter, *http.Request)
+		code   int
+	}{
+		{http.MethodPost, "/api/v1/sessional/records", "", h.HandleRecords, http.StatusMethodNotAllowed},
+		{http.MethodGet, "/api/v1/sessional/marks", "", h.HandleMarks, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/sessional/marks", "{bad", h.HandleMarks, http.StatusBadRequest},
+		{http.MethodPost, "/api/v1/sessional/marks", `{"subject_code":"MISSING","student_id":"x"}`, h.HandleMarks, http.StatusNotFound},
+		{http.MethodGet, "/api/v1/sessional/freeze", "", h.HandleFreeze, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/sessional/freeze", "{bad", h.HandleFreeze, http.StatusBadRequest},
+		{http.MethodPost, "/api/v1/sessional/freeze", `{"subject_code":"MISSING","semester":5}`, h.HandleFreeze, http.StatusNotFound},
+		{http.MethodPost, "/api/v1/sessional/schedule", "", h.HandleSchedule, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/sessional/seating", "", h.HandleSeating, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/sessional/award-list", "", h.HandleAwardList, http.StatusMethodNotAllowed},
+		{http.MethodGet, "/api/v1/sessional/award-list", "", h.HandleAwardList, http.StatusNotFound},
+		{http.MethodGet, "/api/v1/sessional/award-list?subject_code=MISSING&semester=5", "", h.HandleAwardList, http.StatusNotFound},
+	} {
+		req := httptest.NewRequest(tc.method, tc.url, bytes.NewBufferString(tc.body))
+		w := httptest.NewRecorder()
+		tc.fn(w, req)
+		if w.Code != tc.code {
+			t.Fatalf("expected %d for %s %s, got %d (%s)", tc.code, tc.method, tc.url, w.Code, w.Body.String())
+		}
+	}
 }

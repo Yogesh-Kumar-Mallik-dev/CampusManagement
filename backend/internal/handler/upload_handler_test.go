@@ -93,4 +93,30 @@ func TestUploadPDFHandler_InvalidMagicBytes(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 Bad Request for non-PDF, got %d", rec.Code)
 	}
+
+	if h.Storage() == nil {
+		t.Fatal("expected non-nil Storage()")
+	}
+
+	// Method not allowed & missing query/file paths
+	for _, tc := range []struct {
+		method string
+		url    string
+		fn     func(http.ResponseWriter, *http.Request)
+		code   int
+	}{
+		{http.MethodGet, "/api/v1/upload/pdf", h.HandleUploadPDF, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/upload/pdf", h.HandleUploadPDF, http.StatusBadRequest},
+		{http.MethodPost, "/api/v1/uploads", h.HandleServeUpload, http.StatusMethodNotAllowed},
+		{http.MethodGet, "/api/v1/uploads", h.HandleServeUpload, http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/uploads?id=../escape.pdf", h.HandleServeUpload, http.StatusNotFound},
+		{http.MethodGet, "/api/v1/uploads?id=missing.pdf", h.HandleServeUpload, http.StatusNotFound},
+	} {
+		r := httptest.NewRequest(tc.method, tc.url, nil)
+		w := httptest.NewRecorder()
+		tc.fn(w, r)
+		if w.Code != tc.code {
+			t.Fatalf("expected %d for %s %s, got %d", tc.code, tc.method, tc.url, w.Code)
+		}
+	}
 }

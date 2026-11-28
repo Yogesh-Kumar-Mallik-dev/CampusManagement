@@ -9,6 +9,7 @@ import (
 
 	"campus/backend/internal/idgen"
 	"campus/backend/internal/model"
+	"campus/backend/internal/service"
 )
 
 func TestWhatsAppOTPFirstLoginAndDualChannelReset(t *testing.T) {
@@ -241,5 +242,48 @@ func TestWhatsAppOTPFirstLoginAndDualChannelReset(t *testing.T) {
 	authH.Login(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Expected login with escalated password to succeed, got %d", rec.Code)
+	}
+
+	// Cover SetOTPService, GetResetEscalation, UpdateStudentProfile, and error branches
+	authH.SetOTPService(service.NewWhatsAppOTPService())
+	if _, ok := userH.GetResetEscalation("MISSING"); ok {
+		t.Fatal("expected missing escalation ticket to return false")
+	}
+	if _, ok := userH.GetStudentProfile(stuResp.User.ID); ok {
+		userH.UpdateStudentProfile(model.StudentProfile{UserID: stuResp.User.ID, CurrentSemester: 4})
+	}
+
+	for _, tc := range []struct {
+		method string
+		url    string
+		body   string
+		fn     func(http.ResponseWriter, *http.Request)
+		code   int
+	}{
+		{http.MethodGet, "/api/v1/auth/first-login/request-otp", "", authH.RequestFirstLoginOTP, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/auth/first-login/request-otp", "{bad", authH.RequestFirstLoginOTP, http.StatusBadRequest},
+		{http.MethodPost, "/api/v1/auth/first-login/request-otp", `{"identifier":"unknown_user"}`, authH.RequestFirstLoginOTP, http.StatusNotFound},
+		{http.MethodGet, "/api/v1/auth/first-login/verify-and-set-password", "", authH.FirstLoginSetPassword, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/auth/first-login/verify-and-set-password", "{bad", authH.FirstLoginSetPassword, http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/auth/reset-password/request-otp", "", authH.RequestResetPasswordOTP, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/auth/reset-password/request-otp", "{bad", authH.RequestResetPasswordOTP, http.StatusBadRequest},
+		{http.MethodPost, "/api/v1/auth/reset-password/security-question", "", authH.GetSecurityQuestionPrompt, http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/auth/reset-password/security-question", "", authH.GetSecurityQuestionPrompt, http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/auth/reset-password/verify-otp-and-question", "", authH.ResetPasswordWithSecurityQuestion, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/auth/reset-password/verify-otp-and-question", "{bad", authH.ResetPasswordWithSecurityQuestion, http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/auth/reset-password/escalate-to-admin", "", authH.CreateResetEscalation, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/auth/reset-password/escalate-to-admin", "{bad", authH.CreateResetEscalation, http.StatusBadRequest},
+		{http.MethodPost, "/api/v1/auth/reset-password/escalations", "", authH.ListResetEscalations, http.StatusMethodNotAllowed},
+		{http.MethodGet, "/api/v1/auth/reset-password/admin-resolve-escalation", "", authH.AdminResolveEscalation, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/auth/reset-password/admin-resolve-escalation", "{bad", authH.AdminResolveEscalation, http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/auth/reset-password/verify-otp-and-admin-token", "", authH.ResetPasswordWithAdminToken, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/auth/reset-password/verify-otp-and-admin-token", "{bad", authH.ResetPasswordWithAdminToken, http.StatusBadRequest},
+	} {
+		r := httptest.NewRequest(tc.method, tc.url, bytes.NewBufferString(tc.body))
+		w := httptest.NewRecorder()
+		tc.fn(w, r)
+		if w.Code != tc.code {
+			t.Fatalf("expected %d for %s %s, got %d (%s)", tc.code, tc.method, tc.url, w.Code, w.Body.String())
+		}
 	}
 }

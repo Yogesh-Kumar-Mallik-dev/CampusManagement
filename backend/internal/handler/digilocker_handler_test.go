@@ -100,4 +100,29 @@ func TestDigiLockerHandlerEndpoints(t *testing.T) {
 	if discProfile.DigiLockerVerified {
 		t.Errorf("expected disconnected profile to have DigiLockerVerified=false")
 	}
+
+	// 6. Error & Method Not Allowed branches
+	for _, tc := range []struct {
+		method string
+		url    string
+		body   string
+		fn     func(http.ResponseWriter, *http.Request)
+		code   int
+	}{
+		{http.MethodPost, "/api/v1/digilocker/auth-url", "", h.GenerateAuthURL, http.StatusMethodNotAllowed},
+		{http.MethodGet, "/api/v1/digilocker/exchange", "", h.ExchangeToken, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/digilocker/exchange", "{bad", h.ExchangeToken, http.StatusBadRequest},
+		{http.MethodPost, "/api/v1/digilocker/status", "", h.GetStatus, http.StatusMethodNotAllowed},
+		{http.MethodGet, "/api/v1/digilocker/status", "", h.GetStatus, http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/digilocker/disconnect", "", h.Disconnect, http.StatusMethodNotAllowed},
+		{http.MethodPost, "/api/v1/digilocker/disconnect", "{bad", h.Disconnect, http.StatusBadRequest},
+		{http.MethodPost, "/api/v1/digilocker/disconnect", `{}`, h.Disconnect, http.StatusBadRequest},
+	} {
+		req := httptest.NewRequest(tc.method, tc.url, bytes.NewBufferString(tc.body))
+		w := httptest.NewRecorder()
+		tc.fn(w, req)
+		if w.Code != tc.code {
+			t.Fatalf("expected %d for %s %s, got %d (%s)", tc.code, tc.method, tc.url, w.Code, w.Body.String())
+		}
+	}
 }
