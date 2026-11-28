@@ -279,4 +279,41 @@ func TestLibraryHandlerEndpoints(t *testing.T) {
 	if rrRejectPdf.Code != http.StatusOK {
 		t.Fatalf("expected 200 from HandleRejectEBook, got %d", rrRejectPdf.Code)
 	}
+
+	// 10. Download & Delete EBook
+	reqDl := httptest.NewRequest(http.MethodGet, "/api/v1/library/ebooks/"+submittedPdf.ID+"/download", nil)
+	rrDl := httptest.NewRecorder()
+	h.HandleEBooks(rrDl, reqDl)
+	if rrDl.Code != http.StatusOK {
+		t.Fatalf("expected 200 downloading ebook, got %d", rrDl.Code)
+	}
+
+	reqDelEb := httptest.NewRequest(http.MethodDelete, "/api/v1/library/ebooks?id="+submittedPdf.ID, nil)
+	rrDelEb := httptest.NewRecorder()
+	h.HandleEBooks(rrDelEb, reqDelEb)
+	if rrDelEb.Code != http.StatusOK {
+		t.Fatalf("expected 200 deleting ebook, got %d", rrDelEb.Code)
+	}
+
+	// 11. HandleRejectReturn & HandleRejectRenewal error/method paths
+	for _, tc := range []struct {
+		method string
+		body   string
+		fn     func(http.ResponseWriter, *http.Request)
+		code   int
+	}{
+		{http.MethodGet, "", h.HandleRejectReturn, http.StatusMethodNotAllowed},
+		{http.MethodPost, "{bad", h.HandleRejectReturn, http.StatusBadRequest},
+		{http.MethodPost, `{"borrow_id":"missing"}`, h.HandleRejectReturn, http.StatusBadRequest},
+		{http.MethodGet, "", h.HandleRejectRenewal, http.StatusMethodNotAllowed},
+		{http.MethodPost, "{bad", h.HandleRejectRenewal, http.StatusBadRequest},
+		{http.MethodPost, `{"borrow_id":"missing"}`, h.HandleRejectRenewal, http.StatusBadRequest},
+	} {
+		req := httptest.NewRequest(tc.method, "/api/v1/library/test", bytes.NewBufferString(tc.body))
+		w := httptest.NewRecorder()
+		tc.fn(w, req)
+		if w.Code != tc.code {
+			t.Fatalf("expected %d, got %d", tc.code, w.Code)
+		}
+	}
 }

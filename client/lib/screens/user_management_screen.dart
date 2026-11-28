@@ -197,56 +197,76 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Header & Actions Strip
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 680;
+                final titleColumn = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Campus Directory & Identity Management',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Canonical handle generation, scoped permissions, and institutional lifecycle governance.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ],
+                );
+                final actionButtons = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const Key('btn-manage-reset-escalations'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
+                        side: BorderSide(color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      icon: const Icon(Icons.support_agent, size: 16),
+                      label: const Text('Password Escalations', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: _openEscalationsDialog,
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.wineRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        elevation: 0,
+                      ),
+                      icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 16, color: Colors.white),
+                      label: const Text('Onboard User', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: _openCreateUserDialog,
+                    ),
+                  ],
+                );
+                if (isNarrow) {
+                  return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Campus Directory & Identity Management',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Canonical handle generation, scoped permissions, and institutional lifecycle governance.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                        ),
-                      ),
+                      titleColumn,
+                      const SizedBox(height: 12),
+                      actionButtons,
                     ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  key: const Key('btn-manage-reset-escalations'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? AppColors.wineRedDarkText : AppColors.wineRed,
-                    side: BorderSide(color: isDark ? AppColors.wineRedDarkBorder : AppColors.wineRedBorder),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  ),
-                  icon: const Icon(Icons.support_agent, size: 16),
-                  label: const Text('Password Escalations', style: TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: _openEscalationsDialog,
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.wineRed,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                    elevation: 0,
-                  ),
-                  icon: const AppSvgIcon(svgString: AppSvgIcon.plus, size: 16, color: Colors.white),
-                  label: const Text('Onboard User', style: TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: _openCreateUserDialog,
-                ),
-              ],
+                  );
+                }
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: titleColumn),
+                    const SizedBox(width: 12),
+                    actionButtons,
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 20),
 

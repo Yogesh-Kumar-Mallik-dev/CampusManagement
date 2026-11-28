@@ -682,4 +682,66 @@ func TestAcademicHierarchyAndOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to allocate subject to section: %v", err)
 	}
+
+	// 13. CountPrograms, UpdateProgram, Assignments, Optical manual records
+	if cnt := svc.CountPrograms(); cnt == 0 {
+		t.Fatalf("expected non-zero program count")
+	}
+	_, err = svc.UpdateProgram(ctx, model.Program{BaseSyncModel: model.BaseSyncModel{ID: prog.ID}, Name: "Updated Program Name", Code: prog.Code, TotalSemesters: 8})
+	if err != nil {
+		t.Fatalf("UpdateProgram failed: %v", err)
+	}
+	if _, err := svc.UpdateProgram(ctx, model.Program{BaseSyncModel: model.BaseSyncModel{ID: "missing-prog"}, Name: "X"}); err == nil {
+		t.Fatalf("expected error updating missing program")
+	}
+
+	// Assignments & Submissions
+	if _, err := svc.CreateAssignment(ctx, model.Assignment{}); err == nil {
+		t.Fatalf("expected error creating assignment without title")
+	}
+	assign, err := svc.CreateAssignment(ctx, model.Assignment{
+		Title:     "OS Lab 1",
+		SectionID: sec.ID,
+		SubjectID: sub.ID,
+	})
+	if err != nil {
+		t.Fatalf("CreateAssignment failed: %v", err)
+	}
+	if list, err := svc.ListAssignments(ctx, sec.ID, sub.ID); err != nil || len(list) != 1 {
+		t.Fatalf("ListAssignments failed: len=%d err=%v", len(list), err)
+	}
+	if _, err := svc.SubmitAssignment(ctx, model.AssignmentSubmission{}); err == nil {
+		t.Fatalf("expected error submitting without assignment ID")
+	}
+	subm, err := svc.SubmitAssignment(ctx, model.AssignmentSubmission{
+		AssignmentID: assign.ID,
+		StudentID:    "usr-student-1",
+	})
+	if err != nil {
+		t.Fatalf("SubmitAssignment failed: %v", err)
+	}
+	if subs, err := svc.ListSubmissions(ctx, assign.ID); err != nil || len(subs) != 1 {
+		t.Fatalf("ListSubmissions failed: len=%d err=%v", len(subs), err)
+	}
+	if graded, err := svc.GradeSubmission(ctx, subm.ID, 95, "Great work", "prof_1"); err != nil || *graded.MarksAwarded != 95 {
+		t.Fatalf("GradeSubmission failed: %v", err)
+	}
+	if _, err := svc.GradeSubmission(ctx, "missing-subm", 50, "", "prof_1"); err == nil {
+		t.Fatalf("expected error grading missing submission")
+	}
+
+	// Manual optical record add/remove
+	manRec, err := svc.AddManualOpticalRecord(ctx, optSession.ID, "usr-student-manual", "Manual Student", "manual_1", "Late entry")
+	if err != nil || manRec == nil {
+		t.Fatalf("AddManualOpticalRecord failed: %v", err)
+	}
+	if err := svc.RemoveManualOpticalRecord(ctx, optSession.ID, manRec.ID); err != nil {
+		t.Fatalf("RemoveManualOpticalRecord failed: %v", err)
+	}
+	if _, err := svc.AddManualOpticalRecord(ctx, "missing-opt", "u1", "N", "h", "r"); err == nil {
+		t.Fatalf("expected error adding manual record to missing session")
+	}
+	if err := svc.RemoveManualOpticalRecord(ctx, "missing-opt", "u1"); err == nil {
+		t.Fatalf("expected error removing manual record from missing session")
+	}
 }

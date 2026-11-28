@@ -173,3 +173,41 @@ func TestPaymentService_FineSettlementOrder(t *testing.T) {
 		t.Fatalf("expected 150 settlement, got pay=%f rcp=%f", pay.Amount, rcp.Amount)
 	}
 }
+
+func TestPaymentService_ProcessWebhook(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_WEBHOOK_SECRET", "whsec_test_123")
+	feeSvc := NewFeeService(nil, nil)
+	paySvc := NewPaymentService(feeSvc)
+	ctx := context.Background()
+
+	order, err := paySvc.CreateOrder(ctx, model.CreatePaymentOrderRequest{
+		EntityType: "invoice",
+		EntityID:   "inv-tuition-2026-sem3",
+		StudentID:  "usr-harish_2025_l_btech_1",
+		Amount:     2500,
+	})
+	if err != nil {
+		t.Fatalf("CreateOrder failed: %v", err)
+	}
+
+	payload := []byte(`{"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_wh_1","order_id":"` + order.OrderID + `","amount":2500,"status":"captured","method":"upi"}}}}`)
+	h := hmac.New(sha256.New, []byte("whsec_test_123"))
+	h.Write(payload)
+	sig := hex.EncodeToString(h.Sum(nil))
+
+	if err := paySvc.ProcessWebhook(ctx, payload, "bad_sig"); err == nil {
+		t.Fatal("expected invalid webhook signature error")
+	}
+	badJSON := []byte(`{invalid`)
+	hBad := hmac.New(sha256.New, []byte("whsec_test_123"))
+	hBad.Write(badJSON)
+	if err := paySvc.ProcessWebhook(ctx, badJSON, hex.EncodeToString(hBad.Sum(nil))); err == nil {
+		t.Fatal("expected malformed JSON error")
+	}
+	if err := paySvc.ProcessWebhook(ctx, payload, sig); err != nil {
+		t.Fatalf("ProcessWebhook failed: %v", err)
+	}
+	if err := paySvc.ProcessWebhook(ctx, payload, sig); err != nil {
+		t.Fatalf("ProcessWebhook idempotent replay failed: %v", err)
+	}
+}

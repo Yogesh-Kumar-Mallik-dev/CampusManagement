@@ -1,7 +1,9 @@
 package model
 
 import (
+	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestAcademicModelResolveCodeForSemester(t *testing.T) {
@@ -231,5 +233,108 @@ func TestUserModelFullName(t *testing.T) {
 	}
 	if name := userOnlyFirst.FullName(); name != "Antigravity" {
 		t.Fatalf("expected Antigravity, got %s", name)
+	}
+	userOnlyLast := User{
+		LastName: "OnlyLast",
+	}
+	if name := userOnlyLast.FullName(); name != "OnlyLast" {
+		t.Fatalf("expected OnlyLast, got %s", name)
+	}
+}
+
+func TestFeeAndPaymentValidation(t *testing.T) {
+	validInv := FeeInvoice{StudentID: "s1", Title: "Tuition", TotalAmount: 1000, DueAmount: 500}
+	if err := validInv.Validate(); err != nil {
+		t.Fatalf("expected valid invoice, got %v", err)
+	}
+	for _, bad := range []FeeInvoice{
+		{Title: "T", TotalAmount: 10},
+		{StudentID: "s1", TotalAmount: 10},
+		{StudentID: "s1", Title: "T", TotalAmount: 0},
+		{StudentID: "s1", Title: "T", TotalAmount: 10, DueAmount: -1},
+	} {
+		if err := bad.Validate(); err == nil {
+			t.Fatalf("expected error for invalid invoice %+v", bad)
+		}
+	}
+
+	validFine := FineRecord{StudentID: "s1", Reason: "Late book", Amount: 50}
+	if err := validFine.Validate(); err != nil {
+		t.Fatalf("expected valid fine, got %v", err)
+	}
+	for _, bad := range []FineRecord{
+		{Reason: "R", Amount: 10},
+		{StudentID: "s1", Amount: 10},
+		{StudentID: "s1", Reason: "R", Amount: 0},
+	} {
+		if err := bad.Validate(); err == nil {
+			t.Fatalf("expected error for invalid fine %+v", bad)
+		}
+	}
+
+	validPay := CreatePaymentOrderRequest{EntityType: "invoice", EntityID: "inv-1", StudentID: "s1", Amount: 100}
+	if err := validPay.Validate(); err != nil {
+		t.Fatalf("expected valid payment request, got %v", err)
+	}
+	for _, bad := range []CreatePaymentOrderRequest{
+		{EntityType: "other", EntityID: "e1", StudentID: "s1", Amount: 100},
+		{EntityType: "fine", EntityID: "", StudentID: "s1", Amount: 100},
+		{EntityType: "fine", EntityID: "f1", StudentID: "", Amount: 100},
+		{EntityType: "fine", EntityID: "f1", StudentID: "s1", Amount: -5},
+	} {
+		if err := bad.Validate(); err == nil {
+			t.Fatalf("expected error for invalid payment request %+v", bad)
+		}
+	}
+}
+
+func TestSessionalAndAcademicAndHostelModelHelpers(t *testing.T) {
+	// Theory clamping and calculation
+	theory := InternalAssessmentRecord{
+		IsPractical: false,
+		CT1Score:    35, // clamped to 30
+		CT2Score:    -2, // clamped to 0
+		TAScore:     12, // clamped to 10
+	}
+	theory.Recalculate()
+	if theory.MaxInternalMarks != 30.0 || theory.CalculatedSessional != 10.0 || theory.TotalInternalMarks != 20.0 {
+		t.Fatalf("unexpected theory recalculation: %+v", theory)
+	}
+
+	// Practical clamping and calculation
+	prac := InternalAssessmentRecord{
+		IsPractical:        true,
+		LabContinuousScore: 25, // clamped to 20
+		LabVivaScore:       15,
+		LabAttendanceScore: 15, // clamped to 10
+	}
+	prac.Recalculate()
+	if prac.MaxInternalMarks != 50.0 || prac.TotalInternalMarks != 45.0 {
+		t.Fatalf("unexpected practical recalculation: %+v", prac)
+	}
+
+	// Signature generation
+	sig := ComputeAwardListSignature("CS301", 5, []InternalAssessmentRecord{
+		{UniversityRollNo: "210097", TotalInternalMarks: 25.5},
+	}, "hod-1", time.Unix(1700000000, 0).UTC())
+	if len(sig) != 64 {
+		t.Fatalf("expected 64-char hex sha256 signature, got len=%d", len(sig))
+	}
+
+	// ProgramBranch UnmarshalJSON (string + object + invalid)
+	var pb1, pb2, pb3 ProgramBranch
+	if err := json.Unmarshal([]byte(`"CSE"`), &pb1); err != nil || pb1.Name != "CSE" {
+		t.Fatalf("expected string unmarshal CSE, got %+v err=%v", pb1, err)
+	}
+	if err := json.Unmarshal([]byte(`{"name":"IT","code":"IT","is_retired":true}`), &pb2); err != nil || pb2.Code != "IT" || !pb2.IsRetired {
+		t.Fatalf("expected struct unmarshal IT, got %+v err=%v", pb2, err)
+	}
+	if err := json.Unmarshal([]byte(`123`), &pb3); err == nil {
+		t.Fatalf("expected error unmarshaling number into ProgramBranch")
+	}
+
+	// DeriveFloor boundaries
+	if DeriveFloor(50) != 0 || DeriveFloor(101) != 0 || DeriveFloor(305) != 2 || DeriveFloor(900) != 4 {
+		t.Fatalf("unexpected DeriveFloor outputs")
 	}
 }

@@ -288,4 +288,13 @@ func TestFeeServiceOperations(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error generating PDF for nil invoice")
 	}
+
+	// Receipt PDF generation
+	rcpPDF, rcpFilename, err := svc.GenerateReceiptPDF(ctx, rcpFineRes.ReceiptNumber)
+	if err != nil || !strings.HasPrefix(string(rcpPDF), "%PDF-1.4") || rcpFilename == "" {
+		t.Fatalf("GenerateReceiptPDF failed: len=%d fn=%s err=%v", len(rcpPDF), rcpFilename, err)
+	}
+	if _, _, err := svc.GenerateReceiptPDF(ctx, "missing-receipt"); err == nil {
+		t.Fatalf("expected error generating PDF for missing receipt")
+	}
 }

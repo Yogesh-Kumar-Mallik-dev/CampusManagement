@@ -163,4 +163,13 @@ func TestSessionalService_SchedulesAndSeating(t *testing.T) {
 	if seating[0].DeskNumber != "D-01" || seating[0].StudentRollNo != "2100970100045" {
 		t.Errorf("unexpected desk 1 allocation: %+v", seating[0])
 	}
+
+	// 3. GetAwardList
+	award, err := svc.GetAwardList(ctx, "CS301", 5)
+	if err != nil || award.TotalStudents == 0 {
+		t.Fatalf("GetAwardList failed: err=%v", err)
+	}
+	if _, err := svc.GetAwardList(ctx, "NO_SUCH_SUBJ", 5); err == nil {
+		t.Fatalf("expected error for missing award list subject")
+	}
 }

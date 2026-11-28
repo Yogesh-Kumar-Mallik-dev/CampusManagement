@@ -10,6 +10,7 @@ import (
 	"campus/backend/internal/facade"
 	"campus/backend/internal/idgen"
 	"campus/backend/internal/service"
+	"campus/backend/internal/storage"
 )
 
 func TestContainerMemoryModeInitialization(t *testing.T) {
@@ -138,6 +139,10 @@ func TestContainerOptionOverrides(t *testing.T) {
 	customComplaint := service.NewComplaintService()
 	customFee := service.NewFeeService(nil, customPerm)
 	customLib := service.NewLibraryService(nil, customFee)
+	customSessional := service.NewSessionalService(nil)
+	customDigi := service.NewDigiLockerService(service.DigiLockerConfig{}, nil, nil)
+	customPay := service.NewPaymentService(customFee)
+	customBlob, _ := storage.NewLocalStorage(t.TempDir())
 	customFacade := facade.NewCampusFacade(customID, customPerm, customAcad, customHostel, customMess, customComplaint, customFee, customLib)
 
 	container, err := NewContainer(
@@ -151,6 +156,10 @@ func TestContainerOptionOverrides(t *testing.T) {
 		WithComplaintService(customComplaint),
 		WithFeeService(customFee),
 		WithLibraryService(customLib),
+		WithSessionalService(customSessional),
+		WithDigiLockerService(customDigi),
+		WithPaymentService(customPay),
+		WithBlobStorage(customBlob),
 		WithFacade(customFacade),
 		WithDBPool(nil),
 	)

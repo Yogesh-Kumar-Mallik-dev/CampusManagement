@@ -16,10 +16,15 @@ class ApiService implements ICampusApi {
   @override
   final String baseUrl;
 
-  ApiService({this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8085')});
+  final http.Client _client;
+
+  ApiService({
+    this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8085'),
+    http.Client? client,
+  }) : _client = client ?? http.Client();
 
   Future<UserModel> login(String identifier, String password) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/login'),
           headers: {'Content-Type': 'application/json'},
@@ -68,7 +73,7 @@ class ApiService implements ICampusApi {
     required String currentPassword,
     required String newPassword,
   }) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/change-password'),
           headers: {'Content-Type': 'application/json'},
@@ -113,7 +118,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<Map<String, dynamic>> requestFirstLoginOtp(String identifier) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/first-login/request-otp'),
           headers: {'Content-Type': 'application/json'},
@@ -133,7 +138,7 @@ class ApiService implements ICampusApi {
     required String securityQuestion,
     required String securityAnswer,
   }) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/first-login/verify-and-set-password'),
           headers: {'Content-Type': 'application/json'},
@@ -162,7 +167,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<Map<String, dynamic>> requestResetPasswordOtp(String identifier) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/reset-password/request-otp'),
           headers: {'Content-Type': 'application/json'},
@@ -176,7 +181,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<Map<String, dynamic>> getSecurityQuestionPrompt(String identifier) async {
-    final res = await http
+    final res = await _client
         .get(Uri.parse('$baseUrl/api/v1/auth/reset-password/security-question?identifier=$identifier'))
         .timeout(const Duration(seconds: 4));
     if (res.statusCode == 200) {
@@ -191,7 +196,7 @@ class ApiService implements ICampusApi {
     required String securityAnswer,
     required String newPassword,
   }) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/reset-password/verify-otp-and-question'),
           headers: {'Content-Type': 'application/json'},
@@ -215,7 +220,7 @@ class ApiService implements ICampusApi {
     required String otpCode,
     String? reason,
   }) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/reset-password/escalate-to-admin'),
           headers: {'Content-Type': 'application/json'},
@@ -234,7 +239,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<ResetEscalationModel>> listResetEscalations() async {
-    final res = await http
+    final res = await _client
         .get(Uri.parse('$baseUrl/api/v1/auth/reset-password/escalations'))
         .timeout(const Duration(seconds: 4));
     if (res.statusCode == 200) {
@@ -250,7 +255,7 @@ class ApiService implements ICampusApi {
     required String action,
     required String adminUserId,
   }) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/reset-password/admin-resolve-escalation'),
           headers: {'Content-Type': 'application/json'},
@@ -285,7 +290,7 @@ class ApiService implements ICampusApi {
     required String adminToken,
     required String newPassword,
   }) async {
-    final res = await http
+    final res = await _client
         .post(
           Uri.parse('$baseUrl/api/v1/auth/reset-password/verify-otp-and-admin-token'),
           headers: {'Content-Type': 'application/json'},
@@ -306,7 +311,7 @@ class ApiService implements ICampusApi {
 
   Future<bool> checkHealth() async {
     try {
-      final res = await http
+      final res = await _client
           .get(Uri.parse('$baseUrl/api/health'))
           .timeout(const Duration(milliseconds: 1500));
       return res.statusCode == 200;
@@ -316,7 +321,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<CourseModel>> fetchCourses() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/courses'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/courses'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => CourseModel.fromJson(e)).toList();
@@ -325,7 +330,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<TimetableSlotModel>> fetchTimetable(String scope) async {
-    final res = await http
+    final res = await _client
         .get(Uri.parse('$baseUrl/api/v1/academics/timetable?scope=$scope'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
@@ -335,7 +340,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<TimetableSlotModel> saveTimetableSlot(TimetableSlotModel slot) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/timetable'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(slot.toJson()),
@@ -347,7 +352,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<bool> deleteTimetableSlot(String id) async {
-    final res = await http.delete(
+    final res = await _client.delete(
       Uri.parse('$baseUrl/api/v1/academics/timetable?id=$id'),
     );
     return res.statusCode == 200 || res.statusCode == 204;
@@ -355,7 +360,7 @@ class ApiService implements ICampusApi {
 
   Future<List<TimetableConflictModel>> checkTimetableConflict(TimetableSlotModel slot) async {
     try {
-      final res = await http.post(
+      final res = await _client.post(
         Uri.parse('$baseUrl/api/v1/academics/timetable/check-conflict'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(slot.toJson()),
@@ -375,7 +380,7 @@ class ApiService implements ICampusApi {
     required String reason,
   }) async {
     try {
-      final res = await http.post(
+      final res = await _client.post(
         Uri.parse('$baseUrl/api/v1/academics/timetable/day-off'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -395,7 +400,7 @@ class ApiService implements ICampusApi {
     required String scopeCode,
   }) async {
     try {
-      final res = await http.post(
+      final res = await _client.post(
         Uri.parse('$baseUrl/api/v1/academics/timetable/restore-day'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -411,7 +416,7 @@ class ApiService implements ICampusApi {
 
   Future<List<NoticeModel>> fetchNotices(List<String> scopes) async {
     final scopeParam = scopes.join(',');
-    final res = await http
+    final res = await _client
         .get(Uri.parse('$baseUrl/api/v1/notices?scopes=$scopeParam'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
@@ -421,7 +426,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<NoticeModel> publishNotice(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/notices'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -434,7 +439,7 @@ class ApiService implements ICampusApi {
 
   Future<List<AttendanceSummaryModel>> fetchAttendanceSummary(
       String studentId) async {
-    final res = await http.get(
+    final res = await _client.get(
         Uri.parse('$baseUrl/api/v1/attendance/summary?student_id=$studentId'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
@@ -448,7 +453,7 @@ class ApiService implements ICampusApi {
     final body = jsonEncode({
       'sessions': sessions.map((s) => s.toJson()).toList(),
     });
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/attendance/sync'),
       headers: {
         'Content-Type': 'application/json',
@@ -476,7 +481,7 @@ class ApiService implements ICampusApi {
     }
 
     final uri = Uri.parse('$baseUrl/api/v1/users').replace(queryParameters: params.isEmpty ? null : params);
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => UserModel.fromJson(e)).toList();
@@ -487,7 +492,7 @@ class ApiService implements ICampusApi {
   Future<UserModel> fetchUserProfile(String idOrHandle) async {
     final isHandle = !idOrHandle.startsWith('usr-');
     final query = isHandle ? 'handle=$idOrHandle' : 'id=$idOrHandle';
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/users/profile?$query'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/users/profile?$query'));
     if (res.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(res.body);
       final userMap = data['user'] as Map<String, dynamic>;
@@ -556,7 +561,7 @@ class ApiService implements ICampusApi {
     if (academicNameSource != null) payload['academic_name_source'] = academicNameSource;
     if (classXDocumentRef != null) payload['class_x_document_ref'] = classXDocumentRef;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/users/profile/update'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -590,7 +595,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<UserModel> createStudent(Map<String, dynamic> req) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/users/student'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(req),
@@ -607,7 +612,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<UserModel> createEmployee(Map<String, dynamic> req) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/users/employee'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(req),
@@ -624,7 +629,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<UserModel> createContractor(Map<String, dynamic> req) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/users/contractor'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(req),
@@ -646,7 +651,7 @@ class ApiService implements ICampusApi {
     required String reason,
     required String discontinuedBy,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/users/discontinue'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -664,7 +669,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<UserModel> reactivateUser(String userId) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/users/reactivate'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -685,7 +690,7 @@ class ApiService implements ICampusApi {
     required String scopeCode,
     DateTime? validUntil,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/permissions/assign'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -703,7 +708,7 @@ class ApiService implements ICampusApi {
   // ----------------------------------------------------
 
   Future<OpticalSessionModel> startOpticalSession(Map<String, dynamic> data) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/attendance/optical/start'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(data),
@@ -715,7 +720,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<OpticalVerificationResult> verifyOpticalAttendance(Map<String, dynamic> req) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/attendance/optical/verify'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(req),
@@ -728,7 +733,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<AttendanceRecordModel>> fetchOpticalSessionRoster(String sessionId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$baseUrl/api/v1/attendance/optical/roster?session_id=$sessionId'),
     );
     if (res.statusCode == 200) {
@@ -739,7 +744,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<AttendanceRecordModel> addManualOpticalRecord(Map<String, dynamic> req) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/attendance/optical/manual-record'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(req),
@@ -751,7 +756,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<bool> removeManualOpticalRecord(String sessionId, String recordId) async {
-    final res = await http.delete(
+    final res = await _client.delete(
       Uri.parse('$baseUrl/api/v1/attendance/optical/manual-record?session_id=$sessionId&record_id=$recordId'),
     );
     if (res.statusCode == 200) {
@@ -761,7 +766,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<void> endOpticalSession(String sessionId) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/attendance/optical/end'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'session_id': sessionId}),
@@ -776,7 +781,7 @@ class ApiService implements ICampusApi {
   // ----------------------------------------------------
 
   Future<List<DepartmentModel>> fetchDepartments() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/departments'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/departments'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => DepartmentModel.fromJson(e)).toList();
@@ -785,7 +790,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<DepartmentModel> createDepartment(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/departments'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -797,7 +802,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<DepartmentDetailModel> fetchDepartmentDetail(String id) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/departments?id=$id'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/departments?id=$id'));
     if (res.statusCode == 200) {
       return DepartmentDetailModel.fromJson(jsonDecode(res.body));
     }
@@ -805,7 +810,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<ProgramModel>> fetchPrograms() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/programs'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/programs'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => ProgramModel.fromJson(e)).toList();
@@ -814,7 +819,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<ProgramModel> createProgram(ProgramModel program) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/programs'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(program.toJson()),
@@ -827,7 +832,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<ProgramModel> updateProgram(ProgramModel program) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/api/v1/academics/programs'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(program.toJson()),
@@ -839,7 +844,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<SubjectModel>> fetchSubjects() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/subjects'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/subjects'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => SubjectModel.fromJson(e)).toList();
@@ -848,7 +853,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<SubjectModel> createSubject(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/subjects'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -860,7 +865,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<SyllabusVersionModel>> fetchSyllabusAudit(String subjectId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/subjects/syllabus?subject_id=$subjectId'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/subjects/syllabus?subject_id=$subjectId'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => SyllabusVersionModel.fromJson(e)).toList();
@@ -869,7 +874,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<SyllabusVersionModel> reviseSyllabus(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/subjects/syllabus'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -881,7 +886,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<SemesterModel>> fetchSemesters() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/semesters'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/semesters'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => SemesterModel.fromJson(e)).toList();
@@ -890,7 +895,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<SemesterDetailModel> fetchSemesterDetail(String id) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/semesters?id=$id'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/semesters?id=$id'));
     if (res.statusCode == 200) {
       return SemesterDetailModel.fromJson(jsonDecode(res.body));
     }
@@ -898,7 +903,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<UserModel>> fetchTeachers() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/teachers'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/teachers'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => UserModel.fromJson(e)).toList();
@@ -911,7 +916,7 @@ class ApiService implements ICampusApi {
   // ----------------------------------------------------
 
   Future<List<SectionModel>> fetchSections() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/sections'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/sections'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => SectionModel.fromJson(e)).toList();
@@ -920,7 +925,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<SectionModel> createSection(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/sections'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -932,7 +937,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<SectionDetailModel> fetchSectionDetail(String id) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/sections?id=$id'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/sections?id=$id'));
     if (res.statusCode == 200) {
       return SectionDetailModel.fromJson(jsonDecode(res.body));
     }
@@ -944,7 +949,7 @@ class ApiService implements ICampusApi {
     required String sectionId,
     required String programId,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/sections/assign-student'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -962,7 +967,7 @@ class ApiService implements ICampusApi {
     required String studentId,
     required String targetSectionId,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/sections/transfer-student'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -979,7 +984,7 @@ class ApiService implements ICampusApi {
     required String sourceSectionId,
     required String targetSectionId,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/sections/merge'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -999,7 +1004,7 @@ class ApiService implements ICampusApi {
   // ----------------------------------------------------
 
   Future<List<LabBatchModel>> fetchSectionBatches(String sectionId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/sections/batches?section_id=$sectionId'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/sections/batches?section_id=$sectionId'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => LabBatchModel.fromJson(e)).toList();
@@ -1008,7 +1013,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<LabBatchModel> createLabBatch(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/sections/batches'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1020,7 +1025,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<List<LabBatchModel>> autoPartitionBatches(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/sections/batches/auto-partition'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1036,7 +1041,7 @@ class ApiService implements ICampusApi {
     required String batchId,
     required String studentId,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/sections/batches/assign-student'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1054,7 +1059,7 @@ class ApiService implements ICampusApi {
   // ----------------------------------------------------
 
   Future<List<FacultyAllocationModel>> fetchFacultyAllocations(String sectionId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/academics/allocations?section_id=$sectionId'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/academics/allocations?section_id=$sectionId'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => FacultyAllocationModel.fromJson(e)).toList();
@@ -1063,7 +1068,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<FacultyAllocationModel> assignFacultyAllocation(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/allocations'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1075,7 +1080,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<void> removeFacultyAllocation(String allocationId) async {
-    final res = await http.delete(Uri.parse('$baseUrl/api/v1/academics/allocations?id=$allocationId'));
+    final res = await _client.delete(Uri.parse('$baseUrl/api/v1/academics/allocations?id=$allocationId'));
     if (res.statusCode != 200) {
       throw Exception('Failed to remove faculty allocation: ${res.body}');
     }
@@ -1085,7 +1090,7 @@ class ApiService implements ICampusApi {
     final uri = teacherId != null && teacherId.isNotEmpty
         ? Uri.parse('$baseUrl/api/v1/academics/faculty/workload?teacher_id=$teacherId')
         : Uri.parse('$baseUrl/api/v1/academics/faculty/workload');
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final dynamic data = jsonDecode(res.body);
       if (data is List) {
@@ -1105,7 +1110,7 @@ class ApiService implements ICampusApi {
     final uri = floor != null
         ? Uri.parse('$baseUrl/api/v1/hostel/rooms?floor=$floor')
         : Uri.parse('$baseUrl/api/v1/hostel/rooms');
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => HostelRoomModel.fromJson(e)).toList();
@@ -1114,7 +1119,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<HostelRoomModel> createHostelRoom(int roomNumber, String blockName) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/hostel/rooms'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1133,7 +1138,7 @@ class ApiService implements ICampusApi {
     required int newRoomNumber,
     required String blockName,
   }) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/api/v1/hostel/rooms'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1149,7 +1154,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<HostelAssetModel> addHostelAsset(int roomNumber, String assetType, String serialNumber, String condition) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/hostel/rooms/assets'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1166,7 +1171,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<void> removeHostelAsset(int roomNumber, String assetId) async {
-    final res = await http.delete(
+    final res = await _client.delete(
       Uri.parse('$baseUrl/api/v1/hostel/rooms/assets?room_number=$roomNumber&asset_id=$assetId'),
     );
     if (res.statusCode != 200) {
@@ -1180,7 +1185,7 @@ class ApiService implements ICampusApi {
     required String serialNumber,
     required String condition,
   }) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/api/v1/hostel/rooms/assets'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1197,7 +1202,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<HostelOccupantModel> assignHostelOccupant(int roomNumber, String userId, String handle, String name) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/hostel/rooms/occupants'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1214,7 +1219,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<void> removeHostelOccupant(int roomNumber, String userId) async {
-    final res = await http.delete(
+    final res = await _client.delete(
       Uri.parse('$baseUrl/api/v1/hostel/rooms/occupants?room_number=$roomNumber&user_id=$userId'),
     );
     if (res.statusCode != 200) {
@@ -1227,7 +1232,7 @@ class ApiService implements ICampusApi {
   // ----------------------------------------------------
 
   Future<List<MessMealModel>> fetchMessTimetable() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/mess/timetable'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/mess/timetable'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => MessMealModel.fromJson(e)).toList();
@@ -1236,7 +1241,7 @@ class ApiService implements ICampusApi {
   }
 
   Future<MessMealModel> updateMessMeal(MessMealModel meal) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/api/v1/mess/meals'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(meal.toJson()),
@@ -1253,7 +1258,7 @@ class ApiService implements ICampusApi {
     if (rating != null && rating.isNotEmpty) queryParams['rating'] = rating;
 
     final uri = Uri.parse('$baseUrl/api/v1/mess/ratings').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       return MessReportSummary.fromJson(jsonDecode(res.body));
     }
@@ -1268,7 +1273,7 @@ class ApiService implements ICampusApi {
     required String rating,
     required String message,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/mess/ratings'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1314,7 +1319,7 @@ class ApiService implements ICampusApi {
     }
 
     final uri = Uri.parse('$baseUrl/api/v1/complaints').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => ComplaintModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -1324,7 +1329,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<ComplaintModel> createComplaint(ComplaintModel complaint) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/complaints'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(complaint.toJson()),
@@ -1363,7 +1368,7 @@ class ApiService implements ICampusApi {
     required String remarks,
     required String resolvedBy,
   }) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/api/v1/complaints/status'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1387,7 +1392,7 @@ class ApiService implements ICampusApi {
   Future<FeeSummaryModel> getFeeSummary(String studentId) => fetchFeeSummary(studentId);
 
   Future<FeeSummaryModel> fetchFeeSummary(String studentId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/summary?student_id=$studentId'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/fees/summary?student_id=$studentId'));
     if (res.statusCode == 200) {
       return FeeSummaryModel.fromJson(jsonDecode(res.body));
     }
@@ -1404,7 +1409,7 @@ class ApiService implements ICampusApi {
     if (status != null && status.isNotEmpty) queryParams['status'] = status;
 
     final uri = Uri.parse('$baseUrl/api/v1/fees/invoices').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => FeeInvoiceModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -1414,7 +1419,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<FeeInvoiceModel?> getInvoiceById(String id) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/invoices?id=$id'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/fees/invoices?id=$id'));
     if (res.statusCode == 200) {
       return FeeInvoiceModel.fromJson(jsonDecode(res.body));
     }
@@ -1428,7 +1433,7 @@ class ApiService implements ICampusApi {
     required double amount,
     required String paymentMethod,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/fees/pay'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1454,7 +1459,7 @@ class ApiService implements ICampusApi {
     if (status != null && status.isNotEmpty) queryParams['status'] = status;
 
     final uri = Uri.parse('$baseUrl/api/v1/fees/fines').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => FineRecordModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -1468,7 +1473,7 @@ class ApiService implements ICampusApi {
     required String studentId,
     required String paymentMethod,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/fees/fines/pay'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1488,7 +1493,7 @@ class ApiService implements ICampusApi {
     required String fineId,
     required String reason,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/fees/fines/appeal'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1507,7 +1512,7 @@ class ApiService implements ICampusApi {
     required String fineId,
     required String waivedBy,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/fees/fines/waive'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1525,7 +1530,7 @@ class ApiService implements ICampusApi {
   Future<List<FeePaymentModel>> getFeePayments(String studentId) => fetchFeePayments(studentId);
 
   Future<List<FeePaymentModel>> fetchFeePayments(String studentId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/payments?student_id=$studentId'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/fees/payments?student_id=$studentId'));
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => FeePaymentModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -1537,7 +1542,7 @@ class ApiService implements ICampusApi {
   Future<FeeReceiptModel> getFeeReceipt(String receiptNumber) => fetchReceipt(receiptNumber);
 
   Future<FeeReceiptModel> fetchReceipt(String receiptNumber) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/receipt?receipt_number=$receiptNumber'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/fees/receipt?receipt_number=$receiptNumber'));
     if (res.statusCode == 200) {
       return FeeReceiptModel.fromJson(jsonDecode(res.body));
     }
@@ -1546,7 +1551,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<List<int>> downloadInvoicePdf(String invoiceId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/invoices/pdf?id=$invoiceId'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/fees/invoices/pdf?id=$invoiceId'));
     if (res.statusCode == 200) {
       return res.bodyBytes;
     }
@@ -1555,7 +1560,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<List<int>> downloadReceiptPdf(String receiptNumber) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/fees/receipts/pdf?number=$receiptNumber'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/fees/receipts/pdf?number=$receiptNumber'));
     if (res.statusCode == 200) {
       return res.bodyBytes;
     }
@@ -1564,7 +1569,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<PaymentGatewayConfigModel> getPaymentConfig() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/payments/config'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/payments/config'));
     if (res.statusCode == 200) {
       return PaymentGatewayConfigModel.fromJson(jsonDecode(res.body));
     }
@@ -1579,7 +1584,7 @@ class ApiService implements ICampusApi {
     required double amount,
     String notes = '',
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/payments/order'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1608,7 +1613,7 @@ class ApiService implements ICampusApi {
     String? upiVpa,
     String? cardLast4,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/payments/verify'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1632,7 +1637,7 @@ class ApiService implements ICampusApi {
   // Institutional Library Subsystem
   @override
   Future<LibrarySummaryModel> getLibrarySummary(String studentId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/library/summary?student_id=$studentId'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/library/summary?student_id=$studentId'));
     if (res.statusCode == 200) {
       return LibrarySummaryModel.fromJson(jsonDecode(res.body));
     }
@@ -1645,7 +1650,7 @@ class ApiService implements ICampusApi {
       if (query != null && query.isNotEmpty) 'q': query,
       if (category != null && category.isNotEmpty && category != 'All Categories') 'category': category,
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => PhysicalBookModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -1655,7 +1660,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<PhysicalBookModel?> getBookById(String id) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/library/books?id=$id'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/library/books?id=$id'));
     if (res.statusCode == 200) {
       return PhysicalBookModel.fromJson(jsonDecode(res.body));
     }
@@ -1668,7 +1673,7 @@ class ApiService implements ICampusApi {
       if (studentId != null && studentId.isNotEmpty) 'student_id': studentId,
       if (status != null && status.isNotEmpty && status != 'all') 'status': status,
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => BorrowRecordModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -1690,7 +1695,7 @@ class ApiService implements ICampusApi {
     if (approvedBy != null) payload['approved_by'] = approvedBy;
     if (approvedByName != null) payload['approved_by_name'] = approvedByName;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/borrow'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1716,7 +1721,7 @@ class ApiService implements ICampusApi {
     };
     if (remarks != null) payload['remarks'] = remarks;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/borrow/approve'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1734,7 +1739,7 @@ class ApiService implements ICampusApi {
     required String rejectedBy,
     required String rejectionReason,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/borrow/reject'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1764,7 +1769,7 @@ class ApiService implements ICampusApi {
     if (approvedBy != null) payload['approved_by'] = approvedBy;
     if (approvedByName != null) payload['approved_by_name'] = approvedByName;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/return'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1790,7 +1795,7 @@ class ApiService implements ICampusApi {
     };
     if (remarks != null) payload['remarks'] = remarks;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/return/approve'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1808,7 +1813,7 @@ class ApiService implements ICampusApi {
     required String rejectedBy,
     required String rejectionReason,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/return/reject'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1838,7 +1843,7 @@ class ApiService implements ICampusApi {
     if (approvedBy != null) payload['approved_by'] = approvedBy;
     if (approvedByName != null) payload['approved_by_name'] = approvedByName;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/renew'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1864,7 +1869,7 @@ class ApiService implements ICampusApi {
     };
     if (remarks != null) payload['remarks'] = remarks;
 
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/renew/approve'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -1882,7 +1887,7 @@ class ApiService implements ICampusApi {
     required String rejectedBy,
     required String rejectionReason,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/renew/reject'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -1904,7 +1909,7 @@ class ApiService implements ICampusApi {
       if (query != null && query.isNotEmpty) 'q': query,
       if (category != null && category.isNotEmpty && category != 'All Categories') 'category': category,
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => EBookModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -1914,7 +1919,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<PhysicalBookModel> createPhysicalBook(PhysicalBookModel book) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/books'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(book.toJson()),
@@ -1928,7 +1933,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<void> deletePhysicalBook(String id) async {
-    final res = await http.delete(Uri.parse('$baseUrl/api/v1/library/books?id=$id'));
+    final res = await _client.delete(Uri.parse('$baseUrl/api/v1/library/books?id=$id'));
     if (res.statusCode == 200 || res.statusCode == 204) {
       return;
     }
@@ -1951,7 +1956,7 @@ class ApiService implements ICampusApi {
       ),
     );
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -1963,7 +1968,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<List<int>> downloadPdfDocument(String fileId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/uploads?id=$fileId'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/uploads?id=$fileId'));
     if (res.statusCode == 200) {
       return res.bodyBytes;
     }
@@ -1972,7 +1977,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<List<int>> downloadEBookPdf(String ebookId) async {
-    final res = await http.get(Uri.parse('$baseUrl/api/v1/library/ebooks/$ebookId/download'));
+    final res = await _client.get(Uri.parse('$baseUrl/api/v1/library/ebooks/$ebookId/download'));
     if (res.statusCode == 200) {
       return res.bodyBytes;
     }
@@ -1982,7 +1987,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<EBookModel> createEBook(EBookModel ebook) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/ebooks'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(ebook.toJson()),
@@ -2009,7 +2014,7 @@ class ApiService implements ICampusApi {
     if (remarks != null) {
       payload['remarks'] = remarks;
     }
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/ebooks/approve'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -2032,7 +2037,7 @@ class ApiService implements ICampusApi {
       'rejected_by': rejectedBy,
       'rejection_reason': rejectionReason,
     };
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/library/ebooks/reject'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -2046,7 +2051,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<void> deleteEBook(String id) async {
-    final res = await http.delete(Uri.parse('$baseUrl/api/v1/library/ebooks?id=$id'));
+    final res = await _client.delete(Uri.parse('$baseUrl/api/v1/library/ebooks?id=$id'));
     if (res.statusCode == 200 || res.statusCode == 204) {
       return;
     }
@@ -2066,7 +2071,7 @@ class ApiService implements ICampusApi {
       if (subjectCode != null && subjectCode.isNotEmpty) 'subject_code': subjectCode,
       if (semester != null && semester > 0) 'semester': semester.toString(),
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => InternalAssessmentModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -2076,7 +2081,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<InternalAssessmentModel> updateSessionalMarks(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/sessional/marks'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -2090,7 +2095,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<AKTUInternalAwardListModel> freezeSessionalMarks(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/sessional/freeze'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -2111,7 +2116,7 @@ class ApiService implements ICampusApi {
       if (semester != null && semester > 0) 'semester': semester.toString(),
       if (examType != null && examType.isNotEmpty) 'exam_type': examType,
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => SessionalScheduleModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -2128,7 +2133,7 @@ class ApiService implements ICampusApi {
       if (hallNumber != null && hallNumber.isNotEmpty) 'hall_number': hallNumber,
       if (examType != null && examType.isNotEmpty) 'exam_type': examType,
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => DeskSeatingModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -2145,7 +2150,7 @@ class ApiService implements ICampusApi {
       'subject_code': subjectCode,
       if (semester != null && semester > 0) 'semester': semester.toString(),
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       return AKTUInternalAwardListModel.fromJson(jsonDecode(res.body));
     }
@@ -2166,7 +2171,7 @@ class ApiService implements ICampusApi {
       'student_id': studentId,
       if (redirectUri != null && redirectUri.isNotEmpty) 'redirect_uri': redirectUri,
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       return DigiLockerAuthResponse.fromJson(jsonDecode(res.body));
     }
@@ -2180,7 +2185,7 @@ class ApiService implements ICampusApi {
     required String state,
     required String codeVerifier,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/digilocker/exchange'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -2202,7 +2207,7 @@ class ApiService implements ICampusApi {
     final uri = Uri.parse('$baseUrl/api/v1/digilocker/status').replace(queryParameters: {
       'student_id': studentId,
     });
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       return DigiLockerStatusModel.fromJson(jsonDecode(res.body));
     }
@@ -2211,7 +2216,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<UserModel> disconnectDigiLocker({required String studentId}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/digilocker/disconnect'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'student_id': studentId}),
@@ -2229,7 +2234,7 @@ class ApiService implements ICampusApi {
     if (subjectId != null && subjectId.isNotEmpty) queryParams['subject_id'] = subjectId;
     final uri = Uri.parse('$baseUrl/api/v1/academics/assignments')
         .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => AssignmentModel.fromJson(e)).toList();
@@ -2239,7 +2244,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<AssignmentModel> createAssignment(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/assignments'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -2253,7 +2258,7 @@ class ApiService implements ICampusApi {
   @override
   Future<List<AssignmentSubmissionModel>> getSubmissions(String assignmentId) async {
     final uri = Uri.parse('$baseUrl/api/v1/academics/assignments/submissions?assignment_id=$assignmentId');
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
       return data.map((e) => AssignmentSubmissionModel.fromJson(e)).toList();
@@ -2263,7 +2268,7 @@ class ApiService implements ICampusApi {
 
   @override
   Future<AssignmentSubmissionModel> submitAssignment(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/assignments/submissions'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(payload),
@@ -2281,7 +2286,7 @@ class ApiService implements ICampusApi {
     required String feedback,
     required String gradedBy,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/api/v1/academics/assignments/grade'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({

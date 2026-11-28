@@ -85,4 +85,29 @@ func TestPaymentHandler_Endpoints(t *testing.T) {
 	if wBad.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected 405, got %d", wBad.Code)
 	}
+
+	// 5. Error paths for CreateOrder, VerifyPayment, and HandleWebhook
+	for _, tc := range []struct {
+		method string
+		body   string
+		fn     func(http.ResponseWriter, *http.Request)
+		code   int
+	}{
+		{http.MethodGet, "", h.HandleCreateOrder, http.StatusMethodNotAllowed},
+		{http.MethodPost, "{bad", h.HandleCreateOrder, http.StatusBadRequest},
+		{http.MethodPost, `{"entity_type":"invalid"}`, h.HandleCreateOrder, http.StatusBadRequest},
+		{http.MethodGet, "", h.HandleVerifyPayment, http.StatusMethodNotAllowed},
+		{http.MethodPost, "{bad", h.HandleVerifyPayment, http.StatusBadRequest},
+		{http.MethodPost, `{"order_id":"missing"}`, h.HandleVerifyPayment, http.StatusBadRequest},
+		{http.MethodGet, "", h.HandleWebhook, http.StatusMethodNotAllowed},
+		{http.MethodPost, "{bad", h.HandleWebhook, http.StatusBadRequest},
+		{http.MethodPost, `{"event":"payment.captured","payload":{"payment":{"entity":{"order_id":"none"}}}}`, h.HandleWebhook, http.StatusOK},
+	} {
+		req := httptest.NewRequest(tc.method, "/api/v1/payments/test", bytes.NewBufferString(tc.body))
+		w := httptest.NewRecorder()
+		tc.fn(w, req)
+		if w.Code != tc.code {
+			t.Fatalf("expected %d, got %d (%s)", tc.code, w.Code, w.Body.String())
+		}
+	}
 }

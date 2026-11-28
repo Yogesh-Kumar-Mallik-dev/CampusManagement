@@ -356,4 +356,15 @@ func TestLibraryServiceOperations(t *testing.T) {
 	if err != nil || rejectedPdf.Status != model.EBookStatusRejected {
 		t.Fatalf("failed to reject student PDF book: %v", err)
 	}
+
+	// DeleteEBook error & success paths
+	if err := libSvc.DeleteEBook(ctx, ""); err == nil {
+		t.Fatalf("expected error deleting ebook with empty id")
+	}
+	if err := libSvc.DeleteEBook(ctx, "missing-eb"); err == nil {
+		t.Fatalf("expected error deleting missing ebook")
+	}
+	if err := libSvc.DeleteEBook(ctx, newEb.ID); err != nil {
+		t.Fatalf("DeleteEBook failed: %v", err)
+	}
 }
